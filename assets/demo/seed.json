@@ -1,0 +1,296 @@
+{
+  "_info": "Seed do modo demo — dados fictícios. Nenhum CNPJ ou dado real.",
+  "_reset": "Recriado todo domingo às 3h pela Cloud Function demoReset.",
+
+  "empresas": [
+    {
+      "nome": "Nexara Tecnologia",
+      "cnpj": "00.000.000/0001-01",
+      "ativa": true,
+      "isDemo": true
+    },
+    {
+      "nome": "Veltora Serviços",
+      "cnpj": "00.000.000/0002-02",
+      "ativa": true,
+      "isDemo": true
+    },
+    {
+      "nome": "Orbix Industrial",
+      "cnpj": "00.000.000/0003-03",
+      "ativa": true,
+      "isDemo": true
+    }
+  ],
+
+  "usuarios": [
+    {
+      "nome": "Alex Moreira",
+      "email": "demo@praxis.app",
+      "perfil": "gestor",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__nexara__", "__veltora__", "__orbix__"]
+    },
+    {
+      "nome": "Bruna Castilho",
+      "email": "bruna.demo@praxis.app",
+      "perfil": "aprovador",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__nexara__", "__veltora__"]
+    },
+    {
+      "nome": "Carlos Menezes",
+      "email": "carlos.demo@praxis.app",
+      "perfil": "comprador",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__nexara__", "__orbix__"]
+    },
+    {
+      "nome": "Diana Rocha",
+      "email": "diana.demo@praxis.app",
+      "perfil": "financeiro",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__nexara__", "__veltora__", "__orbix__"]
+    },
+    {
+      "nome": "Eduardo Pinto",
+      "email": "eduardo.demo@praxis.app",
+      "perfil": "solicitante",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__nexara__"]
+    },
+    {
+      "nome": "Fernanda Lima",
+      "email": "fernanda.demo@praxis.app",
+      "perfil": "solicitante",
+      "ativo": true,
+      "isDemo": true,
+      "empresas": ["__veltora__"]
+    }
+  ],
+
+  "pedidos": [
+    {
+      "titulo": "Notebooks Dell para equipe de TI",
+      "descricao": "Substituição dos equipamentos da equipe de desenvolvimento. Mínimo Core i7, 16GB RAM.",
+      "status": "pago",
+      "urgente": false,
+      "quantidade": 5,
+      "unidade": "un",
+      "dataNecessaria": "2026-05-15",
+      "valorEstimado": 25000,
+      "valorFinal": 23750,
+      "centroCusto": "TI-001",
+      "condicaoPagamento": "apos_recebimento",
+      "dataCompra": "2026-04-20",
+      "dataEntrega": "2026-04-28",
+      "isDemo": true
+    },
+    {
+      "titulo": "Uniformes e EPIs — equipe de campo",
+      "descricao": "Pedido trimestral de uniformes e equipamentos de proteção individual para 12 colaboradores.",
+      "status": "comprado",
+      "urgente": false,
+      "quantidade": 12,
+      "unidade": "kit",
+      "dataNecessaria": "2026-06-01",
+      "valorEstimado": 8400,
+      "valorFinal": 7980,
+      "centroCusto": "OP-003",
+      "condicaoPagamento": "apos_recebimento",
+      "dataCompra": "2026-05-10",
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Manutenção preventiva ar-condicionado",
+      "descricao": "Manutenção semestral de 8 splits no andar administrativo.",
+      "status": "em_aprovacao",
+      "urgente": false,
+      "quantidade": 8,
+      "unidade": "un",
+      "dataNecessaria": "2026-06-30",
+      "valorEstimado": 3200,
+      "valorFinal": null,
+      "centroCusto": "MAN-002",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Servidor de backup — reposição urgente",
+      "descricao": "Servidor atual apresentou falha crítica no RAID. Necessário substituição imediata.",
+      "status": "ag_cotacao",
+      "urgente": true,
+      "quantidade": 1,
+      "unidade": "un",
+      "dataNecessaria": "2026-06-10",
+      "valorEstimado": 18000,
+      "valorFinal": null,
+      "centroCusto": "TI-002",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Material de escritório — papel e toner",
+      "descricao": "Ressuprimento mensal padrão.",
+      "status": "solicitado",
+      "urgente": false,
+      "quantidade": 10,
+      "unidade": "cx",
+      "dataNecessaria": "2026-06-15",
+      "valorEstimado": 850,
+      "valorFinal": null,
+      "centroCusto": "ADM-001",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Contratação de serviço de limpeza",
+      "descricao": "Empresa terceirizada para limpeza do galpão industrial — contrato mensal.",
+      "status": "aprovado",
+      "urgente": false,
+      "quantidade": 1,
+      "unidade": "serviço",
+      "dataNecessaria": "2026-07-01",
+      "valorEstimado": 4500,
+      "valorFinal": null,
+      "centroCusto": "OP-001",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Cadeiras ergonômicas — sala de reunião",
+      "descricao": "Troca das 10 cadeiras antigas por modelos ergonômicos com apoio lombar.",
+      "status": "reprovado",
+      "urgente": false,
+      "quantidade": 10,
+      "unidade": "un",
+      "dataNecessaria": "2026-05-20",
+      "valorEstimado": 9000,
+      "valorFinal": null,
+      "centroCusto": "ADM-002",
+      "motivoReprovacao": "Valor acima do orçamento",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Licenças Adobe Creative Cloud",
+      "descricao": "Renovação anual de 3 licenças para equipe de marketing.",
+      "status": "entregue",
+      "urgente": false,
+      "quantidade": 3,
+      "unidade": "licença",
+      "dataNecessaria": "2026-05-01",
+      "valorEstimado": 4200,
+      "valorFinal": 4050,
+      "centroCusto": "MKT-001",
+      "condicaoPagamento": "antecipado",
+      "dataCompra": "2026-04-25",
+      "dataEntrega": "2026-04-25",
+      "isDemo": true
+    },
+    {
+      "titulo": "Gerador de energia — unidade Orbix",
+      "descricao": "Gerador diesel 50kVA para garantir continuidade operacional em quedas de energia.",
+      "status": "em_aprovacao",
+      "urgente": true,
+      "quantidade": 1,
+      "unidade": "un",
+      "dataNecessaria": "2026-06-20",
+      "valorEstimado": 42000,
+      "valorFinal": null,
+      "centroCusto": "OP-002",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Café e insumos para copa",
+      "descricao": "Reposição mensal de café, açúcar, filtros e copos descartáveis.",
+      "status": "solicitado",
+      "urgente": false,
+      "quantidade": 3,
+      "unidade": "kg",
+      "dataNecessaria": "2026-06-12",
+      "valorEstimado": 320,
+      "valorFinal": null,
+      "centroCusto": "ADM-001",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Treinamento NR-35 — trabalho em altura",
+      "descricao": "Capacitação obrigatória para 6 colaboradores da manutenção.",
+      "status": "ag_cotacao",
+      "urgente": false,
+      "quantidade": 6,
+      "unidade": "pessoa",
+      "dataNecessaria": "2026-07-10",
+      "valorEstimado": 2400,
+      "valorFinal": null,
+      "centroCusto": "RH-001",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "isDemo": true
+    },
+    {
+      "titulo": "Switch de rede gerenciável 48 portas",
+      "descricao": "Expansão da infraestrutura de rede do datacenter.",
+      "status": "comprado",
+      "urgente": false,
+      "quantidade": 2,
+      "unidade": "un",
+      "dataNecessaria": "2026-05-30",
+      "valorEstimado": 6800,
+      "valorFinal": 6500,
+      "centroCusto": "TI-003",
+      "condicaoPagamento": "apos_recebimento",
+      "dataCompra": "2026-05-05",
+      "dataEntrega": null,
+      "isDemo": true
+    }
+  ],
+
+  "pt": {
+    "empresas": ["Nexara Tecnologia", "Veltora Serviços", "Orbix Industrial"],
+    "usuarios": ["Alex Moreira", "Bruna Castilho", "Carlos Menezes", "Diana Rocha", "Eduardo Pinto", "Fernanda Lima"]
+  },
+
+  "en": {
+    "empresas": ["Nexara Technology", "Veltora Services", "Orbix Industrial"],
+    "usuarios": ["Alex Moreira", "Bruna Castilho", "Carlos Menezes", "Diana Rocha", "Eduardo Pinto", "Fernanda Lima"],
+    "pedidos_titulos": [
+      "Dell laptops for IT team",
+      "Uniforms and PPE — field crew",
+      "Preventive HVAC maintenance",
+      "Backup server — urgent replacement",
+      "Office supplies — paper and toner",
+      "Cleaning service contract",
+      "Ergonomic chairs — meeting room",
+      "Adobe Creative Cloud licenses",
+      "Power generator — Orbix unit",
+      "Coffee and kitchen supplies",
+      "NR-35 height work training",
+      "48-port managed network switch"
+    ]
+  }
+}

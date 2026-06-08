@@ -1,0 +1,125 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Funções auxiliares ─────────────────────────────────────
+    function estaLogado() {
+      return request.auth != null;
+    }
+
+    function perfil() {
+      return request.auth.token.perfil;
+    }
+
+    function empresasDoUsuario() {
+      return request.auth.token.empresas;
+    }
+
+    function temAcessoEmpresa(empresaId) {
+      return empresaId in empresasDoUsuario();
+    }
+
+    function eSupremo() { return perfil() == 'supremo'; }
+    function eGestor()  { return perfil() in ['supremo', 'gestor']; }
+    function eAprovador() { return perfil() in ['supremo', 'gestor', 'aprovador']; }
+    function eComprador() { return perfil() in ['supremo', 'gestor', 'comprador']; }
+    function eFinanceiro() { return perfil() in ['supremo', 'gestor', 'financeiro']; }
+
+    // ── Usuários ───────────────────────────────────────────────
+    match /usuarios/{userId} {
+      allow read: if estaLogado() && (
+        request.auth.uid == userId || eGestor()
+      );
+      allow create: if estaLogado() && eGestor();
+      allow update: if estaLogado() && (
+        request.auth.uid == userId || eGestor()
+      );
+      allow delete: if estaLogado() && eSupremo();
+    }
+
+    // ── Empresas ───────────────────────────────────────────────
+    match /empresas/{empresaId} {
+      allow read:   if estaLogado();
+      allow create: if estaLogado() && eGestor();
+      allow update: if estaLogado() && eGestor();
+      allow delete: if estaLogado() && eSupremo();
+    }
+
+    // ── Categorias ─────────────────────────────────────────────
+    match /categorias/{catId} {
+      allow read:   if estaLogado();
+      allow create: if estaLogado() && eGestor();
+      allow update: if estaLogado() && eGestor();
+      allow delete: if estaLogado() && eSupremo();
+    }
+
+    // ── Fornecedores ───────────────────────────────────────────
+    match /fornecedores/{fornId} {
+      allow read:   if estaLogado();
+      allow create: if estaLogado() && eComprador();
+      allow update: if estaLogado() && (eComprador() || eGestor());
+      allow delete: if estaLogado() && eGestor();
+    }
+
+    // ── Pedidos ────────────────────────────────────────────────
+    match /pedidos/{pedidoId} {
+      allow read: if estaLogado() && (
+        temAcessoEmpresa(resource.data.empresaId) ||
+        eSupremo()
+      );
+      allow create: if estaLogado() && (
+        temAcessoEmpresa(request.resource.data.empresaId) ||
+        eSupremo()
+      );
+      allow update: if estaLogado() && (
+        temAcessoEmpresa(resource.data.empresaId) ||
+        eSupremo()
+      );
+      allow delete: if false; // Pedidos nunca são deletados — apenas cancelados
+
+      // ── Cotações ─────────────────────────────────────────────
+      match /cotacoes/{cotacaoId} {
+        allow read: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
+        allow create, update: if estaLogado() && eComprador();
+        allow delete: if estaLogado() && eGestor();
+      }
+
+      // ── Comentários ───────────────────────────────────────────
+      match /comentarios/{comentarioId} {
+        allow read: if estaLogado();
+        allow create: if estaLogado();
+        allow update: if estaLogado() && (
+          request.auth.uid == resource.data.autorId || eGestor()
+        );
+        allow delete: if estaLogado() && eGestor();
+      }
+
+      // ── Parcelas ──────────────────────────────────────────────
+      match /parcelas/{parcelaId} {
+        allow read: if estaLogado();
+        allow create: if estaLogado() && eComprador();
+        allow update: if estaLogado() && eFinanceiro();
+        allow delete: if false;
+      }
+
+      // ── Histórico ─────────────────────────────────────────────
+      match /historico/{entradaId} {
+        allow read:   if estaLogado();
+        allow create: if estaLogado();
+        allow update, delete: if false; // Histórico é imutável
+      }
+    }
+
+    // ── Notificações ───────────────────────────────────────────
+    match /notificacoes/{userId}/items/{notifId} {
+      allow read:   if estaLogado() && request.auth.uid == userId;
+      allow create: if estaLogado(); // Cloud Functions gravam aqui
+      allow update: if estaLogado() && request.auth.uid == userId;
+      allow delete: if estaLogado() && request.auth.uid == userId;
+    }
+  }
+}

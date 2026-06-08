@@ -1,0 +1,30 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Functions
+functions/node_modules/
+functions/.env
+functions/.env.local
+
+# Ambiente local
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Build (não aplicável aqui — sem bundler)
+dist/

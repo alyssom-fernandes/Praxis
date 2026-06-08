@@ -1,0 +1,142 @@
+/* Transições de tema */
+html, html * {
+  transition:
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    color 0.28s ease,
+    box-shadow 0.28s ease;
+}
+
+/* Exceções — não transicionar transforms para não brigar com animações */
+button, a, .card, .kcard, .cotacao-item {
+  transition:
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    color 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.22s ease;
+}
+
+/* Tema claro — ajustes específicos */
+.light #bg-canvas { filter: invert(0) brightness(1); }
+
+.light .topbar {
+  box-shadow: 0 1px 0 var(--border), 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.light .login-card {
+  box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+}
+
+.light .modal, .light .dialog {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+}
+
+.light .toast {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.light .kanban-col, .light .kcard {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.light .notif-dropdown {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+/* Select option — corrige em alguns browsers */
+select option {
+  background: var(--card2);
+  color: var(--text);
+}
+
+/* Placeholder no light */
+.light input::placeholder,
+.light textarea::placeholder { color: #AFA398; }
+
+/* Checkbox customizado */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+/* Responsive — Tablet */
+@media (max-width: 1023px) {
+  .dash-grid-1 { grid-template-columns: 1fr 1fr; }
+  .dash-grid-2 { grid-template-columns: 1fr 1fr; }
+  .empresas-grid { grid-template-columns: 1fr 1fr; }
+  .pessoas-grid { grid-template-columns: 1fr 1fr; }
+  .config-layout { grid-template-columns: 1fr; }
+  .config-nav { position: static; display: flex; overflow-x: auto; }
+  .config-nav-item { border-bottom: none; border-right: 1px solid var(--line); flex-shrink: 0; }
+  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Responsive — Mobile */
+@media (max-width: 767px) {
+  .topbar-nav { display: none; }
+  .topbar-hamburger { display: flex; }
+
+  .main-content { padding: 1rem; }
+
+  /* Kanban — scroll horizontal */
+  .kanban-board { padding-bottom: 1rem; }
+  .kcard-title { font-size: 0.82rem; }
+
+  /* Dashboard */
+  .dash-grid-1 { grid-template-columns: 1fr; }
+  .dash-grid-2 { grid-template-columns: 1fr; }
+  .dash-header { flex-direction: column; }
+  .dash-filters { width: 100%; }
+
+  /* Tabelas viram cards */
+  .table-card-mobile thead { display: none; }
+  .table-card-mobile tbody tr {
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.625rem;
+    padding: 0.875rem;
+    cursor: pointer;
+  }
+  .table-card-mobile tbody td {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem 0;
+    border: none;
+    font-size: 0.82rem;
+  }
+  .table-card-mobile tbody td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+  }
+
+  /* Modal */
+  .modal { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; margin-top: auto; }
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .form-grid-3 { grid-template-columns: 1fr; }
+  .form-grid-2 { grid-template-columns: 1fr; }
+  .form-group.col-span-2 { grid-column: span 1; }
+  .form-group.col-span-3 { grid-column: span 1; }
+
+  /* Detalhe */
+  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; }
+  .detalhe-row { grid-template-columns: 1fr; }
+  .pessoas-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Empresas grid */
+  .empresas-grid { grid-template-columns: 1fr; }
+
+  /* Topbar actions */
+  .topbar { padding: 0 1rem; }
+}

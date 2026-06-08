@@ -1,0 +1,64 @@
+:root {
+  /* Primária */
+  --gold: #C8A96E;
+  --gold-dim: rgba(200, 169, 110, 0.09);
+  --gold-border: rgba(200, 169, 110, 0.25);
+  --gold-glow: rgba(200, 169, 110, 0.22);
+
+  /* Backgrounds */
+  --bg: #060606;
+  --card: #0C0C0C;
+  --card2: #111111;
+  --card3: #161616;
+
+  /* Bordas */
+  --border: rgba(255, 255, 255, 0.06);
+  --line: #1A1A1A;
+
+  /* Texto */
+  --text: #F0EDE6;
+  --text2: #C8C0B8;
+  --text3: #8A8278;
+
+  /* Semânticas */
+  --green: #4EC08A;
+  --red: #E05040;
+  --blue: #5BA3E0;
+
+  /* Raios */
+  --radius: 20px;
+  --radius-card: 20px;
+  --radius-sm: 10px;
+  --radius-btn: 20px;
+  --radius-input: 8px;
+
+  /* Marca AFN — dark */
+  --afn: #c44a5a;
+  --afn-stroke: rgba(196, 74, 90, 0.4);
+  --afn-sys: rgba(255, 255, 255, 0.28);
+
+  /* Transições */
+  --transition: 0.26s ease;
+  --transition-fast: 0.18s ease;
+}
+
+.light {
+  --bg: #EDE8DF;
+  --card: rgba(255, 255, 255, 0.84);
+  --card2: rgba(240, 240, 242, 0.95);
+  --card3: rgba(230, 228, 224, 0.95);
+  --border: rgba(0, 0, 0, 0.08);
+  --line: #e2e2e6;
+  --text: #1A1714;
+  --text2: #4A4642;
+  --text3: #AFA398;
+  --gold: #9A7030;
+  --gold-dim: rgba(154, 112, 48, 0.1);
+  --gold-border: rgba(154, 112, 48, 0.3);
+  --gold-glow: rgba(154, 112, 48, 0.2);
+
+  /* Marca AFN — light */
+  --afn: #6b1f2a;
+  --afn-stroke: rgba(107, 31, 42, 0.4);
+  --afn-sys: #505050;
+}

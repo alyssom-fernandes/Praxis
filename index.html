@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Praxis — Gestão de compras corporativas">
+  <meta name="theme-color" content="#060606">
+
+  <title>Praxis</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/logo/praxis-favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="/assets/logo/praxis-icon-512.png">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/views.css">
+  <link rel="stylesheet" href="/css/themes.css">
+
+  <style>
+    /* Splash de carregamento inicial */
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #060606;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      transition: opacity 0.4s ease;
+    }
+    #splash.hide { opacity: 0; pointer-events: none; }
+    .splash-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 1.8rem;
+      letter-spacing: 0.08em;
+      color: #F0EDE6;
+    }
+    .splash-logo .delta { color: #C8A96E; }
+    .splash-spinner {
+      width: 28px; height: 28px;
+      border: 2px solid rgba(200,169,110,0.25);
+      border-top-color: #C8A96E;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas de fundo (estrelas) -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <!-- Spinner global de loading -->
+  <div id="spinner-overlay" role="status" aria-label="Carregando">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- App root -->
+  <div id="app"></div>
+
+  <!-- Splash inicial -->
+  <div id="splash">
+    <div class="splash-logo">PR<span class="delta">▲</span>XIS</div>
+    <div class="splash-spinner"></div>
+  </div>
+
+  <!-- App entry point -->
+  <script type="module" src="/js/app.js"></script>
+
+  <script>
+    // Remove splash assim que o módulo carregar
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash')
+        if (splash) {
+          splash.classList.add('hide')
+          setTimeout(() => splash.remove(), 400)
+        }
+      }, 600)
+    })
+  </script>
+
+</body>
+</html>

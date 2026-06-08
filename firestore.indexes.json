@@ -1,0 +1,64 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId",  "order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId",  "order": "ASCENDING" },
+        { "fieldPath": "urgente",    "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId",  "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "compradorId","order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "solicitanteId", "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",      "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "parcelas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "vencimento", "order": "ASCENDING" },
+        { "fieldPath": "pago",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lida",     "order": "ASCENDING" },
+        { "fieldPath": "criadaEm", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
