@@ -6,13 +6,17 @@
       ".firebaserc",
       "firestore.rules",
       "firestore.indexes.json",
-      "functions",
-      "docs",
+      "storage.rules",
+      "functions/**",
+      "docs/**",
       "praxis-spec.md",
       "README.md",
+      "LICENSE",
       ".gitignore",
-      ".git",
-      "node_modules"
+      ".gitattributes",
+      ".git/**",
+      "node_modules/**",
+      "**/node_modules/**"
     ],
     "rewrites": [
       {
