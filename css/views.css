@@ -168,6 +168,44 @@
   width: 100%;
 }
 
+/* ── Footer ──────────────────────────────────────────── */
+.main-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 36px;
+  border-top: 1px solid var(--line);
+  margin-top: auto;
+}
+
+/* ── Marca AFN — classes compartilhadas ── */
+.pf-afn {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #c44a5a;
+  -webkit-text-stroke: 0.3px rgba(196, 74, 90, 0.4);
+}
+.pf-sys {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.28);
+}
+.pf-gap  { width: 4px; display: inline-block; }
+.pf-pipe {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.28);
+}
+.pf-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.28);
+}
+
 /* ── Tela de pedidos ─────────────────────────────────── */
 .pedidos-header {
   display: flex;

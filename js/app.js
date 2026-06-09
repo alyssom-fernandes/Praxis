@@ -5,6 +5,7 @@ import { renderPedidos } from './pedidos.js'
 import { renderDetalhe } from './pedido-detalhe.js'
 import { renderRelatorios } from './relatorios.js'
 import { renderConfigUsuarios } from './config-usuarios.js'
+import { renderConfigCadastros } from './config-cadastros.js'
 import { renderConfigGeral } from './config-geral.js'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
@@ -78,9 +79,9 @@ function _rotear() {
   const id     = params.get('id')
 
   // Guarda de rota por perfil
-  const bloqueadoFinanc = ['config-usuarios', 'config-geral']
-  const bloqueadoSolic  = ['relatorios', 'config-usuarios', 'config-geral']
-  const bloqueadoCompr  = ['relatorios', 'config-usuarios', 'config-geral']
+  const bloqueadoFinanc = ['config-usuarios', 'config-cadastros', 'config-geral']
+  const bloqueadoSolic  = ['relatorios', 'config-usuarios', 'config-cadastros', 'config-geral']
+  const bloqueadoCompr  = ['relatorios', 'config-usuarios', 'config-cadastros', 'config-geral']
   const perfil          = sessao.usuario?.perfil
 
   const bloqueado = (
@@ -95,8 +96,9 @@ function _rotear() {
     case 'pedidos':        return renderPedidos()
     case 'detalhe':        return renderDetalhe(id)
     case 'relatorios':     return renderRelatorios()
-    case 'config-usuarios':return renderConfigUsuarios()
-    case 'config-geral':   return renderConfigGeral()
+    case 'config-usuarios':  return renderConfigUsuarios()
+    case 'config-cadastros': return renderConfigCadastros()
+    case 'config-geral':     return renderConfigGeral()
     default:               return renderPedidos()
   }
 }
@@ -141,8 +143,11 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
     ${podeRelatorios ? `<a class="nav-link ${telaAtiva === 'relatorios' ? 'active' : ''}" href="?tela=relatorios" onclick="event.preventDefault();window.__navegar('relatorios')">Relatórios</a>` : ''}
   `
 
-  // Navegação das telas de config fica na sidebar — topbar não repete
-  const navConfig = ''
+  const navConfig = modoConfig ? `
+    <a class="nav-link ${telaAtiva === 'config-usuarios'  ? 'active' : ''}" href="?tela=config-usuarios"  onclick="event.preventDefault();window.__navegar('config-usuarios')">Usuários</a>
+    <a class="nav-link ${telaAtiva === 'config-cadastros' ? 'active' : ''}" href="?tela=config-cadastros" onclick="event.preventDefault();window.__navegar('config-cadastros')">Cadastros</a>
+    <a class="nav-link ${telaAtiva === 'config-geral'     ? 'active' : ''}" href="?tela=config-geral"     onclick="event.preventDefault();window.__navegar('config-geral')">Geral</a>
+  ` : ''
 
   return `
     <nav class="topbar">
@@ -270,7 +275,7 @@ function _toggleMobileMenu(modoConfig) {
   menu.innerHTML = `
     <button class="mobile-nav-link ${tela === 'pedidos' ? 'active' : ''}" data-nav="pedidos">Pedidos</button>
     ${podeRelatorios ? `<button class="mobile-nav-link ${tela === 'relatorios' ? 'active' : ''}" data-nav="relatorios">Relatórios</button>` : ''}
-    ${podeConfig ? `<button class="mobile-nav-link ${['config-usuarios','config-geral'].includes(tela) ? 'active' : ''}" data-nav="config-usuarios">Configurações</button>` : ''}
+    ${podeConfig ? `<button class="mobile-nav-link ${['config-usuarios','config-cadastros','config-geral'].includes(tela) ? 'active' : ''}" data-nav="config-usuarios">Configurações</button>` : ''}
     <hr style="border-color:var(--line);margin:0.5rem 0">
     <button class="mobile-nav-link" id="mobile-logout">Sair</button>
   `
@@ -300,6 +305,21 @@ function _toggleMobileMenu(modoConfig) {
       }
     })
   }, 50)
+}
+
+// ── Footer ────────────────────────────────────────────────────
+export function renderFooter() {
+  return `
+    <footer class="main-footer">
+      <div style="display:flex;align-items:baseline">
+        <span class="pf-afn" style="font-size:10px">AFN</span>
+        <span class="pf-gap"></span>
+        <span class="pf-sys" style="font-size:10px">SYSTEMS</span>
+      </div>
+      <span class="pf-pipe" style="font-size:13px">|</span>
+      <span class="pf-info" style="font-size:11px">Praxis</span>
+    </footer>
+  `
 }
 
 // Expõe navegar globalmente para uso em onclick inline do HTML

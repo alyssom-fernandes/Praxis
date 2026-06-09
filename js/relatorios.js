@@ -1,5 +1,5 @@
 import { db, collection, query, where, getDocs } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar } from './app.js'
+import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter } from './app.js'
 import { prxToast } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR } from './constants.js'
@@ -60,6 +60,7 @@ export async function renderRelatorios() {
           <div class="empty-state"><div class="spinner"></div></div>
         </div>
       </div>
+      ${renderFooter()}
     </div>
   `
   initTopbarEvents(false)

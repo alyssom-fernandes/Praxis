@@ -25,10 +25,11 @@ button, a, .card, .kcard, .cotacao-item {
   border-bottom-color: rgba(0,0,0,0.10);
 }
 
-/* Botões de ícone da topbar — contraste no modo claro */
+/* Botões de ícone da topbar — modo claro */
 .light .topbar-icon-btn {
   color: var(--text2);
-  border-color: rgba(0,0,0,0.12);
+  border-color: rgba(0, 0, 0, 0.22);
+  background: var(--card2);
 }
 .light .topbar-icon-btn:hover {
   color: var(--gold);
@@ -40,6 +41,15 @@ button, a, .card, .kcard, .cotacao-item {
   border-color: var(--gold-border);
   background: var(--gold-dim);
 }
+
+/* Marca AFN — light mode */
+.light .pf-afn {
+  color: #6b1f2a;
+  -webkit-text-stroke: 0.3px rgba(107, 31, 42, 0.4);
+}
+.light .pf-sys,
+.light .pf-pipe,
+.light .pf-info { color: #505050; }
 
 /* Links de navegação — contraste no modo claro */
 .light .nav-link {
@@ -144,8 +154,8 @@ input[type="checkbox"] {
 
   .main-content { padding: 1rem; }
 
-  /* Kanban — scroll horizontal */
-  .kanban-board { padding-bottom: 1rem; }
+  /* Kanban — 2 colunas em mobile */
+  .kanban-board { grid-template-columns: repeat(7, minmax(160px, 1fr)); }
   .kcard-title { font-size: 0.82rem; }
 
   /* Dashboard */

@@ -1,5 +1,5 @@
 import { db, collection, query, where, orderBy, getDocs, onSnapshot, addDoc, serverTimestamp } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar } from './app.js'
+import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
@@ -14,6 +14,7 @@ let _categorias = []
 let _empresas = []
 let _usuarios = []
 let _viewMode = 'kanban' // 'kanban' | 'lista'
+const _LANE_LIMIT = 4
 let _filtroAtivo = 'todos'
 let _termoBusca = ''
 
@@ -71,6 +72,7 @@ export async function renderPedidos() {
 
         <div id="pedidos-view"></div>
       </div>
+      ${renderFooter()}
     </div>
 
     <!-- Modal Novo Pedido -->
@@ -372,10 +374,13 @@ function _renderView() {
 }
 
 function _renderKanban(lista) {
+  const cor = {
+    solicitado:'#8A8278', ag_cotacao:'#5BA3E0', em_aprovacao:'#C8A96E',
+    aprovado:'#4EC08A', comprado:'#4EC08A', entregue:'#4EC08A', pago:'#4EC08A',
+  }
+
   const colunas = KANBAN_COLUNAS.map(status => {
     const cards = lista.filter(p => p.status === status)
-    const cor = { solicitado:'#8A8278', ag_cotacao:'#5BA3E0', em_aprovacao:'#C8A96E',
-                  aprovado:'#4EC08A', comprado:'#4EC08A', entregue:'#4EC08A', pago:'#4EC08A' }
     return `
       <div class="kanban-col">
         <div class="kanban-col-header">

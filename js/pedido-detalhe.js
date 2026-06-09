@@ -5,7 +5,7 @@ import {
   runTransaction, serverTimestamp,
   storageRef, uploadBytes, getDownloadURL,
 } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar } from './app.js'
+import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter } from './app.js'
 import { prxToast, prxConfirm, prxAlert, mostrarSpinner, esconderSpinner } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
@@ -41,6 +41,7 @@ export async function renderDetalhe(pedidoId) {
       <div class="main-content">
         <div id="detalhe-root"></div>
       </div>
+      ${renderFooter()}
     </div>
   `
   initTopbarEvents(false)
