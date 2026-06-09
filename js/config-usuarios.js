@@ -164,7 +164,9 @@ function _renderTabela() {
 
   tbody.innerHTML = lista.map(u => {
     const badgePerfil = `<span class="badge badge-${PERFIS_COLOR[u.perfil]||'neutral'}">${PERFIS_LABEL[u.perfil]||u.perfil}</span>`
-    const empTags = (u.empresas || []).slice(0,3).map(eid => {
+    const _rawEmp = u.empresas || []
+    const empIds  = Array.isArray(_rawEmp) ? _rawEmp : Object.keys(_rawEmp)
+    const empTags = empIds.slice(0,3).map(eid => {
       const e = _empresas.find(x => x.id === eid)
       return `<span class="badge badge-neutral" style="font-size:0.68rem">${e?.nome || eid}</span>`
     }).join(' ')

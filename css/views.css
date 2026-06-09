@@ -108,7 +108,18 @@
 .lang-pill:hover { border-color: var(--gold-border); color: var(--text2); }
 .lang-pill.selected { border-color: var(--gold); background: var(--gold-dim); color: var(--gold); }
 
-.lang-flag { font-size: 1.75rem; line-height: 1; }
+.lang-flag-abbr {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
+  line-height: 1.5;
+}
 
 /* Sent view */
 .sent-icon {

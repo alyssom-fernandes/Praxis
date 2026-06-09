@@ -1,6 +1,7 @@
 import {
   db, storage,
   doc, getDoc, collection, getDocs, addDoc, updateDoc, onSnapshot,
+  query, where,
   runTransaction, serverTimestamp,
   storageRef, uploadBytes, getDownloadURL,
 } from './firebase.js'
@@ -14,7 +15,7 @@ import {
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatTimestamp, gerarIniciais,
-  hojeISO, dataEhPassado, dataEhProximos,
+  hojeISO, dataEhPassado, dataEhProximos, normalizarTexto, parseMoeda,
 } from './utils.js'
 
 let _unsubPedido = null
@@ -371,7 +372,8 @@ function _renderPessoaAprovadores() {
   const aprovadores = _pedido.aprovadorIds?.length
     ? _pedido.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
     : _usuarios.filter(u => ['aprovador','gestor','supremo'].includes(u.perfil) &&
-        sessao.usuario.empresas?.some(e => u.empresas?.includes(e)))
+        (sessao.usuario.perfil === 'supremo' ||
+          _normEmpresas(sessao.usuario.empresas).some(e => _normEmpresas(u.empresas).includes(e))))
 
   const aprovadoPor = _pedido.aprovadoPor
   return `
@@ -383,7 +385,9 @@ function _renderPessoaAprovadores() {
           <div>
             <div class="pessoa-name">${u.nome}</div>
             <div class="pessoa-status ${aprovadoPor === u.id ? 'text-green' : ''}">
-              ${aprovadoPor === u.id ? '✓ Aprovado' : 'Aguardando'}
+              ${aprovadoPor === u.id
+                ? `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:2px"><polyline points="20 6 9 17 4 12"/></svg>Aprovado`
+                : 'Aguardando'}
             </div>
           </div>
         </div>
@@ -395,7 +399,8 @@ function _renderPessoaAprovadores() {
 
 function _renderPessoaFinanceiro() {
   const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO &&
-    sessao.usuario.empresas?.some(e => u.empresas?.includes(e)))
+    (sessao.usuario.perfil === 'supremo' ||
+      _normEmpresas(sessao.usuario.empresas).some(e => _normEmpresas(u.empresas).includes(e))))
   const fin = fins[0]
   const totalPago = _parcelas.filter(p => p.pago).length
   const totalParc = _parcelas.length
@@ -749,7 +754,6 @@ async function _executarCompra() {
   const dataCompra = document.getElementById('mc-data')?.value
   const numParc    = parseInt(document.getElementById('mc-parcelas')?.value) || 1
   const venc1      = document.getElementById('mc-venc1')?.value
-  const { parseMoeda } = await import('./utils.js')
   const valorFinal = parseMoeda(valorStr)
 
   if (!fornecedor || !valorFinal || !condicao || !dataCompra || !venc1) {
@@ -759,19 +763,17 @@ async function _executarCompra() {
   mostrarSpinner()
   try {
     // Busca ou cria fornecedor
-    const { where: wh, query: q, getDocs: gd, addDoc: ad, updateDoc: ud } = await import('./firebase.js')
-    const { normalizarTexto } = await import('./utils.js')
     const nomeNorm = normalizarTexto(fornecedor)
-    const fornSnap = await gd(q(collection(db, 'fornecedores'), wh('nome', '==', nomeNorm)))
+    const fornSnap = await getDocs(query(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
     let fornecedorId
     if (fornSnap.empty) {
-      const novForn = await ad(collection(db, 'fornecedores'), {
+      const novForn = await addDoc(collection(db, 'fornecedores'), {
         nome: nomeNorm, nomeOriginal: fornecedor, cnpj: '', criadoEm: serverTimestamp(), usos: 1,
       })
       fornecedorId = novForn.id
     } else {
       fornecedorId = fornSnap.docs[0].id
-      await ud(doc(db, 'fornecedores', fornecedorId), { usos: (fornSnap.docs[0].data().usos || 0) + 1 })
+      await updateDoc(doc(db, 'fornecedores', fornecedorId), { usos: (fornSnap.docs[0].data().usos || 0) + 1 })
     }
 
     await updateDoc(doc(db, 'pedidos', _pedidoId), {
@@ -790,7 +792,7 @@ async function _executarCompra() {
       const d = new Date(venc1Date)
       d.setMonth(d.getMonth() + i)
       const vencISO = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-      await ad(collection(db, 'pedidos', _pedidoId, 'parcelas'), {
+      await addDoc(collection(db, 'pedidos', _pedidoId, 'parcelas'), {
         numero: i + 1, total: numParc,
         valor: valorParcela, vencimento: vencISO,
         pago: false, pagoEm: null, comprovante: null,
@@ -959,7 +961,6 @@ async function _anexarComprovante(parcelaId, file) {
 }
 
 async function _mostrarModalCotacao() {
-  const { prxAlert: alert } = await import('./ui.js')
   // Modal de adição de cotação simplificado — campo fornecedor, valor, prazo, arquivo
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay visible'
@@ -1014,7 +1015,6 @@ async function _mostrarModalCotacao() {
     const cond     = document.getElementById('cot-cond')?.value.trim()
     const arquivoInp = document.getElementById('cot-arquivo')
     const arquivo  = arquivoInp?.files[0]
-    const { parseMoeda, normalizarTexto: nt } = await import('./utils.js')
     const valor = parseMoeda(valorStr)
 
     if (!fornNome || !valor) { prxToast('Fornecedor e valor são obrigatórios.', 'error'); return }
@@ -1034,7 +1034,7 @@ async function _mostrarModalCotacao() {
       }
 
       await addDoc(collection(db, 'pedidos', _pedidoId, 'cotacoes'), {
-        fornecedorId: nt(fornNome),
+        fornecedorId: null,
         fornecedorNome: fornNome,
         valor, prazoEntrega: prazo, condicoesComerciais: cond,
         arquivoUrl, arquivoNome,
@@ -1090,6 +1090,11 @@ async function _registrarHistorico(status, nota = null) {
     nota,
     criadoEm: serverTimestamp(),
   })
+}
+
+function _normEmpresas(val) {
+  if (!val) return []
+  return Array.isArray(val) ? val : Object.keys(val)
 }
 
 function _tsMs(ts) {

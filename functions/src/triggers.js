@@ -46,11 +46,34 @@ exports.onPedidoStatusChange = onDocumentUpdated(
     const depois = event.data.after.data()
     const pedidoId = event.params.pedidoId
 
-    if (antes.status === depois.status) return // Nenhuma mudança de status
+    const pedido = { id: pedidoId, ...depois }
+
+    // Comprador assumiu — compradorId mudou de null para valor
+    if (!antes.compradorId && depois.compradorId && antes.status === depois.status) {
+      try {
+        const solicitante = antes.solicitanteId
+          ? await db.collection('usuarios').doc(antes.solicitanteId).get().then(s => s.exists ? { id: s.id, ...s.data() } : null)
+          : null
+        const gestores = await buscarUsuariosPorPerfil(['gestor', 'supremo'], pedido.empresaId)
+        const destinatarios = [...gestores, solicitante].filter(Boolean)
+        await Promise.all(destinatarios.map(u =>
+          criarNotificacao(u.id, {
+            evento:   'comprador_assumiu',
+            titulo:   'Comprador assumiu o pedido',
+            corpo:    `Um comprador assumiu "${pedido.titulo}".`,
+            pedidoId: pedidoId,
+          })
+        ))
+      } catch (err) {
+        console.error('comprador_assumiu notification error:', err)
+      }
+      return
+    }
+
+    if (antes.status === depois.status) return // Nenhuma mudança relevante
 
     const statusAnt = antes.status
     const statusNov = depois.status
-    const pedido    = { id: pedidoId, ...depois }
 
     console.log(`Pedido ${pedidoId}: ${statusAnt} → ${statusNov}`)
 
@@ -71,11 +94,11 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
     // Ag. cotação — notifica compradores
     case 'ag_cotacao': {
       const compradores = await buscarUsuariosPorPerfil(['comprador', 'gestor', 'supremo'], empresaId)
-      const urgente = pedido.urgente ? ' 🔴 URGENTE' : ''
+      const urgenteSufixo = pedido.urgente ? ' — URGENTE' : ''
       await Promise.all(compradores.map(u =>
         criarNotificacao(u.id, {
           evento:   'ag_cotacao',
-          titulo:   `Novo pedido disponível${urgente}`,
+          titulo:   `Novo pedido disponivel${urgenteSufixo}`,
           corpo:    `"${pedido.titulo}" aguarda um comprador.`,
           pedidoId: pedido.id,
         })
@@ -86,8 +109,8 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
         await Promise.all(gestores.map(u =>
           criarNotificacao(u.id, {
             evento:   'pedido_urgente',
-            titulo:   '🔴 Pedido urgente aberto',
-            corpo:    `"${pedido.titulo}" precisa de atenção imediata.`,
+            titulo:   'Pedido urgente aberto',
+            corpo:    `"${pedido.titulo}" precisa de atencao imediata.`,
             pedidoId: pedido.id,
           })
         ))
@@ -122,7 +145,7 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
       await Promise.all(destinatarios.map(u =>
         criarNotificacao(u.id, {
           evento:   'pedido_aprovado',
-          titulo:   'Pedido aprovado! ✅',
+          titulo:   'Pedido aprovado',
           corpo:    `"${pedido.titulo}" foi aprovado.`,
           pedidoId: pedido.id,
         })
@@ -141,8 +164,8 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
         await Promise.all(outros.filter(Boolean).map(u =>
           criarNotificacao(u.id, {
             evento:   'pedido_aprovado',
-            titulo:   'Pedido já aprovado',
-            corpo:    `"${pedido.titulo}" já foi aprovado por outro aprovador.`,
+            titulo:   'Pedido ja aprovado',
+            corpo:    `"${pedido.titulo}" ja foi aprovado por outro aprovador.`,
             pedidoId: pedido.id,
           })
         ))
@@ -159,8 +182,8 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
       await Promise.all(destinatarios.map(u =>
         criarNotificacao(u.id, {
           evento:   'pedido_reprovado',
-          titulo:   'Pedido reprovado ❌',
-          corpo:    `"${pedido.titulo}" foi reprovado. Motivo: ${motivo || '—'}`,
+          titulo:   'Pedido reprovado',
+          corpo:    `"${pedido.titulo}" foi reprovado. Motivo: ${motivo || '-'}`,
           pedidoId: pedido.id,
         })
       ))
@@ -219,7 +242,7 @@ async function _despacharNotificacoes(pedido, statusAnt, statusNov) {
       if (pedido.solicitanteId) {
         await criarNotificacao(pedido.solicitanteId, {
           evento:   'pedido_entregue_solic',
-          titulo:   'Seu pedido foi entregue! 📦',
+          titulo:   'Seu pedido foi entregue',
           corpo:    `"${pedido.titulo}" chegou.`,
           pedidoId: pedido.id,
         })

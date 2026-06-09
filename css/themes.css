@@ -21,7 +21,70 @@ button, a, .card, .kcard, .cotacao-item {
 .light #bg-canvas { filter: invert(0) brightness(1); }
 
 .light .topbar {
-  box-shadow: 0 1px 0 var(--border), 0 4px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06);
+  border-bottom-color: rgba(0,0,0,0.10);
+}
+
+/* Botões de ícone da topbar — contraste no modo claro */
+.light .topbar-icon-btn {
+  color: var(--text2);
+  border-color: rgba(0,0,0,0.12);
+}
+.light .topbar-icon-btn:hover {
+  color: var(--gold);
+  border-color: var(--gold-border);
+  background: var(--gold-dim);
+}
+.light .topbar-icon-btn.active {
+  color: var(--gold);
+  border-color: var(--gold-border);
+  background: var(--gold-dim);
+}
+
+/* Links de navegação — contraste no modo claro */
+.light .nav-link {
+  color: var(--text2);
+}
+.light .nav-link:hover {
+  color: var(--text);
+  background: rgba(0,0,0,0.05);
+}
+.light .nav-link.active {
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+
+/* Botões — ajustes de contraste no modo claro */
+.light .btn-secondary:hover:not(:disabled) {
+  border-color: rgba(0,0,0,0.20);
+}
+
+/* Badges neutros — visibilidade no modo claro */
+.light .badge-neutral {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.12);
+}
+
+/* Hover em linhas de tabela — modo claro */
+.light tbody tr:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+/* Hover em notificações — modo claro */
+.light .notif-item:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+/* Hover em topbar row mobile — modo claro */
+.light .mobile-nav-link:hover {
+  background: rgba(0,0,0,0.04);
+  color: var(--text);
+}
+
+/* View toggle — modo claro */
+.light .view-toggle button:hover:not(.active) {
+  background: rgba(0,0,0,0.04);
+  color: var(--text2);
 }
 
 .light .login-card {

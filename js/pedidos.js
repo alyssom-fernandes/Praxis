@@ -1,4 +1,4 @@
-import { db, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from './firebase.js'
+import { db, collection, query, where, orderBy, getDocs, onSnapshot, addDoc, serverTimestamp } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -6,7 +6,7 @@ import {
   STATUS, STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
   KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, t,
 } from './constants.js'
-import { formatCurrency, formatDate, gerarIniciais, hojeISO, debounce, normalizarTexto } from './utils.js'
+import { formatCurrency, formatDate, gerarIniciais, hojeISO, debounce, normalizarTexto, parseMoeda } from './utils.js'
 
 let _unsubPedidos = null
 let _pedidos = []
@@ -236,12 +236,10 @@ async function _submeterNovoPedido() {
     return
   }
 
-  const { parseMoeda } = await import('./utils.js')
   const valorEstimado = valorStr ? parseMoeda(valorStr) : null
 
   mostrarSpinner()
   try {
-    const { STATUS } = await import('./constants.js')
     await addDoc(collection(db, 'pedidos'), {
       titulo,
       descricao:       obs || '',
@@ -291,21 +289,28 @@ async function _submeterNovoPedido() {
 function _iniciarListenerPedidos() {
   if (_unsubPedidos) _unsubPedidos()
 
-  const empresas = sessao.usuario.empresas || []
-  if (!empresas.length) {
-    _pedidos = []
-    _renderView()
-    return
+  const perfil = sessao.usuario.perfil
+
+  let q
+  if (perfil === 'supremo') {
+    // Supremo enxerga todos os pedidos sem filtro por empresa
+    q = query(collection(db, 'pedidos'), orderBy('criadoEm', 'desc'))
+  } else {
+    // Normaliza empresas independentemente de ser array ou objeto
+    const raw = sessao.usuario.empresas
+    const empresas = Array.isArray(raw) ? raw : Object.keys(raw || {})
+    if (!empresas.length) {
+      _pedidos = []
+      _renderView()
+      return
+    }
+    // Firebase limita 'in' a 30 itens — MVP com ≤10 empresas está OK
+    q = query(
+      collection(db, 'pedidos'),
+      where('empresaId', 'in', empresas.slice(0, 10)),
+      orderBy('criadoEm', 'desc')
+    )
   }
-
-  // Firebase limita 'in' a 30 itens — para MVP com ≤10 empresas está OK
-  const loteEmpresas = empresas.slice(0, 10)
-
-  const q = query(
-    collection(db, 'pedidos'),
-    where('empresaId', 'in', loteEmpresas),
-    orderBy('criadoEm', 'desc')
-  )
 
   _unsubPedidos = onSnapshot(q, snap => {
     _pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -462,7 +467,6 @@ function _renderLista(lista) {
 
 // ── Auxiliares ────────────────────────────────────────────────
 async function _carregarDadosAuxiliares() {
-  const { getDocs } = await import('./firebase.js')
   const [catSnap, empSnap, usrSnap] = await Promise.all([
     getDocs(collection(db, 'categorias')),
     getDocs(collection(db, 'empresas')),
@@ -477,8 +481,10 @@ function _preencherModalNovoPedido() {
   // Empresas — filtra pelas do usuário
   const empSel = document.getElementById('np-empresa')
   if (empSel) {
+    const raw = sessao.usuario.empresas
+    const empIds = Array.isArray(raw) ? raw : Object.keys(raw || {})
     const disponiveis = _empresas.filter(e =>
-      sessao.usuario.empresas?.includes(e.id) || sessao.usuario.perfil === 'supremo'
+      sessao.usuario.perfil === 'supremo' || empIds.includes(e.id)
     )
     disponiveis.forEach(e => {
       const opt = document.createElement('option')

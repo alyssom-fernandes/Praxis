@@ -32,7 +32,7 @@ export async function renderRelatorios() {
               <button class="pill" data-per="ano">Ano</button>
               <button class="pill" data-per="livre">Livre</button>
             </div>
-            <div id="date-range-wrap" style="display:none;gap:0.5rem;display:none;align-items:center">
+            <div id="date-range-wrap" style="display:none;gap:0.5rem;align-items:center">
               <input type="date" id="data-ini" style="width:140px">
               <span style="color:var(--text3);font-size:0.8rem">até</span>
               <input type="date" id="data-fim" style="width:140px">
@@ -125,7 +125,10 @@ async function _carregarEmpresas() {
   _empresas = snap.docs.map(d => ({ id: d.id, ...d.data() }))
   const sel = document.getElementById('filtro-empresa')
   if (sel) {
-    const disp = _empresas.filter(e => sessao.usuario.empresas?.includes(e.id) || sessao.usuario.perfil === 'supremo')
+    const perfil = sessao.usuario.perfil
+    const raw    = sessao.usuario.empresas
+    const empIds = Array.isArray(raw) ? raw : Object.keys(raw || {})
+    const disp   = _empresas.filter(e => perfil === 'supremo' || empIds.includes(e.id))
     disp.forEach(e => {
       const opt = document.createElement('option')
       opt.value = e.id; opt.textContent = e.nome
@@ -135,14 +138,20 @@ async function _carregarEmpresas() {
 }
 
 async function _carregarDados() {
-  const empresas = sessao.usuario.empresas || []
-  if (!empresas.length) { _pedidos = []; _parcelas = []; return }
+  const perfil = sessao.usuario.perfil
+  const raw    = sessao.usuario.empresas
+  const empresas = Array.isArray(raw) ? raw : Object.keys(raw || {})
 
-  const q = query(
-    collection(db, 'pedidos'),
-    where('empresaId', 'in', empresas.slice(0, 10)),
-  )
-  const snap = await getDocs(q)
+  let snap
+  if (perfil === 'supremo') {
+    snap = await getDocs(collection(db, 'pedidos'))
+  } else {
+    if (!empresas.length) { _pedidos = []; _parcelas = []; return }
+    snap = await getDocs(query(
+      collection(db, 'pedidos'),
+      where('empresaId', 'in', empresas.slice(0, 10)),
+    ))
+  }
   _pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     .filter(p => {
       if (!p.criadoEm) return true

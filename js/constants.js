@@ -136,7 +136,8 @@ export const EVENTOS_ICON_CLASS = {
 
 export const UNIDADES = [
   'un', 'cx', 'kg', 'L', 'm', 'm²', 'm³',
-  'par', 'pct', 'rolo', 'saco', 'hora', 'serviço',
+  'par', 'pct', 'kit', 'rolo', 'saco',
+  'hora', 'mês', 'pessoa', 'licença', 'serviço',
 ]
 
 export const CONDICAO_PAGAMENTO = {
@@ -159,7 +160,7 @@ export const TRADUCOES = {
     escolherIdioma:   'Escolha o idioma do demo',
     continuar:        'Continuar',
     voltar:           'Voltar',
-    novoPedido:       '+ Novo pedido',
+    novoPedido:       'Novo pedido',
     todos:            'Todos',
     urgentes:         'Urgentes',
     meusPedidos:      'Meus pedidos',
@@ -182,7 +183,7 @@ export const TRADUCOES = {
     escolherIdioma:   'Choose demo language',
     continuar:        'Continue',
     voltar:           'Back',
-    novoPedido:       '+ New order',
+    novoPedido:       'New order',
     todos:            'All',
     urgentes:         'Urgent',
     meusPedidos:      'My orders',
