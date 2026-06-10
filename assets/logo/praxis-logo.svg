@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80">
+  <style>
+    text { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 52px; letter-spacing: 0.04em; }
+  </style>
+  <text x="16" y="58" fill="#F0EDE6">PR</text>
+  <polygon points="118,12 156,58 80,58" fill="#C8A96E"/>
+  <text x="162" y="58" fill="#F0EDE6">XIS</text>
+</svg>

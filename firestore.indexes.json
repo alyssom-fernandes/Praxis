@@ -69,6 +69,14 @@
       ]
     },
     {
+      "collectionGroup": "parcelas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "pago",       "order": "ASCENDING" },
+        { "fieldPath": "vencimento", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notificacoes",
       "queryScope": "COLLECTION",
       "fields": [

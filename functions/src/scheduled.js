@@ -388,11 +388,16 @@ async function _aplicarSeed(seed) {
       const parBatch = db.batch()
       parcelas.forEach(p => {
         const ref = pedRef.collection('parcelas').doc()
+        // vencimentoDias (relativo a hoje) tem prioridade sobre vencimento fixo,
+        // para o dashboard demo sempre ter parcelas a vencer/vencidas após cada reset.
+        const vencimento = p.vencimentoDias != null
+          ? _isoMaisDias(p.vencimentoDias)
+          : p.vencimento
         parBatch.set(ref, {
           numero:     p.numero,
           total:      p.total,
           valor:      p.valor,
-          vencimento: p.vencimento,
+          vencimento,
           pago:       p.pago === true,
           pagoEm:     p.pago && p.diasAtras != null ? _ts(p.diasAtras) : null,
           criadoEm:   agoraTs,

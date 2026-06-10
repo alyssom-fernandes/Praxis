@@ -90,8 +90,14 @@ service cloud.firestore {
 
       // ── Comentários ───────────────────────────────────────────
       match /comentarios/{comentarioId} {
-        allow read: if estaLogado();
-        allow create: if estaLogado();
+        allow read: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
+        allow create: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
         allow update: if estaLogado() && (
           request.auth.uid == resource.data.autorId || eGestor()
         );
@@ -100,7 +106,10 @@ service cloud.firestore {
 
       // ── Parcelas ──────────────────────────────────────────────
       match /parcelas/{parcelaId} {
-        allow read: if estaLogado();
+        allow read: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
         allow create: if estaLogado() && eComprador();
         allow update: if estaLogado() && eFinanceiro();
         allow delete: if false;
@@ -108,8 +117,14 @@ service cloud.firestore {
 
       // ── Histórico ─────────────────────────────────────────────
       match /historico/{entradaId} {
-        allow read:   if estaLogado();
-        allow create: if estaLogado();
+        allow read: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
+        allow create: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
         allow update, delete: if false; // Histórico é imutável
       }
     }

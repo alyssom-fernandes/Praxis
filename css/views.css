@@ -44,7 +44,7 @@
   background: rgba(12,12,12,0.85);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px); /* blur leve — estrelas visíveis atrás do card */
 }
 
 .light .login-card {

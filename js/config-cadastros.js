@@ -285,7 +285,7 @@ function _renderFornecedores(filtro = '') {
   if (!tbody) return
 
   const lista = filtro
-    ? _fornecedores.filter(f => (f.nomeOriginal||f.nome||'').toLowerCase().includes(filtro.toLowerCase()))
+    ? _fornecedores.filter(f => (f.nomeExibicao||f.nomeOriginal||f.nome||'').toLowerCase().includes(filtro.toLowerCase()))
     : _fornecedores
 
   if (!lista.length) {
@@ -295,7 +295,7 @@ function _renderFornecedores(filtro = '') {
 
   tbody.innerHTML = lista.map(f => `
     <tr>
-      <td>${f.nomeOriginal || f.nome}</td>
+      <td>${f.nomeExibicao || f.nomeOriginal || f.nome}</td>
       <td>${formatCNPJ(f.cnpj) || '—'}</td>
       <td>${f.usos || 0} pedido${f.usos !== 1 ? 's' : ''}</td>
       <td>
@@ -354,7 +354,7 @@ async function _editarFornecedor(forn) {
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:1rem">
           <label for="forn-nome">Nome</label>
-          <input type="text" id="forn-nome" value="${forn.nomeOriginal || forn.nome || ''}">
+          <input type="text" id="forn-nome" value="${forn.nomeExibicao || forn.nomeOriginal || forn.nome || ''}">
         </div>
         <div class="form-group">
           <label for="forn-cnpj">CNPJ</label>
@@ -378,7 +378,7 @@ async function _editarFornecedor(forn) {
     try {
       const { normalizarTexto } = await import('./utils.js')
       await updateDoc(doc(db, 'fornecedores', forn.id), {
-        nome: normalizarTexto(nome), nomeOriginal: nome, cnpj,
+        nome: normalizarTexto(nome), nomeOriginal: nome, nomeExibicao: nome, cnpj,
       })
       overlay.remove()
       await _carregar()

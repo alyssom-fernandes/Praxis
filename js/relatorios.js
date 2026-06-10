@@ -2,7 +2,7 @@ import { db, collection, query, where, getDocs } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter } from './app.js'
 import { prxToast } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { STATUS, STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR } from './constants.js'
+import { STATUS, STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR, PERFIS } from './constants.js'
 import { formatCurrency, formatDate, hojeISO, maisXDiasISO, dataEhPassado, dataEhProximos } from './utils.js'
 
 let _pedidos    = []
@@ -12,6 +12,11 @@ let _filtroPer  = 'mes'
 let _filtroEmp  = 'todas'
 let _dataIni    = ''
 let _dataFim    = ''
+
+// Aprovador NÃO acessa relatórios financeiros consolidados (spec §8.4)
+function _podeVerFinanceiro() {
+  return [PERFIS.SUPREMO, PERFIS.GESTOR, PERFIS.FINANCEIRO].includes(sessao.usuario.perfil)
+}
 
 // ── Render ────────────────────────────────────────────────────
 export async function renderRelatorios() {
@@ -40,6 +45,7 @@ export async function renderRelatorios() {
             <select id="filtro-empresa" style="width:160px;padding:0.4rem 0.8rem">
               <option value="todas">Todas as empresas</option>
             </select>
+            ${_podeVerFinanceiro() ? `
             <div class="dash-export">
               <button class="btn-secondary btn-sm" id="btn-export-excel">
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -54,6 +60,7 @@ export async function renderRelatorios() {
                 PDF
               </button>
             </div>
+            ` : ''}
           </div>
         </div>
         <div id="dash-content">
@@ -129,7 +136,7 @@ async function _carregarEmpresas() {
     const perfil = sessao.usuario.perfil
     const raw    = sessao.usuario.empresas
     const empIds = Array.isArray(raw) ? raw : Object.keys(raw || {})
-    const disp   = _empresas.filter(e => perfil === 'supremo' || empIds.includes(e.id))
+    const disp   = _empresas.filter(e => perfil === PERFIS.SUPREMO || empIds.includes(e.id))
     disp.forEach(e => {
       const opt = document.createElement('option')
       opt.value = e.id; opt.textContent = e.nome
@@ -144,7 +151,7 @@ async function _carregarDados() {
   const empresas = Array.isArray(raw) ? raw : Object.keys(raw || {})
 
   let snap
-  if (perfil === 'supremo') {
+  if (perfil === PERFIS.SUPREMO) {
     snap = await getDocs(collection(db, 'pedidos'))
   } else {
     if (!empresas.length) { _pedidos = []; _parcelas = []; return }
@@ -173,6 +180,8 @@ async function _carregarDados() {
 function _renderDash() {
   const container = document.getElementById('dash-content')
   if (!container) return
+
+  const verFinanceiro = _podeVerFinanceiro()
 
   const pedFiltrados = _filtroEmp === 'todas'
     ? _pedidos
@@ -205,52 +214,46 @@ function _renderDash() {
   const statusCount = {}
   pedFiltrados.forEach(p => { statusCount[p.status] = (statusCount[p.status] || 0) + 1 })
 
-  container.innerHTML = `
-    <!-- Linha 1 -->
-    <div class="dash-grid-1" style="margin-bottom:1rem">
-
-      <!-- Total gasto -->
-      <div class="card no-hover" style="background:linear-gradient(135deg,rgba(200,169,110,0.12),rgba(200,169,110,0.04));border-color:var(--gold-border)">
+  // Card "Total gasto" (financeiro)
+  const cardTotalGasto = `
+      <div class="card no-hover card-glow-gold" style="border-color:var(--gold-border)">
         <div class="stat-card">
           <div class="stat-label">Total gasto no período</div>
           <div class="stat-value text-gold">${formatCurrency(totalGasto)}</div>
           <div class="stat-sub">${_filtroPer === 'mes' ? 'Este mês' : _filtroPer === 'tri' ? 'Este trimestre' : _filtroPer === 'ano' ? 'Este ano' : 'Período selecionado'}</div>
         </div>
-      </div>
+      </div>`
 
-      <!-- Total pedidos -->
+  const cardTotalPedidos = `
       <div class="card no-hover card-glow-green">
         <div class="stat-card">
           <div class="stat-label">Total de pedidos</div>
           <div class="stat-value text-green">${totalPedidos}</div>
           <div class="stat-sub">No período</div>
         </div>
-      </div>
+      </div>`
 
-      <!-- Ag. aprovação -->
+  const cardAgAprovacao = `
       <div class="card no-hover card-glow-red">
         <div class="stat-card">
           <div class="stat-label">Ag. aprovação</div>
           <div class="stat-value text-red">${agAprovacao.length}</div>
           <div class="stat-sub">${urgentes ? `<span class="badge badge-red">${urgentes} urgente${urgentes>1?'s':''}</span>` : 'Sem urgentes'}</div>
         </div>
-      </div>
+      </div>`
 
-      <!-- Parcelas a vencer -->
-      <div class="card no-hover">
+  // Card "Parcelas a vencer" (financeiro)
+  const cardParcVencer = `
+      <div class="card no-hover card-glow-gold">
         <div class="stat-card">
           <div class="stat-label">Parcelas a vencer (7 dias)</div>
           <div class="stat-value text-gold">${formatCurrency(totalVencer)}</div>
           <div class="stat-sub">${parcVencer.length} parcela${parcVencer.length !== 1 ? 's' : ''}</div>
         </div>
-      </div>
+      </div>`
 
-    </div>
-
-    <!-- Linha 2 -->
-    <div class="dash-grid-2">
-
-      <!-- Gráfico gasto por empresa -->
+  // Bloco "Gasto por empresa" (financeiro)
+  const blocoGastoEmpresa = `
       <div class="card no-hover" style="padding:1.5rem">
         <div class="detalhe-section-title">Gasto por empresa</div>
         ${Object.keys(gastoPorEmp).length ? `
@@ -270,9 +273,10 @@ function _renderDash() {
             }).join('')}
           </div>
         ` : `<div class="empty-state"><p>Sem dados no período.</p></div>`}
-      </div>
+      </div>`
 
-      <!-- Parcelas a vencer -->
+  // Bloco "Próximas parcelas" (financeiro)
+  const blocoProxParcelas = `
       <div class="card no-hover" style="padding:1.5rem">
         <div class="detalhe-section-title">Próximas parcelas</div>
         ${parcVencer.length ? `
@@ -298,36 +302,61 @@ function _renderDash() {
             }).join('')}
           </div>
         ` : `<div class="empty-state"><p>Nenhuma parcela a vencer.</p></div>`}
-      </div>
+      </div>`
 
-      <!-- Status dos pedidos -->
+  const blocoStatusPedidos = `
       <div class="card no-hover" style="padding:1.5rem">
         <div class="detalhe-section-title">Status dos pedidos</div>
         <div style="display:flex;flex-direction:column;gap:0.5rem">
           ${Object.entries(statusCount).sort((a,b)=>b[1]-a[1]).map(([status, count]) => {
             const dotClass = STATUS_DOT_COLOR[status] || 'dot-gray'
             const label    = STATUS_LABEL[status] || status
-            const pct      = Math.round((count / totalPedidos) * 100)
+            const pct      = totalPedidos ? Math.round((count / totalPedidos) * 100) : 0
             return `
               <div style="display:flex;align-items:center;gap:0.75rem">
                 <span class="dot ${dotClass}"></span>
                 <span style="flex:1;font-size:0.82rem;color:var(--text2)">${label}</span>
                 <div class="bar-track" style="width:80px">
-                  <div class="bar-fill" style="width:${pct}%;background:var(--${['pago','aprovado','comprado','entregue'].includes(status)?'green':status==='em_aprovacao'?'gold':['reprovado','cancelado'].includes(status)?'red':'blue'})"></div>
+                  <div class="bar-fill" style="width:${pct}%;background:var(--${[STATUS.PAGO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE].includes(status)?'green':status===STATUS.EM_APROVACAO?'gold':[STATUS.REPROVADO, STATUS.CANCELADO].includes(status)?'red':'blue'})"></div>
                 </div>
                 <span style="font-size:0.82rem;font-weight:700;width:20px;text-align:right">${count}</span>
               </div>
             `
           }).join('')}
         </div>
-      </div>
+      </div>`
 
-    </div>
-  `
+  if (verFinanceiro) {
+    container.innerHTML = `
+      <div class="dash-grid-1" style="margin-bottom:1rem">
+        ${cardTotalGasto}
+        ${cardTotalPedidos}
+        ${cardAgAprovacao}
+        ${cardParcVencer}
+      </div>
+      <div class="dash-grid-2">
+        ${blocoGastoEmpresa}
+        ${blocoProxParcelas}
+        ${blocoStatusPedidos}
+      </div>
+    `
+  } else {
+    // Aprovador: apenas dados operacionais, sem valores financeiros
+    container.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+        ${cardTotalPedidos}
+        ${cardAgAprovacao}
+      </div>
+      <div>
+        ${blocoStatusPedidos}
+      </div>
+    `
+  }
 }
 
 // ── Exports ───────────────────────────────────────────────────
 async function _exportarExcel() {
+  if (!_podeVerFinanceiro()) { prxToast('Sem permissão para exportar dados financeiros.', 'warning'); return }
   try {
     const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs')
     const pedFilt = _filtroEmp === 'todas' ? _pedidos : _pedidos.filter(p => p.empresaId === _filtroEmp)
@@ -350,6 +379,7 @@ async function _exportarExcel() {
 }
 
 async function _exportarPDF() {
+  if (!_podeVerFinanceiro()) { prxToast('Sem permissão para exportar dados financeiros.', 'warning'); return }
   try {
     const { jsPDF } = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
     const doc = new jsPDF()

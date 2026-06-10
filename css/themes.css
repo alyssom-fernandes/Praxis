@@ -51,6 +51,15 @@ button, a, .card, .kcard, .cotacao-item {
 .light .pf-pipe,
 .light .pf-info { color: #505050; }
 
+/* Texto terciário pequeno — reforço de contraste no modo claro */
+.light .stat-sub,
+.light .stat-label,
+.light .meta-label,
+.light .kcard-empresa,
+.light .empty-state p {
+  color: #8A7E72;
+}
+
 /* Links de navegação — contraste no modo claro */
 .light .nav-link {
   color: var(--text2);

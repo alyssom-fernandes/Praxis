@@ -1,24 +1,71 @@
 {
   "_info": "Seed do modo demo — dados fictícios. Nenhum CNPJ ou dado real.",
   "_reset": "Recriado todo domingo às 3h pela Cloud Function demoReset.",
-
   "empresas": [
-    { "key": "nexara",  "nome": "Nexara Tecnologia",  "cnpj": "00.000.000/0001-01", "ativa": true,  "segmento": "Tecnologia" },
-    { "key": "veltora", "nome": "Veltora Serviços",   "cnpj": "00.000.000/0002-02", "ativa": true,  "segmento": "Serviços"   },
-    { "key": "orbix",   "nome": "Orbix Industrial",   "cnpj": "00.000.000/0003-03", "ativa": false, "segmento": "Indústria"  }
+    {
+      "key": "nexara",
+      "nome": "Nexara Tecnologia",
+      "cnpj": "00.000.000/0001-01",
+      "ativa": true,
+      "segmento": "Tecnologia"
+    },
+    {
+      "key": "veltora",
+      "nome": "Veltora Serviços",
+      "cnpj": "00.000.000/0002-02",
+      "ativa": true,
+      "segmento": "Serviços"
+    },
+    {
+      "key": "orbix",
+      "nome": "Orbix Industrial",
+      "cnpj": "00.000.000/0003-03",
+      "ativa": false,
+      "segmento": "Indústria"
+    }
   ],
-
   "fornecedores": [
-    { "nome": "Distribuidora Alfa Ltda",      "cnpj": "11.111.111/0001-11", "usos": 8  },
-    { "nome": "TechSupply Comercio",          "cnpj": "22.222.222/0001-22", "usos": 5  },
-    { "nome": "Solucoes Gerais ME",           "cnpj": "33.333.333/0001-33", "usos": 4  },
-    { "nome": "Papelaria Premium Ltda",       "cnpj": "44.444.444/0001-44", "usos": 3  },
-    { "nome": "Manutencao Express Servicos",  "cnpj": "55.555.555/0001-55", "usos": 6  },
-    { "nome": "Fardamentos do Brasil",        "cnpj": "66.666.666/0001-66", "usos": 2  },
-    { "nome": "CapacitaPro Treinamentos",     "cnpj": "77.777.777/0001-77", "usos": 2  },
-    { "nome": "Energia Total Equipamentos",   "cnpj": "88.888.888/0001-88", "usos": 1  }
+    {
+      "nome": "Distribuidora Alfa Ltda",
+      "cnpj": "11.111.111/0001-11",
+      "usos": 8
+    },
+    {
+      "nome": "TechSupply Comercio",
+      "cnpj": "22.222.222/0001-22",
+      "usos": 5
+    },
+    {
+      "nome": "Solucoes Gerais ME",
+      "cnpj": "33.333.333/0001-33",
+      "usos": 4
+    },
+    {
+      "nome": "Papelaria Premium Ltda",
+      "cnpj": "44.444.444/0001-44",
+      "usos": 3
+    },
+    {
+      "nome": "Manutencao Express Servicos",
+      "cnpj": "55.555.555/0001-55",
+      "usos": 6
+    },
+    {
+      "nome": "Fardamentos do Brasil",
+      "cnpj": "66.666.666/0001-66",
+      "usos": 2
+    },
+    {
+      "nome": "CapacitaPro Treinamentos",
+      "cnpj": "77.777.777/0001-77",
+      "usos": 2
+    },
+    {
+      "nome": "Energia Total Equipamentos",
+      "cnpj": "88.888.888/0001-88",
+      "usos": 1
+    }
   ],
-
   "pedidos": [
     {
       "key": "p01",
@@ -38,26 +85,92 @@
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",   "nota": null,                          "diasAtras": 45 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu o pedido",  "diasAtras": 44 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",            "diasAtras": 42 },
-        { "status": "aprovado",     "nota": null,                          "diasAtras": 40 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 23.750,00", "diasAtras": 37 },
-        { "status": "entregue",     "nota": null,                          "diasAtras": 29 },
-        { "status": "pago",         "nota": "Última parcela paga",         "diasAtras": 10 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 45
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 44
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 42
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 40
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 23.750,00",
+          "diasAtras": 37
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 29
+        },
+        {
+          "status": "pago",
+          "nota": "Última parcela paga",
+          "diasAtras": 10
+        }
       ],
       "comentarios": [
-        { "texto": "Priorizar modelos com pelo menos 2 anos de garantia.", "diasAtras": 44 },
-        { "texto": "@Ana precisa confirmar qual configuração de RAM é necessária.", "diasAtras": 43 }
+        {
+          "texto": "Priorizar modelos com pelo menos 2 anos de garantia.",
+          "diasAtras": 44
+        },
+        {
+          "texto": "@Ana precisa confirmar qual configuração de RAM é necessária.",
+          "diasAtras": 43
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio",       "valor": 23750, "prazoEntrega": "7 dias úteis", "condicoesComerciais": "Frete grátis acima de R$ 5.000", "indicada": true  },
-        { "fornecedorNome": "Distribuidora Alfa Ltda",   "valor": 24800, "prazoEntrega": "10 dias úteis","condicoesComerciais": "Frete por conta do comprador",   "indicada": false },
-        { "fornecedorNome": "Solucoes Gerais ME",        "valor": 26100, "prazoEntrega": "5 dias úteis", "condicoesComerciais": "Inclui suporte 12 meses",         "indicada": false }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 23750,
+          "prazoEntrega": "7 dias úteis",
+          "condicoesComerciais": "Frete grátis acima de R$ 5.000",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 24800,
+          "prazoEntrega": "10 dias úteis",
+          "condicoesComerciais": "Frete por conta do comprador",
+          "indicada": false
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 26100,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Inclui suporte 12 meses",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 2, "valor": 11875, "vencimento": "2026-05-20", "pago": true,  "diasAtras": 20 },
-        { "numero": 2, "total": 2, "valor": 11875, "vencimento": "2026-06-20", "pago": true,  "diasAtras": 10 }
+        {
+          "numero": 1,
+          "total": 2,
+          "valor": 11875,
+          "vencimento": "2026-05-20",
+          "pago": true,
+          "diasAtras": 20
+        },
+        {
+          "numero": 2,
+          "total": 2,
+          "valor": 11875,
+          "vencimento": "2026-06-20",
+          "pago": true,
+          "diasAtras": 10
+        }
       ]
     },
     {
@@ -78,24 +191,77 @@
       "empresaKey": "orbix",
       "categoriaKey": "uniformes",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 35 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 34 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 32 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 30 },
-        { "status": "comprado",     "nota": "Fornecedor: Fardamentos do Brasil · R$ 7.980,00", "diasAtras": 27 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 15 },
-        { "status": "pago",         "nota": null,                         "diasAtras": 5  }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 35
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 34
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 32
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 30
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Fardamentos do Brasil · R$ 7.980,00",
+          "diasAtras": 27
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 15
+        },
+        {
+          "status": "pago",
+          "nota": null,
+          "diasAtras": 5
+        }
       ],
       "comentarios": [
-        { "texto": "Incluir luvas de couro na composição dos kits.", "diasAtras": 34 },
-        { "texto": "Confirmado com @Marcos o tamanho dos colaboradores.", "diasAtras": 33 }
+        {
+          "texto": "Incluir luvas de couro na composição dos kits.",
+          "diasAtras": 34
+        },
+        {
+          "texto": "Confirmado com @Marcos o tamanho dos colaboradores.",
+          "diasAtras": 33
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Fardamentos do Brasil", "valor": 7980, "prazoEntrega": "12 dias úteis", "condicoesComerciais": "Bordado incluso", "indicada": true },
-        { "fornecedorNome": "Solucoes Gerais ME",    "valor": 8250, "prazoEntrega": "8 dias úteis",  "condicoesComerciais": "Frete por conta do comprador", "indicada": false }
+        {
+          "fornecedorNome": "Fardamentos do Brasil",
+          "valor": 7980,
+          "prazoEntrega": "12 dias úteis",
+          "condicoesComerciais": "Bordado incluso",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 8250,
+          "prazoEntrega": "8 dias úteis",
+          "condicoesComerciais": "Frete por conta do comprador",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 7980, "vencimento": "2026-05-30", "pago": true, "diasAtras": 5 }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 7980,
+          "vencimento": "2026-05-30",
+          "pago": true,
+          "diasAtras": 5
+        }
       ]
     },
     {
@@ -116,18 +282,54 @@
       "empresaKey": "veltora",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado",   "nota": null,                          "diasAtras": 12 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu o pedido",  "diasAtras": 11 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada pelo comprador", "diasAtras": 8 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 12
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 11
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada pelo comprador",
+          "diasAtras": 8
+        }
       ],
       "comentarios": [
-        { "texto": "Solicitar também verificação de filtros.", "diasAtras": 11 },
-        { "texto": "Tenho 3 orçamentos em mãos, indicarei o da Manutencao Express.", "diasAtras": 9 }
+        {
+          "texto": "Solicitar também verificação de filtros.",
+          "diasAtras": 11
+        },
+        {
+          "texto": "Tenho 3 orçamentos em mãos, indicarei o da Manutencao Express.",
+          "diasAtras": 9
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Manutencao Express Servicos", "valor": 2800, "prazoEntrega": "3 dias úteis", "condicoesComerciais": "Inclui reposição de gás se necessário", "indicada": true  },
-        { "fornecedorNome": "Solucoes Gerais ME",          "valor": 3100, "prazoEntrega": "5 dias úteis", "condicoesComerciais": "Garantia 6 meses",                       "indicada": false },
-        { "fornecedorNome": "Distribuidora Alfa Ltda",     "valor": 3400, "prazoEntrega": "2 dias úteis", "condicoesComerciais": "Disponibilidade imediata",               "indicada": false }
+        {
+          "fornecedorNome": "Manutencao Express Servicos",
+          "valor": 2800,
+          "prazoEntrega": "3 dias úteis",
+          "condicoesComerciais": "Inclui reposição de gás se necessário",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 3100,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Garantia 6 meses",
+          "indicada": false
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 3400,
+          "prazoEntrega": "2 dias úteis",
+          "condicoesComerciais": "Disponibilidade imediata",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -149,15 +351,35 @@
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado", "nota": null,                         "diasAtras": 3 },
-        { "status": "ag_cotacao", "nota": "Comprador assumiu o pedido", "diasAtras": 2 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 3
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 2
+        }
       ],
       "comentarios": [
-        { "texto": "URGENTE — o servidor principal está fora do ar desde ontem. @Joao precisa de ação imediata.", "diasAtras": 3 },
-        { "texto": "Já estou em contato com 2 fornecedores, cotações até amanhã.", "diasAtras": 2 }
+        {
+          "texto": "URGENTE — o servidor principal está fora do ar desde ontem. @Joao precisa de ação imediata.",
+          "diasAtras": 3
+        },
+        {
+          "texto": "Já estou em contato com 2 fornecedores, cotações até amanhã.",
+          "diasAtras": 2
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio", "valor": 17500, "prazoEntrega": "24h", "condicoesComerciais": "Entrega imediata, pagamento antecipado", "indicada": false }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 17500,
+          "prazoEntrega": "24h",
+          "condicoesComerciais": "Entrega imediata, pagamento antecipado",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -179,10 +401,17 @@
       "empresaKey": "veltora",
       "categoriaKey": "escritorio",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 1 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 1
+        }
       ],
       "comentarios": [
-        { "texto": "Incluir também caixas de caneta esferográfica azul.", "diasAtras": 1 }
+        {
+          "texto": "Incluir também caixas de caneta esferográfica azul.",
+          "diasAtras": 1
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -205,18 +434,52 @@
       "empresaKey": "orbix",
       "categoriaKey": "servicos",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 18 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 17 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 14 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 12 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 18
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 17
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 14
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 12
+        }
       ],
       "comentarios": [
-        { "texto": "Verificar se a empresa possui CNPJ regularizado e alvará.", "diasAtras": 17 },
-        { "texto": "Três orçamentos obtidos, indicado o melhor custo-benefício.", "diasAtras": 15 }
+        {
+          "texto": "Verificar se a empresa possui CNPJ regularizado e alvará.",
+          "diasAtras": 17
+        },
+        {
+          "texto": "Três orçamentos obtidos, indicado o melhor custo-benefício.",
+          "diasAtras": 15
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Solucoes Gerais ME", "valor": 4200, "prazoEntrega": "Início em 15 dias", "condicoesComerciais": "Contrato mínimo 6 meses", "indicada": true  },
-        { "fornecedorNome": "Manutencao Express Servicos", "valor": 4600, "prazoEntrega": "Início em 7 dias", "condicoesComerciais": "Sem fidelidade", "indicada": false }
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 4200,
+          "prazoEntrega": "Início em 15 dias",
+          "condicoesComerciais": "Contrato mínimo 6 meses",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Manutencao Express Servicos",
+          "valor": 4600,
+          "prazoEntrega": "Início em 7 dias",
+          "condicoesComerciais": "Sem fidelidade",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -239,18 +502,52 @@
       "empresaKey": "nexara",
       "categoriaKey": "escritorio",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 30 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 29 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 26 },
-        { "status": "reprovado",    "nota": "Valor acima do orçamento",   "diasAtras": 24 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 30
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 29
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 26
+        },
+        {
+          "status": "reprovado",
+          "nota": "Valor acima do orçamento",
+          "diasAtras": 24
+        }
       ],
       "comentarios": [
-        { "texto": "As cadeiras realmente estão em mau estado, mas o orçamento não permite agora.", "diasAtras": 25 },
-        { "texto": "Rever no próximo trimestre quando tivermos mais verba.", "diasAtras": 24 }
+        {
+          "texto": "As cadeiras realmente estão em mau estado, mas o orçamento não permite agora.",
+          "diasAtras": 25
+        },
+        {
+          "texto": "Rever no próximo trimestre quando tivermos mais verba.",
+          "diasAtras": 24
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 8800, "prazoEntrega": "10 dias úteis", "condicoesComerciais": "Frete grátis", "indicada": true  },
-        { "fornecedorNome": "TechSupply Comercio",     "valor": 9200, "prazoEntrega": "7 dias úteis",  "condicoesComerciais": "Montagem inclusa", "indicada": false }
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 8800,
+          "prazoEntrega": "10 dias úteis",
+          "condicoesComerciais": "Frete grátis",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 9200,
+          "prazoEntrega": "7 dias úteis",
+          "condicoesComerciais": "Montagem inclusa",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -272,22 +569,65 @@
       "empresaKey": "veltora",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 48 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 47 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 45 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 43 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 4.050,00", "diasAtras": 42 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 42 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 48
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 47
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 45
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 43
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 4.050,00",
+          "diasAtras": 42
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 42
+        }
       ],
       "comentarios": [
-        { "texto": "Licença digital entregue por e-mail no mesmo dia da compra.", "diasAtras": 42 },
-        { "texto": "Aguardando @Financeiro registrar pagamento.", "diasAtras": 40 }
+        {
+          "texto": "Licença digital entregue por e-mail no mesmo dia da compra.",
+          "diasAtras": 42
+        },
+        {
+          "texto": "Aguardando @Financeiro registrar pagamento.",
+          "diasAtras": 40
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio", "valor": 4050, "prazoEntrega": "Imediato (digital)", "condicoesComerciais": "Licença por 12 meses", "indicada": true }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 4050,
+          "prazoEntrega": "Imediato (digital)",
+          "condicoesComerciais": "Licença por 12 meses",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 4050, "vencimento": "2026-06-12", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 4050,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 3
+        }
       ]
     },
     {
@@ -308,17 +648,47 @@
       "empresaKey": "orbix",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 10 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu o pedido", "diasAtras": 9  },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 6  }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 10
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 9
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 6
+        }
       ],
       "comentarios": [
-        { "texto": "Pedido urgente pois tivemos 3 quedas de energia esta semana.", "diasAtras": 10 },
-        { "texto": "@Gestor precisamos de aprovação rápida para este equipamento.", "diasAtras": 7 }
+        {
+          "texto": "Pedido urgente pois tivemos 3 quedas de energia esta semana.",
+          "diasAtras": 10
+        },
+        {
+          "texto": "@Gestor precisamos de aprovação rápida para este equipamento.",
+          "diasAtras": 7
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Energia Total Equipamentos", "valor": 40800, "prazoEntrega": "20 dias úteis", "condicoesComerciais": "Instalação inclusa, garantia 2 anos", "indicada": true  },
-        { "fornecedorNome": "Distribuidora Alfa Ltda",    "valor": 43500, "prazoEntrega": "15 dias úteis", "condicoesComerciais": "Frete por conta do comprador",        "indicada": false }
+        {
+          "fornecedorNome": "Energia Total Equipamentos",
+          "valor": 40800,
+          "prazoEntrega": "20 dias úteis",
+          "condicoesComerciais": "Instalação inclusa, garantia 2 anos",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 43500,
+          "prazoEntrega": "15 dias úteis",
+          "condicoesComerciais": "Frete por conta do comprador",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -340,10 +710,17 @@
       "empresaKey": "nexara",
       "categoriaKey": "alimentacao",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 2 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 2
+        }
       ],
       "comentarios": [
-        { "texto": "Preferência por café da marca Melitta ou similar.", "diasAtras": 2 }
+        {
+          "texto": "Preferência por café da marca Melitta ou similar.",
+          "diasAtras": 2
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -366,12 +743,26 @@
       "empresaKey": "orbix",
       "categoriaKey": "servicos",
       "historico": [
-        { "status": "solicitado", "nota": null,                         "diasAtras": 7 },
-        { "status": "ag_cotacao", "nota": "Comprador assumiu o pedido", "diasAtras": 6 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 7
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 6
+        }
       ],
       "comentarios": [
-        { "texto": "Treinamento precisa ter instrutores credenciados pelo MTE.", "diasAtras": 7 },
-        { "texto": "Solicitei orçamento para 2 empresas especializadas.", "diasAtras": 5 }
+        {
+          "texto": "Treinamento precisa ter instrutores credenciados pelo MTE.",
+          "diasAtras": 7
+        },
+        {
+          "texto": "Solicitei orçamento para 2 empresas especializadas.",
+          "diasAtras": 5
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -394,23 +785,75 @@
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 25 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 24 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 22 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 20 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 6.500,00", "diasAtras": 18 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 25
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 24
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 22
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 20
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 6.500,00",
+          "diasAtras": 18
+        }
       ],
       "comentarios": [
-        { "texto": "Pedido o modelo com gestão via web, não só por console.", "diasAtras": 24 },
-        { "texto": "TechSupply tem o melhor preço e prazo de entrega de 5 dias.", "diasAtras": 21 }
+        {
+          "texto": "Pedido o modelo com gestão via web, não só por console.",
+          "diasAtras": 24
+        },
+        {
+          "texto": "TechSupply tem o melhor preço e prazo de entrega de 5 dias.",
+          "diasAtras": 21
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio",     "valor": 6500, "prazoEntrega": "5 dias úteis", "condicoesComerciais": "Garantia 3 anos NBD",       "indicada": true  },
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 6900, "prazoEntrega": "8 dias úteis", "condicoesComerciais": "Garantia 1 ano",             "indicada": false }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 6500,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Garantia 3 anos NBD",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 6900,
+          "prazoEntrega": "8 dias úteis",
+          "condicoesComerciais": "Garantia 1 ano",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 2, "valor": 3250, "vencimento": "2026-06-05", "pago": false, "diasAtras": null },
-        { "numero": 2, "total": 2, "valor": 3250, "vencimento": "2026-07-05", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 2,
+          "valor": 3250,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": -4
+        },
+        {
+          "numero": 2,
+          "total": 2,
+          "valor": 3250,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 26
+        }
       ]
     },
     {
@@ -431,10 +874,17 @@
       "empresaKey": "veltora",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 1 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 1
+        }
       ],
       "comentarios": [
-        { "texto": "Incluir DVR com storage de 30 dias mínimo.", "diasAtras": 1 }
+        {
+          "texto": "Incluir DVR com storage de 30 dias mínimo.",
+          "diasAtras": 1
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -457,10 +907,17 @@
       "empresaKey": "orbix",
       "categoriaKey": "escritorio",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 0 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 0
+        }
       ],
       "comentarios": [
-        { "texto": "A impressora parou ontem e temos documentos urgentes para imprimir.", "diasAtras": 0 }
+        {
+          "texto": "A impressora parou ontem e temos documentos urgentes para imprimir.",
+          "diasAtras": 0
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -484,16 +941,40 @@
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",  "nota": null,                       "diasAtras": 20 },
-        { "status": "ag_cotacao",  "nota": "Comprador assumiu",        "diasAtras": 19 },
-        { "status": "cancelado",   "nota": "Compra nao necessaria",    "diasAtras": 15 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 20
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 19
+        },
+        {
+          "status": "cancelado",
+          "nota": "Compra nao necessaria",
+          "diasAtras": 15
+        }
       ],
       "comentarios": [
-        { "texto": "Verificamos que o sistema atual pode ser configurado para atender essa necessidade.", "diasAtras": 16 },
-        { "texto": "Cancelando o pedido. Obrigado a todos.", "diasAtras": 15 }
+        {
+          "texto": "Verificamos que o sistema atual pode ser configurado para atender essa necessidade.",
+          "diasAtras": 16
+        },
+        {
+          "texto": "Cancelando o pedido. Obrigado a todos.",
+          "diasAtras": 15
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio", "valor": 5600, "prazoEntrega": "Imediato (cloud)", "condicoesComerciais": "Suporte incluso", "indicada": false }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 5600,
+          "prazoEntrega": "Imediato (cloud)",
+          "condicoesComerciais": "Suporte incluso",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -516,11 +997,22 @@
       "empresaKey": "veltora",
       "categoriaKey": "escritorio",
       "historico": [
-        { "status": "solicitado", "nota": null,                    "diasAtras": 22 },
-        { "status": "cancelado",  "nota": "Pedido duplicado",      "diasAtras": 21 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 22
+        },
+        {
+          "status": "cancelado",
+          "nota": "Pedido duplicado",
+          "diasAtras": 21
+        }
       ],
       "comentarios": [
-        { "texto": "Esse pedido foi aberto em duplicidade com o p-003. Cancelando este.", "diasAtras": 21 }
+        {
+          "texto": "Esse pedido foi aberto em duplicidade com o p-003. Cancelando este.",
+          "diasAtras": 21
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -543,23 +1035,72 @@
       "empresaKey": "orbix",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 30 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 29 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 27 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 25 },
-        { "status": "comprado",     "nota": "Fornecedor: Manutencao Express Servicos · R$ 2.100,00", "diasAtras": 27 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 24 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 30
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 29
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 27
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 25
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Manutencao Express Servicos · R$ 2.100,00",
+          "diasAtras": 27
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 24
+        }
       ],
       "comentarios": [
-        { "texto": "Serviço realizado no final de semana para evitar impacto na operação.", "diasAtras": 24 },
-        { "texto": "@Financeiro parcela vence em 3 dias, favor confirmar pagamento.", "diasAtras": 20 }
+        {
+          "texto": "Serviço realizado no final de semana para evitar impacto na operação.",
+          "diasAtras": 24
+        },
+        {
+          "texto": "@Financeiro parcela vence em 3 dias, favor confirmar pagamento.",
+          "diasAtras": 20
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Manutencao Express Servicos", "valor": 2100, "prazoEntrega": "3 dias",         "condicoesComerciais": "Certificado ANVISA incluso", "indicada": true  },
-        { "fornecedorNome": "Solucoes Gerais ME",          "valor": 2400, "prazoEntrega": "5 dias úteis",   "condicoesComerciais": "Garantia 6 meses",            "indicada": false }
+        {
+          "fornecedorNome": "Manutencao Express Servicos",
+          "valor": 2100,
+          "prazoEntrega": "3 dias",
+          "condicoesComerciais": "Certificado ANVISA incluso",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 2400,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Garantia 6 meses",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 2100, "vencimento": "2026-06-13", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 2100,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 5
+        }
       ]
     },
     {
@@ -580,18 +1121,52 @@
       "empresaKey": "nexara",
       "categoriaKey": "servicos",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 20 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 19 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 16 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 14 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 20
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 19
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 16
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 14
+        }
       ],
       "comentarios": [
-        { "texto": "Negociamos um desconto de 15% por ser contrato anual.", "diasAtras": 17 },
-        { "texto": "Aprovado pela diretoria. Pode prosseguir com a compra.", "diasAtras": 14 }
+        {
+          "texto": "Negociamos um desconto de 15% por ser contrato anual.",
+          "diasAtras": 17
+        },
+        {
+          "texto": "Aprovado pela diretoria. Pode prosseguir com a compra.",
+          "diasAtras": 14
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "CapacitaPro Treinamentos",  "valor": 13800, "prazoEntrega": "Imediato (online)", "condicoesComerciais": "Desconto 15% plano anual, suporte dedicado", "indicada": true  },
-        { "fornecedorNome": "TechSupply Comercio",        "valor": 15000, "prazoEntrega": "Imediato (online)", "condicoesComerciais": "Preço cheio, sem fidelidade",                "indicada": false }
+        {
+          "fornecedorNome": "CapacitaPro Treinamentos",
+          "valor": 13800,
+          "prazoEntrega": "Imediato (online)",
+          "condicoesComerciais": "Desconto 15% plano anual, suporte dedicado",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 15000,
+          "prazoEntrega": "Imediato (online)",
+          "condicoesComerciais": "Preço cheio, sem fidelidade",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -613,22 +1188,66 @@
       "empresaKey": "orbix",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 37 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 37 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 36 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 35 },
-        { "status": "comprado",     "nota": "Fornecedor: Distribuidora Alfa Ltda · R$ 2.680,00", "diasAtras": 35 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 35 },
-        { "status": "pago",         "nota": null,                         "diasAtras": 34 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 37
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 37
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 36
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 35
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Distribuidora Alfa Ltda · R$ 2.680,00",
+          "diasAtras": 35
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 35
+        },
+        {
+          "status": "pago",
+          "nota": null,
+          "diasAtras": 34
+        }
       ],
       "comentarios": [
-        { "texto": "Abastecimento realizado na Posto Central da Av. Industrial.", "diasAtras": 35 }
+        {
+          "texto": "Abastecimento realizado na Posto Central da Av. Industrial.",
+          "diasAtras": 35
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 2680, "prazoEntrega": "No ato", "condicoesComerciais": "Pagamento antecipado com desconto 5%", "indicada": true }
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 2680,
+          "prazoEntrega": "No ato",
+          "condicoesComerciais": "Pagamento antecipado com desconto 5%",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 2680, "vencimento": "2026-05-02", "pago": true, "diasAtras": 35 }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 2680,
+          "vencimento": "2026-05-02",
+          "pago": true,
+          "diasAtras": 35
+        }
       ]
     },
     {
@@ -649,22 +1268,66 @@
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 42 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 42 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 40 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 39 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 3.100,00", "diasAtras": 39 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 39 },
-        { "status": "pago",         "nota": null,                         "diasAtras": 38 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 42
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 42
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 40
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 39
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 3.100,00",
+          "diasAtras": 39
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 39
+        },
+        {
+          "status": "pago",
+          "nota": null,
+          "diasAtras": 38
+        }
       ],
       "comentarios": [
-        { "texto": "Chaves de ativação enviadas por e-mail.", "diasAtras": 39 }
+        {
+          "texto": "Chaves de ativação enviadas por e-mail.",
+          "diasAtras": 39
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio", "valor": 3100, "prazoEntrega": "Imediato (digital)", "condicoesComerciais": "1 ano de suporte incluso", "indicada": true }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 3100,
+          "prazoEntrega": "Imediato (digital)",
+          "condicoesComerciais": "1 ano de suporte incluso",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 3100, "vencimento": "2026-04-28", "pago": true, "diasAtras": 39 }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 3100,
+          "vencimento": "2026-04-28",
+          "pago": true,
+          "diasAtras": 39
+        }
       ]
     },
     {
@@ -685,22 +1348,67 @@
       "empresaKey": "orbix",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado",   "nota": null,                          "diasAtras": 8 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu — urgente", "diasAtras": 7 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",            "diasAtras": 5 },
-        { "status": "aprovado",     "nota": null,                          "diasAtras": 4 },
-        { "status": "comprado",     "nota": "Fornecedor: Manutencao Express Servicos · R$ 6.800,00", "diasAtras": 4 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 8
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu — urgente",
+          "diasAtras": 7
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 5
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 4
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Manutencao Express Servicos · R$ 6.800,00",
+          "diasAtras": 4
+        }
       ],
       "comentarios": [
-        { "texto": "Elevador interditado pela CIPA até a conclusão do reparo. Operação parcialmente paralisada.", "diasAtras": 8 },
-        { "texto": "Técnico agendado para segunda-feira.", "diasAtras": 5 }
+        {
+          "texto": "Elevador interditado pela CIPA até a conclusão do reparo. Operação parcialmente paralisada.",
+          "diasAtras": 8
+        },
+        {
+          "texto": "Técnico agendado para segunda-feira.",
+          "diasAtras": 5
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Manutencao Express Servicos", "valor": 6800, "prazoEntrega": "2 dias úteis", "condicoesComerciais": "Inclui peças, mão de obra e laudo ART", "indicada": true  },
-        { "fornecedorNome": "Solucoes Gerais ME",          "valor": 7200, "prazoEntrega": "5 dias úteis", "condicoesComerciais": "Somente mão de obra",                   "indicada": false }
+        {
+          "fornecedorNome": "Manutencao Express Servicos",
+          "valor": 6800,
+          "prazoEntrega": "2 dias úteis",
+          "condicoesComerciais": "Inclui peças, mão de obra e laudo ART",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 7200,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Somente mão de obra",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 6800, "vencimento": "2026-07-05", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 6800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 26
+        }
       ]
     },
     {
@@ -721,10 +1429,17 @@
       "empresaKey": "veltora",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 0 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 0
+        }
       ],
       "comentarios": [
-        { "texto": "Estoque crítico, favor priorizar.", "diasAtras": 0 }
+        {
+          "texto": "Estoque crítico, favor priorizar.",
+          "diasAtras": 0
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -749,17 +1464,45 @@
       "empresaKey": "nexara",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 18 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 17 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 14 },
-        { "status": "reprovado",    "nota": "Predio sera reformado no proximo semestre",  "diasAtras": 12 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 18
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 17
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 14
+        },
+        {
+          "status": "reprovado",
+          "nota": "Predio sera reformado no proximo semestre",
+          "diasAtras": 12
+        }
       ],
       "comentarios": [
-        { "texto": "O projeto de reforma do prédio já foi aprovado para Q4. Pintar agora seria desperdício.", "diasAtras": 13 },
-        { "texto": "Reprovado. Rever no início do próximo ano após a reforma.", "diasAtras": 12 }
+        {
+          "texto": "O projeto de reforma do prédio já foi aprovado para Q4. Pintar agora seria desperdício.",
+          "diasAtras": 13
+        },
+        {
+          "texto": "Reprovado. Rever no início do próximo ano após a reforma.",
+          "diasAtras": 12
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Solucoes Gerais ME", "valor": 26500, "prazoEntrega": "30 dias", "condicoesComerciais": "Inclui mão de obra, tinta e andaimes", "indicada": true }
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 26500,
+          "prazoEntrega": "30 dias",
+          "condicoesComerciais": "Inclui mão de obra, tinta e andaimes",
+          "indicada": true
+        }
       ],
       "parcelas": []
     },
@@ -781,24 +1524,80 @@
       "empresaKey": "veltora",
       "categoriaKey": "ti",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 21 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 20 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 18 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 17 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 4.200,00", "diasAtras": 21 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 17 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 21
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 20
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 18
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 17
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 4.200,00",
+          "diasAtras": 21
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 17
+        }
       ],
       "comentarios": [
-        { "texto": "Todos os headsets testados e aprovados pelo time de suporte.", "diasAtras": 16 },
-        { "texto": "@Financeiro parcela a vencer em breve.", "diasAtras": 14 }
+        {
+          "texto": "Todos os headsets testados e aprovados pelo time de suporte.",
+          "diasAtras": 16
+        },
+        {
+          "texto": "@Financeiro parcela a vencer em breve.",
+          "diasAtras": 14
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio",     "valor": 4200, "prazoEntrega": "5 dias úteis", "condicoesComerciais": "Garantia 1 ano", "indicada": true  },
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 4600, "prazoEntrega": "3 dias úteis", "condicoesComerciais": "Garantia 6 meses", "indicada": false }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 4200,
+          "prazoEntrega": "5 dias úteis",
+          "condicoesComerciais": "Garantia 1 ano",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 4600,
+          "prazoEntrega": "3 dias úteis",
+          "condicoesComerciais": "Garantia 6 meses",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 2, "valor": 2100, "vencimento": "2026-06-11", "pago": false, "diasAtras": null },
-        { "numero": 2, "total": 2, "valor": 2100, "vencimento": "2026-07-11", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 2,
+          "valor": 2100,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 2
+        },
+        {
+          "numero": 2,
+          "total": 2,
+          "valor": 2100,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 32
+        }
       ]
     },
     {
@@ -819,18 +1618,52 @@
       "empresaKey": "orbix",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 16 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 15 },
-        { "status": "em_aprovacao", "nota": "Cotação indicada",           "diasAtras": 12 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 10 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 16
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 15
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotação indicada",
+          "diasAtras": 12
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 10
+        }
       ],
       "comentarios": [
-        { "texto": "As paleteiras atuais estão com problema hidráulico e risco de acidente.", "diasAtras": 16 },
-        { "texto": "Aprovado. Pode iniciar a compra.", "diasAtras": 10 }
+        {
+          "texto": "As paleteiras atuais estão com problema hidráulico e risco de acidente.",
+          "diasAtras": 16
+        },
+        {
+          "texto": "Aprovado. Pode iniciar a compra.",
+          "diasAtras": 10
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 5100, "prazoEntrega": "10 dias úteis", "condicoesComerciais": "Entrega no almoxarifado", "indicada": true  },
-        { "fornecedorNome": "Solucoes Gerais ME",      "valor": 5400, "prazoEntrega": "7 dias úteis",  "condicoesComerciais": "Frete incluso",            "indicada": false }
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 5100,
+          "prazoEntrega": "10 dias úteis",
+          "condicoesComerciais": "Entrega no almoxarifado",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 5400,
+          "prazoEntrega": "7 dias úteis",
+          "condicoesComerciais": "Frete incluso",
+          "indicada": false
+        }
       ],
       "parcelas": []
     },
@@ -852,22 +1685,66 @@
       "empresaKey": "nexara",
       "categoriaKey": "escritorio",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 32 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 32 },
-        { "status": "em_aprovacao", "nota": "Cotacao indicada",           "diasAtras": 31 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 30 },
-        { "status": "comprado",     "nota": "Fornecedor: Papelaria Premium Ltda · R$ 560,00", "diasAtras": 30 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 28 },
-        { "status": "pago",         "nota": null,                         "diasAtras": 28 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 32
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 32
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotacao indicada",
+          "diasAtras": 31
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 30
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Papelaria Premium Ltda · R$ 560,00",
+          "diasAtras": 30
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 28
+        },
+        {
+          "status": "pago",
+          "nota": null,
+          "diasAtras": 28
+        }
       ],
       "comentarios": [
-        { "texto": "Fotos enviadas para a gráfica.", "diasAtras": 32 }
+        {
+          "texto": "Fotos enviadas para a gráfica.",
+          "diasAtras": 32
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Papelaria Premium Ltda", "valor": 560, "prazoEntrega": "2 dias úteis", "condicoesComerciais": "Arte inclusa, pagamento antecipado", "indicada": true }
+        {
+          "fornecedorNome": "Papelaria Premium Ltda",
+          "valor": 560,
+          "prazoEntrega": "2 dias úteis",
+          "condicoesComerciais": "Arte inclusa, pagamento antecipado",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 560, "vencimento": "2026-05-07", "pago": true, "diasAtras": 30 }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 560,
+          "vencimento": "2026-05-07",
+          "pago": true,
+          "diasAtras": 30
+        }
       ]
     },
     {
@@ -888,10 +1765,17 @@
       "empresaKey": "veltora",
       "categoriaKey": "marketing",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 3 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 3
+        }
       ],
       "comentarios": [
-        { "texto": "Domínio vence no dia 30. Favor priorizar antes do prazo.", "diasAtras": 3 }
+        {
+          "texto": "Domínio vence no dia 30. Favor priorizar antes do prazo.",
+          "diasAtras": 3
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -914,11 +1798,22 @@
       "empresaKey": "orbix",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado", "nota": null,                         "diasAtras": 5 },
-        { "status": "ag_cotacao", "nota": "Comprador assumiu o pedido", "diasAtras": 4 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 5
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 4
+        }
       ],
       "comentarios": [
-        { "texto": "Preferência por ferramentas Bosch ou DeWalt.", "diasAtras": 5 }
+        {
+          "texto": "Preferência por ferramentas Bosch ou DeWalt.",
+          "diasAtras": 5
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -941,24 +1836,81 @@
       "empresaKey": "nexara",
       "categoriaKey": "marketing",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 95 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 94 },
-        { "status": "em_aprovacao", "nota": "Cotacao indicada",           "diasAtras": 91 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 89 },
-        { "status": "comprado",     "nota": "Agência Solucoes Gerais ME · R$ 8.700,00", "diasAtras": 96 },
-        { "status": "entregue",     "nota": "Contrato encerrado após 3 meses", "diasAtras": 4 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 95
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 94
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotacao indicada",
+          "diasAtras": 91
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 89
+        },
+        {
+          "status": "comprado",
+          "nota": "Agência Solucoes Gerais ME · R$ 8.700,00",
+          "diasAtras": 96
+        },
+        {
+          "status": "entregue",
+          "nota": "Contrato encerrado após 3 meses",
+          "diasAtras": 4
+        }
       ],
       "comentarios": [
-        { "texto": "Campanha entregou ótimos resultados — crescimento de 40% no engajamento.", "diasAtras": 4 },
-        { "texto": "@Financeiro favor registrar parcelas restantes.", "diasAtras": 3 }
+        {
+          "texto": "Campanha entregou ótimos resultados — crescimento de 40% no engajamento.",
+          "diasAtras": 4
+        },
+        {
+          "texto": "@Financeiro favor registrar parcelas restantes.",
+          "diasAtras": 3
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Solucoes Gerais ME", "valor": 8700, "prazoEntrega": "3 meses de serviço", "condicoesComerciais": "Relatório mensal de resultados", "indicada": true }
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 8700,
+          "prazoEntrega": "3 meses de serviço",
+          "condicoesComerciais": "Relatório mensal de resultados",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 3, "valor": 2900, "vencimento": "2026-04-05", "pago": true,  "diasAtras": 65 },
-        { "numero": 2, "total": 3, "valor": 2900, "vencimento": "2026-05-05", "pago": true,  "diasAtras": 35 },
-        { "numero": 3, "total": 3, "valor": 2900, "vencimento": "2026-06-11", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 3,
+          "valor": 2900,
+          "vencimento": "2026-04-05",
+          "pago": true,
+          "diasAtras": 65
+        },
+        {
+          "numero": 2,
+          "total": 3,
+          "valor": 2900,
+          "vencimento": "2026-05-05",
+          "pago": true,
+          "diasAtras": 35
+        },
+        {
+          "numero": 3,
+          "total": 3,
+          "valor": 2900,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 0
+        }
       ]
     },
     {
@@ -979,27 +1931,107 @@
       "empresaKey": "veltora",
       "categoriaKey": "servicos",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 20 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 19 },
-        { "status": "em_aprovacao", "nota": "Cotacao indicada",           "diasAtras": 16 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 14 },
-        { "status": "comprado",     "nota": "Fornecedor: Solucoes Gerais ME · R$ 16.800,00", "diasAtras": 12 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 20
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 19
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotacao indicada",
+          "diasAtras": 16
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 14
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: Solucoes Gerais ME · R$ 16.800,00",
+          "diasAtras": 12
+        }
       ],
       "comentarios": [
-        { "texto": "Apólice com cobertura ampliada para riscos operacionais.", "diasAtras": 16 },
-        { "texto": "Parcelado em 6x para otimizar o fluxo de caixa.", "diasAtras": 12 }
+        {
+          "texto": "Apólice com cobertura ampliada para riscos operacionais.",
+          "diasAtras": 16
+        },
+        {
+          "texto": "Parcelado em 6x para otimizar o fluxo de caixa.",
+          "diasAtras": 12
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Solucoes Gerais ME",      "valor": 16800, "prazoEntrega": "Imediato",     "condicoesComerciais": "Cobertura desde a assinatura, desconto 8% à vista", "indicada": true  },
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 18200, "prazoEntrega": "3 dias úteis", "condicoesComerciais": "Cobertura padrão",                                  "indicada": false }
+        {
+          "fornecedorNome": "Solucoes Gerais ME",
+          "valor": 16800,
+          "prazoEntrega": "Imediato",
+          "condicoesComerciais": "Cobertura desde a assinatura, desconto 8% à vista",
+          "indicada": true
+        },
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 18200,
+          "prazoEntrega": "3 dias úteis",
+          "condicoesComerciais": "Cobertura padrão",
+          "indicada": false
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 6, "valor": 2800, "vencimento": "2026-06-10", "pago": false, "diasAtras": null },
-        { "numero": 2, "total": 6, "valor": 2800, "vencimento": "2026-07-10", "pago": false, "diasAtras": null },
-        { "numero": 3, "total": 6, "valor": 2800, "vencimento": "2026-08-10", "pago": false, "diasAtras": null },
-        { "numero": 4, "total": 6, "valor": 2800, "vencimento": "2026-09-10", "pago": false, "diasAtras": null },
-        { "numero": 5, "total": 6, "valor": 2800, "vencimento": "2026-10-10", "pago": false, "diasAtras": null },
-        { "numero": 6, "total": 6, "valor": 2800, "vencimento": "2026-11-10", "pago": false, "diasAtras": null }
+        {
+          "numero": 1,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 1
+        },
+        {
+          "numero": 2,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 31
+        },
+        {
+          "numero": 3,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 61
+        },
+        {
+          "numero": 4,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 91
+        },
+        {
+          "numero": 5,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 121
+        },
+        {
+          "numero": 6,
+          "total": 6,
+          "valor": 2800,
+          "pago": false,
+          "diasAtras": null,
+          "vencimentoDias": 151
+        }
       ]
     },
     {
@@ -1020,10 +2052,17 @@
       "empresaKey": "orbix",
       "categoriaKey": "manutencao",
       "historico": [
-        { "status": "solicitado", "nota": null, "diasAtras": 2 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 2
+        }
       ],
       "comentarios": [
-        { "texto": "Projeto aprovado na reunião de diretoria da semana passada.", "diasAtras": 2 }
+        {
+          "texto": "Projeto aprovado na reunião de diretoria da semana passada.",
+          "diasAtras": 2
+        }
       ],
       "cotacoes": [],
       "parcelas": []
@@ -1046,22 +2085,66 @@
       "empresaKey": "nexara",
       "categoriaKey": "marketing",
       "historico": [
-        { "status": "solicitado",   "nota": null,                         "diasAtras": 60 },
-        { "status": "ag_cotacao",   "nota": "Comprador assumiu",          "diasAtras": 59 },
-        { "status": "em_aprovacao", "nota": "Cotacao indicada",           "diasAtras": 57 },
-        { "status": "aprovado",     "nota": null,                         "diasAtras": 55 },
-        { "status": "comprado",     "nota": "Fornecedor: TechSupply Comercio · R$ 5.800,00", "diasAtras": 59 },
-        { "status": "entregue",     "nota": null,                         "diasAtras": 59 },
-        { "status": "pago",         "nota": null,                         "diasAtras": 58 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 60
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu",
+          "diasAtras": 59
+        },
+        {
+          "status": "em_aprovacao",
+          "nota": "Cotacao indicada",
+          "diasAtras": 57
+        },
+        {
+          "status": "aprovado",
+          "nota": null,
+          "diasAtras": 55
+        },
+        {
+          "status": "comprado",
+          "nota": "Fornecedor: TechSupply Comercio · R$ 5.800,00",
+          "diasAtras": 59
+        },
+        {
+          "status": "entregue",
+          "nota": null,
+          "diasAtras": 59
+        },
+        {
+          "status": "pago",
+          "nota": null,
+          "diasAtras": 58
+        }
       ],
       "comentarios": [
-        { "texto": "Todas as contas ativadas com sucesso.", "diasAtras": 58 }
+        {
+          "texto": "Todas as contas ativadas com sucesso.",
+          "diasAtras": 58
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "TechSupply Comercio", "valor": 5800, "prazoEntrega": "Imediato (digital)", "condicoesComerciais": "Desconto 5% no plano anual", "indicada": true }
+        {
+          "fornecedorNome": "TechSupply Comercio",
+          "valor": 5800,
+          "prazoEntrega": "Imediato (digital)",
+          "condicoesComerciais": "Desconto 5% no plano anual",
+          "indicada": true
+        }
       ],
       "parcelas": [
-        { "numero": 1, "total": 1, "valor": 5800, "vencimento": "2026-04-10", "pago": true, "diasAtras": 59 }
+        {
+          "numero": 1,
+          "total": 1,
+          "valor": 5800,
+          "vencimento": "2026-04-10",
+          "pago": true,
+          "diasAtras": 59
+        }
       ]
     },
     {
@@ -1082,15 +2165,35 @@
       "empresaKey": "veltora",
       "categoriaKey": "operacional",
       "historico": [
-        { "status": "solicitado", "nota": null,                         "diasAtras": 6 },
-        { "status": "ag_cotacao", "nota": "Comprador assumiu o pedido", "diasAtras": 5 }
+        {
+          "status": "solicitado",
+          "nota": null,
+          "diasAtras": 6
+        },
+        {
+          "status": "ag_cotacao",
+          "nota": "Comprador assumiu o pedido",
+          "diasAtras": 5
+        }
       ],
       "comentarios": [
-        { "texto": "Solicitar orçamento que inclua software de gestão de acesso.", "diasAtras": 6 },
-        { "texto": "Já tenho 1 cotação em mãos, aguardando mais 2.", "diasAtras": 4 }
+        {
+          "texto": "Solicitar orçamento que inclua software de gestão de acesso.",
+          "diasAtras": 6
+        },
+        {
+          "texto": "Já tenho 1 cotação em mãos, aguardando mais 2.",
+          "diasAtras": 4
+        }
       ],
       "cotacoes": [
-        { "fornecedorNome": "Distribuidora Alfa Ltda", "valor": 30500, "prazoEntrega": "25 dias úteis", "condicoesComerciais": "Inclui instalação e treinamento", "indicada": false }
+        {
+          "fornecedorNome": "Distribuidora Alfa Ltda",
+          "valor": 30500,
+          "prazoEntrega": "25 dias úteis",
+          "condicoesComerciais": "Inclui instalação e treinamento",
+          "indicada": false
+        }
       ],
       "parcelas": []
     }

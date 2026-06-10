@@ -9,7 +9,7 @@ import { renderConfigCadastros } from './config-cadastros.js'
 import { renderConfigGeral } from './config-geral.js'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
-  PERFIS_LABEL, PERFIS_COLOR,
+  PERFIS, PERFIS_LABEL, PERFIS_COLOR,
 } from './constants.js'
 import { gerarIniciais } from './utils.js'
 
@@ -85,9 +85,9 @@ function _rotear() {
   const perfil          = sessao.usuario?.perfil
 
   const bloqueado = (
-    (perfil === 'solicitante' && bloqueadoSolic.includes(tela)) ||
-    (perfil === 'comprador'   && bloqueadoCompr.includes(tela)) ||
-    (perfil === 'financeiro'  && bloqueadoFinanc.includes(tela))
+    (perfil === PERFIS.SOLICITANTE && bloqueadoSolic.includes(tela)) ||
+    (perfil === PERFIS.COMPRADOR   && bloqueadoCompr.includes(tela)) ||
+    (perfil === PERFIS.FINANCEIRO  && bloqueadoFinanc.includes(tela))
   )
 
   if (bloqueado) { navegar('pedidos'); return }
@@ -129,8 +129,8 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
   const iniciais = gi(usuario.nome)
   const perfil   = usuario.perfil
 
-  const podeRelatorios = ['supremo','gestor','aprovador','financeiro'].includes(perfil)
-  const podeConfig     = ['supremo','gestor'].includes(perfil)
+  const podeRelatorios = [PERFIS.SUPREMO, PERFIS.GESTOR, PERFIS.APROVADOR, PERFIS.FINANCEIRO].includes(perfil)
+  const podeConfig     = [PERFIS.SUPREMO, PERFIS.GESTOR].includes(perfil)
 
   const _isDark    = !document.documentElement.classList.contains('light')
   const _iconTema  = _isDark
@@ -262,8 +262,8 @@ function _syncIconeTema() {
 function _toggleMobileMenu(modoConfig) {
   const { PERFIS } = window.__praxisConst
   const perfil = sessao.usuario?.perfil
-  const podeRelatorios = ['supremo','gestor','aprovador','financeiro'].includes(perfil)
-  const podeConfig     = ['supremo','gestor'].includes(perfil)
+  const podeRelatorios = [PERFIS.SUPREMO, PERFIS.GESTOR, PERFIS.APROVADOR, PERFIS.FINANCEIRO].includes(perfil)
+  const podeConfig     = [PERFIS.SUPREMO, PERFIS.GESTOR].includes(perfil)
   const tela = new URLSearchParams(window.location.search).get('tela') || 'pedidos'
 
   let existing = document.getElementById('mobile-menu')

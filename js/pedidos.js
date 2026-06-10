@@ -4,7 +4,7 @@ import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
-  KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, t,
+  PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, t,
 } from './constants.js'
 import { formatCurrency, formatDate, gerarIniciais, hojeISO, debounce, normalizarTexto, parseMoeda } from './utils.js'
 
@@ -294,7 +294,7 @@ function _iniciarListenerPedidos() {
   const perfil = sessao.usuario.perfil
 
   let q
-  if (perfil === 'supremo') {
+  if (perfil === PERFIS.SUPREMO) {
     // Supremo enxerga todos os pedidos sem filtro por empresa
     q = query(collection(db, 'pedidos'), orderBy('criadoEm', 'desc'))
   } else {
@@ -489,7 +489,7 @@ function _preencherModalNovoPedido() {
     const raw = sessao.usuario.empresas
     const empIds = Array.isArray(raw) ? raw : Object.keys(raw || {})
     const disponiveis = _empresas.filter(e =>
-      sessao.usuario.perfil === 'supremo' || empIds.includes(e.id)
+      sessao.usuario.perfil === PERFIS.SUPREMO || empIds.includes(e.id)
     )
     disponiveis.forEach(e => {
       const opt = document.createElement('option')

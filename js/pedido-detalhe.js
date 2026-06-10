@@ -28,6 +28,7 @@ let _parcelas    = []
 let _empresas    = []
 let _categorias  = []
 let _usuarios    = []
+let _fornecedores = []
 
 // ── Render ────────────────────────────────────────────────────
 export async function renderDetalhe(pedidoId) {
@@ -75,14 +76,48 @@ async function _carregarSubcollections() {
 }
 
 async function _carregarAuxiliares() {
-  const [empSnap, catSnap, usrSnap] = await Promise.all([
+  const [empSnap, catSnap, usrSnap, fornSnap] = await Promise.all([
     getDocs(collection(db, 'empresas')),
     getDocs(collection(db, 'categorias')),
     getDocs(collection(db, 'usuarios')),
+    getDocs(collection(db, 'fornecedores')),
   ])
   _empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _usuarios    = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  _fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+// Opções de autocomplete de fornecedor (datalist)
+function _fornecedorDatalistOptions() {
+  return _fornecedores
+    .map(f => f.nomeExibicao || f.nomeOriginal || f.nome)
+    .filter(Boolean)
+    .map(nome => `<option value="${nome.replace(/"/g, '&quot;')}"></option>`)
+    .join('')
+}
+
+// Busca fornecedor por nome normalizado; cria se não existir. Incrementa usos.
+async function _buscarOuCriarFornecedor(nomeDigitado) {
+  const nomeNorm = normalizarTexto(nomeDigitado)
+  const existente = _fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)
+  if (existente) {
+    await updateDoc(doc(db, 'fornecedores', existente.id), { usos: (existente.usos || 0) + 1 })
+    return existente.id
+  }
+  // Confirma no servidor (pode ter sido criado por outro fluxo)
+  const snap = await getDocs(query(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
+  if (!snap.empty) {
+    const ref = snap.docs[0]
+    await updateDoc(doc(db, 'fornecedores', ref.id), { usos: (ref.data().usos || 0) + 1 })
+    return ref.id
+  }
+  const novo = await addDoc(collection(db, 'fornecedores'), {
+    nome: nomeNorm, nomeOriginal: nomeDigitado, nomeExibicao: nomeDigitado,
+    cnpj: '', criadoEm: serverTimestamp(), usos: 1,
+  })
+  _fornecedores.push({ id: novo.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 })
+  return novo.id
 }
 
 // ── Render HTML ───────────────────────────────────────────────
@@ -222,7 +257,8 @@ function _renderDetalhe() {
           <div class="form-grid form-grid-2">
             <div class="form-group col-span-2">
               <label for="mc-fornecedor">Fornecedor *</label>
-              <input type="text" id="mc-fornecedor" placeholder="Nome do fornecedor">
+              <input type="text" id="mc-fornecedor" placeholder="Nome do fornecedor" list="fornecedores-datalist" autocomplete="off">
+              <datalist id="fornecedores-datalist">${_fornecedorDatalistOptions()}</datalist>
             </div>
             <div class="form-group">
               <label for="mc-valor">Valor final *</label>
@@ -372,8 +408,8 @@ function _renderPessoaComprador() {
 function _renderPessoaAprovadores() {
   const aprovadores = _pedido.aprovadorIds?.length
     ? _pedido.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
-    : _usuarios.filter(u => ['aprovador','gestor','supremo'].includes(u.perfil) &&
-        (sessao.usuario.perfil === 'supremo' ||
+    : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(u.perfil) &&
+        (sessao.usuario.perfil === PERFIS.SUPREMO ||
           _normEmpresas(sessao.usuario.empresas).some(e => _normEmpresas(u.empresas).includes(e))))
 
   const aprovadoPor = _pedido.aprovadoPor
@@ -400,7 +436,7 @@ function _renderPessoaAprovadores() {
 
 function _renderPessoaFinanceiro() {
   const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO &&
-    (sessao.usuario.perfil === 'supremo' ||
+    (sessao.usuario.perfil === PERFIS.SUPREMO ||
       _normEmpresas(sessao.usuario.empresas).some(e => _normEmpresas(u.empresas).includes(e))))
   const fin = fins[0]
   const totalPago = _parcelas.filter(p => p.pago).length
@@ -428,28 +464,28 @@ function _renderAcoes() {
   const perfil = sessao.usuario.perfil
   const btns = []
 
-  if (p.status === STATUS.EM_APROVACAO && ['aprovador','gestor','supremo'].includes(perfil)) {
+  if (p.status === STATUS.EM_APROVACAO && [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
     btns.push(`<button class="btn-primary btn-sm" id="btn-aprovar">Aprovar</button>`)
     btns.push(`<button class="btn-danger btn-sm" id="btn-reprovar">Reprovar</button>`)
   }
 
-  if (p.status === STATUS.APROVADO && ['comprador','gestor','supremo'].includes(perfil) &&
-      (p.compradorId === uid || ['gestor','supremo'].includes(perfil))) {
+  if (p.status === STATUS.APROVADO && [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
+      (p.compradorId === uid || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil))) {
     btns.push(`<button class="btn-primary btn-sm" id="btn-executar-compra">Executar compra</button>`)
   }
 
   if (p.status === STATUS.COMPRADO &&
-      (['comprador','gestor','supremo'].includes(perfil) || p.solicitanteId === uid)) {
+      ([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) || p.solicitanteId === uid)) {
     btns.push(`<button class="btn-primary btn-sm" id="btn-confirmar-entrega">Confirmar entrega</button>`)
   }
 
-  if (p.status === STATUS.ENTREGUE && ['financeiro','gestor','supremo'].includes(perfil)) {
+  if (p.status === STATUS.ENTREGUE && [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
     btns.push(`<button class="btn-primary btn-sm" id="btn-confirmar-pagamento">Confirmar pagamento</button>`)
   }
 
   const podeCanc = (
     (p.solicitanteId === uid && p.status === STATUS.SOLICITADO) ||
-    (['gestor','supremo'].includes(perfil) && ![STATUS.ENTREGUE, STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status))
+    ([PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && ![STATUS.ENTREGUE, STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status))
   )
   if (podeCanc) {
     btns.push(`<button class="btn-danger btn-sm" id="btn-cancelar">Cancelar pedido</button>`)
@@ -763,19 +799,8 @@ async function _executarCompra() {
   }
   mostrarSpinner()
   try {
-    // Busca ou cria fornecedor
-    const nomeNorm = normalizarTexto(fornecedor)
-    const fornSnap = await getDocs(query(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
-    let fornecedorId
-    if (fornSnap.empty) {
-      const novForn = await addDoc(collection(db, 'fornecedores'), {
-        nome: nomeNorm, nomeOriginal: fornecedor, cnpj: '', criadoEm: serverTimestamp(), usos: 1,
-      })
-      fornecedorId = novForn.id
-    } else {
-      fornecedorId = fornSnap.docs[0].id
-      await updateDoc(doc(db, 'fornecedores', fornecedorId), { usos: (fornSnap.docs[0].data().usos || 0) + 1 })
-    }
+    // Busca ou cria fornecedor (autocomplete + dedupe por nome normalizado)
+    const fornecedorId = await _buscarOuCriarFornecedor(fornecedor)
 
     await updateDoc(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.COMPRADO,
@@ -979,7 +1004,8 @@ async function _mostrarModalCotacao() {
         <div class="form-grid form-grid-2">
           <div class="form-group col-span-2">
             <label for="cot-forn">Fornecedor *</label>
-            <input type="text" id="cot-forn" placeholder="Nome do fornecedor">
+            <input type="text" id="cot-forn" placeholder="Nome do fornecedor" list="cot-forn-datalist" autocomplete="off">
+            <datalist id="cot-forn-datalist">${_fornecedorDatalistOptions()}</datalist>
           </div>
           <div class="form-group">
             <label for="cot-valor">Valor *</label>
@@ -1034,8 +1060,11 @@ async function _mostrarModalCotacao() {
         arquivoNome = arquivo.name
       }
 
+      // Linka (ou cria) o fornecedor estruturado, evitando duplicatas
+      const fornecedorId = await _buscarOuCriarFornecedor(fornNome)
+
       await addDoc(collection(db, 'pedidos', _pedidoId, 'cotacoes'), {
-        fornecedorId: null,
+        fornecedorId,
         fornecedorNome: fornNome,
         valor, prazoEntrega: prazo, condicoesComerciais: cond,
         arquivoUrl, arquivoNome,
@@ -1058,20 +1087,20 @@ function _podeAssumir() {
   const p = _pedido
   const perfil = sessao.usuario.perfil
   return p.status === STATUS.SOLICITADO && p.compradorId === null &&
-         ['comprador','gestor','supremo'].includes(perfil)
+         [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
 }
 
 function _podeLiberar() {
   const perfil = sessao.usuario.perfil
-  return ['gestor','supremo'].includes(perfil) && _pedido.compradorId !== null
+  return [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && _pedido.compradorId !== null
 }
 
 function _podeAnexarCotacao() {
   const p = _pedido
   const perfil = sessao.usuario.perfil
   return p.status === STATUS.AG_COTACAO &&
-         (['comprador','gestor','supremo'].includes(perfil)) &&
-         (p.compradorId === sessao.usuario.id || ['gestor','supremo'].includes(perfil))
+         ([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) &&
+         (p.compradorId === sessao.usuario.id || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil))
 }
 
 function _podeIndicarCotacao() {
@@ -1079,7 +1108,7 @@ function _podeIndicarCotacao() {
 }
 
 function _podePagarParcela() {
-  return ['financeiro','gestor','supremo'].includes(sessao.usuario.perfil)
+  return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil)
 }
 
 // ── Utilitário ────────────────────────────────────────────────
