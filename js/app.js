@@ -125,7 +125,6 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
   if (!usuario) return ''
 
   const { gerarIniciais: gi } = window.__praxisUtils
-  const { PERFIS } = window.__praxisConst
   const iniciais = gi(usuario.nome)
   const perfil   = usuario.perfil
 
@@ -260,7 +259,6 @@ function _syncIconeTema() {
 }
 
 function _toggleMobileMenu(modoConfig) {
-  const { PERFIS } = window.__praxisConst
   const perfil = sessao.usuario?.perfil
   const podeRelatorios = [PERFIS.SUPREMO, PERFIS.GESTOR, PERFIS.APROVADOR, PERFIS.FINANCEIRO].includes(perfil)
   const podeConfig     = [PERFIS.SUPREMO, PERFIS.GESTOR].includes(perfil)
