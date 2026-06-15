@@ -1,6 +1,7 @@
 import { db, collection, query, where, onSnapshot, updateDoc, doc, getDocs, writeBatch } from './firebase.js'
-import { sessao } from './app.js'
-import { EVENTOS, EVENTOS_ICON_CLASS } from './constants.js'
+import { sessao, registrarLimpador } from './app.js'
+import { prxToast } from './ui.js'
+import { EVENTOS, EVENTOS_ICON_CLASS, t } from './constants.js'
 import { formatTimestamp } from './utils.js'
 
 let _unsubNotif = null
@@ -32,6 +33,11 @@ export function renderNotificacoes() {
 
     _atualizarBadge(items.length)
     _renderDropdown(items)
+  })
+
+  registrarLimpador(() => {
+    if (_unsubNotif) { _unsubNotif(); _unsubNotif = null }
+    _atualizarBadge(0)
   })
 }
 
@@ -67,22 +73,40 @@ function _renderDropdown(items) {
     </div>
   `
 
-  // Marcar todas como lidas
+  // Marcar todas como lidas — optimistic: limpa a UI já, restaura se falhar
   document.getElementById('btn-marcar-todas')?.addEventListener('click', async () => {
     const uid = sessao.usuario.id
-    const snap = await getDocs(query(collection(db, 'notificacoes', uid, 'items'), where('lida', '==', false)))
-    const batch = writeBatch(db)
-    snap.docs.forEach(d => batch.update(d.ref, { lida: true }))
-    await batch.commit()
+    _atualizarBadge(0)
+    _renderDropdown([])
+    try {
+      const snap = await getDocs(query(collection(db, 'notificacoes', uid, 'items'), where('lida', '==', false)))
+      const batch = writeBatch(db)
+      snap.docs.forEach(d => batch.update(d.ref, { lida: true }))
+      await batch.commit()
+    } catch {
+      _atualizarBadge(items.length)
+      _renderDropdown(items)
+      prxToast(t('erroMarcarLidas'), 'error')
+    }
   })
 
-  // Marcar individual ao clicar
+  // Marcar individual ao clicar — optimistic: remove da lista e navega sem aguardar
   document.querySelectorAll('.notif-item[data-id]').forEach(item => {
     item.addEventListener('click', async () => {
       const uid = sessao.usuario.id
       const id  = item.dataset.id
       const pedidoId = item.dataset.pedido
-      await updateDoc(doc(db, 'notificacoes', uid, 'items', id), { lida: true })
+
+      const restantes = items.filter(n => n.id !== id)
+      _atualizarBadge(restantes.length)
+      _renderDropdown(restantes)
+
+      updateDoc(doc(db, 'notificacoes', uid, 'items', id), { lida: true }).catch(() => {
+        _atualizarBadge(items.length)
+        _renderDropdown(items)
+        prxToast(t('erroMarcarLida'), 'error')
+      })
+
       if (pedidoId) {
         const { navegar } = await import('./app.js')
         navegar('detalhe', { id: pedidoId })
@@ -99,7 +123,7 @@ function _renderItem(n) {
     <div class="notif-item unread" data-id="${n.id}" ${n.pedidoId ? `data-pedido="${n.pedidoId}"` : ''}>
       <div class="notif-icon ${iconClass}">${icone}</div>
       <div class="notif-body">
-        <p>${n.titulo || n.corpo || 'Nova notificação'}</p>
+        <p>${n.titulo || n.corpo || t('novaNotificacao')}</p>
         <div class="notif-time">${formatTimestamp(n.criadoEm)}</div>
       </div>
     </div>

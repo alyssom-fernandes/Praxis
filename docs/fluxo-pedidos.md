@@ -33,6 +33,12 @@
       └─────────────┘
 
 Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
+
+           Reprovado ──(Reabrir)──► novo Solicitado
+                       Solicitante/Gestor/Supremo podem reabrir
+                       pedido reprovado com justificativa obrigatória;
+                       o pedido original recebe reabertoPara, o novo
+                       recebe reabertoDe — ambos exibem banner de vínculo.
 ```
 
 ## Regras de transição
@@ -68,3 +74,22 @@ Duas operações usam `runTransaction` obrigatoriamente:
 **Cancelamento:** Compra não necessária · Fornecedor indisponível · Erro no pedido · Pedido duplicado · Outros (texto livre)
 
 Cada transição grava uma entrada em `/pedidos/{id}/historico` com status, autor e nota.
+
+## Ações em massa
+
+Na visualização de lista, usuários com perfil Gestor, Supremo ou Solicitante podem selecionar múltiplos pedidos e:
+
+- **Exportar CSV** — gera arquivo com número, título, empresa, status, valor e data; abre no Excel
+- **Cancelar selecionados** — aplica apenas aos pedidos elegíveis (estados Solicitado/Ag.cotação/Em aprovação/Aprovado); Solicitante só pode cancelar os seus próprios; motivo obrigatório; cada cancelamento grava entrada no historico
+
+## Reabertura de pedido reprovado
+
+Solicitante, Gestor e Supremo podem reabrir um pedido em estado **Reprovado** (desde que não tenha sido reaberto antes). A reabertura:
+
+1. Cria um novo pedido com os mesmos campos (título, empresa, categoria, valor, etc.) e status **Solicitado**
+2. Grava `reabertoDe: pedidoOriginalId` no novo pedido
+3. Grava `reabertoPara: novoPedidoId` no original (impede segunda reabertura)
+4. Registra a justificativa no historico do novo pedido
+5. Exibe banners de vínculo em ambos os pedidos
+
+O novo pedido recebe numeração sequencial própria (PRX-XXXX) e segue o fluxo normalmente.

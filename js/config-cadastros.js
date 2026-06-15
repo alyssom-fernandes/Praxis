@@ -2,9 +2,9 @@ import {
   db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter } from './app.js'
-import { prxToast, mostrarSpinner, esconderSpinner } from './ui.js'
+import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { CATEGORIAS_PADRAO } from './constants.js'
+import { CATEGORIAS_PADRAO, t } from './constants.js'
 import { formatCNPJ, debounce } from './utils.js'
 
 let _empresas     = []
@@ -21,20 +21,20 @@ export async function renderConfigCadastros() {
         <div>
             <!-- Abas internas -->
             <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--line);padding-bottom:0.75rem">
-              <button class="pill active" data-aba="empresas" id="aba-empresas">Empresas</button>
-              <button class="pill" data-aba="categorias" id="aba-categorias">Categorias</button>
-              <button class="pill" data-aba="fornecedores" id="aba-fornecedores">Fornecedores</button>
+              <button class="pill active" data-aba="empresas" id="aba-empresas">${t('secaoEmpresas')}</button>
+              <button class="pill" data-aba="categorias" id="aba-categorias">${t('secaoCategorias')}</button>
+              <button class="pill" data-aba="fornecedores" id="aba-fornecedores">${t('secaoFornecedores')}</button>
             </div>
 
             <!-- Painel Empresas -->
             <div id="painel-empresas">
               <div class="config-section-header">
-                <h2>Empresas</h2>
+                <h2>${t('secaoEmpresas')}</h2>
                 <button class="btn-primary btn-sm" id="btn-nova-empresa">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
-                  Nova empresa
+                  ${t('btnNovaEmpresa')}
                 </button>
               </div>
               <div class="empresas-grid" id="grid-empresas">
@@ -45,12 +45,12 @@ export async function renderConfigCadastros() {
             <!-- Painel Categorias -->
             <div id="painel-categorias" style="display:none">
               <div class="config-section-header">
-                <h2>Categorias</h2>
+                <h2>${t('secaoCategorias')}</h2>
                 <button class="btn-primary btn-sm" id="btn-nova-categoria">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
-                  Nova categoria
+                  ${t('btnNovaCategoria')}
                 </button>
               </div>
               <div class="card no-hover" style="overflow:hidden">
@@ -75,7 +75,7 @@ export async function renderConfigCadastros() {
             <!-- Painel Fornecedores -->
             <div id="painel-fornecedores" style="display:none">
               <div class="config-section-header">
-                <h2>Fornecedores</h2>
+                <h2>${t('secaoFornecedores')}</h2>
               </div>
               <div class="search-input-wrap" style="max-width:300px;margin-bottom:1rem">
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -107,7 +107,7 @@ export async function renderConfigCadastros() {
     <div class="modal-overlay" id="modal-empresa">
       <div class="modal" style="max-width:480px">
         <div class="modal-header">
-          <h2 id="modal-empresa-titulo">Nova empresa</h2>
+          <h2 id="modal-empresa-titulo">${t('novaEmpresaTitulo')}</h2>
           <button class="btn-icon" id="close-modal-empresa">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -135,8 +135,8 @@ export async function renderConfigCadastros() {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" id="cancel-modal-empresa">Cancelar</button>
-          <button class="btn-primary" id="salvar-empresa">Salvar</button>
+          <button class="btn-secondary" id="cancel-modal-empresa">${t('btnCancelar')}</button>
+          <button class="btn-primary" id="salvar-empresa">${t('salvarLabel')}</button>
         </div>
       </div>
     </div>
@@ -145,7 +145,7 @@ export async function renderConfigCadastros() {
     <div class="modal-overlay" id="modal-categoria">
       <div class="modal" style="max-width:420px">
         <div class="modal-header">
-          <h2 id="modal-cat-titulo">Nova categoria</h2>
+          <h2 id="modal-cat-titulo">${t('novaCategoriaTitulo')}</h2>
           <button class="btn-icon" id="close-modal-cat">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -167,8 +167,8 @@ export async function renderConfigCadastros() {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" id="cancel-modal-cat">Cancelar</button>
-          <button class="btn-primary" id="salvar-categoria">Salvar</button>
+          <button class="btn-secondary" id="cancel-modal-cat">${t('btnCancelar')}</button>
+          <button class="btn-primary" id="salvar-categoria">${t('salvarLabel')}</button>
         </div>
       </div>
     </div>
@@ -213,7 +213,7 @@ function _renderEmpresas() {
   if (!grid) return
 
   if (!_empresas.length) {
-    grid.innerHTML = `<div class="empty-state"><p>Nenhuma empresa cadastrada.</p></div>`
+    grid.innerHTML = `<div class="empty-state"><p>${t('semEmpresas')}</p></div>`
     return
   }
 
@@ -227,15 +227,15 @@ function _renderEmpresas() {
             </svg>
           </div>
           <span class="badge ${e.ativa !== false ? 'badge-green' : 'badge-neutral'}">
-            ${e.ativa !== false ? 'Ativa' : 'Inativa'}
+            ${e.ativa !== false ? t('empresaAtivaLabel') : t('empresaInativaLabel')}
           </span>
         </div>
         <div>
           <div class="empresa-nome">${e.nome}</div>
-          <div class="empresa-cnpj">${formatCNPJ(e.cnpj) || 'CNPJ não informado'}</div>
+          <div class="empresa-cnpj">${formatCNPJ(e.cnpj) || t('cnpjNaoInformado')}</div>
         </div>
         <div class="empresa-counters">
-          <button class="btn-secondary btn-sm" data-editar-emp="${e.id}" style="margin-top:0.25rem">Editar</button>
+          <button class="btn-secondary btn-sm" data-editar-emp="${e.id}" style="margin-top:0.25rem">${t('editarLabel')}</button>
         </div>
       </div>
     </div>
@@ -259,7 +259,7 @@ function _renderCategorias() {
     <tr>
       <td><span style="width:12px;height:12px;border-radius:50%;background:${c.cor};display:inline-block"></span></td>
       <td>${c.nome}</td>
-      <td><span class="badge ${c.tipo === 'padrao' ? 'badge-neutral' : 'badge-blue'}">${c.tipo === 'padrao' ? 'Padrão' : 'Personalizada'}</span></td>
+      <td><span class="badge ${c.tipo === 'padrao' ? 'badge-neutral' : 'badge-blue'}">${c.tipo === 'padrao' ? t('categoriaPadraoLabel') : t('catPersonalizadaLabel')}</span></td>
       <td>
         <button class="btn-icon btn-editar-cat" data-cat-id="${c.id}" title="Editar">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -289,7 +289,7 @@ function _renderFornecedores(filtro = '') {
     : _fornecedores
 
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:2rem">Nenhum fornecedor cadastrado.</td></tr>`
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:2rem">${t('semFornecedores')}</td></tr>`
     return
   }
 
@@ -297,7 +297,7 @@ function _renderFornecedores(filtro = '') {
     <tr>
       <td>${f.nomeExibicao || f.nomeOriginal || f.nome}</td>
       <td>${formatCNPJ(f.cnpj) || '—'}</td>
-      <td>${f.usos || 0} pedido${f.usos !== 1 ? 's' : ''}</td>
+      <td>${f.usos || 0} ${f.usos !== 1 ? t('usosPedidos') : t('usosPedido')}</td>
       <td>
         <button class="btn-icon btn-editar-forn" data-forn-id="${f.id}" title="Editar">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -319,32 +319,35 @@ function _renderFornecedores(filtro = '') {
 
 // ── Modais Empresa ────────────────────────────────────────────
 function _abrirModalEmpresa(emp = null) {
-  document.getElementById('modal-empresa-titulo').textContent = emp ? 'Editar empresa' : 'Nova empresa'
+  document.getElementById('modal-empresa-titulo').textContent = emp ? t('editarEmpresaTitulo') : t('novaEmpresaTitulo')
   document.getElementById('emp-id').value   = emp?.id || ''
   document.getElementById('emp-nome').value = emp?.nome || ''
   document.getElementById('emp-cnpj').value = emp?.cnpj || ''
   document.getElementById('emp-ativa-toggle').classList.toggle('on', emp ? emp.ativa !== false : true)
-  document.getElementById('modal-empresa').classList.add('visible')
+  abrirModal('modal-empresa')
 }
 
 // ── Modais Categoria ──────────────────────────────────────────
 function _abrirModalCategoria(cat = null) {
-  document.getElementById('modal-cat-titulo').textContent = cat ? 'Editar categoria' : 'Nova categoria'
+  document.getElementById('modal-cat-titulo').textContent = cat ? t('editarCategoriaTitulo') : t('novaCategoriaTitulo')
   document.getElementById('cat-id').value   = cat?.id || ''
   document.getElementById('cat-nome').value = cat?.nome || ''
   document.getElementById('cat-cor').value  = cat?.cor || '#C8A96E'
   document.getElementById('cat-cor-preview').textContent = cat?.nome || ''
-  document.getElementById('modal-categoria').classList.add('visible')
+  abrirModal('modal-categoria')
 }
 
 // ── Editar Fornecedor ─────────────────────────────────────────
 async function _editarFornecedor(forn) {
+  const MODAL_ID = 'modal-forn-edit'
+  document.getElementById(MODAL_ID)?.remove()
   const overlay = document.createElement('div')
-  overlay.className = 'modal-overlay visible'
+  overlay.id = MODAL_ID
+  overlay.className = 'modal-overlay'
   overlay.innerHTML = `
     <div class="modal" style="max-width:420px">
       <div class="modal-header">
-        <h2>Editar fornecedor</h2>
+        <h2>${t('editarFornTitulo')}</h2>
         <button class="btn-icon" id="close-forn-modal">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -362,29 +365,32 @@ async function _editarFornecedor(forn) {
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" id="cancel-forn-modal">Cancelar</button>
-        <button class="btn-primary" id="salvar-forn-modal">Salvar</button>
+        <button class="btn-secondary" id="cancel-forn-modal">${t('btnCancelar')}</button>
+        <button class="btn-primary" id="salvar-forn-modal">${t('salvarLabel')}</button>
       </div>
     </div>
   `
   document.body.appendChild(overlay)
-  document.getElementById('close-forn-modal')?.addEventListener('click', () => overlay.remove())
-  document.getElementById('cancel-forn-modal')?.addEventListener('click', () => overlay.remove())
+  abrirModal(MODAL_ID)
+  const _fechar = () => { fecharModal(MODAL_ID); setTimeout(() => overlay.remove(), 250) }
+  overlay.addEventListener('click', e => { if (e.target === overlay) _fechar() })
+  document.getElementById('close-forn-modal')?.addEventListener('click', _fechar)
+  document.getElementById('cancel-forn-modal')?.addEventListener('click', _fechar)
   document.getElementById('salvar-forn-modal')?.addEventListener('click', async () => {
     const nome = document.getElementById('forn-nome').value.trim()
     const cnpj = document.getElementById('forn-cnpj').value.trim()
-    if (!nome) { prxToast('Nome obrigatório.', 'error'); return }
+    if (!nome) { prxToast(t('nomeObrigatorio'), 'error'); return }
     mostrarSpinner()
     try {
       const { normalizarTexto } = await import('./utils.js')
       await updateDoc(doc(db, 'fornecedores', forn.id), {
         nome: normalizarTexto(nome), nomeOriginal: nome, nomeExibicao: nome, cnpj,
       })
-      overlay.remove()
+      _fechar()
       await _carregar()
-      prxToast('Fornecedor atualizado!', 'success')
+      prxToast(t('fornecedorAtualizado'), 'success')
     } catch {
-      prxToast('Erro ao salvar.', 'error')
+      prxToast(t('erroSalvar'), 'error')
     } finally {
       esconderSpinner()
     }
@@ -407,15 +413,15 @@ function _bindEvents() {
 
   // Empresa
   document.getElementById('btn-nova-empresa')?.addEventListener('click', () => _abrirModalEmpresa())
-  document.getElementById('close-modal-empresa')?.addEventListener('click', () => document.getElementById('modal-empresa').classList.remove('visible'))
-  document.getElementById('cancel-modal-empresa')?.addEventListener('click', () => document.getElementById('modal-empresa').classList.remove('visible'))
+  document.getElementById('close-modal-empresa')?.addEventListener('click', () => fecharModal('modal-empresa'))
+  document.getElementById('cancel-modal-empresa')?.addEventListener('click', () => fecharModal('modal-empresa'))
   document.getElementById('emp-ativa-wrap')?.addEventListener('click', () => document.getElementById('emp-ativa-toggle')?.classList.toggle('on'))
   document.getElementById('salvar-empresa')?.addEventListener('click', _salvarEmpresa)
 
   // Categoria
   document.getElementById('btn-nova-categoria')?.addEventListener('click', () => _abrirModalCategoria())
-  document.getElementById('close-modal-cat')?.addEventListener('click', () => document.getElementById('modal-categoria').classList.remove('visible'))
-  document.getElementById('cancel-modal-cat')?.addEventListener('click', () => document.getElementById('modal-categoria').classList.remove('visible'))
+  document.getElementById('close-modal-cat')?.addEventListener('click', () => fecharModal('modal-categoria'))
+  document.getElementById('cancel-modal-cat')?.addEventListener('click', () => fecharModal('modal-categoria'))
   document.getElementById('cat-cor')?.addEventListener('input', e => {
     document.getElementById('cat-cor-preview').textContent = e.target.value
     document.getElementById('cat-cor-preview').style.color = e.target.value
@@ -434,22 +440,36 @@ async function _salvarEmpresa() {
   const cnpj  = document.getElementById('emp-cnpj').value.trim()
   const ativa = document.getElementById('emp-ativa-toggle').classList.contains('on')
 
-  if (!nome) { prxToast('Nome obrigatório.', 'error'); return }
-  if (sessao.isDemo) { prxToast('Não é possível alterar no modo demo.', 'warning'); return }
+  if (!nome) { prxToast(t('nomeObrigatorio'), 'error'); return }
+
+  // Confirmação ao inativar empresa existente
+  if (id && !ativa) {
+    const original = _empresas.find(e => e.id === id)
+    if (original && original.ativa !== false) {
+      const ok = await prxConfirm(
+        'Inativar empresa',
+        `Pedidos da empresa "${nome}" não poderão ser criados. Confirmar?`,
+        'Inativar', 'Cancelar', true
+      )
+      if (!ok) return
+    }
+  }
+
+  if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
 
   mostrarSpinner()
   try {
     if (id) {
       await updateDoc(doc(db, 'empresas', id), { nome, cnpj, ativa })
-      prxToast('Empresa atualizada!', 'success')
+      prxToast(t('empresaAtualizada'), 'success')
     } else {
       await addDoc(collection(db, 'empresas'), { nome, cnpj, ativa: true, criadaEm: serverTimestamp() })
-      prxToast('Empresa criada!', 'success')
+      prxToast(t('empresaCriada'), 'success')
     }
-    document.getElementById('modal-empresa').classList.remove('visible')
+    fecharModal('modal-empresa')
     await _carregar()
   } catch {
-    prxToast('Erro ao salvar empresa.', 'error')
+    prxToast(t('erroSalvar'), 'error')
   } finally {
     esconderSpinner()
   }
@@ -461,24 +481,24 @@ async function _salvarCategoria() {
   const nome = document.getElementById('cat-nome').value.trim()
   const cor  = document.getElementById('cat-cor').value
 
-  if (!nome) { prxToast('Nome obrigatório.', 'error'); return }
-  if (sessao.isDemo) { prxToast('Não é possível alterar no modo demo.', 'warning'); return }
+  if (!nome) { prxToast(t('nomeObrigatorio'), 'error'); return }
+  if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
 
   mostrarSpinner()
   try {
     if (id) {
       await updateDoc(doc(db, 'categorias', id), { nome, cor })
-      prxToast('Categoria atualizada!', 'success')
+      prxToast(t('categoriaAtualizada'), 'success')
     } else {
       await addDoc(collection(db, 'categorias'), {
         nome, cor, tipo: 'personalizada', criadaEm: serverTimestamp(),
       })
-      prxToast('Categoria criada!', 'success')
+      prxToast(t('categoriaCriada'), 'success')
     }
-    document.getElementById('modal-categoria').classList.remove('visible')
+    fecharModal('modal-categoria')
     await _carregar()
   } catch {
-    prxToast('Erro ao salvar categoria.', 'error')
+    prxToast(t('erroSalvar'), 'error')
   } finally {
     esconderSpinner()
   }

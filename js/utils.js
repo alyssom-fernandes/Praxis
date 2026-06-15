@@ -28,17 +28,31 @@ export function formatDateRelative(dateStr) {
 
 export function formatTimestamp(ts) {
   if (!ts) return ''
-  const date = ts.toDate ? ts.toDate() : new Date(ts)
-  const now = new Date()
+  return formatarDataRelativa(ts).label
+}
+
+export function formatarDataRelativa(ts) {
+  if (!ts) return { label: '—', title: '' }
+  const date   = ts.toDate ? ts.toDate() : new Date(ts)
+  const now    = new Date()
   const diffMs = now - date
   const diffMin = Math.floor(diffMs / 60000)
   const diffH   = Math.floor(diffMs / 3600000)
   const diffD   = Math.floor(diffMs / 86400000)
-  if (diffMin < 1)  return 'Agora'
-  if (diffMin < 60) return `Há ${diffMin} min`
-  if (diffH   < 24) return `Há ${diffH}h`
-  if (diffD   < 7)  return `Há ${diffD} dia${diffD > 1 ? 's' : ''}`
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+  const diffM   = Math.floor(diffD / 30)
+
+  let label
+  if (diffMin < 1)    label = 'Agora'
+  else if (diffMin < 60)  label = `Há ${diffMin} min`
+  else if (diffH < 24)    label = `Há ${diffH}h`
+  else if (diffD === 1)   label = 'Ontem'
+  else if (diffD < 30)    label = `Há ${diffD} dias`
+  else if (diffM === 1)   label = 'Há 1 mês'
+  else if (diffM < 12)    label = `Há ${diffM} meses`
+  else label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  const title = date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  return { label, title }
 }
 
 export function formatCNPJ(cnpj) {
@@ -135,4 +149,56 @@ export function formatFileSize(bytes) {
 
 export function pluralizar(n, singular, plural) {
   return `${n} ${n === 1 ? singular : plural}`
+}
+
+// ── Acessibilidade ────────────────────────────────────────────
+export function prefereMenosMovimento() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+// ── Animação de contagem ──────────────────────────────────────
+export function animarNumero(elemento, valorFinal, duracaoMs = 900, formatador = null) {
+  if (!elemento) return
+  if (prefereMenosMovimento()) {
+    elemento.textContent = formatador ? formatador(valorFinal) : String(valorFinal)
+    return
+  }
+  const inicio = performance.now()
+  const step = (agora) => {
+    const progresso = Math.min((agora - inicio) / duracaoMs, 1)
+    // ease-out cubic
+    const fator = 1 - Math.pow(1 - progresso, 3)
+    const valor = fator * valorFinal
+    elemento.textContent = formatador ? formatador(valor) : String(Math.round(valor))
+    if (progresso < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+// ── SLA badge ─────────────────────────────────────────────────
+export function calcularSLA(dataNecessaria) {
+  if (!dataNecessaria) return null
+  const hoje = hojeISO()
+  if (dataNecessaria < hoje) {
+    const dias = Math.round((new Date(hoje) - new Date(dataNecessaria)) / 86400000)
+    return { label: `Atrasado ${dias} dia${dias !== 1 ? 's' : ''}`, classe: 'sla-danger' }
+  }
+  const diff = Math.round((new Date(dataNecessaria) - new Date(hoje)) / 86400000)
+  if (diff === 0) return { label: 'Vence hoje', classe: 'sla-danger' }
+  if (diff <= 3)  return { label: `Faltam ${diff} dia${diff !== 1 ? 's' : ''}`, classe: 'sla-warn' }
+  return { label: `Faltam ${diff} dias`, classe: 'sla-ok' }
+}
+
+// ── Validação de formulários ──────────────────────────────────
+export function validarEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())
+}
+
+export function validarRequerido(val) {
+  return val !== null && val !== undefined && String(val).trim() !== ''
+}
+
+export function validarNumeroPositivo(val) {
+  const n = typeof val === 'number' ? val : parseMoeda(val)
+  return !isNaN(n) && n > 0
 }

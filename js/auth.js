@@ -10,9 +10,6 @@ import { DEMO_CREDENTIALS } from './config.js'
 const DEMO_EMAIL    = DEMO_CREDENTIALS.email
 const DEMO_PASSWORD = DEMO_CREDENTIALS.password
 
-// Estado de idioma do demo
-let _lang = sessionStorage.getItem('praxis_lang') || 'pt'
-
 // ── Render da tela de login ──────────────────────────────────
 export function renderLogin() {
   const app = document.getElementById('app')
@@ -53,34 +50,9 @@ export function renderLogin() {
             </div>
           </div>
 
-          <!-- View: demo-lang -->
-          <div class="view" id="view-demo-lang">
-            <div style="text-align:center;margin-bottom:1rem">
-              <h3 style="font-size:1rem;margin-bottom:0.25rem">${t('escolherIdioma')}</h3>
-            </div>
-            <div class="lang-pills">
-              <button class="lang-pill selected" data-lang="pt">
-                <span class="lang-flag-abbr">PT</span>
-                Português
-              </button>
-              <button class="lang-pill" data-lang="en">
-                <span class="lang-flag-abbr">EN</span>
-                English
-              </button>
-            </div>
-            <div class="login-actions">
-              <button class="btn-primary" id="btn-demo-continuar" style="justify-content:center">
-                ${t('continuar')}
-              </button>
-              <button class="btn-secondary" id="btn-demo-voltar" style="justify-content:center">
-                ${t('voltar')}
-              </button>
-            </div>
-          </div>
-
           <!-- View: forgot -->
           <div class="view" id="view-forgot">
-            <h3 style="font-size:1rem;margin-bottom:0.5rem">Recuperar senha</h3>
+            <h3 style="font-size:1rem;margin-bottom:0.5rem">${t('recuperarSenha')}</h3>
             <p style="font-size:0.85rem;color:var(--text3);margin-bottom:1.25rem">${t('emailReset')}</p>
             <form id="form-forgot" novalidate>
               <div class="form-group" style="margin-bottom:1rem">
@@ -125,22 +97,7 @@ function _bindLoginEvents() {
   })
 
   document.getElementById('link-forgot')?.addEventListener('click', () => _irParaView('forgot'))
-  document.getElementById('btn-demo')?.addEventListener('click', () => _irParaView('demo-lang'))
-
-  document.querySelectorAll('.lang-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('selected'))
-      pill.classList.add('selected')
-      _lang = pill.dataset.lang
-    })
-  })
-
-  document.getElementById('btn-demo-continuar')?.addEventListener('click', async () => {
-    sessionStorage.setItem('praxis_lang', _lang)
-    await _entrarDemo()
-  })
-
-  document.getElementById('btn-demo-voltar')?.addEventListener('click', () => _irParaView('login'))
+  document.getElementById('btn-demo')?.addEventListener('click', () => _mostrarBoasVindas())
 
   document.getElementById('form-forgot')?.addEventListener('submit', async e => {
     e.preventDefault()
@@ -160,7 +117,7 @@ function _irParaView(nome) {
 
 async function _fazerLogin(email, senha) {
   const btn = document.getElementById('btn-entrar')
-  if (btn) { btn.disabled = true; btn.textContent = 'Entrando…' }
+  if (btn) { btn.disabled = true; btn.textContent = t('entrando') }
   try {
     await signInWithEmailAndPassword(auth, email, senha)
   } catch (err) {
@@ -171,16 +128,43 @@ async function _fazerLogin(email, senha) {
   }
 }
 
+function _mostrarBoasVindas() {
+  const overlay = document.createElement('div')
+  overlay.id = 'boas-vindas-overlay'
+  overlay.className = 'bv-overlay'
+
+  overlay.innerHTML = `
+    <div class="bv-card">
+      <div class="bv-logo">PR<span class="bv-delta">▲</span>XIS</div>
+      <p class="bv-tagline">Gestão de compras corporativas.<br>Simples, rastreável, elegante.</p>
+      <ul class="bv-bullets">
+        <li>Crie pedidos e acompanhe cada etapa</li>
+        <li>Aprove compras com rastreabilidade completa</li>
+        <li>Monitore gastos e prazos em tempo real</li>
+      </ul>
+      <button class="btn-primary bv-btn" id="bv-comecar">Começar a explorar</button>
+      <p class="bv-credit">Desenvolvido por Alyssom Fernandes · AFN Systems</p>
+    </div>
+  `
+
+  document.body.appendChild(overlay)
+  setTimeout(() => overlay.classList.add('visible'), 16)
+
+  overlay.querySelector('#bv-comecar').addEventListener('click', () => {
+    overlay.classList.remove('visible')
+    setTimeout(() => { overlay.remove(); _entrarDemo() }, 300)
+  })
+}
+
 async function _entrarDemo() {
-  const btn = document.getElementById('btn-demo-continuar')
-  if (btn) { btn.disabled = true; btn.textContent = 'Carregando…' }
+  mostrarSpinner()
   try {
     await signInWithEmailAndPassword(auth, DEMO_EMAIL, DEMO_PASSWORD)
   } catch (err) {
-    prxToast('Erro ao acessar modo demo. Tente novamente.', 'error')
+    prxToast(t('erroAcessarDemo'), 'error')
     _irParaView('login')
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = t('continuar') }
+    esconderSpinner()
   }
 }
 
@@ -190,7 +174,7 @@ async function _enviarResetSenha(email) {
     await sendPasswordResetEmail(auth, email)
     _irParaView('sent')
   } catch (err) {
-    prxToast('Erro ao enviar e-mail. Verifique o endereço.', 'error')
+    prxToast(t('erroEnviarEmail'), 'error')
   } finally {
     esconderSpinner()
   }
@@ -199,10 +183,9 @@ async function _enviarResetSenha(email) {
 // ── Logout ────────────────────────────────────────────────────
 export async function fazerLogout() {
   try {
-    sessionStorage.removeItem('praxis_lang')
     await signOut(auth)
   } catch (err) {
-    prxToast('Erro ao sair. Tente novamente.', 'error')
+    prxToast(t('erroSair'), 'error')
   }
 }
 

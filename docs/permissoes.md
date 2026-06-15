@@ -28,7 +28,12 @@
 | Registrar parcela / comprovante | ✅ | ✅ | — | — | ✅ | — |
 | Cancelar pedido (até Comprado) | ✅ | ✅ | — | — | — | — |
 | Cancelar pedido próprio em Solicitado | ✅ | ✅ | — | — | — | ✅ |
+| Cancelamento em massa (bulk) | ✅ | ✅ | — | — | — | ⚠️ só os seus |
+| Reabrir pedido reprovado | ✅ | ✅ | — | — | — | ✅ |
 | Comentar | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Adicionar/remover anexo próprio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Remover anexo de outro usuário | ✅ | ✅ | — | — | — | — |
+| Exportar selecionados (CSV) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Ver relatórios financeiros | ✅ | ✅ | — | — | ✅ | — |
 | Gerenciar usuários | ✅ | ✅ | — | — | — | — |
 | Gerenciar empresas | ✅ | ✅ | — | — | — | — |

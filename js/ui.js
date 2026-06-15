@@ -1,3 +1,236 @@
+import { t } from './constants.js'
+
+// ── Command Palette (4.2) ─────────────────────────────────────
+let _cmdPaletaEl  = null
+let _cmdActiveIdx = 0
+
+export function initCommandPalette() {
+  if (globalThis.__praxisCmdInited) return
+  globalThis.__praxisCmdInited = true
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      if (_cmdPaletaEl?.classList.contains('visible')) {
+        _fecharPaleta()
+      } else {
+        abrirCommandPalette()
+      }
+    }
+  })
+}
+
+export function abrirCommandPalette() {
+  if (!window.__navegar) return
+  _criarPaletaDOM()
+  _cmdPaletaEl.classList.add('visible')
+  _cmdActiveIdx = 0
+  const input = document.getElementById('cmd-input')
+  if (input) { input.value = ''; input.focus() }
+  _cmdRenderResultados('')
+}
+
+function _fecharPaleta() {
+  _cmdPaletaEl?.classList.remove('visible')
+}
+
+function _criarPaletaDOM() {
+  if (_cmdPaletaEl) return
+  const el = document.createElement('div')
+  el.id = 'cmd-palette'
+  el.className = 'cmd-palette-overlay'
+  el.setAttribute('role', 'dialog')
+  el.setAttribute('aria-label', 'Paleta de comandos')
+  el.innerHTML = `
+    <div class="cmd-palette">
+      <div class="cmd-palette-header">
+        <svg class="cmd-search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input id="cmd-input" type="text" class="cmd-input" placeholder="Buscar ação ou pedido..." autocomplete="off" spellcheck="false" aria-label="Buscar comando ou pedido">
+        <kbd class="cmd-esc-hint">ESC</kbd>
+      </div>
+      <div id="cmd-results" class="cmd-results" role="listbox"></div>
+      <div class="cmd-palette-footer">
+        <span><kbd>↑↓</kbd> navegar</span>
+        <span><kbd>↵</kbd> confirmar</span>
+        <span><kbd>ESC</kbd> fechar</span>
+      </div>
+    </div>
+  `
+  document.body.appendChild(el)
+  _cmdPaletaEl = el
+
+  el.addEventListener('click', e => { if (e.target === el) _fecharPaleta() })
+
+  const input = el.querySelector('#cmd-input')
+  input.addEventListener('input', e => {
+    _cmdActiveIdx = 0
+    _cmdRenderResultados(e.target.value)
+  })
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); _fecharPaleta(); return }
+    const items = [...(document.getElementById('cmd-results')?.querySelectorAll('.cmd-item') || [])]
+    if (!items.length) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      _cmdActiveIdx = (_cmdActiveIdx + 1) % items.length
+      _cmdSyncAtivo(items)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      _cmdActiveIdx = (_cmdActiveIdx - 1 + items.length) % items.length
+      _cmdSyncAtivo(items)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      items[_cmdActiveIdx]?.click()
+    }
+  })
+}
+
+function _cmdSyncAtivo(items) {
+  items.forEach((btn, i) => btn.classList.toggle('active', i === _cmdActiveIdx))
+  items[_cmdActiveIdx]?.scrollIntoView({ block: 'nearest' })
+}
+
+function _cmdRenderResultados(query) {
+  const results = document.getElementById('cmd-results')
+  if (!results) return
+  const q = query.trim().toLowerCase()
+
+  const acoes = _cmdGetAcoes()
+  const acoesMatch = !q ? acoes : acoes.filter(a =>
+    a.label.toLowerCase().includes(q)
+  )
+
+  const pedidos = window.__getPedidos?.() || []
+  const pedidosMatch = !q ? [] : pedidos.filter(p => {
+    return (p.numeroPedido || '').toLowerCase().includes(q) ||
+           (p.titulo || '').toLowerCase().includes(q)
+  }).slice(0, 6)
+
+  if (!acoesMatch.length && !pedidosMatch.length) {
+    results.innerHTML = `<div class="cmd-empty">Nenhum resultado para "${query}"</div>`
+    return
+  }
+
+  let html = ''
+  let idx = 0
+
+  if (acoesMatch.length) {
+    html += `<div class="cmd-group-label">Comandos</div>`
+    html += acoesMatch.map(a => {
+      const i = idx++
+      return `<button class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" data-idx="${i}" data-action-id="${a.id}" role="option">
+        <span class="cmd-item-icon" aria-hidden="true">${a.icon}</span>
+        <span class="cmd-item-label">${a.label}</span>
+      </button>`
+    }).join('')
+  }
+
+  if (pedidosMatch.length) {
+    html += `<div class="cmd-group-label">Pedidos</div>`
+    html += pedidosMatch.map(p => {
+      const i = idx++
+      return `<button class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" data-idx="${i}" data-pedido-id="${p.id}" role="option">
+        <span class="cmd-item-icon" aria-hidden="true"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
+        <span class="cmd-item-label">
+          <span class="cmd-item-num">${p.numeroPedido || '—'}</span>
+          ${p.titulo || '(sem título)'}
+        </span>
+      </button>`
+    }).join('')
+  }
+
+  results.innerHTML = html
+
+  results.querySelectorAll('.cmd-item').forEach((btn, i) => {
+    btn.addEventListener('click', () => _cmdExecutarItem(btn, acoes, pedidosMatch))
+    btn.addEventListener('mouseenter', () => {
+      _cmdActiveIdx = i
+      _cmdSyncAtivo([...results.querySelectorAll('.cmd-item')])
+    })
+  })
+}
+
+function _cmdExecutarItem(btn, acoes, pedidosMatch) {
+  _fecharPaleta()
+  const actionId = btn.dataset.actionId
+  if (actionId) {
+    const acao = acoes.find(a => a.id === actionId)
+    acao?.fn()
+    return
+  }
+  const pedidoId = btn.dataset.pedidoId
+  if (pedidoId) window.__navegar('detalhe', { id: pedidoId })
+}
+
+function _cmdGetAcoes() {
+  return [
+    {
+      id: 'ir-pedidos', label: 'Ir para Pedidos',
+      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,
+      fn: () => window.__navegar('pedidos'),
+    },
+    {
+      id: 'ir-relatorios', label: 'Ir para Relatórios',
+      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+      fn: () => window.__navegar('relatorios'),
+    },
+    {
+      id: 'ir-config', label: 'Ir para Configurações',
+      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+      fn: () => window.__navegar('config-usuarios'),
+    },
+    {
+      id: 'novo-pedido', label: 'Novo pedido',
+      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+      fn: () => {
+        window.__navegar('pedidos')
+        setTimeout(() => document.getElementById('btn-novo-pedido')?.click(), 150)
+      },
+    },
+    {
+      id: 'alternar-tema', label: 'Alternar tema (claro / escuro)',
+      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+      fn: () => toggleTheme(),
+    },
+  ]
+}
+
+// ── Handler global de teclado (ESC fecha modal/dialog; Enter confirma) ──────
+;(function _initKeyboard() {
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      // Paleta tem prioridade
+      if (_cmdPaletaEl?.classList.contains('visible')) {
+        _fecharPaleta()
+        return
+      }
+      // Dialog tem prioridade
+      const dialog = document.querySelector('.dialog-overlay.visible')
+      if (dialog) {
+        const cancelBtn = dialog.querySelector('[id^="prx-confirm-cancel"]') || dialog.querySelector('[id^="prx-alert-ok"]')
+        cancelBtn?.click()
+        return
+      }
+      // Fecha o modal mais recente
+      const modais = [...document.querySelectorAll('.modal-overlay.visible')]
+      const modal = modais.at(-1)
+      if (modal) {
+        fecharModal(modal.id)
+        modal._onClose?.()
+      }
+      return
+    }
+
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('select')) {
+      const dialog = document.querySelector('.dialog-overlay.visible')
+      if (dialog) {
+        dialog.querySelector('[id^="prx-confirm-ok"], [id^="prx-alert-ok"]')?.click()
+      }
+    }
+  })
+})()
+
 // ── Tema ─────────────────────────────────────────────────────
 export function initTheme() {
   const saved = localStorage.getItem('praxis_theme') || 'dark'
@@ -158,7 +391,7 @@ export function prxAlert(titulo, mensagem = '') {
       </div>
     `
     document.body.appendChild(overlay)
-    requestAnimationFrame(() => overlay.classList.add('visible'))
+    setTimeout(() => overlay.classList.add('visible'), 16)
 
     overlay.querySelector('#prx-alert-ok').onclick = () => {
       fecharDialog(overlay)
@@ -182,7 +415,7 @@ export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCa
       </div>
     `
     document.body.appendChild(overlay)
-    requestAnimationFrame(() => overlay.classList.add('visible'))
+    setTimeout(() => overlay.classList.add('visible'), 16)
 
     overlay.querySelector('#prx-confirm-ok').onclick = () => {
       fecharDialog(overlay)
@@ -199,22 +432,72 @@ export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCa
 }
 
 // ── Modal genérico ────────────────────────────────────────────
+const _FOCUSAVEIS = 'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+
 export function abrirModal(id) {
-  document.getElementById(id)?.classList.add('visible')
+  const overlay = document.getElementById(id)
+  if (!overlay) return
+  overlay.classList.remove('closing')
+  overlay.classList.add('visible')
+
+  // Guarda elemento que abriu para restaurar foco ao fechar
+  overlay._focusTrigger = document.activeElement
+
+  // Foco automático no primeiro campo interativo
+  setTimeout(() => {
+    const alvo = overlay.querySelector('input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')
+    alvo?.focus()
+  }, 60)
+
+  // Focus trap: Tab cicla apenas dentro do modal
+  overlay._trapHandler = function(e) {
+    if (e.key !== 'Tab') return
+    const els = [...overlay.querySelectorAll(_FOCUSAVEIS)].filter(el => el.offsetParent !== null)
+    if (!els.length) { e.preventDefault(); return }
+    const primeiro = els[0]
+    const ultimo   = els[els.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === primeiro) { e.preventDefault(); ultimo.focus() }
+    } else {
+      if (document.activeElement === ultimo)  { e.preventDefault(); primeiro.focus() }
+    }
+  }
+  overlay.addEventListener('keydown', overlay._trapHandler)
 }
 
 export function fecharModal(id) {
-  document.getElementById(id)?.classList.remove('visible')
+  const overlay = document.getElementById(id)
+  if (!overlay || !overlay.classList.contains('visible')) return
+
+  // Remove trap e restaura foco ao elemento que abriu o modal
+  if (overlay._trapHandler) {
+    overlay.removeEventListener('keydown', overlay._trapHandler)
+    overlay._trapHandler = null
+  }
+  const trigger = overlay._focusTrigger
+  overlay._focusTrigger = null
+
+  const reduzido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  if (reduzido) {
+    overlay.classList.remove('visible')
+    trigger?.focus()
+    return
+  }
+  overlay.classList.add('closing')
+  setTimeout(() => {
+    overlay.classList.remove('visible', 'closing')
+    trigger?.focus()
+  }, 190)
 }
 
 export function initModal(id) {
   const overlay = document.getElementById(id)
   if (!overlay) return
   overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.remove('visible')
+    if (e.target === overlay) fecharModal(id)
   })
   overlay.querySelectorAll('[data-close-modal]').forEach(btn => {
-    btn.addEventListener('click', () => overlay.classList.remove('visible'))
+    btn.addEventListener('click', () => fecharModal(id))
   })
 }
 
@@ -312,3 +595,219 @@ export function iconeEnvelope(){ return `<svg width="28" height="28" fill="none"
 export function iconeClipe()  { return `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>` }
 export function iconeExcel()  { return `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>` }
 export function iconePDF()    { return `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>` }
+
+// ── Loading state nos botões (2.4) ────────────────────────────
+export async function btnComLoading(btn, acao) {
+  if (!btn || btn.disabled) return
+  const textoOriginal = btn.innerHTML
+  btn.disabled = true
+  btn.classList.add('btn-loading')
+  try {
+    await acao()
+  } finally {
+    btn.disabled = false
+    btn.classList.remove('btn-loading')
+    btn.innerHTML = textoOriginal
+  }
+}
+
+// ── Banner de modo demo (2.8) ─────────────────────────────────
+export function mostrarDemoBanner(isDemo, idioma = 'pt') {
+  if (!isDemo) {
+    document.getElementById('demo-banner')?.remove()
+    return
+  }
+  if (document.getElementById('demo-banner')) return
+  const texto = idioma === 'en'
+    ? 'Demo mode — fictitious data. Explore freely.'
+    : 'Modo demonstração — dados fictícios. Explore à vontade.'
+  const banner = document.createElement('div')
+  banner.id = 'demo-banner'
+  banner.className = 'demo-banner'
+  banner.setAttribute('role', 'status')
+  banner.innerHTML = `
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+    <span>${texto}</span>
+    <button class="demo-banner-close" aria-label="Fechar aviso de modo demonstração">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  `
+  banner.querySelector('.demo-banner-close').onclick = () => banner.remove()
+  document.body.appendChild(banner)
+}
+
+// ── Offline e erro de rede (3.17) ─────────────────────────────
+export function estaOnline() {
+  return typeof navigator === 'undefined' || navigator.onLine !== false
+}
+
+// Verifica conexão antes de uma escrita; se offline, avisa e retorna false
+export function exigirConexao() {
+  if (estaOnline()) return true
+  prxToast(t('semConexao'), 'error')
+  return false
+}
+
+function _mostrarOfflineBanner() {
+  if (document.getElementById('offline-banner')) return
+  const banner = document.createElement('div')
+  banner.id = 'offline-banner'
+  banner.className = 'offline-banner'
+  banner.setAttribute('role', 'alert')
+  banner.innerHTML = `
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/>
+      <path d="M10.71 5.05A16 16 0 0122.58 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
+    <span>${t('semConexao')}</span>
+  `
+  document.body.appendChild(banner)
+}
+
+export function initOfflineWatcher() {
+  if (globalThis.__praxisOfflineWatcher) return
+  globalThis.__praxisOfflineWatcher = true
+
+  window.addEventListener('offline', _mostrarOfflineBanner)
+  window.addEventListener('online', () => {
+    document.getElementById('offline-banner')?.remove()
+    prxToast(t('conexaoRestabelecida'), 'success')
+  })
+  if (!estaOnline()) _mostrarOfflineBanner()
+}
+
+// ── Skeleton helpers (2.2) ────────────────────────────────────
+export function skeletonKanban(nColunas = 4) {
+  const cols = Array.from({ length: nColunas }, () => `
+    <div class="skeleton-col">
+      <div class="skeleton skeleton-title" style="width:60%"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card" style="height:80px"></div>
+    </div>
+  `).join('')
+  return `<div class="skeleton-kanban">${cols}</div>`
+}
+
+export function skeletonLista(nLinhas = 5) {
+  const linhas = Array.from({ length: nLinhas }, () => `
+    <div class="skeleton skeleton-row" style="margin-bottom:0.4rem"></div>
+  `).join('')
+  return `<div style="padding:0.5rem">${linhas}</div>`
+}
+
+export function skeletonDashCards(n = 4) {
+  const cards = Array.from({ length: n }, () => `
+    <div class="card no-hover" style="padding:1.5rem">
+      <div class="skeleton skeleton-text" style="width:50%;margin-bottom:0.75rem"></div>
+      <div class="skeleton skeleton-title" style="width:70%;height:2rem;margin-bottom:0.5rem"></div>
+      <div class="skeleton skeleton-text" style="width:40%"></div>
+    </div>
+  `).join('')
+  return `<div class="dash-grid-1" style="margin-bottom:1rem">${cards}</div>`
+}
+
+// ── Tour guiado (4.3) ─────────────────────────────────────────
+function _getTourPassos() {
+  return [
+    { alvo: '#pedidos-view',    titulo: t('tourStep1Titulo'), desc: t('tourStep1Desc') },
+    { alvo: '#btn-novo-pedido', titulo: t('tourStep2Titulo'), desc: t('tourStep2Desc') },
+    { alvo: '#btn-notif',       titulo: t('tourStep3Titulo'), desc: t('tourStep3Desc') },
+    { alvo: '#btn-tema',        titulo: t('tourStep4Titulo'), desc: t('tourStep4Desc') },
+    { alvo: '#btn-config',      titulo: t('tourStep5Titulo'), desc: t('tourStep5Desc') },
+  ]
+}
+
+let _tourPasso = 0
+
+export function iniciarTour(isDemo = false) {
+  if (isDemo) {
+    if (sessionStorage.getItem('praxis_tour_mostrado')) return
+    sessionStorage.setItem('praxis_tour_mostrado', '1')
+  } else {
+    if (localStorage.getItem('praxis_tour_visto')) return
+  }
+  setTimeout(_tourIniciar, 700)
+}
+
+export function reativarTour() {
+  localStorage.removeItem('praxis_tour_visto')
+  sessionStorage.removeItem('praxis_tour_mostrado')
+  setTimeout(_tourIniciar, 100)
+}
+
+function _tourIniciar() {
+  _tourPasso = 0
+  _tourMostrarPasso()
+}
+
+function _tourMostrarPasso() {
+  _tourLimpar()
+
+  while (_tourPasso < _getTourPassos().length && !document.querySelector(_getTourPassos()[_tourPasso].alvo)) {
+    _tourPasso++
+  }
+  if (_tourPasso >= _getTourPassos().length) { _tourFinalizar(); return }
+
+  const passo  = _getTourPassos()[_tourPasso]
+  const alvoEl = document.querySelector(passo.alvo)
+
+  const passosDisponiveis = _getTourPassos().filter(p => document.querySelector(p.alvo))
+  const posicao = passosDisponiveis.findIndex(p => p.alvo === passo.alvo) + 1
+  const total   = passosDisponiveis.length
+
+  const isUltimo = _getTourPassos().slice(_tourPasso + 1).every(p => !document.querySelector(p.alvo))
+
+  alvoEl.classList.add('tour-target')
+  alvoEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+
+  const popover = document.createElement('div')
+  popover.id = 'tour-popover'
+  popover.className = 'tour-popover'
+  popover.innerHTML = `
+    <div class="tour-step-count">${posicao} de ${total}</div>
+    <h4 class="tour-titulo">${passo.titulo}</h4>
+    <p class="tour-desc">${passo.desc}</p>
+    <div class="tour-actions">
+      <button class="btn-ghost btn-sm" id="tour-pular">${t('tourPular')}</button>
+      <button class="btn-primary btn-sm" id="tour-proximo">${isUltimo ? t('tourConcluir') : t('tourProximo')}</button>
+    </div>
+  `
+  document.body.appendChild(popover)
+  _tourPosicionar(alvoEl, popover)
+
+  popover.querySelector('#tour-proximo').onclick = () => {
+    if (isUltimo) { _tourFinalizar(); return }
+    _tourPasso++
+    _tourMostrarPasso()
+  }
+  popover.querySelector('#tour-pular').onclick = _tourFinalizar
+}
+
+function _tourPosicionar(alvo, popover) {
+  const rect = alvo.getBoundingClientRect()
+  const pW   = 300
+  let top  = rect.bottom + 12
+  let left = rect.left + rect.width / 2 - pW / 2
+
+  left = Math.max(16, Math.min(left, window.innerWidth - pW - 16))
+  if (top + 190 > window.innerHeight) top = rect.top - 190 - 12
+  top = Math.max(16, top)
+
+  popover.style.cssText = `position:fixed;top:${top}px;left:${left}px;width:${pW}px;z-index:801;`
+}
+
+function _tourLimpar() {
+  document.querySelectorAll('.tour-target').forEach(el => el.classList.remove('tour-target'))
+  document.getElementById('tour-popover')?.remove()
+}
+
+function _tourFinalizar() {
+  _tourLimpar()
+  localStorage.setItem('praxis_tour_visto', '1')
+}

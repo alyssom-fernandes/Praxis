@@ -454,3 +454,21 @@ button:disabled {
 .dot-gold   { background: var(--gold); }
 .dot-blue   { background: var(--blue); }
 .dot-gray   { background: var(--text3); }
+
+/* ── Foco visível — WCAG 2.11 ────────────────────────── */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── prefers-reduced-motion — 2.10 ──────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .skeleton::after { animation: none; }
+}

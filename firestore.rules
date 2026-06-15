@@ -62,11 +62,21 @@ service cloud.firestore {
       allow delete: if estaLogado() && eGestor();
     }
 
+    // ── Metadados internos (contadores, config) ───────────────
+    match /_meta/{docId} {
+      allow read:  if estaLogado();
+      allow write: if estaLogado(); // transaction atômica do numeroPedido
+    }
+
     // ── Pedidos ────────────────────────────────────────────────
     match /pedidos/{pedidoId} {
-      allow read: if estaLogado() && (
-        temAcessoEmpresa(resource.data.empresaId) ||
-        eSupremo()
+      // get: acesso por documento individual (resource.data disponível)
+      allow get: if estaLogado() && (
+        eSupremo() || temAcessoEmpresa(resource.data.empresaId)
+      );
+      // list: pré-voo não tem resource.data; app sempre filtra por where('empresaId','in',empresas)
+      allow list: if estaLogado() && (
+        eSupremo() || empresasDoUsuario() != null
       );
       allow create: if estaLogado() && (
         temAcessoEmpresa(request.resource.data.empresaId) ||
@@ -126,6 +136,22 @@ service cloud.firestore {
           eSupremo()
         );
         allow update, delete: if false; // Histórico é imutável
+      }
+
+      // ── Anexos gerais (4.10) ──────────────────────────────────
+      match /anexos/{anexoId} {
+        allow read: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
+        allow create: if estaLogado() && (
+          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
+          eSupremo()
+        );
+        allow delete: if estaLogado() && (
+          request.auth.uid == resource.data.autorId || eGestor()
+        );
+        allow update: if false;
       }
     }
 

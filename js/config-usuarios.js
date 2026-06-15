@@ -1,9 +1,9 @@
 import { db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter } from './app.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner } from './ui.js'
+import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { PERFIS, PERFIS_LABEL, PERFIS_COLOR } from './constants.js'
-import { formatTimestamp, gerarIniciais, debounce } from './utils.js'
+import { PERFIS, PERFIS_LABEL, PERFIS_COLOR, t } from './constants.js'
+import { formatTimestamp, gerarIniciais, debounce, validarEmail } from './utils.js'
 
 let _usuarios   = []
 let _empresas   = []
@@ -18,12 +18,12 @@ export async function renderConfigUsuarios() {
       <div class="main-content">
         <div>
             <div class="config-section-header">
-              <h2>Usuários</h2>
+              <h2>${t('configUsuarios')}</h2>
               <button class="btn-primary btn-sm" id="btn-novo-usuario">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Novo usuário
+                ${t('btnNovoUsuario')}
               </button>
             </div>
 
@@ -65,7 +65,7 @@ export async function renderConfigUsuarios() {
     <div class="modal-overlay" id="modal-usuario">
       <div class="modal" style="max-width:540px">
         <div class="modal-header">
-          <h2 id="modal-usuario-titulo">Novo usuário</h2>
+          <h2 id="modal-usuario-titulo">${t('novoUsuarioTitulo')}</h2>
           <button class="btn-icon" id="close-modal-usuario">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -86,7 +86,7 @@ export async function renderConfigUsuarios() {
             <div class="form-group">
               <label for="usr-perfil">Perfil *</label>
               <select id="usr-perfil">
-                <option value="">Selecionar…</option>
+                <option value="">${t('selecionar')}</option>
                 ${Object.values(PERFIS).map(p => `<option value="${p}">${PERFIS_LABEL[p]}</option>`).join('')}
               </select>
             </div>
@@ -104,8 +104,8 @@ export async function renderConfigUsuarios() {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" id="cancel-modal-usuario">Cancelar</button>
-          <button class="btn-primary" id="salvar-usuario">Salvar</button>
+          <button class="btn-secondary" id="cancel-modal-usuario">${t('btnCancelar')}</button>
+          <button class="btn-primary" id="salvar-usuario">${t('salvarLabel')}</button>
         </div>
       </div>
     </div>
@@ -210,7 +210,7 @@ function _preencherCheckboxesEmpresas() {
 }
 
 function _abrirModalNovo() {
-  document.getElementById('modal-usuario-titulo').textContent = 'Novo usuário'
+  document.getElementById('modal-usuario-titulo').textContent = t('novoUsuarioTitulo')
   document.getElementById('usr-id').value = ''
   document.getElementById('usr-nome').value = ''
   document.getElementById('usr-email').value = ''
@@ -218,11 +218,11 @@ function _abrirModalNovo() {
   document.getElementById('usr-perfil').value = ''
   document.getElementById('usr-ativo-toggle').classList.add('on')
   document.querySelectorAll('.emp-check').forEach(c => c.checked = false)
-  document.getElementById('modal-usuario').classList.add('visible')
+  abrirModal('modal-usuario')
 }
 
 function _abrirModalEdicao(u) {
-  document.getElementById('modal-usuario-titulo').textContent = 'Editar usuário'
+  document.getElementById('modal-usuario-titulo').textContent = t('editarUsuarioTitulo')
   document.getElementById('usr-id').value = u.id
   document.getElementById('usr-nome').value = u.nome || ''
   document.getElementById('usr-email').value = u.email || ''
@@ -233,16 +233,16 @@ function _abrirModalEdicao(u) {
   document.querySelectorAll('.emp-check').forEach(c => {
     c.checked = (u.empresas || []).includes(c.value)
   })
-  document.getElementById('modal-usuario').classList.add('visible')
+  abrirModal('modal-usuario')
 }
 
 function _bindEvents() {
   document.getElementById('btn-novo-usuario')?.addEventListener('click', _abrirModalNovo)
 
   document.getElementById('close-modal-usuario')?.addEventListener('click', () =>
-    document.getElementById('modal-usuario').classList.remove('visible'))
+    fecharModal('modal-usuario'))
   document.getElementById('cancel-modal-usuario')?.addEventListener('click', () =>
-    document.getElementById('modal-usuario').classList.remove('visible'))
+    fecharModal('modal-usuario'))
 
   document.getElementById('usr-ativo-wrap')?.addEventListener('click', () =>
     document.getElementById('usr-ativo-toggle')?.classList.toggle('on'))
@@ -270,26 +270,41 @@ async function _salvarUsuario() {
   const ativo   = document.getElementById('usr-ativo-toggle').classList.contains('on')
   const empresas = [...document.querySelectorAll('.emp-check:checked')].map(c => c.value)
 
-  if (!nome || !email || !perfil || !empresas.length) {
-    prxToast('Preencha todos os campos obrigatórios.', 'error'); return
+  if (!nome)          { prxToast(t('nomeObrigatorio'), 'error'); return }
+  if (!email)         { prxToast(t('emailObrigatorio'), 'error'); return }
+  if (!id && !validarEmail(email)) { prxToast(t('emailInvalido'), 'error'); return }
+  if (!perfil)        { prxToast(t('perfilObrigatorio'), 'error'); return }
+  if (!empresas.length) { prxToast(t('empresaObrigatoria'), 'error'); return }
+
+  // Confirmação ao desativar usuário existente
+  if (id && !ativo) {
+    const original = _usuarios.find(u => u.id === id)
+    if (original && original.ativo !== false) {
+      const ok = await prxConfirm(
+        'Desativar usuário',
+        `"${nome}" perderá o acesso ao sistema. Confirmar?`,
+        'Desativar', 'Cancelar', true
+      )
+      if (!ok) return
+    }
   }
 
   // Validação demo
-  if (sessao.isDemo) { prxToast('Não é possível alterar usuários no modo demo.', 'warning'); return }
+  if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
 
   mostrarSpinner()
   try {
     if (id) {
       await updateDoc(doc(db, 'usuarios', id), { nome, perfil, ativo, empresas, atualizadoEm: serverTimestamp() })
-      prxToast('Usuário atualizado!', 'success')
+      prxToast(t('usuarioAtualizado'), 'success')
     } else {
       await addDoc(collection(db, 'usuarios'), { nome, email, perfil, ativo, empresas, criadoEm: serverTimestamp(), ultimoAcesso: null })
-      prxToast('Usuário criado! Configure a senha no Firebase Authentication.', 'info', 5000)
+      prxToast(t('usuarioCriado'), 'info', 5000)
     }
-    document.getElementById('modal-usuario').classList.remove('visible')
+    fecharModal('modal-usuario')
     await _carregar()
   } catch (err) {
-    prxToast('Erro ao salvar usuário.', 'error')
+    prxToast(t('erroSalvar'), 'error')
     console.error(err)
   } finally {
     esconderSpinner()

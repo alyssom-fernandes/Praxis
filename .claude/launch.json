@@ -2,10 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "praxis",
+      "name": "praxis-emulator",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["http-server", ".", "-p", "8123", "-c-1"],
-      "port": 8123
+      "runtimeArgs": ["http-server", ".", "-c-1"],
+      "port": 8123,
+      "autoPort": true
     }
   ]
 }

@@ -136,6 +136,8 @@ function toICO(pngBuf, size) {
 }
 
 const dir = __dirname
+fs.writeFileSync(path.join(dir, 'praxis-icon-192.png'), toPNG(192))
+console.log('praxis-icon-192.png gerado')
 fs.writeFileSync(path.join(dir, 'praxis-icon-512.png'), toPNG(512))
 console.log('praxis-icon-512.png gerado')
 fs.writeFileSync(path.join(dir, 'praxis-favicon.ico'), toICO(toPNG(48), 48))

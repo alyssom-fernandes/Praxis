@@ -31,3 +31,6 @@ desktop.ini
 
 # Build (não aplicável aqui — sem bundler)
 dist/
+
+# Firebase Emulator — dados locais nunca versionados
+_build/emulator-data/

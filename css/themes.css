@@ -221,4 +221,157 @@ input[type="checkbox"] {
 
   /* Topbar actions */
   .topbar { padding: 0 1rem; }
+
+  /* Oculta hamburger — substituído pela bottom nav */
+  .topbar-hamburger { display: none !important; }
+
+  /* Oculta no topbar o que já está na bottom nav (config e logout) */
+  #btn-config,
+  #btn-avatar { display: none !important; }
+
+  /* Footer: mostra acima da bottom nav */
+  .main-footer { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 1rem); }
+
+  /* Config sub-nav: exibe como row scrollável no topbar */
+  .topbar[data-mode="config"] .topbar-nav {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+    flex: 1;
+    justify-content: flex-start;
+  }
+  .topbar[data-mode="config"] .topbar-nav::-webkit-scrollbar { display: none; }
+
+  /* Padding inferior da área de conteúdo (espaço para a bottom nav) */
+  .main-content { padding-bottom: calc(56px + 1rem + env(safe-area-inset-bottom, 0px)); }
+
+  /* Barra de bulk actions sobe acima da bottom nav */
+  .bulk-bar { bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 0.75rem); }
+
+  /* Filtros do dashboard em coluna, inputs full-width */
+  .dash-filters { flex-direction: column; align-items: stretch; }
+  .dash-filters select { width: 100% !important; min-width: unset !important; }
+  #date-range-wrap {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+    width: 100%;
+  }
+  #date-range-wrap input[type="date"] { width: 100% !important; }
+
+  /* Filtros de pedidos — reorganização mobile */
+  .pedidos-header { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+
+  /* Toolbar: clipa overflow interno para não gerar scroll horizontal na página */
+  .pedidos-toolbar {
+    min-width: 0;
+    overflow: hidden;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Pills: 100% do toolbar (= viewport − padding), scroll apenas interno */
+  #filter-pills {
+    flex: 0 0 100%;
+    min-width: 0;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #filter-pills::-webkit-scrollbar { display: none; }
+  #filter-pills .pill { flex-shrink: 0; }
+
+  /* Busca: linha própria full-width */
+  .pedidos-toolbar .search-input-wrap { width: 100% !important; }
+
+  /* View-toggle, Salvar visão e Novo pedido dividem a última linha */
+  #view-toggle { flex-shrink: 0; }
+  #btn-salvar-visao { flex: 1; justify-content: center; }
+  #btn-novo-pedido  { flex-shrink: 0; }
+
+  /* Date filter: empresa full-width; datas compactas lado a lado */
+  .pedidos-date-filter { justify-content: flex-start; flex-wrap: wrap; gap: 0.4rem; }
+  #fl-empresa-global { width: 100% !important; min-width: unset !important; max-width: unset !important; }
+  .pedidos-date-filter input[type="date"] {
+    flex: 1 !important;
+    width: unset !important;
+    min-width: 90px;
+    max-width: 140px;
+  }
+
+  /* Pull-to-refresh indicator */
+  .pull-indicator {
+    position: fixed;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-70px);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 800;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .pull-indicator.visible {
+    opacity: 1;
+  }
+  @keyframes spinRefresh {
+    to { transform: rotate(360deg); }
+  }
+  .pull-indicator.refreshing svg {
+    animation: spinRefresh 0.7s linear infinite;
+  }
+}
+
+/* ── Bottom Navigation Bar ───────────────────────────── */
+.bottom-nav { display: none; }
+
+@media (max-width: 767px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    z-index: 900;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.15);
+  }
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 0;
+  }
+  .bottom-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .bottom-nav-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .bottom-nav-item.active { color: var(--gold); }
+  .bottom-nav-item.active svg { stroke: var(--gold); }
 }

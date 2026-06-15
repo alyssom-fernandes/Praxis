@@ -1,3 +1,83 @@
+/* ── Tela de boas-vindas demo (4.4) ─────────────────── */
+.bv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 6, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 2rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.bv-overlay.visible { opacity: 1; }
+.bv-card {
+  text-align: center;
+  max-width: 460px;
+  width: 100%;
+}
+.bv-logo {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 2.8rem;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin-bottom: 1rem;
+  animation: cmdIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
+}
+.bv-delta { color: var(--gold); }
+.bv-tagline {
+  font-size: 1rem;
+  color: var(--text2);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  animation: cmdIn 0.45s ease 0.25s both;
+}
+.bv-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: left;
+  animation: cmdIn 0.45s ease 0.4s both;
+}
+.bv-bullets li {
+  font-size: 0.875rem;
+  color: var(--text3);
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1.5;
+}
+.bv-bullets li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+.bv-btn {
+  animation: cmdIn 0.45s ease 0.55s both;
+  padding: 0.875rem 3rem;
+  font-size: 0.95rem;
+}
+.bv-credit {
+  font-size: 0.7rem;
+  color: var(--text3);
+  margin-top: 1.5rem;
+  opacity: 0.55;
+  animation: cmdIn 0.45s ease 0.7s both;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.04em;
+}
+
 /* ── Login ───────────────────────────────────────────── */
 .login-page {
   min-height: 100vh;
@@ -222,12 +302,83 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   flex: 1;
+  justify-content: flex-end;
+}
+
+.pedidos-date-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  width: 100%; /* força quebra para nova linha */
+  justify-content: flex-end;
+}
+
+.date-filter-label {
+  font-size: 0.78rem;
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.date-filter-sep {
+  font-size: 0.85rem;
+  color: var(--text3);
+}
+
+.pedidos-date-filter input[type="date"],
+#fl-empresa-global {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text1);
+  font-size: 0.82rem;
+  padding: 0.3rem 0.6rem;
+}
+.pedidos-date-filter input[type="date"] { width: 140px; }
+#fl-empresa-global { min-width: 160px; max-width: 220px; }
+
+.pedidos-date-filter input[type="date"]:focus,
+#fl-empresa-global:focus {
+  outline: none;
+  border-color: var(--gold);
 }
 
 .pedidos-title {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: 0.2rem;
+}
+
+/* ── Paginação da lista (4.8) ────────────────────────── */
+.lista-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--line);
+}
+.lista-paginacao .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+}
+.lista-paginacao .btn-ghost:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.pagina-info {
+  font-size: 0.82rem;
+  color: var(--text3);
+  text-align: center;
+}
+.pagina-info strong {
+  color: var(--text2);
+  font-weight: 700;
 }
 
 /* ── Dashboard / Relatórios ──────────────────────────── */
@@ -299,6 +450,24 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ── Banner de reabertura (4.7) ──────────────────────── */
+.reaberto-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text3);
+  font-weight: 500;
+}
+.reaberto-link {
+  color: var(--gold);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+.reaberto-link:hover { text-decoration: underline; }
 
 /* ── Configurações ───────────────────────────────────── */
 .config-layout {

@@ -284,15 +284,18 @@ async function _aplicarSeed(seed) {
   }
 
   // 5. Cria pedidos com subcoleções
+  let pedidoCount = 0
   for (const ped of (seed.pedidos || [])) {
+    pedidoCount++
     const {
       empresaKey, categoriaKey, key,
       historico, comentarios, cotacoes, parcelas,
       ...pedData
     } = ped
 
-    const empresaId   = empresaMap[empresaKey]     || todasEmpresasIds[0] || ''
-    const categoriaId = categoriaMap[categoriaKey] || ''
+    const empresaId    = empresaMap[empresaKey]     || todasEmpresasIds[0] || ''
+    const categoriaId  = categoriaMap[categoriaKey] || ''
+    const numeroPedido = 'PRX-' + String(pedidoCount).padStart(4, '0')
 
     // Determina timestamps com base no histórico (primeiro entry = criadoEm)
     const hist        = historico || []
@@ -329,6 +332,7 @@ async function _aplicarSeed(seed) {
       motivoReprovacao:         pedData.motivoReprovacao || null,
       motivoReprovacaoOutros:   pedData.motivoReprovacaoOutros || null,
       fornecedorId,
+      numeroPedido,
       isDemo:      true,
       criadoEm:    primeiroTs,
       atualizadoEm: ultimoTs,
@@ -406,7 +410,9 @@ async function _aplicarSeed(seed) {
       await parBatch.commit()
     }
   }
-  console.log(`${seed.pedidos?.length || 0} pedidos demo criados com subcoleções.`)
+  // Atualiza contador para que novos pedidos reais continuem a sequência
+  await db.collection('_meta').doc('contadores').set({ totalPedidos: pedidoCount }, { merge: true })
+  console.log(`${pedidoCount} pedidos demo criados com subcoleções. Contador: PRX-${String(pedidoCount).padStart(4,'0')}`)
 }
 
 function _isoHoje() {
