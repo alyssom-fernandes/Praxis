@@ -661,9 +661,10 @@ async function _restaurarDadosDemo(btn) {
   btn.disabled = true
   mostrarSpinner()
   try {
-    const { functions, httpsCallable } = await import('./firebase.js')
-    await httpsCallable(functions, 'triggerDemoSeed')({})
+    const { renovarDemo } = await import('./demo-reset.js')
+    await renovarDemo(window.__praxisSessao.usuario, { forcar: true })
     prxToast(t('demoResetadoMsg'), 'success', 4000)
+    window.__navegar?.('pedidos', {}, { substituir: true })
   } catch (err) {
     console.error(err)
     prxToast(t('demoErroReset'), 'error')

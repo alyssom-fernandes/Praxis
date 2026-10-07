@@ -72,8 +72,15 @@ Multiempresa: todo pedido tem `empresaId`; toda query filtra por `where('empresa
 | `checkClaimTimeout` | agendada (1h) | Pedido sem comprador há 48h (ou urgente há 4h) → notifica gestores. |
 | `checkParcelasVencendo` | agendada (8h) | Parcelas vencendo em ≤3 dias → notifica financeiro/gestor. |
 | `checkParcelasVencidas` | agendada (8h) | Parcelas vencidas → notifica financeiro/gestor. |
-| `demoReset` | agendada (domingo 3h) | Apaga dados `isDemo` e reaplica `functions/seed.json`. |
-| `triggerDemoSeed` | onCall | Reset do demo sob demanda (botão em Config → Geral). |
+| `demoReset` | agendada (domingo 3h) | Versão antiga da renovação da demo, pelo servidor (exige o plano Blaze). |
+| `triggerDemoSeed` | onCall | Renovação da demo sob demanda, pelo servidor (exige o plano Blaze). |
+
+A demo publicada roda no plano gratuito e não depende dessas duas funções: a
+renovação é feita pelo próprio app em `js/demo-reset.js`. No primeiro acesso do
+dia à conta demo (e no "Restaurar dados" da faixa), o app apaga o que a demo
+criou e recria `assets/demo/seed.json` com as datas andando até hoje. Uma trava
+em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
+(`eDemo()`) só deixam a conta demo apagar os pedidos dela.
 
 ## Funcionalidades avançadas (Estágio 4)
 

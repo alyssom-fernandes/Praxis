@@ -195,6 +195,7 @@ async function _buscarOuCriarFornecedor(nomeDigitado) {
   const novo = await addDoc(collection(db, 'fornecedores'), {
     nome: nomeNorm, nomeOriginal: nomeDigitado, nomeExibicao: nomeDigitado,
     cnpj: '', criadoEm: serverTimestamp(), usos: 1,
+    ...(sessao.isDemo ? { isDemo: true } : {}),
   })
   _fornecedores.push({ id: novo.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 })
   return novo.id

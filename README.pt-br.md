@@ -24,7 +24,7 @@ Este README também está em [inglês](README.md).
 2. No quadro, abra o **PRX-0003** (em aprovação): compare as três cotações e aprove ou reprove com motivo.
 3. Abra o **PRX-0012** (comprado): a primeira parcela está vencida. Registre o pagamento e veja o pedido avançar.
 4. Em **Relatórios**, troque o período e exporte em PDF ou Excel, ou mande imprimir.
-5. Mexa à vontade: os dados de demonstração voltam ao original todo domingo.
+5. Mexa à vontade: os dados de demonstração voltam ao original todo dia.
 
 ## Telas
 

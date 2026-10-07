@@ -284,7 +284,7 @@ function _mostrarBoasVindas() {
       <div class="bv-corpo">
         <p class="bv-rotulo">Modo demonstração</p>
         <h2 class="bv-titulo" id="bv-titulo">Conheça o Praxis por dentro</h2>
-        <p class="bv-texto" id="bv-texto">Você entra como administrador de uma empresa fictícia, com pedidos em todas as etapas. Crie, aprove e cancele à vontade: os dados voltam ao original todo domingo.</p>
+        <p class="bv-texto" id="bv-texto">Você entra como administrador de uma empresa fictícia, com pedidos em todas as etapas. Crie, aprove e cancele à vontade: os dados voltam ao original todo dia.</p>
         <ol class="bv-lista">
           ${_BV_FRENTES.map(([nome, desc], i) => `
           <li>

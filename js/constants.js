@@ -766,7 +766,7 @@ export const TRADUCOES = {
     campoDataLimpar:        'Limpar',
     campoDataHoje:          'Hoje',
     demoFaixaTitulo:        'Modo demonstração',
-    demoFaixaDetalhe:       ': dados fictícios, restaurados todo domingo. Crie, aprove e cancele à vontade.',
+    demoFaixaDetalhe:       ': dados fictícios, restaurados todo dia. Crie, aprove e cancele à vontade.',
     demoFaixaRestaurar:     'Restaurar dados',
     demoFaixaSair:          'Sair da demo',
 
@@ -1495,7 +1495,7 @@ export const TRADUCOES = {
     campoDataLimpar:        'Clear',
     campoDataHoje:          'Today',
     demoFaixaTitulo:        'Demo mode',
-    demoFaixaDetalhe:       ': sample data, restored every Sunday. Create, approve and cancel freely.',
+    demoFaixaDetalhe:       ': sample data, restored every day. Create, approve and cancel freely.',
     demoFaixaRestaurar:     'Restore data',
     demoFaixaSair:          'Exit demo',
 

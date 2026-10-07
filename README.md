@@ -25,7 +25,7 @@ This README is also available in [Portuguese](README.pt-br.md). The interface is
 2. On the board, open **PRX-0003** (awaiting approval): compare the three quotes and approve, or reject with a reason.
 3. Open **PRX-0012** (purchased): its first installment is overdue. Record the payment and watch the order move on.
 4. In **Relatórios** (reports), change the period and export to PDF or Excel, or print it.
-5. Play around freely: the demo data resets every Sunday.
+5. Play around freely: the demo data resets every day.
 
 ## Screens
 

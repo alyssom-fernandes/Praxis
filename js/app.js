@@ -13,6 +13,7 @@ import {
 } from './constants.js'
 import { gerarIniciais } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
+import { renovarDemo } from './demo-reset.js'
 
 // Expõe constantes para ui.js (evita circular imports em renderizações)
 window.__praxisConst = { STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR, PERFIS_LABEL, PERFIS_COLOR }
@@ -89,6 +90,13 @@ onAuthStateChanged(auth, async (fireUser) => {
         } catch (e) {
           console.warn('fixDemoClaims falhou:', e.message)
         }
+      }
+      // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as
+      // datas de hoje. Uma falha aqui não impede a entrada.
+      try {
+        if (await renovarDemo(usuario) === 'renovada') sessao.usuario = await carregarUsuario(fireUser.uid)
+      } catch (e) {
+        console.warn('Renovação da demo falhou:', e.message)
       }
     }
 

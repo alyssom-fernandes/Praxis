@@ -26,6 +26,11 @@ service cloud.firestore {
     function eComprador() { return perfil() in ['supremo', 'gestor', 'comprador']; }
     function eFinanceiro() { return perfil() in ['supremo', 'gestor', 'financeiro']; }
 
+    // Conta da demonstração pública. A renovação diária da demo é feita pelo
+    // próprio app (js/demo-reset.js, sem Cloud Functions) e precisa apagar o
+    // que a demo criou; só essa conta pode.
+    function eDemo() { return request.auth.token.email == 'demo@praxis.app'; }
+
     // ── Usuários ───────────────────────────────────────────────
     match /usuarios/{userId} {
       allow read: if estaLogado() && (
@@ -86,7 +91,9 @@ service cloud.firestore {
         temAcessoEmpresa(resource.data.empresaId) ||
         eSupremo()
       );
-      allow delete: if false; // Pedidos nunca são deletados — apenas cancelados
+      // Pedidos nunca são deletados (apenas cancelados), exceto os da demo na renovação
+      allow delete: if estaLogado() && eDemo() &&
+        (resource.data.isDemo == true || resource.data.solicitanteId == request.auth.uid);
 
       // ── Cotações ─────────────────────────────────────────────
       match /cotacoes/{cotacaoId} {
@@ -122,7 +129,7 @@ service cloud.firestore {
         );
         allow create: if estaLogado() && eComprador();
         allow update: if estaLogado() && eFinanceiro();
-        allow delete: if false;
+        allow delete: if estaLogado() && eDemo(); // só a renovação da demo
       }
 
       // ── Histórico ─────────────────────────────────────────────
@@ -135,7 +142,8 @@ service cloud.firestore {
           temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
           eSupremo()
         );
-        allow update, delete: if false; // Histórico é imutável
+        allow update: if false; // Histórico é imutável
+        allow delete: if estaLogado() && eDemo(); // só a renovação da demo
       }
 
       // ── Anexos gerais (4.10) ──────────────────────────────────
