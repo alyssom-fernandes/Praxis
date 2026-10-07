@@ -80,12 +80,25 @@ async function _esperarOutroVisitante() {
 async function _apagarDemo(uid) {
   const lote = _lotes()
 
-  // Pedidos de exemplo (isDemo) e os que os visitantes abriram com a conta demo
+  // Contas demo: a atual e as antigas (de quando ela foi recriada no console)
+  const perfisDemo = (await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
+  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id)])
+  const uidsUsuarios = new Set((await getDocs(collection(db, 'usuarios'))).docs.map(d => d.id))
+
+  // Saem os pedidos de exemplo (isDemo), os abertos por qualquer conta demo e
+  // os de autor que não existe mais (visitantes de uma conta demo apagada).
+  // Os dois últimos ganham antes a marca isDemo: as regras só deixam a conta
+  // demo apagar pedidos marcados ou dela mesma.
   const pedidos = new Map()
-  for (const q of [
-    query(collection(db, 'pedidos'), where('isDemo', '==', true)),
-    query(collection(db, 'pedidos'), where('solicitanteId', '==', uid)),
-  ]) (await getDocs(q)).docs.forEach(d => pedidos.set(d.id, d.ref))
+  const marcar = _lotes()
+  for (const d of (await getDocs(collection(db, 'pedidos'))).docs) {
+    const p = d.data()
+    const daDemo = p.isDemo === true || uidsDemo.has(p.solicitanteId) || !uidsUsuarios.has(p.solicitanteId)
+    if (!daDemo) continue
+    pedidos.set(d.id, d.ref)
+    if (p.isDemo !== true && p.solicitanteId !== uid) marcar.mesclar(d.ref, { isDemo: true })
+  }
+  await marcar.fim()
 
   await Promise.all([...pedidos.values()].map(async ref => {
     for (const sub of SUBCOLECOES) {
@@ -96,9 +109,8 @@ async function _apagarDemo(uid) {
 
   ;(await getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true)))).docs.forEach(d => lote.del(d.ref))
   ;(await getDocs(collection(db, 'notificacoes', uid, 'items'))).docs.forEach(d => lote.del(d.ref))
-  // Perfis antigos da conta demo (de quando ela foi recriada no console)
-  ;(await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
-    .filter(d => d.id !== uid).forEach(d => lote.del(d.ref))
+  // Perfis antigos da conta demo
+  perfisDemo.filter(d => d.id !== uid).forEach(d => lote.del(d.ref))
   await lote.fim()
 }
 

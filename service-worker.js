@@ -1,4 +1,4 @@
-const CACHE = 'praxis-v4'
+const CACHE = 'praxis-v5'
 
 // Hosts de API que nunca devem ser interceptados
 const API_HOSTS = [
@@ -53,19 +53,20 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Assets da mesma origem (JS, CSS, imagens, fontes) → cache-first
+  // Arquivos do próprio site (JS, CSS, imagens) → rede primeiro; o cache só
+  // entra sem internet. Antes era cache primeiro: depois de cada publicação o
+  // visitante rodava o JS antigo e podia misturar módulos novos e antigos.
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(request).then(cached => {
-        const fromNetwork = fetch(request).then(resp => {
+      fetch(request)
+        .then(resp => {
           if (resp && resp.status === 200) {
             const cloned = resp.clone()
             caches.open(CACHE).then(c => c.put(request, cloned))
           }
           return resp
         })
-        return cached || fromNetwork
-      })
+        .catch(() => caches.match(request))
     )
     return
   }
