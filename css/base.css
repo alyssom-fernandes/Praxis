@@ -370,7 +370,9 @@ button:disabled {
   align-items: center;
   justify-content: center;
 }
-#spinner-overlay.visible { display: flex; animation: spinnerAparece 0.2s ease 0.12s both; }
+#spinner-overlay.visible { display: flex; flex-direction: column; gap: 18px; animation: spinnerAparece 0.2s ease 0.12s both; }
+.spinner-texto { font-size: 0.86rem; color: var(--text2); text-align: center; padding: 0 24px; }
+.spinner-texto:empty { display: none; }
 @keyframes spinnerAparece { from { opacity: 0; } to { opacity: 1; } }
 
 .spinner {

@@ -96,6 +96,9 @@ async function _apagarDemo(uid) {
 
   ;(await getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true)))).docs.forEach(d => lote.del(d.ref))
   ;(await getDocs(collection(db, 'notificacoes', uid, 'items'))).docs.forEach(d => lote.del(d.ref))
+  // Perfis antigos da conta demo (de quando ela foi recriada no console)
+  ;(await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
+    .filter(d => d.id !== uid).forEach(d => lote.del(d.ref))
   await lote.fim()
 }
 
@@ -234,15 +237,19 @@ async function _aplicarSeed(seed, usuario) {
 // ── Ponto de entrada ─────────────────────────────────────────
 // Garante a demo do dia (forcar=false) ou renova agora (forcar=true).
 // Devolve 'em-dia' quando não precisou renovar e 'renovada' quando renovou.
-export async function renovarDemo(usuario, { forcar = false } = {}) {
+// aoComecar: chamado só quando a renovação vai mesmo acontecer (para avisar
+// na tela de carregamento).
+export async function renovarDemo(usuario, { forcar = false, aoComecar } = {}) {
   let trava = await _pegarTrava(forcar)
   if (trava === 'em-dia') return 'em-dia'
   if (trava === 'ocupado') {
+    aoComecar?.()
     await _esperarOutroVisitante()
     if (!forcar) return 'em-dia'
     trava = await _pegarTrava(true)
     if (trava !== 'minha') return 'em-dia'
   }
+  aoComecar?.()
   try {
     const resp = await fetch('/assets/demo/seed.json', { cache: 'no-store' })
     if (!resp.ok) throw new Error(`seed ${resp.status}`)

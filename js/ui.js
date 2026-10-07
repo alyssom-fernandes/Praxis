@@ -347,12 +347,21 @@ export function frisoGrego({ classe = '' } = {}) {
 }
 
 // ── Spinner ───────────────────────────────────────────────────
-export function mostrarSpinner() {
-  document.getElementById('spinner-overlay')?.classList.add('visible')
+// Texto opcional sob a barra, para esperas longas (ex.: renovação da demo)
+export function mostrarSpinner(texto = '') {
+  const el = document.getElementById('spinner-overlay')
+  if (!el) return
+  let p = el.querySelector('.spinner-texto')
+  if (texto && !p) { p = document.createElement('p'); p.className = 'spinner-texto'; el.appendChild(p) }
+  if (p) p.textContent = texto
+  el.classList.add('visible')
 }
 
 export function esconderSpinner() {
-  document.getElementById('spinner-overlay')?.classList.remove('visible')
+  const el = document.getElementById('spinner-overlay')
+  el?.classList.remove('visible')
+  const p = el?.querySelector('.spinner-texto')
+  if (p) p.textContent = ''
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -659,7 +668,7 @@ async function _restaurarDadosDemo(btn) {
   const ok = await prxConfirm(t('confirmarResetDemo'), t('cfgResetMsg'), t('btnResetarDemo'), t('btnCancelar'), true)
   if (!ok) return
   btn.disabled = true
-  mostrarSpinner()
+  mostrarSpinner(t('demoPreparando'))
   try {
     const { renovarDemo } = await import('./demo-reset.js')
     await renovarDemo(window.__praxisSessao.usuario, { forcar: true })

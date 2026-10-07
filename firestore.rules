@@ -8,8 +8,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Conta da demonstração pública. A renovação diária da demo é feita pelo
+    // próprio app (js/demo-reset.js, sem Cloud Functions) e precisa apagar o
+    // que a demo criou; só essa conta pode.
+    function eDemo() { return request.auth.token.email == 'demo@praxis.app'; }
+
+    // A conta demo vale como supremo mesmo sem as permissões gravadas no login
+    // (quem grava é uma Cloud Function, que fica fora do plano gratuito)
     function perfil() {
-      return request.auth.token.perfil;
+      return eDemo() ? 'supremo' : request.auth.token.perfil;
     }
 
     function empresasDoUsuario() {
@@ -25,11 +32,6 @@ service cloud.firestore {
     function eAprovador() { return perfil() in ['supremo', 'gestor', 'aprovador']; }
     function eComprador() { return perfil() in ['supremo', 'gestor', 'comprador']; }
     function eFinanceiro() { return perfil() in ['supremo', 'gestor', 'financeiro']; }
-
-    // Conta da demonstração pública. A renovação diária da demo é feita pelo
-    // próprio app (js/demo-reset.js, sem Cloud Functions) e precisa apagar o
-    // que a demo criou; só essa conta pode.
-    function eDemo() { return request.auth.token.email == 'demo@praxis.app'; }
 
     // ── Usuários ───────────────────────────────────────────────
     match /usuarios/{userId} {

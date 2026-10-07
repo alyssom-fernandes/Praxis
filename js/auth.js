@@ -1,7 +1,7 @@
 import {
   auth, db,
   signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
-  doc,
+  doc, setDoc, serverTimestamp,
 } from './firebase.js'
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { t } from './constants.js'
@@ -394,7 +394,17 @@ export async function carregarUsuario(uid) {
   }
   const { getDocFromServer } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
   const snap = await getDocFromServer(doc(db, 'usuarios', uid))
-  if (!snap.exists()) throw new Error('Usuário não encontrado no sistema.')
+  if (!snap.exists()) {
+    // Conta demo criada direto no console do Firebase: o perfil nasce aqui,
+    // no primeiro acesso (sem Cloud Functions). A renovação da demo, logo em
+    // seguida, liga o perfil às empresas de exemplo.
+    if (auth.currentUser?.email === DEMO_EMAIL) {
+      const perfilDemo = { nome: 'Demo Praxis', email: DEMO_EMAIL, perfil: 'supremo', ativo: true, empresas: [], ultimoAcesso: null }
+      await setDoc(doc(db, 'usuarios', uid), { ...perfilDemo, criadoEm: serverTimestamp() })
+      return { id: uid, ...perfilDemo }
+    }
+    throw new Error('Usuário não encontrado no sistema.')
+  }
   return { id: snap.id, ...snap.data() }
 }
 

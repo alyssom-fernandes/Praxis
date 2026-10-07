@@ -1,4 +1,4 @@
-import { auth, onAuthStateChanged, functions, httpsCallable } from './firebase.js'
+import { auth, onAuthStateChanged } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
 import { renderPedidos } from './pedidos.js'
@@ -80,21 +80,13 @@ onAuthStateChanged(auth, async (fireUser) => {
     sessao.fireUser = fireUser
     sessao.isDemo   = usuario.email === 'demo@praxis.app'
 
-    // Demo sem claims → define automaticamente e renova o token
+    // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
+    // de hoje. As permissões da conta demo vêm das regras (pelo e-mail), sem
+    // Cloud Functions. Uma falha aqui não impede a entrada.
     if (sessao.isDemo) {
-      const tokenResult = await fireUser.getIdTokenResult()
-      if (!tokenResult.claims.perfil) {
-        try {
-          await httpsCallable(functions, 'fixDemoClaims')()
-          await fireUser.getIdToken(true) // força renovação do JWT
-        } catch (e) {
-          console.warn('fixDemoClaims falhou:', e.message)
-        }
-      }
-      // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as
-      // datas de hoje. Uma falha aqui não impede a entrada.
       try {
-        if (await renovarDemo(usuario) === 'renovada') sessao.usuario = await carregarUsuario(fireUser.uid)
+        const aoComecar = () => mostrarSpinner(t('demoPreparando'))
+        if (await renovarDemo(usuario, { aoComecar }) === 'renovada') sessao.usuario = await carregarUsuario(fireUser.uid)
       } catch (e) {
         console.warn('Renovação da demo falhou:', e.message)
       }

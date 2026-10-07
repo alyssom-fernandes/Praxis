@@ -3,11 +3,17 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // A conta da demo pública vale como supremo mesmo sem as permissões
+    // gravadas no login (quem grava é uma Cloud Function, fora do plano gratuito)
+    function perfil() {
+      return request.auth.token.email == 'demo@praxis.app' ? 'supremo' : request.auth.token.perfil;
+    }
+
     // Cotações — leitura por todos com acesso, escrita apenas compradores
     match /pedidos/{pedidoId}/cotacoes/{cotacaoId}/{fileName} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null
-        && request.auth.token.perfil in ['supremo', 'gestor', 'comprador']
+        && perfil() in ['supremo', 'gestor', 'comprador']
         && request.resource.size < 10 * 1024 * 1024  // 10 MB
         && request.resource.contentType.matches('application/pdf|image/.*');
     }
@@ -16,7 +22,7 @@ service firebase.storage {
     match /pedidos/{pedidoId}/comprovantes/{parcelaId}/{fileName} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null
-        && request.auth.token.perfil in ['supremo', 'gestor', 'financeiro']
+        && perfil() in ['supremo', 'gestor', 'financeiro']
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf|image/.*');
     }
