@@ -13,7 +13,9 @@
   <script>
     (function () {
       try {
-        if (localStorage.getItem('praxis_theme') === 'light') {
+        var salvo = localStorage.getItem('praxis_theme');
+        var claro = salvo ? salvo === 'light' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
+        if (claro) {
           document.documentElement.classList.add('light');
           var m = document.querySelector('meta[name="theme-color"]');
           if (m) m.setAttribute('content', '#EFE6D7');

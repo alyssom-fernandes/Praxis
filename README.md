@@ -8,7 +8,7 @@ the purchase is made, delivery is confirmed and finance pays the installments.
 Every step has an owner, a deadline and a history, and each role sees only what
 belongs to it.
 
-**Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Explorar a demonstração** (explore the demo).
+**Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Acessar modo demo** (open demo mode).
 
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Functions-FFCA28?style=flat-square&logo=firebase&logoColor=black)
@@ -20,7 +20,7 @@ This README is also available in [Portuguese](README.pt-br.md). The interface is
 
 ## In 30 seconds
 
-1. Open the [demo](https://praxis-af618.web.app) and click **Explorar a demonstração**.
+1. Open the [demo](https://praxis-af618.web.app) and click **Acessar modo demo**.
    You sign in as the administrator of three fictitious companies, with 33 orders spread across every stage.
 2. On the board, open **PRX-0003** (awaiting approval): compare the three quotes and approve, or reject with a reason.
 3. Open **PRX-0012** (purchased): its first installment is overdue. Record the payment and watch the order move on.
@@ -106,7 +106,7 @@ npm run seed      # 33 orders, 3 companies and one account per role
 npm run servir    # the app is served at http://localhost:8123
 ```
 
-On `localhost` the app connects to the emulators by itself. Use **Explorar a demonstração**, or sign in as
+On `localhost` the app connects to the emulators by itself. Use **Acessar modo demo**, or sign in as
 `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` or `solicitante@praxis.app`, all with the
 password `demo1234`, to see the system through each role.
 

@@ -1,17 +1,17 @@
 import { db, collection, getDocs } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
-import { reativarTour, toggleTheme } from './ui.js'
+import { reativarTour, definirTema, preferenciaTema } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { t } from './constants.js'
 import { ICO, cabecalho, perfilHtml, iniciais, revelarItemLateral, completarContagensLateral, esc } from './config-comum.js'
 
 // Ajustes: quem é você no Praxis e as preferências deste navegador. Restaurar
 // os dados de demonstração fica na faixa do modo demo, no alto de toda tela.
-const _temaAtual = () => (document.documentElement.classList.contains('light') ? 'light' : 'dark')
+const _OPCOES_TEMA = ['auto', 'dark', 'light']
 
 export async function renderConfigGeral() {
   const u    = sessao.usuario || {}
-  const tema = _temaAtual()
+  const tema = preferenciaTema()
   const opcaoTema = (valor, icone, rotulo) => `
     <button type="button" class="cfg-seg-op ${tema === valor ? 'active' : ''}" role="radio" aria-checked="${tema === valor}" tabindex="${tema === valor ? 0 : -1}" data-tema="${valor}">
       ${icone}<span>${rotulo}</span>
@@ -56,6 +56,7 @@ export async function renderConfigGeral() {
                 <p class="cfg-item-desc">${t('cfgAparenciaDesc')}</p>
               </div>
               <div class="cfg-seg" id="cfg-tema" role="radiogroup" aria-labelledby="cfg-aparencia-titulo">
+                ${opcaoTema('auto', ICO.auto(), t('cfgTemaAuto'))}
                 ${opcaoTema('dark', ICO.lua(), t('cfgTemaEscuro'))}
                 ${opcaoTema('light', ICO.sol(), t('cfgTemaClaro'))}
               </div>
@@ -119,13 +120,17 @@ function _bindEvents() {
   const grupo = document.getElementById('cfg-tema')
   grupo?.addEventListener('click', e => {
     const b = e.target.closest('[data-tema]')
-    if (!b || b.dataset.tema === _temaAtual()) return
-    _marcarTema(toggleTheme())
+    if (!b || b.dataset.tema === preferenciaTema()) return
+    definirTema(b.dataset.tema)
+    _marcarTema(b.dataset.tema)
   })
   grupo?.addEventListener('keydown', e => {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
     e.preventDefault()
-    const novo = toggleTheme()
+    const passo = ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 1
+    const i = _OPCOES_TEMA.indexOf(preferenciaTema())
+    const novo = _OPCOES_TEMA[(i + passo + _OPCOES_TEMA.length) % _OPCOES_TEMA.length]
+    definirTema(novo)
     _marcarTema(novo)
     grupo.querySelector(`[data-tema="${novo}"]`)?.focus()
   })

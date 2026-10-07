@@ -295,16 +295,51 @@ function _cmdGetAcoes() {
 })()
 
 // ── Tema ─────────────────────────────────────────────────────
+// Sem escolha salva, o app segue o tema do sistema e muda junto quando ele
+// muda (inclusive na entrada, que não tem botão de tema). A escolha feita no
+// menu da conta ou em Ajustes vale por cima; "Automático" em Ajustes volta a
+// seguir o sistema.
+const _CHAVE_TEMA = 'praxis_theme'
+const _sistemaClaro = window.matchMedia?.('(prefers-color-scheme: light)')
+
+function _temaSalvo() {
+  try {
+    const v = localStorage.getItem(_CHAVE_TEMA)
+    return v === 'light' || v === 'dark' ? v : null
+  } catch { return null }
+}
+const _temaDoSistema = () => (_sistemaClaro?.matches ? 'light' : 'dark')
+
+// 'auto', 'light' ou 'dark'
+export function preferenciaTema() { return _temaSalvo() || 'auto' }
+
 export function initTheme() {
-  const saved = localStorage.getItem('praxis_theme') || 'dark'
-  aplicarTema(saved)
+  aplicarTema(_temaSalvo() || _temaDoSistema())
+  const seguirSistema = () => {
+    if (_temaSalvo()) return
+    const tema = _temaDoSistema()
+    if ((document.documentElement.classList.contains('light') ? 'light' : 'dark') !== tema) aplicarTema(tema)
+  }
+  _sistemaClaro?.addEventListener?.('change', seguirSistema)
+  // Alguns navegadores embutidos trocam o tema do sistema sem disparar o
+  // evento acima: confere também ao voltar para a página e de leve, a cada 2 s
+  window.addEventListener('focus', seguirSistema)
+  document.addEventListener('visibilitychange', seguirSistema)
+  setInterval(seguirSistema, 2000)
+}
+
+export function definirTema(preferencia) {
+  try {
+    if (preferencia === 'auto') localStorage.removeItem(_CHAVE_TEMA)
+    else localStorage.setItem(_CHAVE_TEMA, preferencia)
+  } catch {}
+  aplicarTema(preferencia === 'auto' ? _temaDoSistema() : preferencia)
 }
 
 export function toggleTheme() {
   const atual = document.documentElement.classList.contains('light') ? 'light' : 'dark'
   const novo = atual === 'dark' ? 'light' : 'dark'
-  aplicarTema(novo)
-  localStorage.setItem('praxis_theme', novo)
+  definirTema(novo)
   return novo
 }
 

@@ -7,7 +7,7 @@ Alguém abre uma solicitação, o comprador reúne as cotações, o aprovador de
 a compra é feita, a entrega é confirmada e o financeiro paga as parcelas. Cada
 etapa tem responsável, prazo e histórico, e cada perfil vê só o que lhe cabe.
 
-**Demonstração ao vivo:** [praxis-af618.web.app](https://praxis-af618.web.app). Na entrada, clique em **Explorar a demonstração**.
+**Demonstração ao vivo:** [praxis-af618.web.app](https://praxis-af618.web.app). Na entrada, clique em **Acessar modo demo**.
 
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Functions-FFCA28?style=flat-square&logo=firebase&logoColor=black)
@@ -19,7 +19,7 @@ Este README também está em [inglês](README.md).
 
 ## Em 30 segundos
 
-1. Abra a [demonstração](https://praxis-af618.web.app) e clique em **Explorar a demonstração**.
+1. Abra a [demonstração](https://praxis-af618.web.app) e clique em **Acessar modo demo**.
    Você entra como administrador de três empresas fictícias, com 33 pedidos espalhados por todas as etapas.
 2. No quadro, abra o **PRX-0003** (em aprovação): compare as três cotações e aprove ou reprove com motivo.
 3. Abra o **PRX-0012** (comprado): a primeira parcela está vencida. Registre o pagamento e veja o pedido avançar.
@@ -105,7 +105,7 @@ npm run seed      # 33 pedidos, 3 empresas e uma conta por perfil
 npm run servir    # o app fica em http://localhost:8123
 ```
 
-Em `localhost` o app se conecta sozinho aos emuladores. Na entrada, use **Explorar a demonstração**
+Em `localhost` o app se conecta sozinho aos emuladores. Na entrada, use **Acessar modo demo**
 ou entre com `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` ou `solicitante@praxis.app`,
 todos com a senha `demo1234`, para ver o sistema por cada perfil.
 
