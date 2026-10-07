@@ -1,14 +1,29 @@
 import { t } from './constants.js'
 
 // ── Command Palette (4.2) ─────────────────────────────────────
+// Busca de comandos e pedidos (botão "Buscar" da topbar, item da barra
+// inferior no celular e Ctrl+K / ⌘K). Sem texto: comandos + pedidos recentes.
 let _cmdPaletaEl  = null
 let _cmdActiveIdx = 0
+let _cmdGatilho   = null
+
+const _ehMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
+
+function _escHTML(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+// Ignora acentos e caixa: "relatorio" encontra "Relatórios"
+function _normalizar(s) {
+  return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
 
 export function initCommandPalette() {
   if (globalThis.__praxisCmdInited) return
   globalThis.__praxisCmdInited = true
   document.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      if (!window.__praxisSessao?.usuario) return // só dentro do app
       e.preventDefault()
       if (_cmdPaletaEl?.classList.contains('visible')) {
         _fecharPaleta()
@@ -22,6 +37,7 @@ export function initCommandPalette() {
 export function abrirCommandPalette() {
   if (!window.__navegar) return
   _criarPaletaDOM()
+  if (!_cmdPaletaEl.classList.contains('visible')) _cmdGatilho = document.activeElement
   _cmdPaletaEl.classList.add('visible')
   _cmdActiveIdx = 0
   const input = document.getElementById('cmd-input')
@@ -29,8 +45,11 @@ export function abrirCommandPalette() {
   _cmdRenderResultados('')
 }
 
-function _fecharPaleta() {
-  _cmdPaletaEl?.classList.remove('visible')
+function _fecharPaleta(devolverFoco = true) {
+  if (!_cmdPaletaEl?.classList.contains('visible')) return
+  _cmdPaletaEl.classList.remove('visible')
+  if (devolverFoco && _cmdGatilho?.isConnected) _cmdGatilho.focus({ preventScroll: true })
+  _cmdGatilho = null
 }
 
 function _criarPaletaDOM() {
@@ -38,29 +57,29 @@ function _criarPaletaDOM() {
   const el = document.createElement('div')
   el.id = 'cmd-palette'
   el.className = 'cmd-palette-overlay'
-  el.setAttribute('role', 'dialog')
-  el.setAttribute('aria-label', 'Paleta de comandos')
   el.innerHTML = `
-    <div class="cmd-palette">
+    <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="Buscar">
       <div class="cmd-palette-header">
-        <svg class="cmd-search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <svg class="cmd-search-icon" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input id="cmd-input" type="text" class="cmd-input" placeholder="Buscar ação ou pedido..." autocomplete="off" spellcheck="false" aria-label="Buscar comando ou pedido">
-        <kbd class="cmd-esc-hint">ESC</kbd>
+        <input id="cmd-input" type="text" class="cmd-input" placeholder="Buscar pedido ou comando" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="true" aria-controls="cmd-results" aria-autocomplete="list" aria-label="Buscar pedido ou comando">
+        <button type="button" class="cmd-esc" id="cmd-fechar" aria-label="Fechar busca"><kbd>Esc</kbd><svg class="cmd-esc-x" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div id="cmd-results" class="cmd-results" role="listbox"></div>
-      <div class="cmd-palette-footer">
-        <span><kbd>↑↓</kbd> navegar</span>
-        <span><kbd>↵</kbd> confirmar</span>
-        <span><kbd>ESC</kbd> fechar</span>
+      <div id="cmd-results" class="cmd-results" role="listbox" aria-label="Resultados"></div>
+      <div class="cmd-palette-footer" aria-hidden="true">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
+        <span><kbd>↵</kbd> abrir</span>
+        <span class="cmd-footer-atalho"><kbd>${_ehMac ? '⌘' : 'Ctrl'}</kbd><kbd>K</kbd> abrir ou fechar</span>
       </div>
     </div>
   `
   document.body.appendChild(el)
   _cmdPaletaEl = el
 
-  el.addEventListener('click', e => { if (e.target === el) _fecharPaleta() })
+  el.addEventListener('mousedown', e => { if (e.target === el) _fecharPaleta() })
+  el.querySelector('#cmd-fechar').addEventListener('click', () => _fecharPaleta())
 
   const input = el.querySelector('#cmd-input')
   input.addEventListener('input', e => {
@@ -68,7 +87,7 @@ function _criarPaletaDOM() {
     _cmdRenderResultados(e.target.value)
   })
   input.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.stopPropagation(); _fecharPaleta(); return }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _fecharPaleta(); return }
     const items = [...(document.getElementById('cmd-results')?.querySelectorAll('.cmd-item') || [])]
     if (!items.length) return
     if (e.key === 'ArrowDown') {
@@ -84,75 +103,101 @@ function _criarPaletaDOM() {
       items[_cmdActiveIdx]?.click()
     }
   })
+  // Foco preso na paleta: Tab volta para o campo
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); input.focus() }
+  })
 }
 
 function _cmdSyncAtivo(items) {
-  items.forEach((btn, i) => btn.classList.toggle('active', i === _cmdActiveIdx))
-  items[_cmdActiveIdx]?.scrollIntoView({ block: 'nearest' })
+  items.forEach((btn, i) => {
+    btn.classList.toggle('active', i === _cmdActiveIdx)
+    btn.setAttribute('aria-selected', String(i === _cmdActiveIdx))
+  })
+  const ativo = items[_cmdActiveIdx]
+  ativo?.scrollIntoView({ block: 'nearest' })
+  if (ativo) document.getElementById('cmd-input')?.setAttribute('aria-activedescendant', ativo.id)
+}
+
+const _ICONE_PEDIDO = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`
+
+function _tsMs(ts) {
+  if (!ts) return 0
+  if (ts.toDate) return ts.toDate().getTime()
+  if (typeof ts.seconds === 'number') return ts.seconds * 1000
+  const n = new Date(ts).getTime()
+  return Number.isNaN(n) ? 0 : n
 }
 
 function _cmdRenderResultados(query) {
   const results = document.getElementById('cmd-results')
   if (!results) return
-  const q = query.trim().toLowerCase()
+  const q = _normalizar(query.trim())
 
   const acoes = _cmdGetAcoes()
-  const acoesMatch = !q ? acoes : acoes.filter(a =>
-    a.label.toLowerCase().includes(q)
-  )
+  const acoesMatch = !q ? acoes : acoes.filter(a => _normalizar(a.label + ' ' + (a.termos || '')).includes(q))
 
   const pedidos = window.__getPedidos?.() || []
-  const pedidosMatch = !q ? [] : pedidos.filter(p => {
-    return (p.numeroPedido || '').toLowerCase().includes(q) ||
-           (p.titulo || '').toLowerCase().includes(q)
-  }).slice(0, 6)
+  const { STATUS_LABEL, STATUS_DOT_COLOR } = window.__praxisConst || {}
+  const pedidosMatch = !q
+    ? [...pedidos].sort((a, b) => _tsMs(b.atualizadoEm || b.criadoEm) - _tsMs(a.atualizadoEm || a.criadoEm)).slice(0, 4)
+    : pedidos.filter(p => _normalizar(p.numeroPedido).includes(q) || _normalizar(p.titulo).includes(q)).slice(0, 7)
 
   if (!acoesMatch.length && !pedidosMatch.length) {
-    results.innerHTML = `<div class="cmd-empty">Nenhum resultado para "${query}"</div>`
+    // Vazio na voz do quadro: o numeral zerado, como uma etapa sem pedidos
+    results.innerHTML = `
+      <div class="cmd-empty" role="status">
+        <span class="cmd-empty-n numeral" aria-hidden="true">00</span>
+        <strong>Nada encontrado para “${_escHTML(query.trim())}”</strong>
+        <span>Tente o número do pedido (PRX-0012) ou uma palavra do título.</span>
+      </div>`
+    document.getElementById('cmd-input')?.removeAttribute('aria-activedescendant')
     return
   }
 
   let html = ''
   let idx = 0
+  const linhaPedido = (p) => {
+    const i = idx++
+    return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-pedido-id="${_escHTML(p.id)}" role="option" aria-selected="${i === _cmdActiveIdx}">
+      <span class="cmd-item-icon" aria-hidden="true">${_ICONE_PEDIDO}</span>
+      <span class="cmd-item-num">${_escHTML(p.numeroPedido || '—')}</span>
+      <span class="cmd-item-label">${_escHTML(p.titulo || 'Sem título')}</span>
+      ${p.urgente ? `<span class="cmd-item-urg">Urgente</span>` : ''}
+      ${p.status ? `<span class="cmd-item-meta"><span class="dot ${STATUS_DOT_COLOR?.[p.status] || 'dot-gray'}" aria-hidden="true"></span>${_escHTML(STATUS_LABEL?.[p.status] ?? p.status)}</span>` : ''}
+    </button>`
+  }
 
-  if (acoesMatch.length) {
-    html += `<div class="cmd-group-label">Comandos</div>`
-    html += acoesMatch.map(a => {
+  const blocoPedidos = () => !pedidosMatch.length ? '' :
+    `<div class="cmd-group-label" role="presentation">${q ? 'Pedidos' : 'Atualizados recentemente'}</div>` + pedidosMatch.map(linhaPedido).join('')
+  const blocoAcoes = () => !acoesMatch.length ? '' :
+    `<div class="cmd-group-label" role="presentation">Comandos</div>` + acoesMatch.map(a => {
       const i = idx++
-      return `<button class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" data-idx="${i}" data-action-id="${a.id}" role="option">
+      return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-action-id="${a.id}" role="option" aria-selected="${i === _cmdActiveIdx}">
         <span class="cmd-item-icon" aria-hidden="true">${a.icon}</span>
         <span class="cmd-item-label">${a.label}</span>
       </button>`
     }).join('')
-  }
 
-  if (pedidosMatch.length) {
-    html += `<div class="cmd-group-label">Pedidos</div>`
-    html += pedidosMatch.map(p => {
-      const i = idx++
-      return `<button class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" data-idx="${i}" data-pedido-id="${p.id}" role="option">
-        <span class="cmd-item-icon" aria-hidden="true"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>
-        <span class="cmd-item-label">
-          <span class="cmd-item-num">${p.numeroPedido || '—'}</span>
-          ${p.titulo || '(sem título)'}
-        </span>
-      </button>`
-    }).join('')
-  }
+  // Com texto, pedidos vêm primeiro (é o que mais se procura); sem texto, comandos.
+  // Os índices seguem a ordem visual, então cada bloco é montado na ordem exibida.
+  html = q ? blocoPedidos() + blocoAcoes() : blocoAcoes() + blocoPedidos()
 
   results.innerHTML = html
+  document.getElementById('cmd-input')?.setAttribute('aria-activedescendant', `cmd-op-${_cmdActiveIdx}`)
 
   results.querySelectorAll('.cmd-item').forEach((btn, i) => {
-    btn.addEventListener('click', () => _cmdExecutarItem(btn, acoes, pedidosMatch))
-    btn.addEventListener('mouseenter', () => {
+    btn.addEventListener('click', () => _cmdExecutarItem(btn, acoes))
+    btn.addEventListener('mousemove', () => {
+      if (_cmdActiveIdx === i) return
       _cmdActiveIdx = i
       _cmdSyncAtivo([...results.querySelectorAll('.cmd-item')])
     })
   })
 }
 
-function _cmdExecutarItem(btn, acoes, pedidosMatch) {
-  _fecharPaleta()
+function _cmdExecutarItem(btn, acoes) {
+  _fecharPaleta(false)
   const actionId = btn.dataset.actionId
   if (actionId) {
     const acao = acoes.find(a => a.id === actionId)
@@ -164,57 +209,72 @@ function _cmdExecutarItem(btn, acoes, pedidosMatch) {
 }
 
 function _cmdGetAcoes() {
-  return [
+  const perfil = window.__praxisSessao?.usuario?.perfil
+  const podeRelatorios = ['supremo', 'gestor', 'aprovador', 'financeiro'].includes(perfil)
+  const podeConfig     = ['supremo', 'gestor'].includes(perfil)
+  const tela = new URLSearchParams(location.search).get('tela') || 'pedidos'
+  const claro = document.documentElement.classList.contains('light')
+  const ico = (corpo) => `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${corpo}</svg>`
+
+  const acoes = [
     {
-      id: 'ir-pedidos', label: 'Ir para Pedidos',
-      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,
-      fn: () => window.__navegar('pedidos'),
-    },
-    {
-      id: 'ir-relatorios', label: 'Ir para Relatórios',
-      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-      fn: () => window.__navegar('relatorios'),
-    },
-    {
-      id: 'ir-config', label: 'Ir para Configurações',
-      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
-      fn: () => window.__navegar('config-usuarios'),
-    },
-    {
-      id: 'novo-pedido', label: 'Novo pedido',
-      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+      id: 'novo-pedido', label: 'Novo pedido', termos: 'criar solicitar compra',
+      icon: ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
       fn: () => {
         window.__navegar('pedidos')
         setTimeout(() => document.getElementById('btn-novo-pedido')?.click(), 150)
       },
     },
+    tela !== 'pedidos' && {
+      id: 'ir-pedidos', label: 'Ir para Pedidos', termos: 'kanban quadro lista',
+      icon: ico('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
+      fn: () => window.__navegar('pedidos'),
+    },
+    podeRelatorios && tela !== 'relatorios' && {
+      id: 'ir-relatorios', label: 'Ir para Relatórios', termos: 'graficos indicadores exportar pdf excel',
+      icon: ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'),
+      fn: () => window.__navegar('relatorios'),
+    },
+    podeConfig && {
+      id: 'ir-usuarios', label: 'Configurações: Usuários', termos: 'pessoas perfis acesso',
+      icon: ico('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'),
+      fn: () => window.__navegar('config-usuarios'),
+    },
+    podeConfig && {
+      id: 'ir-cadastros', label: 'Configurações: Cadastros', termos: 'empresas categorias fornecedores',
+      icon: ico('<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>'),
+      fn: () => window.__navegar('config-cadastros'),
+    },
+    podeConfig && {
+      id: 'ir-geral', label: 'Configurações: Geral', termos: 'idioma sla prazos tour',
+      icon: ico('<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'),
+      fn: () => window.__navegar('config-geral'),
+    },
     {
-      id: 'alternar-tema', label: 'Alternar tema (claro / escuro)',
-      icon: `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+      id: 'alternar-tema', label: claro ? 'Usar tema escuro' : 'Usar tema claro', termos: 'tema aparencia claro escuro modo',
+      icon: claro
+        ? ico('<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>')
+        : ico('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>'),
       fn: () => toggleTheme(),
     },
   ]
+  return acoes.filter(Boolean)
 }
 
-// ── Handler global de teclado (ESC fecha modal/dialog; Enter confirma) ──────
+// ── Handler global de teclado (Esc fecha; Enter confirma diálogo) ──────────
 ;(function _initKeyboard() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      // Paleta tem prioridade
-      if (_cmdPaletaEl?.classList.contains('visible')) {
-        _fecharPaleta()
-        return
-      }
-      // Dialog tem prioridade
-      const dialog = document.querySelector('.dialog-overlay.visible')
+      // Ordem: paleta, tour, diálogo, modal mais recente
+      if (_cmdPaletaEl?.classList.contains('visible')) { _fecharPaleta(); return }
+      if (_tourAtivo()) { _tourFinalizar(); return }
+      const dialog = [...document.querySelectorAll('.dialog-overlay.visible')].at(-1)
       if (dialog) {
         const cancelBtn = dialog.querySelector('[id^="prx-confirm-cancel"]') || dialog.querySelector('[id^="prx-alert-ok"]')
         cancelBtn?.click()
         return
       }
-      // Fecha o modal mais recente
-      const modais = [...document.querySelectorAll('.modal-overlay.visible')]
-      const modal = modais.at(-1)
+      const modal = [...document.querySelectorAll('.modal-overlay.visible')].at(-1)
       if (modal) {
         fecharModal(modal.id)
         modal._onClose?.()
@@ -222,9 +282,12 @@ function _cmdGetAcoes() {
       return
     }
 
-    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('select')) {
-      const dialog = document.querySelector('.dialog-overlay.visible')
+    // Enter confirma o diálogo, a menos que o foco esteja num botão
+    // (aí vale o botão focado: Enter no "Cancelar" cancela)
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('select, button')) {
+      const dialog = [...document.querySelectorAll('.dialog-overlay.visible')].at(-1)
       if (dialog) {
+        e.preventDefault()
         dialog.querySelector('[id^="prx-confirm-ok"], [id^="prx-alert-ok"]')?.click()
       }
     }
@@ -247,101 +310,40 @@ export function toggleTheme() {
 
 function aplicarTema(tema) {
   document.documentElement.classList.toggle('light', tema === 'light')
-  desenharEstrelas(tema)
-  atualizarIconeTema(tema)
+  // Barra do navegador no celular acompanha o tema (mesmas cores de --bg)
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'light' ? '#EFE6D7' : '#13100D')
 }
 
-function atualizarIconeTema(tema) {
-  const btn = document.getElementById('btn-tema')
-  if (!btn) return
-  btn.innerHTML = tema === 'dark' ? iconeSol() : iconeLua()
-  btn.title = tema === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'
+// ── Fundo das telas de entrada ────────────────────────────────
+// A entrada (login, recuperação de senha) usa a grade sutil de 32 px em CSS
+// (body.ceu). O nome ficou do céu estrelado que existia antes.
+export function mostrarCeu(ligar) {
+  document.body.classList.toggle('ceu', !!ligar)
 }
 
-// ── Canvas de estrelas ────────────────────────────────────────
-export function desenharEstrelas(tema) {
-  const canvas = document.getElementById('bg-canvas')
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  const W = canvas.width  = window.innerWidth
-  const H = canvas.height = window.innerHeight
-  const dark = tema !== 'light'
+// ── Marca ─────────────────────────────────────────────────────
+// Símbolo: o Λ do GFS Didot com as pernas unidas por uma base da espessura
+// das serifas — um triângulo vazado, como um frontão. _TRI é o desenho do
+// Didot; _TRIP, a versão reforçada (haste fina e base mais grossas) para
+// 16–20 px. O letreiro é PRΛXIS em Didot com o A trocado pelo símbolo,
+// calibrado sobre o Λ da fonte (mesma altura, largura e linha de base).
+const _TRI  = 'M296 100H323L466 527V535H521V553H77V535Q128 535 145 495ZM289 197L185 470Q172 505 175 525Q180 535 215 535H405Z'
+const _TRIP = 'M286 92H334L480 520V524H530V560H70V524Q118 524 136 486ZM292 236L206 466Q196 494 199 508Q203 516 226 516H392Z'
 
-  ctx.clearRect(0, 0, W, H)
+export function marcaPraxis(classe = '') {
+  return `<span class="marca ${classe}" role="img" aria-label="Praxis">PR<svg class="marca-tri" viewBox="67.16 100 466.6 453" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="${_TRI}"/></svg>XIS</span>`
+}
 
-  // Nebulas
-  const nebulas = [
-    { x: W * 0.15, y: H * 0.25, rx: W * 0.25, ry: H * 0.18 },
-    { x: W * 0.75, y: H * 0.60, rx: W * 0.22, ry: H * 0.20 },
-    { x: W * 0.50, y: H * 0.85, rx: W * 0.30, ry: H * 0.12 },
-  ]
-  nebulas.forEach(n => {
-    const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, Math.max(n.rx, n.ry))
-    if (dark) {
-      grad.addColorStop(0,   'rgba(200,169,110,0.055)')
-      grad.addColorStop(0.5, 'rgba(200,169,110,0.02)')
-      grad.addColorStop(1,   'rgba(0,0,0,0)')
-    } else {
-      grad.addColorStop(0,   'rgba(154,112,48,0.04)')
-      grad.addColorStop(0.5, 'rgba(154,112,48,0.015)')
-      grad.addColorStop(1,   'rgba(0,0,0,0)')
-    }
-    ctx.save()
-    ctx.scale(n.rx / Math.max(n.rx, n.ry), n.ry / Math.max(n.rx, n.ry))
-    ctx.beginPath()
-    ctx.arc(
-      n.x * (Math.max(n.rx, n.ry) / n.rx),
-      n.y * (Math.max(n.rx, n.ry) / n.ry),
-      Math.max(n.rx, n.ry), 0, Math.PI * 2
-    )
-    ctx.fillStyle = grad
-    ctx.fill()
-    ctx.restore()
-  })
+export function simboloPraxis(tam = 24, classe = '') {
+  return `<svg class="simbolo ${classe}" width="${tam}" height="${tam}" viewBox="60 86 480 480" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${tam < 24 ? _TRIP : _TRI}"/></svg>`
+}
 
-  // Estrelas pequenas (240)
-  for (let i = 0; i < 240; i++) {
-    const x    = Math.random() * W
-    const y    = Math.random() * H
-    const r    = Math.random() * 1.2 + 0.3
-    const op   = Math.random() * 0.55 + 0.1
-    ctx.beginPath()
-    ctx.arc(x, y, r, 0, Math.PI * 2)
-    if (dark) {
-      const gold = Math.random() < 0.15
-      ctx.fillStyle = gold
-        ? `rgba(200,169,110,${op})`
-        : `rgba(240,237,230,${op})`
-    } else {
-      ctx.fillStyle = `rgba(90,70,50,${op * 0.5})`
-    }
-    ctx.fill()
-  }
-
-  // Estrelas grandes com halo (13)
-  for (let i = 0; i < 13; i++) {
-    const x  = Math.random() * W
-    const y  = Math.random() * H
-    const r  = Math.random() * 1.8 + 1.2
-    const op = Math.random() * 0.5 + 0.3
-    const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 5)
-    if (dark) {
-      halo.addColorStop(0,   `rgba(255,248,230,${op})`)
-      halo.addColorStop(0.4, `rgba(200,169,110,${op * 0.3})`)
-      halo.addColorStop(1,   'rgba(0,0,0,0)')
-    } else {
-      halo.addColorStop(0,   `rgba(90,70,50,${op * 0.6})`)
-      halo.addColorStop(1,   'rgba(0,0,0,0)')
-    }
-    ctx.beginPath()
-    ctx.arc(x, y, r * 5, 0, Math.PI * 2)
-    ctx.fillStyle = halo
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(x, y, r, 0, Math.PI * 2)
-    ctx.fillStyle = dark ? `rgba(255,248,230,${op})` : `rgba(90,70,50,${op})`
-    ctx.fill()
-  }
+// Friso de meandro (grega), como nas bandas dos vasos. Decorativo: leitores
+// de tela ignoram.
+let _frisoSeq = 0
+export function frisoGrego({ classe = '' } = {}) {
+  const id = `friso-${++_frisoSeq}`
+  return `<svg class="friso friso-h ${classe}" aria-hidden="true" focusable="false"><defs><pattern id="${id}" width="20" height="14" patternUnits="userSpaceOnUse"><path d="M0 12.5H4V1.5H16V9.5H9V5.5H12.5M16 12.5H20" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square"/></pattern></defs><rect width="100%" height="100%" fill="url(#${id})"/></svg>`
 }
 
 // ── Spinner ───────────────────────────────────────────────────
@@ -354,77 +356,111 @@ export function esconderSpinner() {
 }
 
 // ── Toast ─────────────────────────────────────────────────────
-export function prxToast(mensagem, tipo = 'info', duracao = 3500) {
-  const container = document.getElementById('toast-container')
-  if (!container) return
-
-  const toast = document.createElement('div')
-  toast.className = `toast toast-${tipo}`
-
-  const icone = { success: iconeCheck(), error: iconeX(), info: iconeInfo(), warning: iconeAviso() }
-  toast.innerHTML = `
-    <span style="color:var(--${tipo === 'success' ? 'green' : tipo === 'error' ? 'red' : tipo === 'warning' ? 'gold' : 'blue'}); flex-shrink:0;">
-      ${icone[tipo] || iconeInfo()}
-    </span>
-    <span style="flex:1;color:var(--text2);font-size:0.875rem;line-height:1.45">${mensagem}</span>
-  `
-
-  container.appendChild(toast)
-
-  setTimeout(() => {
-    toast.classList.add('out')
-    setTimeout(() => toast.remove(), 300)
-  }, duracao)
+// Sucesso e info somem em 4 s; erro e aviso ficam 6 s (dá tempo de ler).
+// No máximo quatro ao mesmo tempo; o mais antigo sai primeiro.
+const _TOAST_TIPOS = {
+  success: { cor: 'green', icone: () => iconeCheck(),  papel: 'status' },
+  error:   { cor: 'red',   icone: () => iconeX(),      papel: 'alert'  },
+  info:    { cor: 'blue',  icone: () => iconeInfo(),   papel: 'status' },
+  warning: { cor: 'amber', icone: () => iconeAviso(),  papel: 'alert'  },
 }
 
-// ── Alert ─────────────────────────────────────────────────────
+export function prxToast(mensagem, tipo = 'info', duracao) {
+  const container = document.getElementById('toast-container')
+  if (!container) return
+  const cfg = _TOAST_TIPOS[tipo] || _TOAST_TIPOS.info
+  const tempo = duracao ?? (tipo === 'error' || tipo === 'warning' ? 6000 : 4000)
+
+  const vivos = [...container.querySelectorAll('.toast:not(.out)')]
+  if (vivos.length >= 4) _sairToast(vivos[0])
+
+  const toast = document.createElement('div')
+  toast.className = `toast toast-${cfg.cor}`
+  toast.setAttribute('role', cfg.papel)
+  toast.innerHTML = `
+    <span class="toast-ico" aria-hidden="true">${cfg.icone()}</span>
+    <span class="toast-msg">${mensagem}</span>
+    <button type="button" class="toast-fechar" aria-label="Fechar aviso">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  `
+  toast.querySelector('.toast-fechar').onclick = () => _sairToast(toast)
+  container.appendChild(toast)
+
+  // Pausa enquanto o ponteiro está em cima (para ler com calma)
+  let restante = tempo
+  let inicio = Date.now()
+  let timer = setTimeout(() => _sairToast(toast), restante)
+  toast.addEventListener('mouseenter', () => { clearTimeout(timer); restante -= Date.now() - inicio })
+  toast.addEventListener('mouseleave', () => { inicio = Date.now(); timer = setTimeout(() => _sairToast(toast), Math.max(1200, restante)) })
+}
+
+function _sairToast(toast) {
+  if (!toast || toast.classList.contains('out')) return
+  toast.classList.add('out')
+  setTimeout(() => toast.remove(), 220)
+}
+
+// ── Alert / Confirm ───────────────────────────────────────────
+// Diálogos modais: foco vai para a ação segura, Tab fica preso dentro,
+// Esc cancela e, ao fechar, o foco volta para quem abriu.
+let _dialogoSeq = 0
+
+function _montarDialogo({ titulo, mensagem, botoes, papel = 'alertdialog', perigo = false }) {
+  const overlay = criarDialogOverlay()
+  const id = `prx-dialogo-${++_dialogoSeq}`
+  overlay._focoAnterior = document.activeElement
+  overlay.innerHTML = `
+    <div class="dialog${perigo ? ' dialog-perigo' : ''}" role="${papel}" aria-modal="true" aria-labelledby="${id}-titulo" ${mensagem ? `aria-describedby="${id}-texto"` : ''}>
+      <h3 id="${id}-titulo">${titulo}</h3>
+      ${mensagem ? `<p id="${id}-texto">${mensagem}</p>` : ''}
+      <div class="dialog-actions">${botoes}</div>
+    </div>
+  `
+  overlay.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return
+    const els = [...overlay.querySelectorAll('button:not(:disabled)')]
+    if (!els.length) return
+    const i = els.indexOf(document.activeElement)
+    e.preventDefault()
+    const prox = e.shiftKey ? (i <= 0 ? els.length - 1 : i - 1) : (i === els.length - 1 ? 0 : i + 1)
+    els[prox].focus()
+  })
+  document.body.appendChild(overlay)
+  requestAnimationFrame(() => overlay.classList.add('visible'))
+  return overlay
+}
+
 export function prxAlert(titulo, mensagem = '') {
   return new Promise(resolve => {
-    const overlay = criarDialogOverlay()
-    overlay.innerHTML = `
-      <div class="dialog">
-        <h3>${titulo}</h3>
-        ${mensagem ? `<p>${mensagem}</p>` : ''}
-        <div class="dialog-actions">
-          <button class="btn-primary" id="prx-alert-ok">OK</button>
-        </div>
-      </div>
-    `
-    document.body.appendChild(overlay)
-    setTimeout(() => overlay.classList.add('visible'), 16)
-
-    overlay.querySelector('#prx-alert-ok').onclick = () => {
-      fecharDialog(overlay)
-      resolve()
-    }
+    const overlay = _montarDialogo({
+      titulo, mensagem,
+      botoes: `<button type="button" class="btn-primary" id="prx-alert-ok">OK</button>`,
+    })
+    const ok = overlay.querySelector('#prx-alert-ok')
+    setTimeout(() => ok.focus(), 20)
+    ok.onclick = () => { fecharDialog(overlay); resolve() }
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) { fecharDialog(overlay); resolve() }
+    })
   })
 }
 
-// ── Confirm ───────────────────────────────────────────────────
 export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCancel = 'Cancelar', danger = false) {
   return new Promise(resolve => {
-    const overlay = criarDialogOverlay()
-    overlay.innerHTML = `
-      <div class="dialog">
-        <h3>${titulo}</h3>
-        ${mensagem ? `<p>${mensagem}</p>` : ''}
-        <div class="dialog-actions">
-          <button class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${labelOk}</button>
-          <button class="btn-secondary" id="prx-confirm-cancel">${labelCancel}</button>
-        </div>
-      </div>
-    `
-    document.body.appendChild(overlay)
-    setTimeout(() => overlay.classList.add('visible'), 16)
-
-    overlay.querySelector('#prx-confirm-ok').onclick = () => {
-      fecharDialog(overlay)
-      resolve(true)
-    }
-    overlay.querySelector('#prx-confirm-cancel').onclick = () => {
-      fecharDialog(overlay)
-      resolve(false)
-    }
+    const overlay = _montarDialogo({
+      titulo, mensagem, perigo: !!danger,
+      botoes: `
+        <button type="button" class="btn-secondary" id="prx-confirm-cancel">${labelCancel}</button>
+        <button type="button" class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${labelOk}</button>
+      `,
+    })
+    const ok = overlay.querySelector('#prx-confirm-ok')
+    const cancelar = overlay.querySelector('#prx-confirm-cancel')
+    // Ação destrutiva: o foco começa no "Cancelar"
+    setTimeout(() => (danger ? cancelar : ok).focus(), 20)
+    ok.onclick = () => { fecharDialog(overlay); resolve(true) }
+    cancelar.onclick = () => { fecharDialog(overlay); resolve(false) }
     overlay.addEventListener('click', e => {
       if (e.target === overlay) { fecharDialog(overlay); resolve(false) }
     })
@@ -443,19 +479,23 @@ export function abrirModal(id) {
   // Guarda elemento que abriu para restaurar foco ao fechar
   overlay._focusTrigger = document.activeElement
 
-  // Foco automático no primeiro campo interativo
+  // Foco automático no primeiro campo; sem campos, no primeiro botão do modal
   setTimeout(() => {
-    const alvo = overlay.querySelector('input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')
-    alvo?.focus()
+    const visivel = el => el.offsetParent !== null
+    const campo = [...overlay.querySelectorAll('input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled)')].find(visivel)
+    const alvo = campo || [...overlay.querySelectorAll(_FOCUSAVEIS)].find(visivel)
+    alvo?.focus({ preventScroll: true })
   }, 60)
 
   // Focus trap: Tab cicla apenas dentro do modal
+  if (overlay._trapHandler) overlay.removeEventListener('keydown', overlay._trapHandler)
   overlay._trapHandler = function(e) {
     if (e.key !== 'Tab') return
     const els = [...overlay.querySelectorAll(_FOCUSAVEIS)].filter(el => el.offsetParent !== null)
     if (!els.length) { e.preventDefault(); return }
     const primeiro = els[0]
     const ultimo   = els[els.length - 1]
+    if (!overlay.contains(document.activeElement)) { e.preventDefault(); primeiro.focus(); return }
     if (e.shiftKey) {
       if (document.activeElement === primeiro) { e.preventDefault(); ultimo.focus() }
     } else {
@@ -480,13 +520,13 @@ export function fecharModal(id) {
   const reduzido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   if (reduzido) {
     overlay.classList.remove('visible')
-    trigger?.focus()
+    trigger?.focus?.({ preventScroll: true })
     return
   }
   overlay.classList.add('closing')
   setTimeout(() => {
     overlay.classList.remove('visible', 'closing')
-    trigger?.focus()
+    if (trigger?.isConnected) trigger.focus?.({ preventScroll: true })
   }, 190)
 }
 
@@ -523,28 +563,6 @@ export function renderBadgePerfil(perfil) {
   return `<span class="badge badge-${color}">${label}</span>`
 }
 
-// ── Topbar mobile hamburger ───────────────────────────────────
-export function initMobileMenu() {
-  const btn = document.getElementById('btn-hamburger')
-  const overlay = document.getElementById('mobile-menu-overlay')
-  if (!btn || !overlay) return
-
-  btn.addEventListener('click', () => {
-    const open = overlay.classList.toggle('open')
-    const menu = document.getElementById('mobile-menu')
-    menu?.classList.toggle('open', open) // ← só abre o menu junto
-  })
-
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) fecharMobileMenu()
-  })
-}
-
-export function fecharMobileMenu() {
-  document.getElementById('mobile-menu-overlay')?.classList.remove('open')
-  document.getElementById('mobile-menu')?.classList.remove('open')
-}
-
 // ── Helpers DOM ───────────────────────────────────────────────
 export function el(id) { return document.getElementById(id) }
 export function qs(sel, ctx = document) { return ctx.querySelector(sel) }
@@ -567,7 +585,15 @@ function criarDialogOverlay() {
 
 function fecharDialog(overlay) {
   overlay.classList.remove('visible')
-  setTimeout(() => overlay.remove(), 300)
+  overlay.classList.add('saindo')
+  const anterior = overlay._focoAnterior
+  setTimeout(() => {
+    overlay.remove()
+    // Devolve o foco a quem abriu, se ainda existir e nada mais pegou o foco
+    if (anterior?.isConnected && (document.activeElement === document.body || !document.activeElement)) {
+      anterior.focus?.({ preventScroll: true })
+    }
+  }, 160)
 }
 
 // ── Ícones SVG inline ─────────────────────────────────────────
@@ -611,33 +637,66 @@ export async function btnComLoading(btn, acao) {
   }
 }
 
-// ── Banner de modo demo (2.8) ─────────────────────────────────
-export function mostrarDemoBanner(isDemo, idioma = 'pt') {
-  if (!isDemo) {
-    document.getElementById('demo-banner')?.remove()
-    return
+// ── Faixa de modo demonstração ────────────────────────────────
+// Mesmo padrão do FuelMind: faixa fixa no topo, na cor da marca, para
+// ninguém confundir demonstração com dado real. Traz as duas ações do modo:
+// restaurar os dados de exemplo e sair da demo. A altura real vai para
+// --faixa-demo-h, e a barra lateral, a faixa do celular e o conteúdo descem
+// junto (medir em vez de fixar: no celular o texto encolhe).
+function _medirFaixaDemo() {
+  const faixa = document.getElementById('demo-faixa')
+  if (faixa) document.documentElement.style.setProperty('--faixa-demo-h', `${faixa.offsetHeight}px`)
+}
+
+function _removerDemoBanner() {
+  document.getElementById('demo-faixa')?.remove()
+  document.body.classList.remove('com-demo')
+  document.documentElement.style.removeProperty('--faixa-demo-h')
+  window.removeEventListener('resize', _medirFaixaDemo)
+}
+
+async function _restaurarDadosDemo(btn) {
+  const ok = await prxConfirm(t('confirmarResetDemo'), t('cfgResetMsg'), t('btnResetarDemo'), t('btnCancelar'), true)
+  if (!ok) return
+  btn.disabled = true
+  mostrarSpinner()
+  try {
+    const { functions, httpsCallable } = await import('./firebase.js')
+    await httpsCallable(functions, 'triggerDemoSeed')({})
+    prxToast(t('demoResetadoMsg'), 'success', 4000)
+  } catch (err) {
+    console.error(err)
+    prxToast(t('demoErroReset'), 'error')
+  } finally {
+    btn.disabled = false
+    esconderSpinner()
   }
-  if (document.getElementById('demo-banner')) return
-  const texto = idioma === 'en'
-    ? 'Demo mode — fictitious data. Explore freely.'
-    : 'Modo demonstração — dados fictícios. Explore à vontade.'
-  const banner = document.createElement('div')
-  banner.id = 'demo-banner'
-  banner.className = 'demo-banner'
-  banner.setAttribute('role', 'status')
-  banner.innerHTML = `
-    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-    </svg>
-    <span>${texto}</span>
-    <button class="demo-banner-close" aria-label="Fechar aviso de modo demonstração">
-      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
+}
+
+export function mostrarDemoBanner(isDemo) {
+  if (!isDemo) { _removerDemoBanner(); return }
+  if (document.getElementById('demo-faixa')) return
+
+  const faixa = document.createElement('div')
+  faixa.id = 'demo-faixa'
+  faixa.className = 'demo-faixa'
+  faixa.setAttribute('role', 'note')
+  faixa.innerHTML = `
+    <span class="demo-faixa-texto"><strong>${t('demoFaixaTitulo')}</strong><span class="demo-faixa-detalhe">${t('demoFaixaDetalhe')}</span></span>
+    <span class="demo-faixa-acoes">
+      <button type="button" id="demo-faixa-restaurar">${t('demoFaixaRestaurar')}</button>
+      <button type="button" id="demo-faixa-sair">${t('demoFaixaSair')}</button>
+    </span>
   `
-  banner.querySelector('.demo-banner-close').onclick = () => banner.remove()
-  document.body.appendChild(banner)
+  faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', e => _restaurarDadosDemo(e.currentTarget))
+  faixa.querySelector('#demo-faixa-sair').addEventListener('click', async () => {
+    const { fazerLogout } = await import('./auth.js')
+    fazerLogout()
+  })
+  document.body.prepend(faixa)
+  document.body.classList.add('com-demo')
+  _medirFaixaDemo()
+  window.addEventListener('resize', _medirFaixaDemo)
 }
 
 // ── Offline e erro de rede (3.17) ─────────────────────────────
@@ -648,26 +707,35 @@ export function estaOnline() {
 // Verifica conexão antes de uma escrita; se offline, avisa e retorna false
 export function exigirConexao() {
   if (estaOnline()) return true
-  prxToast(t('semConexao'), 'error')
+  prxToast(t('semConexaoAcao'), 'error')
   return false
 }
 
 function _mostrarOfflineBanner() {
   if (document.getElementById('offline-banner')) return
+  // Primeira frase em destaque ("Sem conexão."), o resto como explicação
+  const texto = String(t('semConexao'))
+  const corte = texto.indexOf('. ')
+  const titulo = corte > 0 ? texto.slice(0, corte + 1) : texto
+  const resto  = corte > 0 ? texto.slice(corte + 2) : ''
   const banner = document.createElement('div')
   banner.id = 'offline-banner'
   banner.className = 'offline-banner'
-  banner.setAttribute('role', 'alert')
+  banner.setAttribute('role', 'status')
+  banner.setAttribute('aria-live', 'polite')
   banner.innerHTML = `
-    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="1" y1="1" x2="23" y2="23"/>
-      <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/>
-      <path d="M10.71 5.05A16 16 0 0122.58 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/>
-      <path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
-    </svg>
-    <span>${t('semConexao')}</span>
+    <span class="offline-banner-ico" aria-hidden="true">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0122.58 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </span>
+    <span class="offline-banner-texto"><b>${titulo}</b>${resto ? ' ' + resto : ''}</span>
   `
   document.body.appendChild(banner)
+  document.body.classList.add('com-offline')
 }
 
 export function initOfflineWatcher() {
@@ -676,8 +744,10 @@ export function initOfflineWatcher() {
 
   window.addEventListener('offline', _mostrarOfflineBanner)
   window.addEventListener('online', () => {
+    const estavaOffline = !!document.getElementById('offline-banner')
     document.getElementById('offline-banner')?.remove()
-    prxToast(t('conexaoRestabelecida'), 'success')
+    document.body.classList.remove('com-offline')
+    if (estavaOffline) prxToast(t('conexaoRestabelecida'), 'success')
   })
   if (!estaOnline()) _mostrarOfflineBanner()
 }
@@ -713,17 +783,28 @@ export function skeletonDashCards(n = 4) {
 }
 
 // ── Tour guiado (4.3) ─────────────────────────────────────────
+// Cada passo aponta para o primeiro alvo visível da lista (desktop ou
+// celular). Um recorte fixo destaca o alvo; o balão se posiciona abaixo,
+// acima ou, sem espaço, preso à borda de baixo da tela.
 function _getTourPassos() {
   return [
-    { alvo: '#pedidos-view',    titulo: t('tourStep1Titulo'), desc: t('tourStep1Desc') },
-    { alvo: '#btn-novo-pedido', titulo: t('tourStep2Titulo'), desc: t('tourStep2Desc') },
-    { alvo: '#btn-notif',       titulo: t('tourStep3Titulo'), desc: t('tourStep3Desc') },
-    { alvo: '#btn-tema',        titulo: t('tourStep4Titulo'), desc: t('tourStep4Desc') },
-    { alvo: '#btn-config',      titulo: t('tourStep5Titulo'), desc: t('tourStep5Desc') },
+    { alvo: ['#pedidos-view'],                                        titulo: t('tourStep1Titulo'), desc: t('tourStep1Desc') },
+    { alvo: ['#btn-novo-pedido'],                                     titulo: t('tourStep2Titulo'), desc: t('tourStep2Desc') },
+    { alvo: ['#btn-notif'],                                           titulo: t('tourStep3Titulo'), desc: t('tourStep3Desc') },
+    { alvo: ['#btn-avatar', '#bnav-conta'],                           titulo: t('tourStep4Titulo'), desc: t('tourStep4Desc') },
+    { alvo: ['#lateral-cadastros', '#bottom-nav [data-bnav="config-usuarios"]'], titulo: t('tourStep5Titulo'), desc: t('tourStep5Desc') },
   ]
 }
 
+let _tourLista = []
 let _tourPasso = 0
+let _tourAlvo  = null
+
+function _tourVisivel(el) {
+  if (!el || !el.isConnected) return false
+  const r = el.getBoundingClientRect()
+  return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
+}
 
 export function iniciarTour(isDemo = false) {
   if (isDemo) {
@@ -738,74 +819,155 @@ export function iniciarTour(isDemo = false) {
 export function reativarTour() {
   localStorage.removeItem('praxis_tour_visto')
   sessionStorage.removeItem('praxis_tour_mostrado')
+  // O tour começa no quadro de pedidos; de outra tela, vai até lá primeiro
+  if (!document.getElementById('pedidos-view') && window.__navegar) {
+    window.__navegar('pedidos')
+    setTimeout(_tourIniciar, 900)
+    return
+  }
   setTimeout(_tourIniciar, 100)
 }
 
 function _tourIniciar() {
+  _tourLista = _getTourPassos()
+    .map(p => ({ ...p, el: p.alvo.map(s => document.querySelector(s)).find(_tourVisivel) }))
+    .filter(p => p.el)
+  if (!_tourLista.length) return
   _tourPasso = 0
+  _tourMontar()
+  _tourMostrarPasso()
+}
+
+function _tourMontar() {
+  _tourLimpar()
+  const bloqueio = document.createElement('div')
+  bloqueio.id = 'tour-bloqueio'
+  bloqueio.className = 'tour-bloqueio'
+  const spot = document.createElement('div')
+  spot.id = 'tour-spot'
+  spot.className = 'tour-spot'
+  spot.setAttribute('aria-hidden', 'true')
+  const pop = document.createElement('div')
+  pop.id = 'tour-popover'
+  pop.className = 'tour-popover'
+  pop.setAttribute('role', 'dialog')
+  pop.setAttribute('aria-modal', 'true')
+  pop.setAttribute('aria-labelledby', 'tour-titulo')
+  pop.setAttribute('aria-describedby', 'tour-desc')
+  pop.tabIndex = -1
+  document.body.append(bloqueio, spot, pop)
+
+  pop.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      const els = [...pop.querySelectorAll('button')]
+      const i = els.indexOf(document.activeElement)
+      e.preventDefault()
+      els[e.shiftKey ? (i <= 0 ? els.length - 1 : i - 1) : (i + 1) % els.length]?.focus()
+    } else if (e.key === 'ArrowRight' || (e.key === 'Enter' && e.target === pop)) { e.preventDefault(); _tourIr(1) }
+    else if (e.key === 'ArrowLeft') { _tourIr(-1) }
+  })
+  window.addEventListener('resize', _tourReposicionar)
+  window.addEventListener('scroll', _tourReposicionar, true)
+}
+
+function _tourIr(delta) {
+  const novo = _tourPasso + delta
+  if (novo < 0) return
+  if (novo >= _tourLista.length) { _tourFinalizar(); return }
+  _tourPasso = novo
   _tourMostrarPasso()
 }
 
 function _tourMostrarPasso() {
-  _tourLimpar()
+  const pop = document.getElementById('tour-popover')
+  if (!pop) return
+  const passo = _tourLista[_tourPasso]
+  // O alvo pode ter sido recriado (re-render da tela): procura de novo
+  _tourAlvo = _tourVisivel(passo.el) ? passo.el : passo.alvo.map(s => document.querySelector(s)).find(_tourVisivel)
+  if (!_tourAlvo) { _tourIr(1); return }
 
-  while (_tourPasso < _getTourPassos().length && !document.querySelector(_getTourPassos()[_tourPasso].alvo)) {
-    _tourPasso++
-  }
-  if (_tourPasso >= _getTourPassos().length) { _tourFinalizar(); return }
-
-  const passo  = _getTourPassos()[_tourPasso]
-  const alvoEl = document.querySelector(passo.alvo)
-
-  const passosDisponiveis = _getTourPassos().filter(p => document.querySelector(p.alvo))
-  const posicao = passosDisponiveis.findIndex(p => p.alvo === passo.alvo) + 1
-  const total   = passosDisponiveis.length
-
-  const isUltimo = _getTourPassos().slice(_tourPasso + 1).every(p => !document.querySelector(p.alvo))
-
-  alvoEl.classList.add('tour-target')
-  alvoEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-
-  const popover = document.createElement('div')
-  popover.id = 'tour-popover'
-  popover.className = 'tour-popover'
-  popover.innerHTML = `
-    <div class="tour-step-count">${posicao} de ${total}</div>
-    <h4 class="tour-titulo">${passo.titulo}</h4>
-    <p class="tour-desc">${passo.desc}</p>
+  const total = _tourLista.length
+  const ultimo = _tourPasso === total - 1
+  // Contagem na voz do quadro: o numeral do passo e o total ("01 de 05")
+  const dois = n => String(n).padStart(2, '0')
+  pop.innerHTML = `
+    <div class="tour-topo">
+      <span class="tour-step-count"><span class="sr-only">${t('tourPasso')} </span><b class="tour-n numeral">${dois(_tourPasso + 1)}</b> <span class="tour-total">${t('tourDe')} ${dois(total)}</span></span>
+      <span class="tour-pontos" aria-hidden="true">${_tourLista.map((_, i) => `<i class="${i === _tourPasso ? 'on' : i < _tourPasso ? 'feito' : ''}"></i>`).join('')}</span>
+    </div>
+    <h4 class="tour-titulo" id="tour-titulo">${passo.titulo}</h4>
+    <p class="tour-desc" id="tour-desc">${passo.desc}</p>
     <div class="tour-actions">
-      <button class="btn-ghost btn-sm" id="tour-pular">${t('tourPular')}</button>
-      <button class="btn-primary btn-sm" id="tour-proximo">${isUltimo ? t('tourConcluir') : t('tourProximo')}</button>
+      <button type="button" class="btn-ghost btn-sm" id="tour-pular">${t('tourPular')}</button>
+      <div class="tour-actions-dir">
+        ${_tourPasso > 0 ? `<button type="button" class="btn-secondary btn-sm" id="tour-voltar">${t('tourVoltar')}</button>` : ''}
+        <button type="button" class="btn-primary btn-sm" id="tour-proximo">${ultimo ? t('tourConcluir') : t('tourProximo')}</button>
+      </div>
     </div>
   `
-  document.body.appendChild(popover)
-  _tourPosicionar(alvoEl, popover)
+  pop.querySelector('#tour-proximo').onclick = () => _tourIr(1)
+  pop.querySelector('#tour-voltar')?.addEventListener('click', () => _tourIr(-1))
+  pop.querySelector('#tour-pular').onclick = _tourFinalizar
 
-  popover.querySelector('#tour-proximo').onclick = () => {
-    if (isUltimo) { _tourFinalizar(); return }
-    _tourPasso++
-    _tourMostrarPasso()
+  // Traz o alvo para a tela, se for preciso (botões fixos já estão visíveis)
+  const r = _tourAlvo.getBoundingClientRect()
+  if (r.top < 64 || r.top > window.innerHeight - 120) {
+    _tourAlvo.scrollIntoView({ behavior: 'instant', block: r.height > window.innerHeight * 0.6 ? 'start' : 'center' })
+    if (r.height > window.innerHeight * 0.6) window.scrollBy(0, -80)
   }
-  popover.querySelector('#tour-pular').onclick = _tourFinalizar
+  _tourReposicionar()
+  pop.classList.remove('entrando'); void pop.offsetWidth; pop.classList.add('entrando')
+  // O foco vai para o balão (Enter avança, Tab chega aos botões)
+  setTimeout(() => pop.focus({ preventScroll: true }), 30)
 }
 
-function _tourPosicionar(alvo, popover) {
-  const rect = alvo.getBoundingClientRect()
-  const pW   = 300
-  let top  = rect.bottom + 12
-  let left = rect.left + rect.width / 2 - pW / 2
+function _tourReposicionar() {
+  const pop  = document.getElementById('tour-popover')
+  const spot = document.getElementById('tour-spot')
+  if (!pop || !spot || !_tourAlvo) return
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const margem = 12
+  const barra = document.getElementById('bottom-nav')
+  const baseH = barra && getComputedStyle(barra).display !== 'none' ? barra.getBoundingClientRect().top : H
 
-  left = Math.max(16, Math.min(left, window.innerWidth - pW - 16))
-  if (top + 190 > window.innerHeight) top = rect.top - 190 - 12
-  top = Math.max(16, top)
+  // Recorte: o alvo com folga de 6px, limitado à área visível
+  const r = _tourAlvo.getBoundingClientRect()
+  const folga = 6
+  const top    = Math.max(4, r.top - folga)
+  const left   = Math.max(4, r.left - folga)
+  const right  = Math.min(W - 4, r.right + folga)
+  // A barra inferior fica escurecida, a não ser que o alvo esteja nela
+  const naBarra = !!barra && barra.contains(_tourAlvo)
+  const bottom = Math.min((naBarra ? H : baseH) - 4, r.bottom + folga)
+  spot.style.cssText = `top:${top}px;left:${left}px;width:${Math.max(0, right - left)}px;height:${Math.max(0, bottom - top)}px;`
+  // Recorte reto, como o resto da Inscrição (só o avatar redondo pede curva)
+  const raio = parseFloat(getComputedStyle(_tourAlvo).borderRadius) || 0
+  spot.style.borderRadius = `${Math.min(raio, 4)}px`
 
-  popover.style.cssText = `position:fixed;top:${top}px;left:${left}px;width:${pW}px;z-index:801;`
+  // Balão: largura fixa no desktop, largura útil no celular
+  const pW = Math.min(340, W - margem * 2)
+  pop.style.width = `${pW}px`
+  const pH = pop.offsetHeight
+  let pTop
+  if (bottom + margem + pH <= baseH - margem) pTop = bottom + margem          // abaixo
+  else if (top - margem - pH >= margem) pTop = top - margem - pH              // acima
+  else pTop = baseH - pH - margem                                              // sem espaço: rente à base
+  let pLeft = (r.left + r.right) / 2 - pW / 2
+  pLeft = Math.max(margem, Math.min(pLeft, W - pW - margem))
+  pop.style.top  = `${Math.round(pTop)}px`
+  pop.style.left = `${Math.round(pLeft)}px`
 }
 
 function _tourLimpar() {
   document.querySelectorAll('.tour-target').forEach(el => el.classList.remove('tour-target'))
-  document.getElementById('tour-popover')?.remove()
+  ;['tour-popover', 'tour-spot', 'tour-bloqueio'].forEach(id => document.getElementById(id)?.remove())
+  window.removeEventListener('resize', _tourReposicionar)
+  window.removeEventListener('scroll', _tourReposicionar, true)
+  _tourAlvo = null
 }
+
+function _tourAtivo() { return !!document.getElementById('tour-popover') }
 
 function _tourFinalizar() {
   _tourLimpar()

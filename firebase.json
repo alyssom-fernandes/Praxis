@@ -11,12 +11,19 @@
       "docs/**",
       "praxis-spec.md",
       "README.md",
+      "README.pt-br.md",
+      "praxis-auditoria.md",
+      "afn_brand_guide.html",
+      "_build/**",
+      "package.json",
+      "package-lock.json",
       "LICENSE",
       ".gitignore",
       ".gitattributes",
       ".git/**",
       "node_modules/**",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/*.log"
     ],
     "rewrites": [
       {

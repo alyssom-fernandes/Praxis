@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#060606"/>
-  <polygon points="256,120 372,372 140,372" fill="#C8A96E"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 86 480 480">
+  <style>path{fill:#1A1510}@media (prefers-color-scheme:dark){path{fill:#EFE5D6}}</style>
+  <path fill-rule="evenodd" d="M286 92H334L480 520V524H530V560H70V524Q118 524 136 486ZM292 236L206 466Q196 494 199 508Q203 516 226 516H392Z"/>
 </svg>

@@ -195,6 +195,19 @@ async function _aplicarSeed(seed) {
 
   const agoraTs = admin.firestore.Timestamp.now()
 
+  // As datas fixas do seed (necessidade, compra, entrega, vencimento) foram
+  // escritas para seed._dataReferencia; todas andam a mesma distância até hoje,
+  // para o demo não envelhecer entre um reset e outro
+  const _refSeed  = seed._dataReferencia ? new Date(seed._dataReferencia + 'T12:00:00') : null
+  const _hojeMeio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 12)
+  const _desloc   = _refSeed ? Math.round((_hojeMeio - _refSeed) / 864e5) : 0
+  function _deslocar(iso) {
+    if (!iso || !_desloc) return iso
+    const d = new Date(iso + 'T12:00:00')
+    d.setDate(d.getDate() + _desloc)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }
+
   // 1. Cria fornecedores demo e mapeia nome normalizado => id
   // (nome normalizado para coincidir com a query de _executarCompra no cliente)
   const fornMap = {}
@@ -230,14 +243,14 @@ async function _aplicarSeed(seed) {
   const categoriaMap = {}
   if (catSnap.empty) {
     const cats = [
-      { key: 'manutencao', nome: 'Manutencao',       cor: '#E05040' },
-      { key: 'escritorio', nome: 'Escritorio',        cor: '#5BA3E0' },
+      { key: 'manutencao', nome: 'Manutenção',        cor: '#E05040' },
+      { key: 'escritorio', nome: 'Escritório',        cor: '#5BA3E0' },
       { key: 'operacional',nome: 'Operacional',       cor: '#C8A96E' },
-      { key: 'alimentacao',nome: 'Alimentacao',       cor: '#4EC08A' },
+      { key: 'alimentacao',nome: 'Alimentação',       cor: '#4EC08A' },
       { key: 'uniformes',  nome: 'Uniformes e EPIs',  cor: '#A07FD0' },
       { key: 'marketing',  nome: 'Marketing',         cor: '#E0A040' },
       { key: 'ti',         nome: 'TI',                cor: '#40B8D0' },
-      { key: 'servicos',   nome: 'Servicos',          cor: '#8A8278' },
+      { key: 'servicos',   nome: 'Serviços',          cor: '#8A8278' },
     ]
     for (const cat of cats) {
       const ref = await db.collection('categorias').add({ nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: agoraTs })
@@ -245,14 +258,16 @@ async function _aplicarSeed(seed) {
     }
   } else {
     const allCats = await db.collection('categorias').get()
+    // Compara sem acento e sem caixa: as categorias existentes podem ter
+    // sido criadas com ou sem acento ("Manutenção" ou "Manutencao")
     const keyMap = {
-      'Manutencao': 'manutencao', 'Escritorio': 'escritorio',
-      'Operacional': 'operacional', 'Alimentacao': 'alimentacao',
-      'Uniformes e EPIs': 'uniformes', 'Marketing': 'marketing',
-      'TI': 'ti', 'Servicos': 'servicos',
+      'manutencao': 'manutencao', 'escritorio': 'escritorio',
+      'operacional': 'operacional', 'alimentacao': 'alimentacao',
+      'uniformes e epis': 'uniformes', 'marketing': 'marketing',
+      'ti': 'ti', 'servicos': 'servicos',
     }
     allCats.docs.forEach(d => {
-      const k = keyMap[d.data().nome]
+      const k = keyMap[_normalizar(d.data().nome)]
       if (k) categoriaMap[k] = d.id
     })
     const fallbackId = allCats.docs[0]?.id || ''
@@ -265,6 +280,7 @@ async function _aplicarSeed(seed) {
   // 4. Busca usuario demo — vincula empresas criadas
   const demoUser = await _buscarUsuarioDemo()
   const solicitanteId = demoUser?.id || 'demo'
+  const solicitanteNome = demoUser?.nome || 'Demo Praxis'
   const todasEmpresasIds = Object.values(empresaMap)
 
   if (demoUser) {
@@ -306,12 +322,17 @@ async function _aplicarSeed(seed) {
     const cotIndicada  = (cotacoes || []).find(c => c.indicada)
     const fornecedorId = cotIndicada ? (fornMap[_normalizar(cotIndicada.fornecedorNome)] || null) : null
 
+    for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) {
+      if (pedData[campo]) pedData[campo] = _deslocar(pedData[campo])
+    }
+
     const pedRef = db.collection('pedidos').doc()
     await pedRef.set({
       ...pedData,
       empresaId,
       categoriaId,
       solicitanteId,
+      solicitanteNome,
       compradorId:              pedData.dataCompra ? solicitanteId : null,
       compradorAssumiuEm:       pedData.dataCompra ? _ts((hist[1]?.diasAtras) ?? 1) : null,
       aprovadorIds:             [],
@@ -396,7 +417,7 @@ async function _aplicarSeed(seed) {
         // para o dashboard demo sempre ter parcelas a vencer/vencidas após cada reset.
         const vencimento = p.vencimentoDias != null
           ? _isoMaisDias(p.vencimentoDias)
-          : p.vencimento
+          : _deslocar(p.vencimento)
         parBatch.set(ref, {
           numero:     p.numero,
           total:      p.total,

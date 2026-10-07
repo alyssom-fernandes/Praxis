@@ -93,5 +93,6 @@ Multiempresa: todo pedido tem `empresaId`; toda query filtra por `where('empresa
 
 - Login de um clique (PT/EN) com conta pré-criada.
 - Seed canônico em `functions/seed.json`: 3 empresas, 8 fornecedores, 33 pedidos com histórico, cotações, comentários e parcelas.
-- Datas do seed são **relativas** (`diasAtras`, `vencimentoDias`), então o dashboard sempre tem dados vivos após cada reset.
+- Datas do seed são **relativas**: histórico e comentários usam `diasAtras`, parcelas podem usar `vencimentoDias`, e as datas fixas (necessidade, compra, entrega, vencimento) foram escritas para `_dataReferencia` e são deslocadas até o dia de hoje a cada reset. O dashboard sempre tem dados vivos.
+- Localmente, `npm run seed` aplica o mesmo seed nos emuladores (`_build/seed-emulator.js`), com uma conta de teste por perfil.
 - Escrita de configuração bloqueada para o usuário demo no cliente.

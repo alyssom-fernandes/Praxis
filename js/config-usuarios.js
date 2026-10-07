@@ -1,105 +1,116 @@
 import { db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, renderFooter } from './app.js'
+import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { PERFIS, PERFIS_LABEL, PERFIS_COLOR, t } from './constants.js'
-import { formatTimestamp, gerarIniciais, debounce, validarEmail } from './utils.js'
+import { PERFIS, PERFIS_LABEL, t } from './constants.js'
+import { debounce, validarEmail, normalizarTexto, formatCNPJ } from './utils.js'
+import {
+  ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
+  perfilHtml, corPerfil, dataAcesso, iniciais,
+  marcarErro, limparErro, limparErros, focarPrimeiroErro, ligarInterruptor, definirInterruptor,
+  revelarItemLateral, completarContagensLateral,
+} from './config-comum.js'
 
-let _usuarios   = []
-let _empresas   = []
+let _usuarios     = []
+let _empresas     = []
 let _filtroStatus = 'todos'
 let _termoBusca   = ''
 
+const COLUNAS = 5
+const _souSupremo = () => sessao.usuario?.perfil === PERFIS.SUPREMO
+const _meuId      = () => sessao.usuario?.id || sessao.fireUser?.uid
+const _ativo      = u => u.ativo !== false
+const _empIds     = u => { const r = u.empresas || []; return Array.isArray(r) ? r : Object.keys(r) }
+
 export async function renderConfigUsuarios() {
+  _filtroStatus = 'todos'
+  _termoBusca   = ''
+  const filtro = (s, rotulo, on = false) => `
+    <button type="button" class="cfg-filtro ${on ? 'active' : ''}" data-s="${s}" aria-pressed="${on}">
+      ${rotulo}<span class="cfg-filtro-n" id="usr-n-${s}"></span>
+    </button>`
+
   const app = document.getElementById('app')
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('config-usuarios', true)}
-      <div class="main-content">
-        <div>
-            <div class="config-section-header">
-              <h2>${t('configUsuarios')}</h2>
-              <button class="btn-primary btn-sm" id="btn-novo-usuario">
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                ${t('btnNovoUsuario')}
-              </button>
-            </div>
+      <main class="main-content cfg-pagina">
+        ${cabecalho(t('configUsuarios'), {
+          resumoId: 'usr-resumo',
+          acao: botaoNovo('btn-novo-usuario', t('btnNovoUsuario'), t('cfgNovoCurto')),
+        })}
 
-            <div style="display:flex;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
-              <div class="filter-pills" id="status-pills">
-                <button class="pill active" data-s="todos">Todos</button>
-                <button class="pill" data-s="ativos">Ativos</button>
-                <button class="pill" data-s="inativos">Inativos</button>
-              </div>
-              <div class="search-input-wrap" style="width:200px;margin-left:auto">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input type="text" id="busca-usuario" placeholder="Buscar por nome…">
-              </div>
-            </div>
-
-            <div class="card no-hover" style="overflow:hidden">
-              <div class="table-wrapper">
-                <table class="table-card-mobile" id="tabela-usuarios">
-                  <thead>
-                    <tr>
-                      <th>Usuário</th><th>Perfil</th><th>Empresas</th>
-                      <th>Último acesso</th><th>Status</th><th style="width:80px"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody-usuarios">
-                    <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:2rem">Carregando…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        <div class="cfg-toolbar">
+          <div class="cfg-filtros" id="usr-filtros" role="group" aria-label="${t('cfgFiltrarStatus')}">
+            ${filtro('todos', t('todos'), true)}
+            ${filtro('ativos', t('cfgAtivos'))}
+            ${filtro('inativos', t('cfgInativos'))}
+          </div>
+          <div class="search-input-wrap cfg-busca">
+            ${ICO.busca()}
+            <input type="search" id="busca-usuario" placeholder="${t('cfgBuscarUsuario')}" aria-label="${t('cfgBuscarUsuario')}" autocomplete="off">
+          </div>
         </div>
-      </div>
+
+        <div class="cfg-livro">
+          <table class="cfg-tabela usr-tabela" id="tabela-usuarios">
+            <thead>
+              <tr>
+                <th class="c-usuario">${t('cfgColUsuario')}</th>
+                <th class="c-perfil">${t('cfgColPerfil')}</th>
+                <th class="c-empresas">${t('cfgColEmpresas')}</th>
+                <th class="c-acesso">${t('cfgColUltimoAcesso')}</th>
+                <th class="c-acoes"><span class="sr-only">${t('cfgColAcoes')}</span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usuarios">${linhasEsqueleto(COLUNAS, 5)}</tbody>
+          </table>
+        </div>
+      </main>
       ${renderFooter()}
     </div>
 
     <!-- Modal Usuário -->
-    <div class="modal-overlay" id="modal-usuario">
-      <div class="modal" style="max-width:540px">
+    <div class="modal-overlay" id="modal-usuario" role="dialog" aria-modal="true" aria-labelledby="modal-usuario-titulo">
+      <div class="modal cfg-modal">
         <div class="modal-header">
-          <h2 id="modal-usuario-titulo">${t('novoUsuarioTitulo')}</h2>
-          <button class="btn-icon" id="close-modal-usuario">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div class="cfg-modal-head">
+            <h2 id="modal-usuario-titulo">${t('novoUsuarioTitulo')}</h2>
+            <p class="cfg-modal-sub" id="modal-usuario-sub" hidden></p>
+          </div>
+          <button class="btn-icon" id="close-modal-usuario" aria-label="${t('btnCancelar')}">${ICO.fechar()}</button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="usr-id">
-          <div class="form-grid form-grid-2">
-            <div class="form-group col-span-2">
-              <label for="usr-nome">Nome *</label>
-              <input type="text" id="usr-nome" placeholder="Nome completo" maxlength="80">
+          <div class="cfg-aviso" id="usr-aviso-supremo" hidden>${ICO.cadeado()}<span>${t('cfgSomenteSupremo')}</span></div>
+          <div class="form-grid form-grid-2 cfg-form">
+            <div class="form-group col-span-2" data-campo="usr-nome">
+              <label for="usr-nome">${t('cfgNome')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <input type="text" id="usr-nome" placeholder="${t('cfgNomeCompleto')}" maxlength="80" autocomplete="off">
             </div>
-            <div class="form-group col-span-2">
-              <label for="usr-email">E-mail *</label>
-              <input type="email" id="usr-email" placeholder="email@empresa.com">
+            <div class="form-group col-span-2" data-campo="usr-email">
+              <label for="usr-email">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <input type="email" id="usr-email" placeholder="nome@empresa.com.br" autocomplete="off">
+              <span class="form-hint" id="usr-email-dica" hidden>${t('cfgEmailFixo')}</span>
             </div>
-            <div class="form-group">
-              <label for="usr-perfil">Perfil *</label>
-              <select id="usr-perfil">
-                <option value="">${t('selecionar')}</option>
-                ${Object.values(PERFIS).map(p => `<option value="${p}">${PERFIS_LABEL[p]}</option>`).join('')}
-              </select>
+            <div class="form-group" data-campo="usr-perfil">
+              <label for="usr-perfil">${t('cfgColPerfil')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <select id="usr-perfil"></select>
             </div>
-            <div class="form-group">
-              <label>Status</label>
-              <div class="toggle-wrap" id="usr-ativo-wrap" style="margin-top:0.4rem">
-                <div class="toggle on" id="usr-ativo-toggle"></div>
-                <span class="toggle-label">Ativo</span>
+            <div class="form-group" data-campo="usr-ativo">
+              <span class="cfg-rotulo-campo" id="usr-ativo-rotulo">${t('cfgAcesso')}</span>
+              <div class="toggle-wrap cfg-interruptor" id="usr-ativo-wrap" role="switch" tabindex="0" aria-checked="true" aria-labelledby="usr-ativo-rotulo usr-ativo-label">
+                <div class="toggle on"></div>
+                <span class="toggle-label" id="usr-ativo-label">${t('cfgAtivo')}</span>
               </div>
             </div>
-            <div class="form-group col-span-2">
-              <label>Empresas vinculadas *</label>
-              <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.25rem" id="usr-empresas-checks"></div>
+            <p class="cfg-perfil-desc col-span-2" id="usr-perfil-desc" hidden></p>
+            <div class="form-group col-span-2" data-campo="usr-empresas">
+              <div class="cfg-rotulo-linha">
+                <span class="cfg-rotulo-campo" id="usr-empresas-rotulo">${t('cfgColEmpresas')} <span class="cfg-req" aria-hidden="true">*</span></span>
+                <button type="button" class="cfg-link" id="usr-empresas-todas">${t('cfgSelecionarTodas')}</button>
+              </div>
+              <div class="cfg-checklist" id="usr-empresas-checks" role="group" aria-labelledby="usr-empresas-rotulo"></div>
             </div>
           </div>
         </div>
@@ -112,184 +123,336 @@ export async function renderConfigUsuarios() {
   `
 
   initTopbarEvents(true)
+  atualizarLateral({ ativo: 'usuarios' })
+  revelarItemLateral()
   renderNotificacoes()
-  await _carregar()
   _bindEvents()
+  await _carregar()
 }
 
 async function _carregar() {
-  const [usrSnap, empSnap] = await Promise.all([
-    getDocs(collection(db, 'usuarios')),
-    getDocs(collection(db, 'empresas')),
-  ])
-  _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _empresas = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  try {
+    const [usrSnap, empSnap] = await Promise.all([
+      getDocs(collection(db, 'usuarios')),
+      getDocs(collection(db, 'empresas')),
+    ])
+    _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+    _empresas = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+  } catch (err) {
+    console.error(err)
+    _usuarios = []
+    _empresas = []
+    prxToast(t('erroCarregar'), 'error')
+  }
+  // A tela pode ter sido trocada enquanto os dados chegavam
+  if (!document.getElementById('tbody-usuarios')) return
+  const contagens = { usuarios: _usuarios.length, 'cad-empresas': _empresas.length }
+  atualizarLateral({ ativo: 'usuarios', contagens })
+  completarContagensLateral(contagens)
   _renderTabela()
   _preencherCheckboxesEmpresas()
 }
 
 function _filtrados() {
-  let lista = [..._usuarios]
-  if (_filtroStatus === 'ativos')   lista = lista.filter(u => u.ativo !== false)
-  if (_filtroStatus === 'inativos') lista = lista.filter(u => u.ativo === false)
+  let lista = _usuarios
+  if (_filtroStatus === 'ativos')   lista = lista.filter(_ativo)
+  if (_filtroStatus === 'inativos') lista = lista.filter(u => !_ativo(u))
   if (_termoBusca) {
-    const { normalizarTexto } = window.__praxisUtils || { normalizarTexto: s => s.toLowerCase() }
-    const t = _termoBusca.toLowerCase()
-    lista = lista.filter(u => (u.nome||'').toLowerCase().includes(t) || (u.email||'').toLowerCase().includes(t))
+    const q = normalizarTexto(_termoBusca)
+    lista = lista.filter(u => normalizarTexto(u.nome || '').includes(q) || normalizarTexto(u.email || '').includes(q))
   }
   return lista
+}
+
+function _atualizarContagens() {
+  const ativos   = _usuarios.filter(_ativo).length
+  const inativos = _usuarios.length - ativos
+  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n }
+  set('usr-n-todos', _usuarios.length)
+  set('usr-n-ativos', ativos)
+  set('usr-n-inativos', inativos)
+
+  // "7 usuários, todos ativos. O perfil define o que cada um pode fazer."
+  const resumo = document.getElementById('usr-resumo')
+  if (resumo) {
+    let numeros = plural(_usuarios.length, 'cfgUsuarioSing', 'cfgUsuarioPlur')
+    if (inativos) numeros += `, ${plural(inativos, 'cfgInativoSing', 'cfgInativoPlur')}`
+    else if (_usuarios.length > 1) numeros += `, ${t('cfgTodosAtivos')}`
+    resumo.innerHTML = `<span class="cfg-resumo-num">${numeros}.</span> ${t('cfgUsuariosDesc')}`
+  }
+}
+
+// Empresas do usuário em texto: "Todas as empresas", "Nexara Tecnologia" ou "Nexara Tecnologia +1"
+function _celEmpresas(u) {
+  const ids = _empIds(u)
+  if (!ids.length) return `<span class="cfg-mudo">${t('cfgNenhuma')}</span>`
+  const todas = _empresas.map(e => e.id)
+  if (todas.length > 1 && todas.every(id => ids.includes(id))) {
+    return `<span class="usr-emp">${t('cfgTodasEmpresasTxt')}</span>`
+  }
+  const nomes = ids.map(id => _empresas.find(e => e.id === id)?.nome).filter(Boolean)
+  if (!nomes.length) return `<span class="cfg-mudo">${t('cfgNenhuma')}</span>`
+  const resto = nomes.length - 1
+  return `<span class="usr-emp" title="${esc(nomes.join(', '))}"><span class="usr-emp-nome">${esc(nomes[0])}</span>${resto > 0 ? `<span class="cfg-mudo usr-emp-mais">+${resto}</span>` : ''}</span>`
+}
+
+// Último acesso: a data, "Agora" para a sessão atual, ou "Nunca"
+function _celAcesso(u, eu) {
+  if (u.id === eu) return `<span class="usr-acesso-agora">${t('cfgAgora')}</span>`
+  const d = u.ultimoAcesso ? dataAcesso(u.ultimoAcesso) : null
+  if (d) return `<span title="${esc(d.completo)}">${esc(d.rotulo)}</span>`
+  return `<span class="cfg-mudo" title="${t('cfgSemAcessoDica')}">${t('cfgNunca')}</span>`
 }
 
 function _renderTabela() {
   const tbody = document.getElementById('tbody-usuarios')
   if (!tbody) return
+  _atualizarContagens()
   const lista = _filtrados()
 
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:2rem">Nenhum usuário encontrado.</td></tr>`
+    if (_termoBusca) {
+      tbody.innerHTML = linhaVazia(COLUNAS, {
+        icone: ICO.busca(20), titulo: t('cfgSemResultadoTitulo'),
+        sub: esc(tf('cfgSemResultadoBusca', { q: _termoBusca.trim() })),
+        acao: `<button class="btn-secondary btn-sm" data-acao-vazio="limpar">${t('cfgLimparBusca')}</button>`,
+      })
+    } else if (_filtroStatus === 'inativos') {
+      tbody.innerHTML = linhaVazia(COLUNAS, {
+        icone: ICO.usuarios(), titulo: t('cfgSemInativosTitulo'), sub: t('cfgSemInativosSub'),
+        acao: `<button class="btn-secondary btn-sm" data-acao-vazio="todos">${t('cfgVerTodos')}</button>`,
+      })
+    } else {
+      tbody.innerHTML = linhaVazia(COLUNAS, {
+        icone: ICO.usuarios(), titulo: t('cfgSemUsuariosTitulo'), sub: t('cfgSemUsuariosSub'),
+        acao: `<button class="btn-secondary btn-sm" data-acao-vazio="novo">${ICO.mais(13)}${t('btnNovoUsuario')}</button>`,
+      })
+    }
     return
   }
 
+  const eu = _meuId()
   tbody.innerHTML = lista.map(u => {
-    const badgePerfil = `<span class="badge badge-${PERFIS_COLOR[u.perfil]||'neutral'}">${PERFIS_LABEL[u.perfil]||u.perfil}</span>`
-    const _rawEmp = u.empresas || []
-    const empIds  = Array.isArray(_rawEmp) ? _rawEmp : Object.keys(_rawEmp)
-    const empTags = empIds.slice(0,3).map(eid => {
-      const e = _empresas.find(x => x.id === eid)
-      return `<span class="badge badge-neutral" style="font-size:0.68rem">${e?.nome || eid}</span>`
-    }).join(' ')
-    const dot = u.ativo !== false ? '<span class="dot dot-green"></span>' : '<span class="dot dot-gray"></span>'
+    const ativo = _ativo(u)
+    const nome  = esc(u.nome || u.email || '—')
     return `
-      <tr data-uid="${u.id}">
-        <td data-label="Usuário">
-          <div style="display:flex;align-items:center;gap:0.625rem">
-            <div class="avatar avatar-sm">${gerarIniciais(u.nome)}</div>
-            <div>
-              <div style="font-weight:600;font-size:0.875rem">${u.nome}</div>
-              <div style="font-size:0.75rem;color:var(--text3)">${u.email}</div>
+      <tr data-uid="${esc(u.id)}" tabindex="0" class="${ativo ? '' : 'cfg-linha-inativa'}">
+        <td class="c-usuario">
+          <div class="usr-cel">
+            <span class="avatar avatar-md usr-avatar" aria-hidden="true">${esc(iniciais(u.nome || u.email))}</span>
+            <div class="usr-id">
+              <div class="usr-nome"><span class="usr-nome-txt">${nome}</span>${u.id === eu ? `<span class="cfg-marca">${t('cfgVoce')}</span>` : ''}${ativo ? '' : `<span class="cfg-marca cfg-marca-inativo">${t('cfgInativo')}</span>`}</div>
+              <div class="usr-email">${esc(u.email || '')}</div>
             </div>
           </div>
         </td>
-        <td data-label="Perfil">${badgePerfil}</td>
-        <td data-label="Empresas"><div style="display:flex;gap:0.25rem;flex-wrap:wrap">${empTags}</div></td>
-        <td data-label="Último acesso">${formatTimestamp(u.ultimoAcesso) || '—'}</td>
-        <td data-label="Status"><div style="display:flex;align-items:center;gap:0.4rem">${dot} ${u.ativo !== false ? 'Ativo' : 'Inativo'}</div></td>
-        <td>
-          <div style="display:flex;gap:0.25rem">
-            <button class="btn-icon btn-editar-usr" data-uid="${u.id}" title="Editar">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-          </div>
+        <td class="c-perfil">${perfilHtml(u.perfil)}</td>
+        <td class="c-empresas" data-rotulo="${t('cfgColEmpresas')}">${_celEmpresas(u)}</td>
+        <td class="c-acesso" data-rotulo="${t('cfgColUltimoAcesso')}">${_celAcesso(u, eu)}</td>
+        <td class="c-acoes">
+          <button class="btn-icon cfg-btn-editar btn-editar-usr" data-uid="${esc(u.id)}" aria-label="${esc(tf('cfgEditarX', { nome: u.nome || '' }))}" data-tooltip="${t('editarLabel')}">${ICO.editar()}</button>
         </td>
-      </tr>
-    `
+      </tr>`
   }).join('')
-
-  // Bind edição
-  document.querySelectorAll('.btn-editar-usr').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation()
-      const u = _usuarios.find(x => x.id === btn.dataset.uid)
-      if (u) _abrirModalEdicao(u)
-    })
-  })
 }
 
 function _preencherCheckboxesEmpresas() {
   const wrap = document.getElementById('usr-empresas-checks')
   if (!wrap) return
   wrap.innerHTML = _empresas.map(e => `
-    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;font-weight:400;text-transform:none;cursor:pointer">
-      <input type="checkbox" class="emp-check" value="${e.id}" style="width:16px;height:16px">
-      ${e.nome}
+    <label class="cfg-check">
+      <input type="checkbox" class="emp-check" value="${esc(e.id)}">
+      <span class="cfg-check-nome">${esc(e.nome)}</span>
+      ${e.ativa === false ? `<span class="cfg-check-estado">${t('cfgInativa')}</span>` : ''}
+      <span class="cfg-check-meta">${esc(formatCNPJ(e.cnpj) || '')}</span>
     </label>
   `).join('')
 }
 
+function _opcoesPerfil(perfilAtual = '') {
+  const sel = document.getElementById('usr-perfil')
+  if (!sel) return
+  // Gestor não promove ninguém a Supremo; o Supremo existente continua listado para leitura
+  const perfis = Object.values(PERFIS).filter(p => _souSupremo() || p !== PERFIS.SUPREMO || p === perfilAtual)
+  sel.innerHTML = `<option value="">${t('selecionar')}</option>` +
+    perfis.map(p => `<option value="${p}">${PERFIS_LABEL[p]}</option>`).join('')
+  sel.value = perfilAtual
+  _descreverPerfil()
+}
+
+// Descrição do perfil escolhido, marcada com a cor do ponto do perfil
+function _descreverPerfil() {
+  const p   = document.getElementById('usr-perfil')?.value
+  const el  = document.getElementById('usr-perfil-desc')
+  if (!el) return
+  el.hidden = !p
+  el.textContent = p ? t(`perfilDesc_${p}`) : ''
+  el.style.setProperty('--cor', corPerfil(p))
+}
+
+function _atualizarBotaoTodas() {
+  const checks = [...document.querySelectorAll('.emp-check')]
+  const todas  = checks.length && checks.every(c => c.checked)
+  const btn    = document.getElementById('usr-empresas-todas')
+  if (btn) btn.textContent = todas ? t('cfgLimparSelecao') : t('cfgSelecionarTodas')
+}
+
+function _travarFormulario(travar) {
+  const modal = document.getElementById('modal-usuario')
+  modal.querySelectorAll('#usr-nome, #usr-perfil, .emp-check').forEach(el => { el.disabled = travar })
+  const wrap = document.getElementById('usr-ativo-wrap')
+  wrap.setAttribute('aria-disabled', String(travar))
+  wrap.tabIndex = travar ? -1 : 0
+  document.getElementById('usr-empresas-todas').hidden = travar
+  document.getElementById('salvar-usuario').hidden = travar
+  // Sem nada para salvar, o outro botão só fecha
+  document.getElementById('cancel-modal-usuario').textContent = travar ? t('fechar') : t('btnCancelar')
+  document.getElementById('usr-aviso-supremo').hidden = !travar
+}
+
+function _definirAtivo(on) {
+  definirInterruptor(document.getElementById('usr-ativo-wrap'), on)
+  const lbl = document.getElementById('usr-ativo-label')
+  if (lbl) lbl.textContent = on ? t('cfgAtivo') : t('cfgInativo')
+}
+
 function _abrirModalNovo() {
+  const modal = document.getElementById('modal-usuario')
+  limparErros(modal)
   document.getElementById('modal-usuario-titulo').textContent = t('novoUsuarioTitulo')
+  document.getElementById('modal-usuario-sub').hidden = true
   document.getElementById('usr-id').value = ''
   document.getElementById('usr-nome').value = ''
-  document.getElementById('usr-email').value = ''
-  document.getElementById('usr-email').disabled = false
-  document.getElementById('usr-perfil').value = ''
-  document.getElementById('usr-ativo-toggle').classList.add('on')
-  document.querySelectorAll('.emp-check').forEach(c => c.checked = false)
+  const email = document.getElementById('usr-email')
+  email.value = ''
+  email.disabled = false
+  document.getElementById('usr-email-dica').hidden = true
+  _opcoesPerfil('')
+  _definirAtivo(true)
+  // Com uma empresa só, ela já vem marcada
+  document.querySelectorAll('.emp-check').forEach(c => { c.checked = _empresas.length === 1 })
+  _travarFormulario(false)
+  _atualizarBotaoTodas()
   abrirModal('modal-usuario')
 }
 
 function _abrirModalEdicao(u) {
+  const modal = document.getElementById('modal-usuario')
+  limparErros(modal)
   document.getElementById('modal-usuario-titulo').textContent = t('editarUsuarioTitulo')
+  const sub = document.getElementById('modal-usuario-sub')
+  sub.textContent = u.nome || ''
+  sub.hidden = !u.nome
   document.getElementById('usr-id').value = u.id
   document.getElementById('usr-nome').value = u.nome || ''
-  document.getElementById('usr-email').value = u.email || ''
-  document.getElementById('usr-email').disabled = true
-  document.getElementById('usr-perfil').value = u.perfil || ''
-  const ativo = u.ativo !== false
-  document.getElementById('usr-ativo-toggle').classList.toggle('on', ativo)
-  document.querySelectorAll('.emp-check').forEach(c => {
-    c.checked = (u.empresas || []).includes(c.value)
-  })
+  const email = document.getElementById('usr-email')
+  email.value = u.email || ''
+  email.disabled = true
+  document.getElementById('usr-email-dica').hidden = false
+  _opcoesPerfil(u.perfil || '')
+  _definirAtivo(_ativo(u))
+  const ids = _empIds(u)
+  document.querySelectorAll('.emp-check').forEach(c => { c.checked = ids.includes(c.value) })
+  _travarFormulario(u.perfil === PERFIS.SUPREMO && !_souSupremo())
+  _atualizarBotaoTodas()
   abrirModal('modal-usuario')
 }
 
 function _bindEvents() {
   document.getElementById('btn-novo-usuario')?.addEventListener('click', _abrirModalNovo)
+  document.getElementById('close-modal-usuario')?.addEventListener('click', () => fecharModal('modal-usuario'))
+  document.getElementById('cancel-modal-usuario')?.addEventListener('click', () => fecharModal('modal-usuario'))
 
-  document.getElementById('close-modal-usuario')?.addEventListener('click', () =>
-    fecharModal('modal-usuario'))
-  document.getElementById('cancel-modal-usuario')?.addEventListener('click', () =>
-    fecharModal('modal-usuario'))
-
-  document.getElementById('usr-ativo-wrap')?.addEventListener('click', () =>
-    document.getElementById('usr-ativo-toggle')?.classList.toggle('on'))
-
-  document.getElementById('status-pills')?.addEventListener('click', e => {
-    const btn = e.target.closest('[data-s]')
-    if (!btn) return
-    document.querySelectorAll('#status-pills .pill').forEach(p => p.classList.remove('active'))
-    btn.classList.add('active')
-    _filtroStatus = btn.dataset.s
-    _renderTabela()
+  ligarInterruptor(document.getElementById('usr-ativo-wrap'), on => {
+    const lbl = document.getElementById('usr-ativo-label')
+    if (lbl) lbl.textContent = on ? t('cfgAtivo') : t('cfgInativo')
+    limparErro('usr-ativo')
   })
 
-  document.getElementById('busca-usuario')?.addEventListener('input',
-    debounce(e => { _termoBusca = e.target.value; _renderTabela() }, 250))
+  document.getElementById('usr-filtros')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-s]')
+    if (!btn) return
+    _definirFiltro(btn.dataset.s)
+  })
+
+  const busca = document.getElementById('busca-usuario')
+  busca?.addEventListener('input', debounce(e => { _termoBusca = e.target.value; _renderTabela() }, 200))
+
+  const tbody = document.getElementById('tbody-usuarios')
+  // Linha inteira abre a edição (clique ou Enter); estados vazios têm as próprias ações
+  tbody?.addEventListener('click', e => {
+    const acao = e.target.closest('[data-acao-vazio]')?.dataset.acaoVazio
+    if (acao === 'limpar') { busca.value = ''; _termoBusca = ''; _renderTabela(); busca.focus(); return }
+    if (acao === 'todos')  { _definirFiltro('todos'); return }
+    if (acao === 'novo')   { _abrirModalNovo(); return }
+    const tr = e.target.closest('tr[data-uid]')
+    if (!tr) return
+    const u = _usuarios.find(x => x.id === tr.dataset.uid)
+    if (u) _abrirModalEdicao(u)
+  })
+  tbody?.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.target.tagName !== 'TR') return
+    const u = _usuarios.find(x => x.id === e.target.dataset.uid)
+    if (u) _abrirModalEdicao(u)
+  })
+
+  document.getElementById('usr-perfil')?.addEventListener('change', () => { _descreverPerfil(); limparErro('usr-perfil') })
+  document.getElementById('usr-nome')?.addEventListener('input', () => limparErro('usr-nome'))
+  document.getElementById('usr-email')?.addEventListener('input', () => limparErro('usr-email'))
+  document.getElementById('usr-empresas-checks')?.addEventListener('change', () => { limparErro('usr-empresas'); _atualizarBotaoTodas() })
+  document.getElementById('usr-empresas-todas')?.addEventListener('click', () => {
+    const checks = [...document.querySelectorAll('.emp-check')]
+    const marcar = !checks.every(c => c.checked)
+    checks.forEach(c => { c.checked = marcar })
+    limparErro('usr-empresas')
+    _atualizarBotaoTodas()
+  })
 
   document.getElementById('salvar-usuario')?.addEventListener('click', _salvarUsuario)
+  document.getElementById('modal-usuario')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('#usr-nome, #usr-email')) { e.preventDefault(); _salvarUsuario() }
+  })
+}
+
+function _definirFiltro(s) {
+  _filtroStatus = s
+  document.querySelectorAll('#usr-filtros [data-s]').forEach(p => {
+    const on = p.dataset.s === s
+    p.classList.toggle('active', on)
+    p.setAttribute('aria-pressed', String(on))
+  })
+  _renderTabela()
 }
 
 async function _salvarUsuario() {
-  const id      = document.getElementById('usr-id').value
-  const nome    = document.getElementById('usr-nome').value.trim()
-  const email   = document.getElementById('usr-email').value.trim()
-  const perfil  = document.getElementById('usr-perfil').value
-  const ativo   = document.getElementById('usr-ativo-toggle').classList.contains('on')
+  const modal    = document.getElementById('modal-usuario')
+  const id       = document.getElementById('usr-id').value
+  const nome     = document.getElementById('usr-nome').value.trim()
+  const email    = document.getElementById('usr-email').value.trim()
+  const perfil   = document.getElementById('usr-perfil').value
+  const ativo    = document.getElementById('usr-ativo-wrap').getAttribute('aria-checked') === 'true'
   const empresas = [...document.querySelectorAll('.emp-check:checked')].map(c => c.value)
 
-  if (!nome)          { prxToast(t('nomeObrigatorio'), 'error'); return }
-  if (!email)         { prxToast(t('emailObrigatorio'), 'error'); return }
-  if (!id && !validarEmail(email)) { prxToast(t('emailInvalido'), 'error'); return }
-  if (!perfil)        { prxToast(t('perfilObrigatorio'), 'error'); return }
-  if (!empresas.length) { prxToast(t('empresaObrigatoria'), 'error'); return }
+  limparErros(modal)
+  if (!nome)                        marcarErro('usr-nome', t('nomeObrigatorio'))
+  if (!email)                       marcarErro('usr-email', t('emailObrigatorio'))
+  else if (!id && !validarEmail(email)) marcarErro('usr-email', t('emailInvalido'))
+  if (!perfil)                      marcarErro('usr-perfil', t('perfilObrigatorio'))
+  if (!empresas.length)             marcarErro('usr-empresas', t('empresaObrigatoria'))
+  if (id && id === _meuId() && !ativo) marcarErro('usr-ativo', t('cfgNaoDesativarVoce'))
+  if (modal.querySelector('[data-campo].invalido')) { focarPrimeiroErro(modal); return }
 
   // Confirmação ao desativar usuário existente
   if (id && !ativo) {
     const original = _usuarios.find(u => u.id === id)
-    if (original && original.ativo !== false) {
-      const ok = await prxConfirm(
-        'Desativar usuário',
-        `"${nome}" perderá o acesso ao sistema. Confirmar?`,
-        'Desativar', 'Cancelar', true
-      )
+    if (original && _ativo(original)) {
+      const ok = await prxConfirm(t('cfgDesativarTitulo'), tf('cfgDesativarMsg', { nome }), t('cfgDesativar'), t('btnCancelar'), true)
       if (!ok) return
     }
   }
 
-  // Validação demo
   if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
 
   mostrarSpinner()

@@ -1,4 +1,4 @@
-const CACHE = 'praxis-v2'
+const CACHE = 'praxis-v4'
 
 // Hosts de API que nunca devem ser interceptados
 const API_HOSTS = [

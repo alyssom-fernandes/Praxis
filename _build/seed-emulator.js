@@ -21,10 +21,11 @@
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:9090'
 process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
 
-const admin = require('firebase-admin')
+// firebase-admin vem das dependências das Functions: o seed roda de qualquer pasta
+const admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] }))
 const seed  = require('../functions/seed.json')
 
-admin.initializeApp({ projectId: 'praxis-af618' })
+admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'praxis-af618' })
 const db   = admin.firestore()
 const auth = admin.auth()
 
@@ -51,6 +52,19 @@ function normalizar(s) {
 }
 
 const agoraTs = admin.firestore.Timestamp.now()
+
+// As datas fixas do seed (necessidade, compra, entrega, vencimento) foram
+// escritas para seed._dataReferencia; todas andam a mesma distância até hoje,
+// para o demo não envelhecer (mesma regra do _aplicarSeed das Functions)
+const _refSeed  = seed._dataReferencia ? new Date(seed._dataReferencia + 'T12:00:00') : null
+const _hojeMeio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 12)
+const _desloc   = _refSeed ? Math.round((_hojeMeio - _refSeed) / 864e5) : 0
+function deslocar(iso) {
+  if (!iso || !_desloc) return iso
+  const d = new Date(iso + 'T12:00:00')
+  d.setDate(d.getDate() + _desloc)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 
 // ── Usuários por perfil ──────────────────────────────────────────────────────
 // Senha padrão de teste: demo1234
@@ -237,6 +251,7 @@ async function main() {
   const mapaUsuarios = await criarUsuarios(todasEmpresasIds)
   const demoUserId   = mapaUsuarios['demo@praxis.app']?.id
   const solicitanteId = demoUserId || 'demo'
+  const solicitanteNome = 'Demo Praxis'
 
   // 3. Categorias
   console.log('\nCriando categorias...')
@@ -291,13 +306,18 @@ async function main() {
     const cotIndicada  = (cotacoes || []).find(c => c.indicada)
     const fornecedorId = cotIndicada ? (fornMap[normalizar(cotIndicada.fornecedorNome)] || null) : null
 
-    const numeroPedido = `#${String(totalPedidos + 1).padStart(4, '0')}`
+    for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) {
+      if (pedData[campo]) pedData[campo] = deslocar(pedData[campo])
+    }
+
+    const numeroPedido = `PRX-${String(totalPedidos + 1).padStart(4, '0')}`
     const pedRef = db.collection('pedidos').doc()
     await pedRef.set({
       ...pedData,
       empresaId,
       categoriaId,
       solicitanteId,
+      solicitanteNome,
       numeroPedido,
       compradorId:              pedData.dataCompra ? solicitanteId : null,
       compradorAssumiuEm:       pedData.dataCompra ? ts(hist[1]?.diasAtras ?? 1) : null,
@@ -376,7 +396,7 @@ async function main() {
       parcelas.forEach(p => {
         const vencimento = p.vencimentoDias != null
           ? isoMaisDias(p.vencimentoDias)
-          : p.vencimento
+          : deslocar(p.vencimento)
         batch.set(pedRef.collection('parcelas').doc(), {
           numero:    p.numero,
           total:     p.total,

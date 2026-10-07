@@ -1,6 +1,7 @@
 {
   "_info": "Seed do modo demo — dados fictícios. Nenhum CNPJ ou dado real.",
   "_reset": "Recriado todo domingo às 3h pela Cloud Function demoReset.",
+  "_dataReferencia": "2026-06-09",
   "empresas": [
     {
       "key": "nexara",
@@ -31,12 +32,12 @@
       "usos": 8
     },
     {
-      "nome": "TechSupply Comercio",
+      "nome": "TechSupply Comércio",
       "cnpj": "22.222.222/0001-22",
       "usos": 5
     },
     {
-      "nome": "Solucoes Gerais ME",
+      "nome": "Soluções Gerais ME",
       "cnpj": "33.333.333/0001-33",
       "usos": 4
     },
@@ -46,7 +47,7 @@
       "usos": 3
     },
     {
-      "nome": "Manutencao Express Servicos",
+      "nome": "Manutenção Express Serviços",
       "cnpj": "55.555.555/0001-55",
       "usos": 6
     },
@@ -107,7 +108,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 23.750,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 23.750,00",
           "diasAtras": 37
         },
         {
@@ -133,7 +134,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 23750,
           "prazoEntrega": "7 dias úteis",
           "condicoesComerciais": "Frete grátis acima de R$ 5.000",
@@ -147,7 +148,7 @@
           "indicada": false
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 26100,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Inclui suporte 12 meses",
@@ -246,7 +247,7 @@
           "indicada": true
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 8250,
           "prazoEntrega": "8 dias úteis",
           "condicoesComerciais": "Frete por conta do comprador",
@@ -304,20 +305,20 @@
           "diasAtras": 11
         },
         {
-          "texto": "Tenho 3 orçamentos em mãos, indicarei o da Manutencao Express.",
+          "texto": "Tenho 3 orçamentos em mãos, indicarei o da Manutenção Express.",
           "diasAtras": 9
         }
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Manutencao Express Servicos",
+          "fornecedorNome": "Manutenção Express Serviços",
           "valor": 2800,
           "prazoEntrega": "3 dias úteis",
           "condicoesComerciais": "Inclui reposição de gás se necessário",
           "indicada": true
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 3100,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Garantia 6 meses",
@@ -374,7 +375,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 17500,
           "prazoEntrega": "24h",
           "condicoesComerciais": "Entrega imediata, pagamento antecipado",
@@ -467,14 +468,14 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 4200,
           "prazoEntrega": "Início em 15 dias",
           "condicoesComerciais": "Contrato mínimo 6 meses",
           "indicada": true
         },
         {
-          "fornecedorNome": "Manutencao Express Servicos",
+          "fornecedorNome": "Manutenção Express Serviços",
           "valor": 4600,
           "prazoEntrega": "Início em 7 dias",
           "condicoesComerciais": "Sem fidelidade",
@@ -542,7 +543,7 @@
           "indicada": true
         },
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 9200,
           "prazoEntrega": "7 dias úteis",
           "condicoesComerciais": "Montagem inclusa",
@@ -591,7 +592,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 4.050,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 4.050,00",
           "diasAtras": 42
         },
         {
@@ -612,7 +613,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 4050,
           "prazoEntrega": "Imediato (digital)",
           "condicoesComerciais": "Licença por 12 meses",
@@ -807,7 +808,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 6.500,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 6.500,00",
           "diasAtras": 18
         }
       ],
@@ -823,7 +824,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 6500,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Garantia 3 anos NBD",
@@ -953,7 +954,7 @@
         },
         {
           "status": "cancelado",
-          "nota": "Compra nao necessaria",
+          "nota": "Compra não necessária",
           "diasAtras": 15
         }
       ],
@@ -969,7 +970,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 5600,
           "prazoEntrega": "Imediato (cloud)",
           "condicoesComerciais": "Suporte incluso",
@@ -1057,7 +1058,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: Manutencao Express Servicos · R$ 2.100,00",
+          "nota": "Fornecedor: Manutenção Express Serviços · R$ 2.100,00",
           "diasAtras": 27
         },
         {
@@ -1078,14 +1079,14 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Manutencao Express Servicos",
+          "fornecedorNome": "Manutenção Express Serviços",
           "valor": 2100,
           "prazoEntrega": "3 dias",
           "condicoesComerciais": "Certificado ANVISA incluso",
           "indicada": true
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 2400,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Garantia 6 meses",
@@ -1161,7 +1162,7 @@
           "indicada": true
         },
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 15000,
           "prazoEntrega": "Imediato (online)",
           "condicoesComerciais": "Preço cheio, sem fidelidade",
@@ -1290,7 +1291,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 3.100,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 3.100,00",
           "diasAtras": 39
         },
         {
@@ -1312,7 +1313,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 3100,
           "prazoEntrega": "Imediato (digital)",
           "condicoesComerciais": "1 ano de suporte incluso",
@@ -1370,7 +1371,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: Manutencao Express Servicos · R$ 6.800,00",
+          "nota": "Fornecedor: Manutenção Express Serviços · R$ 6.800,00",
           "diasAtras": 4
         }
       ],
@@ -1386,14 +1387,14 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Manutencao Express Servicos",
+          "fornecedorNome": "Manutenção Express Serviços",
           "valor": 6800,
           "prazoEntrega": "2 dias úteis",
           "condicoesComerciais": "Inclui peças, mão de obra e laudo ART",
           "indicada": true
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 7200,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Somente mão de obra",
@@ -1497,7 +1498,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 26500,
           "prazoEntrega": "30 dias",
           "condicoesComerciais": "Inclui mão de obra, tinta e andaimes",
@@ -1546,7 +1547,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 4.200,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 4.200,00",
           "diasAtras": 21
         },
         {
@@ -1567,7 +1568,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 4200,
           "prazoEntrega": "5 dias úteis",
           "condicoesComerciais": "Garantia 1 ano",
@@ -1658,7 +1659,7 @@
           "indicada": true
         },
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 5400,
           "prazoEntrega": "7 dias úteis",
           "condicoesComerciais": "Frete incluso",
@@ -1697,7 +1698,7 @@
         },
         {
           "status": "em_aprovacao",
-          "nota": "Cotacao indicada",
+          "nota": "Cotação indicada",
           "diasAtras": 31
         },
         {
@@ -1831,7 +1832,7 @@
       "valorFinal": 8700,
       "centroCusto": "MKT-003",
       "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-03-05",
+      "dataCompra": "2026-03-13",
       "dataEntrega": "2026-06-05",
       "empresaKey": "nexara",
       "categoriaKey": "marketing",
@@ -1848,7 +1849,7 @@
         },
         {
           "status": "em_aprovacao",
-          "nota": "Cotacao indicada",
+          "nota": "Cotação indicada",
           "diasAtras": 91
         },
         {
@@ -1858,8 +1859,8 @@
         },
         {
           "status": "comprado",
-          "nota": "Agência Solucoes Gerais ME · R$ 8.700,00",
-          "diasAtras": 96
+          "nota": "Agência Soluções Gerais ME · R$ 8.700,00",
+          "diasAtras": 88
         },
         {
           "status": "entregue",
@@ -1879,7 +1880,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 8700,
           "prazoEntrega": "3 meses de serviço",
           "condicoesComerciais": "Relatório mensal de resultados",
@@ -1943,7 +1944,7 @@
         },
         {
           "status": "em_aprovacao",
-          "nota": "Cotacao indicada",
+          "nota": "Cotação indicada",
           "diasAtras": 16
         },
         {
@@ -1953,7 +1954,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: Solucoes Gerais ME · R$ 16.800,00",
+          "nota": "Fornecedor: Soluções Gerais ME · R$ 16.800,00",
           "diasAtras": 12
         }
       ],
@@ -1969,7 +1970,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "Solucoes Gerais ME",
+          "fornecedorNome": "Soluções Gerais ME",
           "valor": 16800,
           "prazoEntrega": "Imediato",
           "condicoesComerciais": "Cobertura desde a assinatura, desconto 8% à vista",
@@ -2097,7 +2098,7 @@
         },
         {
           "status": "em_aprovacao",
-          "nota": "Cotacao indicada",
+          "nota": "Cotação indicada",
           "diasAtras": 57
         },
         {
@@ -2107,7 +2108,7 @@
         },
         {
           "status": "comprado",
-          "nota": "Fornecedor: TechSupply Comercio · R$ 5.800,00",
+          "nota": "Fornecedor: TechSupply Comércio · R$ 5.800,00",
           "diasAtras": 59
         },
         {
@@ -2129,7 +2130,7 @@
       ],
       "cotacoes": [
         {
-          "fornecedorNome": "TechSupply Comercio",
+          "fornecedorNome": "TechSupply Comércio",
           "valor": 5800,
           "prazoEntrega": "Imediato (digital)",
           "condicoesComerciais": "Desconto 5% no plano anual",

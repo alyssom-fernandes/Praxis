@@ -1,46 +1,5 @@
-/* Transições de tema */
-html, html * {
-  transition:
-    background-color 0.28s ease,
-    border-color 0.28s ease,
-    color 0.28s ease,
-    box-shadow 0.28s ease;
-}
-
-/* Exceções — não transicionar transforms para não brigar com animações */
-button, a, .card, .kcard, .cotacao-item {
-  transition:
-    background-color 0.28s ease,
-    border-color 0.28s ease,
-    color 0.28s ease,
-    box-shadow 0.28s ease,
-    transform 0.22s ease;
-}
-
-/* Tema claro — ajustes específicos */
-.light #bg-canvas { filter: invert(0) brightness(1); }
-
-.light .topbar {
-  box-shadow: 0 1px 0 rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06);
-  border-bottom-color: rgba(0,0,0,0.10);
-}
-
-/* Botões de ícone da topbar — modo claro */
-.light .topbar-icon-btn {
-  color: var(--text2);
-  border-color: rgba(0, 0, 0, 0.22);
-  background: var(--card2);
-}
-.light .topbar-icon-btn:hover {
-  color: var(--gold);
-  border-color: var(--gold-border);
-  background: var(--gold-dim);
-}
-.light .topbar-icon-btn.active {
-  color: var(--gold);
-  border-color: var(--gold-border);
-  background: var(--gold-dim);
-}
+/* Troca de tema instantânea: transições globais em "html *" deixavam a
+   troca lenta e faziam cada repintura animar cores sem necessidade. */
 
 /* Marca AFN — light mode */
 .light .pf-afn {
@@ -51,127 +10,50 @@ button, a, .card, .kcard, .cotacao-item {
 .light .pf-pipe,
 .light .pf-info { color: #505050; }
 
-/* Texto terciário pequeno — reforço de contraste no modo claro */
-.light .stat-sub,
-.light .stat-label,
-.light .meta-label,
-.light .kcard-empresa,
-.light .empty-state p {
-  color: #8A7E72;
-}
-
-/* Links de navegação — contraste no modo claro */
-.light .nav-link {
-  color: var(--text2);
-}
-.light .nav-link:hover {
-  color: var(--text);
-  background: rgba(0,0,0,0.05);
-}
-.light .nav-link.active {
-  color: var(--gold);
-  background: var(--gold-dim);
-}
-
-/* Botões — ajustes de contraste no modo claro */
-.light .btn-secondary:hover:not(:disabled) {
-  border-color: rgba(0,0,0,0.20);
-}
-
-/* Badges neutros — visibilidade no modo claro */
-.light .badge-neutral {
-  background: rgba(0,0,0,0.06);
-  border-color: rgba(0,0,0,0.12);
-}
-
-/* Hover em linhas de tabela — modo claro */
-.light tbody tr:hover {
-  background: rgba(0,0,0,0.03);
-}
-
-/* Hover em notificações — modo claro */
-.light .notif-item:hover {
-  background: rgba(0,0,0,0.03);
-}
-
-/* Hover em topbar row mobile — modo claro */
-.light .mobile-nav-link:hover {
-  background: rgba(0,0,0,0.04);
-  color: var(--text);
-}
-
-/* View toggle — modo claro */
-.light .view-toggle button:hover:not(.active) {
-  background: rgba(0,0,0,0.04);
-  color: var(--text2);
-}
-
-.light .login-card {
-  box-shadow: 0 8px 40px rgba(0,0,0,0.08);
-}
-
-.light .modal, .light .dialog {
-  box-shadow: 0 20px 60px rgba(0,0,0,0.12);
-}
-
-.light .toast {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-}
-
-.light .kanban-col, .light .kcard {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.light .notif-dropdown {
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-}
+/* Hovers neutros no tema claro (no escuro usam branco translúcido) */
+.light tbody tr:hover,
+.light .notif-item:hover,
+.light .view-toggle button:hover:not(.active) { background: rgba(60, 40, 20, 0.04); }
 
 /* Select option — corrige em alguns browsers */
 select option {
-  background: var(--card2);
+  background: var(--card);
   color: var(--text);
 }
 
-/* Placeholder no light */
-.light input::placeholder,
-.light textarea::placeholder { color: #AFA398; }
-
-/* Checkbox customizado */
-input[type="checkbox"] {
+/* Checkbox e rádio no acento da marca */
+input[type="checkbox"], input[type="radio"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--gold);
+  padding: 0;
+  accent-color: var(--gold-fill);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Responsive — Tablet */
 @media (max-width: 1023px) {
   .dash-grid-1 { grid-template-columns: 1fr 1fr; }
   .dash-grid-2 { grid-template-columns: 1fr 1fr; }
-  .empresas-grid { grid-template-columns: 1fr 1fr; }
-  .pessoas-grid { grid-template-columns: 1fr 1fr; }
-  .config-layout { grid-template-columns: 1fr; }
-  .config-nav { position: static; display: flex; overflow-x: auto; }
-  .config-nav-item { border-bottom: none; border-right: 1px solid var(--line); flex-shrink: 0; }
-  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; }
+  /* Detalhe: uma coluna; as seções das duas colunas entram numa ordem única,
+     com a atividade (longa) por último */
+  .detalhe-cols { display: flex; flex-direction: column; align-items: stretch; gap: 36px; }
+  .detalhe-main, .detalhe-aside { display: contents; }
+  .ord-dados { order: 1; } .ord-cotacoes { order: 2; } .ord-parcelas { order: 3; } .ord-pessoas { order: 4; }
+  .ord-anexos { order: 5; } .ord-sla { order: 6; } .ord-atividade { order: 7; }
 }
+
+/* Indicador de "puxar para atualizar" (pedidos): só aparece no celular */
+.pull-indicator { display: none; }
 
 /* Responsive — Mobile */
 @media (max-width: 767px) {
-  .topbar-nav { display: none; }
-  .topbar-hamburger { display: flex; }
-
   .main-content { padding: 1rem; }
 
-  /* Kanban — 2 colunas em mobile */
-  .kanban-board { grid-template-columns: repeat(7, minmax(160px, 1fr)); }
-  .kcard-title { font-size: 0.82rem; }
 
   /* Dashboard */
   .dash-grid-1 { grid-template-columns: 1fr; }
   .dash-grid-2 { grid-template-columns: 1fr; }
-  .dash-header { flex-direction: column; }
-  .dash-filters { width: 100%; }
 
   /* Tabelas viram cards */
   .table-card-mobile thead { display: none; }
@@ -204,7 +86,8 @@ input[type="checkbox"] {
   }
 
   /* Modal */
-  .modal { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; margin-top: auto; }
+  /* Folha de baixo reta, só com o fio de tinta no alto */
+  .modal { max-width: 100%; border-radius: 0; border-left: none; border-right: none; border-bottom: none; margin-top: auto; }
   .modal-overlay { align-items: flex-end; padding: 0; }
   .form-grid-3 { grid-template-columns: 1fr; }
   .form-grid-2 { grid-template-columns: 1fr; }
@@ -212,97 +95,379 @@ input[type="checkbox"] {
   .form-group.col-span-3 { grid-column: span 1; }
 
   /* Detalhe */
-  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; }
-  .detalhe-row { grid-template-columns: 1fr; }
-  .pessoas-grid { grid-template-columns: 1fr 1fr; }
-
-  /* Empresas grid */
-  .empresas-grid { grid-template-columns: 1fr; }
-
-  /* Topbar actions */
-  .topbar { padding: 0 1rem; }
-
-  /* Oculta hamburger — substituído pela bottom nav */
-  .topbar-hamburger { display: none !important; }
-
-  /* Oculta no topbar o que já está na bottom nav (config e logout) */
-  #btn-config,
-  #btn-avatar { display: none !important; }
-
-  /* Footer: mostra acima da bottom nav */
-  .main-footer { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 1rem); }
-
-  /* Config sub-nav: exibe como row scrollável no topbar */
-  .topbar[data-mode="config"] .topbar-nav {
+  .detalhe-layout { gap: 24px; }
+  .detalhe-head { gap: 8px; }
+  .detalhe-head-linha { gap: 10px; }
+  .detalhe-titulo { font-size: 1.5rem; line-height: 1.2; }
+  .detalhe-meta { flex-direction: column; align-items: flex-start; gap: 1px; font-size: 0.86rem; }
+  .detalhe-meta > .detalhe-meta-sep { display: none; }
+  .btn-mais { width: 40px; height: 40px; min-height: 40px; }
+  .detalhe-layout .so-desktop { display: none !important; }
+  .menu-acoes-item { min-height: 44px; }
+  /* Régua: rola na horizontal, com a etapa atual na vista (js) */
+  .caminho-wrap { margin: -2px -1rem 0; }
+  .caminho {
     display: flex;
+    gap: 0 8px;
+    padding: 0 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding: 0 1rem;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 0.75rem, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, transparent 0, #000 0.75rem, #000 calc(100% - 2rem), transparent);
+  }
+  .caminho::-webkit-scrollbar { display: none; }
+  .caminho-etapa { flex: 0 0 102px; scroll-snap-align: start; padding-top: 10px; }
+  .caminho-etapa.parou { flex-basis: 134px; }
+  .caminho-num { font-size: 1.75rem; margin-bottom: 3px; }
+  /* Painel de decisão: texto e fatos em lista; a ação desce para uma barra
+     fixa logo acima da barra inferior, sempre à mão */
+  .decisao { padding: 16px 16px 0; }
+  .decisao-topo { flex-direction: column; gap: 0; padding-bottom: 14px; }
+  .decisao-titulo { font-size: 1.15rem; }
+  .decisao-desc { font-size: 0.88rem; }
+  .decisao-fatos { margin: 0 -16px; grid-template-columns: 1fr; }
+  .decisao-fato { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 16px; }
+  .decisao-fato dt { margin: 0; flex-shrink: 0; max-width: 50%; white-space: normal; letter-spacing: 0.08em; line-height: 1.35; }
+  .decisao-fato dd { align-items: flex-end; text-align: right; }
+  .decisao-valor .dt-numeral { font-size: 1.3rem; }
+  .decisao-sub { white-space: normal; }
+  .decisao-resp dd { flex-direction: row-reverse; text-align: right; }
+  .decisao-resp .decisao-resp-txt { align-items: flex-end; }
+  .decisao-acoes {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    z-index: 850;
+    gap: 8px;
+    padding: 10px 1rem;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    border-top: 1px solid var(--line);
+  }
+  .decisao-acoes > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 12px; }
+  body:has(.decisao-acoes) .main-footer { padding-bottom: calc(56px + 65px + env(safe-area-inset-bottom, 0px) + 1rem); }
+  body:has(.decisao-acoes) #toast-container { bottom: calc(56px + 65px + env(safe-area-inset-bottom, 0px) + 0.6rem); }
+  .detalhe-cols { gap: 32px; }
+  .dt-card-head { flex-wrap: wrap; row-gap: 6px; }
+  .dt-legenda { display: none; }
+  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; gap: 16px 16px; }
+  .cotacao-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "info info" "lado acoes";
+    row-gap: 12px;
+    column-gap: 12px;
+    padding: 13px 14px 15px;
+  }
+  .cotacao-lado { align-items: flex-start; }
+  .cotacao-acoes .btn-sm, .cotacao-acoes .btn-icon { min-height: 38px; }
+  .cotacao-acoes .btn-icon { width: 38px; height: 38px; }
+  .parcela-item {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas: "num info valor" "num acoes acoes";
+    row-gap: 8px;
+    column-gap: 12px;
+    align-items: start;
+  }
+  .parcela-numero { margin-top: 1px; }
+  .parcela-numero b { font-size: 1.35rem; }
+  .parcela-acoes { justify-content: flex-start; }
+  .parcela-acoes:empty { display: none; }
+  .parcela-acoes .btn-sm, .parcela-acoes .btn-icon { min-height: 38px; }
+  .parcela-acoes .btn-icon { width: 38px; height: 38px; }
+  .anexo-acoes .btn-icon { width: 38px; height: 38px; min-height: 38px; }
+  .comentario-composer > .avatar { display: none; }
+  .comentario-rodape .btn-sm { min-height: 38px; }
+  .cotacao-compare-grid { grid-template-columns: 1fr; }
+  .cotacao-compare-badges { min-height: 0; }
+  .cotacao-compare-badges:not(:has(.cot-marca)) { display: none; }
+  .dt-upload { min-height: 38px; }
+  .dt-modal-pedido { display: none; }
+  .dt-modal .modal-header { padding: 1rem 1rem 0.9rem 1.25rem; }
+  .dt-modal .modal-body { padding: 1.25rem; }
+  .dt-modal .modal-footer { padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)); }
+  .dt-modal .modal-footer > * { flex: 1 1 0; min-height: 44px; }
+
+  /* Barra lateral no celular: vira a faixa do topo, com a marca e as
+     notificações. Busca, navegação e conta ficam na barra inferior. */
+  .main-layout { display: flex; flex-direction: column; }
+  .lateral {
+    height: auto;
+    min-height: 56px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 0 1rem;
+    overflow: visible;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .lateral-topo { flex: 1 0 100%; height: 56px; margin: 0; }
+  .lateral-marca .marca { font-size: 1.2rem; }
+  .lateral-icone { margin-right: -6px; }
+  .lateral-rodape, .lateral-nav { display: none; }
+
+  /* Configurações: os cadastros descem para uma segunda linha rolável */
+  .lateral[data-mode="config"] .lateral-nav {
+    display: flex;
+    flex: 1 0 100%;
+    margin: 0 -1rem;
+    padding: 0 1rem 0.6rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    gap: 0;
-    flex: 1;
-    justify-content: flex-start;
   }
-  .topbar[data-mode="config"] .topbar-nav::-webkit-scrollbar { display: none; }
+  .lateral[data-mode="config"] .lateral-nav::-webkit-scrollbar { display: none; }
+  .lateral[data-mode="config"] .lateral-nav > .lateral-item,
+  .lateral[data-mode="config"] .lateral-grupo-rotulo,
+  .lateral[data-mode="config"] .lateral-n { display: none; }
+  .lateral[data-mode="config"] .lateral-grupo { flex-direction: row; gap: 0.35rem; margin: 0; padding: 0; border: none; }
+  .lateral[data-mode="config"] .lateral-grupo .lateral-item {
+    min-height: 34px;
+    padding: 0 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    white-space: nowrap;
+  }
+  .lateral[data-mode="config"] .lateral-grupo .lateral-item.active { border-color: var(--border-strong); background: var(--card2); }
 
-  /* Padding inferior da área de conteúdo (espaço para a bottom nav) */
-  .main-content { padding-bottom: calc(56px + 1rem + env(safe-area-inset-bottom, 0px)); }
+  /* Rodapé acima da barra inferior; o conteúdo só precisa do respiro normal */
+  .main-footer { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 1rem); }
 
   /* Barra de bulk actions sobe acima da bottom nav */
   .bulk-bar { bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 0.75rem); }
 
-  /* Filtros do dashboard em coluna, inputs full-width */
-  .dash-filters { flex-direction: column; align-items: stretch; }
-  .dash-filters select { width: 100% !important; min-width: unset !important; }
-  #date-range-wrap {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 0.5rem !important;
-    width: 100%;
+  /* Filtros de relatórios: ver bloco rel-* em views.css */
+
+  /* ── Pedidos no celular ── */
+  /* Cabeçalho numa linha só: PEDIDOS e o "+" (nome acessível "Novo pedido") */
+  .pedidos-head { margin-bottom: 16px; }
+  .pedidos-head-top { align-items: flex-start; gap: 0.75rem; }
+  .pedidos-resumo { margin-top: 10px; font-size: 0.86rem; line-height: 1.5; }
+  /* Mesmo botão dos cadastros no celular: "+ Novo" */
+  .pedidos-btn-novo { min-height: 38px; padding: 0 0.9rem; margin-top: 2px; }
+  .pedidos-btn-novo-curto { display: inline; }
+  .pedidos-btn-novo-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* Busca + Filtros + quadro/lista numa linha; filtros rápidos roláveis embaixo */
+  .pedidos-controles { flex-wrap: wrap; gap: 10px 8px; min-height: 0; margin-top: 18px; border-bottom: none; }
+  .pedidos-busca { order: 1; flex: 1 1 0; min-width: 0; }
+  .pedidos-busca input { height: 42px; min-height: 42px; font-size: 1rem; }
+  .pedidos-filtros-wrap { order: 2; position: static; margin-left: 0; }
+  .pedidos-btn-filtros { min-width: 42px; height: 42px; min-height: 42px; padding: 0 0.7rem; justify-content: center; }
+  .pedidos-btn-filtros-txt { display: none; }
+  .pedidos-btn-filtros svg { width: 17px; height: 17px; }
+  .view-toggle { order: 3; }
+  .view-toggle button { width: 38px; height: 40px; }
+  .pedidos-rapidos {
+    order: 4;
+    flex: 1 0 100%;
+    min-height: 44px;
+    margin: 2px -1rem 0;
+    padding: 0 1rem;
+    gap: 1.3rem;
+    border-bottom: 1px solid var(--line);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
   }
-  #date-range-wrap input[type="date"] { width: 100% !important; }
+  .rapido { font-size: 0.9rem; }
 
-  /* Filtros de pedidos — reorganização mobile */
-  .pedidos-header { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+  /* Painel de filtros vira folha de baixo, acima de tudo */
+  .painel-filtros {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1001;
+    width: auto;
+    max-width: none;
+    max-height: 88vh;
+    max-height: 88dvh;
+    border: none;
+    border-top: 2px solid var(--tinta);
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: var(--shadow-lg);
+    animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .pf-fundo { display: block; position: fixed; inset: 0; z-index: 1000; background: var(--overlay); }
+  body.pf-aberto { overflow: hidden; }
+  body.pf-aberto .bottom-nav { display: none; }
+  .pf-cabeca { padding: 10px 10px 10px 16px; }
+  .pf-fechar, .pf-limpar { min-height: 40px; }
+  .pf-fechar { width: 40px; height: 40px; }
+  .pf-corpo { padding: 16px; gap: 20px; }
+  .pf-grade { grid-template-columns: 1fr; gap: 14px; }
+  .pf-campo select,
+  .pf-datas .campo-data-texto { min-height: 44px; font-size: 1rem; }
+  .painel-filtros[data-modo="lista"] .pf-ordem { display: block; }
+  .pf-visao-nome { min-height: 52px; }
+  .pf-visao-acao { width: 40px; height: 40px; min-height: 40px; }
+  .pf-salvar { min-height: 42px; }
+  .pf-rodape { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .pf-resultado { display: none; }
+  .pf-ver { display: inline-flex; width: 100%; min-height: 46px; }
 
-  /* Toolbar: clipa overflow interno para não gerar scroll horizontal na página */
-  .pedidos-toolbar {
-    min-width: 0;
-    overflow: hidden;
+  /* Modais desta tela viram folha acima da barra inferior */
+  body:has(#modal-novo-pedido.visible) .bottom-nav,
+  body:has(#modal-bulk-cancel.visible) .bottom-nav,
+  body:has(#modal-salvar-visao.visible) .bottom-nav { display: none; }
+  .pedidos-modal { max-height: 92vh; max-height: 92dvh; }
+  .pedidos-modal .modal-header h2 { font-size: 1.35rem; }
+
+  /* Quadro → régua de etapas: os sete numerais tocáveis, presos no alto;
+     a etapa escolhida aparece sozinha, em lista vertical */
+  .kanban-wrap .regua {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
+    gap: 4px;
+    position: sticky;
+    top: calc(var(--faixa-demo-h, 0px) + 56px);
+    z-index: 20;
+    margin: 0 -1rem;
+    padding: 0 0.5rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .regua-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: flex-start;
-    gap: 0.5rem;
-  }
-
-  /* Pills: 100% do toolbar (= viewport − padding), scroll apenas interno */
-  #filter-pills {
-    flex: 0 0 100%;
+    gap: 4px;
     min-width: 0;
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    min-height: 0;
+    padding: 9px 0 10px 2px;
+    border: none;
+    border-top: 2px solid var(--border-strong);
+    border-radius: 0;
+    background: none;
+    color: var(--text3);
+    text-align: left;
+    white-space: nowrap;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
   }
-  #filter-pills::-webkit-scrollbar { display: none; }
-  #filter-pills .pill { flex-shrink: 0; }
-
-  /* Busca: linha própria full-width */
-  .pedidos-toolbar .search-input-wrap { width: 100% !important; }
-
-  /* View-toggle, Salvar visão e Novo pedido dividem a última linha */
-  #view-toggle { flex-shrink: 0; }
-  #btn-salvar-visao { flex: 1; justify-content: center; }
-  #btn-novo-pedido  { flex-shrink: 0; }
-
-  /* Date filter: empresa full-width; datas compactas lado a lado */
-  .pedidos-date-filter { justify-content: flex-start; flex-wrap: wrap; gap: 0.4rem; }
-  #fl-empresa-global { width: 100% !important; min-width: unset !important; max-width: unset !important; }
-  .pedidos-date-filter input[type="date"] {
-    flex: 1 !important;
-    width: unset !important;
-    min-width: 90px;
-    max-width: 140px;
+  .regua-item:active:not(:disabled) { transform: none; }
+  .regua-n {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text2);
+    font-variant-numeric: tabular-nums lining-nums;
   }
+  .regua-nome {
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--display);
+    font-size: 0.67rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0;
+    color: var(--text3);
+    text-overflow: clip;
+  }
+  .regua-item.zero .regua-n { color: var(--text3); opacity: 0.55; }
+  .regua-item.ativa { border-top-color: var(--tinta); box-shadow: inset 0 -2px 0 var(--gold-fill); }
+  .regua-item.ativa .regua-n { color: var(--text); opacity: 1; }
+  .regua-item.ativa .regua-nome { color: var(--text); }
+  .regua-item.eh-fila:not(.zero) .regua-n { color: var(--gold); opacity: 1; }
+  .regua-item:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
+  #pedidos-view.arrastando .regua-item.drop-ok { background: var(--gold-dim); border-top-color: var(--gold-fill); }
+  .regua-item.drop-over { box-shadow: inset 0 0 0 1.5px var(--gold-border); }
+  .regua-sk { border-top-color: var(--border); }
+  .kanban-col-skeleton .kanban-col-header { align-items: center; }
+  .kanban-col-skeleton .sk-n { display: none; }
+  .kanban-col-skeleton .sk-nome { width: 42%; height: 16px; margin-top: 0; }
+  .kanban-col-skeleton .sk-soma { width: 22%; height: 12px; margin-top: 0; }
+  .kanban-col-skeleton .sk-card { height: 112px !important; }
 
-  /* Pull-to-refresh indicator */
+  .kanban-nav { display: none; }
+  .kanban-board { display: block; overflow: visible; padding-bottom: 0; }
+  .kanban-col { display: none; }
+  .kanban-col.atual { display: flex; }
+  .kanban-col-header { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 16px 0 12px; margin-bottom: 0; border-top: none; }
+  .kanban-col-header .etapa-n { display: none; }
+  .etapa-nome { margin-top: 0; font-size: 1.05rem; font-weight: 700; }
+  .etapa-soma { font-size: 0.86rem; color: var(--text2); }
+  .kanban-cards { gap: 10px; min-height: 0; }
+  .kanban-vazio { padding: 18px 0; font-size: 0.86rem; }
+  .kanban-ver-mais { min-height: 44px; font-size: 0.86rem; }
+  .kcard { padding: 14px 15px 13px; }
+  .kcard-num { font-size: 0.84rem; }
+  .kcard-urg { font-size: 0.68rem; padding: 2px 7px 1px; }
+  .kcard-title { font-size: 0.95rem; -webkit-line-clamp: 3; }
+  .kcard-empresa { font-size: 0.8rem; }
+  .kcard-pe { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+  .kcard-prazo { font-size: 0.8rem; }
+  .kcard-valor { font-size: 1.2rem; }
+
+  /* Lista vira cartões na mesma linguagem do quadro */
+  .pedidos-tabela-wrap { overflow: visible; border-top: none; }
+  .pedidos-esqueleto-lista { border-top: none; }
+  .sk-linha { height: 92px; padding: 0 14px; margin-bottom: 10px; border: none; background: var(--card2); border-radius: var(--radius-card); }
+  .table-card-mobile.pedidos-tabela tbody tr {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "cb pedido  pedido"
+      ".  empresa empresa"
+      ".  status  valor"
+      ".  prazo   valor";
+    gap: 4px 10px;
+    margin-bottom: 10px;
+    padding: 13px 14px 12px 8px;
+    background: var(--card2);
+    border: none;
+    border-radius: var(--radius-card);
+    box-shadow: 0 1px 0 var(--border-strong);
+  }
+  .light .table-card-mobile.pedidos-tabela tbody tr { background: var(--card); }
+  .table-card-mobile.pedidos-tabela tbody tr.selecionada { background: var(--gold-dim); box-shadow: 0 1px 0 var(--border-strong), inset 0 0 0 1px var(--gold-border); }
+  .table-card-mobile.pedidos-tabela tbody td { display: block; min-width: 0; padding: 0; border: none; font-size: 0.82rem; }
+  .table-card-mobile.pedidos-tabela tbody td::before { content: none; display: none; }
+  .table-card-mobile.pedidos-tabela td.c-cb { grid-area: cb; width: auto; display: flex; align-items: flex-start; justify-content: center; padding-top: 1px; }
+  .table-card-mobile.pedidos-tabela td.c-cb input { width: 18px; height: 18px; opacity: 0.6; }
+  .table-card-mobile.pedidos-tabela td.c-cb input:checked { opacity: 1; }
+  .table-card-mobile.pedidos-tabela td.c-pedido { grid-area: pedido; width: auto; max-width: none; }
+  .table-card-mobile.pedidos-tabela td.c-empresa { grid-area: empresa; max-width: none; color: var(--text3); font-size: 0.8rem; }
+  .table-card-mobile.pedidos-tabela td.c-status { grid-area: status; margin-top: 6px; }
+  .table-card-mobile.pedidos-tabela td.c-prazo { grid-area: prazo; }
+  .table-card-mobile.pedidos-tabela td.c-valor { grid-area: valor; align-self: end; }
+  .table-card-mobile.pedidos-tabela td.c-solic,
+  .table-card-mobile.pedidos-tabela td.c-data { display: none; }
+  .pedidos-tabela .lp-linha { flex-wrap: wrap; row-gap: 4px; }
+  .pedidos-tabela .lp-num { font-size: 0.84rem; }
+  .pedidos-tabela .lp-linha .kcard-urg { order: 2; margin-left: auto; }
+  .pedidos-tabela .lp-linha .kcard-unread-dot { order: 2; }
+  .pedidos-tabela .lp-titulo { order: 3; flex-basis: 100%; font-size: 0.95rem; line-height: 1.32; white-space: normal; }
+  .pedidos-tabela .lp-valor { font-size: 1.2rem; }
+  .lista-paginacao { padding: 0; }
+  .pagina-btns .btn-ghost span { display: none; }
+  .pagina-btns .btn-ghost { width: 42px; min-height: 42px; padding: 0; }
+
+  /* Barra de seleção: rótulos curtos, acima da barra inferior */
+  .bulk-bar { left: 50%; max-width: calc(100vw - 2rem); }
+  .bulk-bar .lbl-longo { display: none; }
+  .bulk-bar .lbl-curto { display: inline; }
+  .bulk-bar .btn-sm { min-height: 38px; }
+  .bulk-clear { width: 38px; height: 38px; min-height: 38px; }
+
+  /* Modal de novo pedido: campos curtos em pares para encurtar a folha */
+  .np-legenda { display: none; }
+  .form-grid-3.np-grid { grid-template-columns: 1fr 1fr; gap: 1rem 0.75rem; }
+  .np-grid > .form-group.col-span-3,
+  .np-grid > [data-campo="np-empresa"],
+  .np-grid > [data-campo="np-cc"] { grid-column: 1 / -1; }
+
+  /* Puxar para atualizar */
   .pull-indicator {
     position: fixed;
     top: 52px;
@@ -310,14 +475,16 @@ input[type="checkbox"] {
     transform: translateX(-50%) translateY(-70px);
     width: 36px;
     height: 36px;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
+    border-top: 2px solid var(--tinta);
+    color: var(--text2);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 800;
-    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    box-shadow: var(--shadow-md);
     transition: transform 0.15s ease, opacity 0.15s ease;
     opacity: 0;
     pointer-events: none;
@@ -344,34 +511,66 @@ input[type="checkbox"] {
     left: 0;
     right: 0;
     height: calc(56px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: var(--card);
+    padding: 0 0.25rem env(safe-area-inset-bottom, 0px);
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
     border-top: 1px solid var(--border);
     z-index: 900;
-    box-shadow: 0 -2px 12px rgba(0,0,0,.15);
   }
   .bottom-nav-item {
+    position: relative;
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    gap: 4px;
+    min-width: 0;
+    min-height: 56px;
+    padding: 0 2px;
+    font: 600 0.66rem/1 var(--font);
+    letter-spacing: 0.01em;
     color: var(--text3);
     border: none;
     background: none;
     cursor: pointer;
-    padding: 0 4px;
     transition: color 0.15s;
     -webkit-tap-highlight-color: transparent;
-    min-width: 0;
   }
+  .bottom-nav-item:active { transform: none !important; opacity: 0.7; }
   .bottom-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
   .bottom-nav-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-  .bottom-nav-item.active { color: var(--gold); }
-  .bottom-nav-item.active svg { stroke: var(--gold); }
+  /* Item ativo: rótulo em tinta, ícone na terracota e o fio reto no alto,
+     como o fio das inscrições */
+  .bottom-nav-item.active { color: var(--text); font-weight: 700; }
+  .bottom-nav-item.active svg { color: var(--gold); }
+  .bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 50%;
+    width: 28px;
+    height: 2px;
+    transform: translateX(-50%);
+    background: var(--gold-fill);
+  }
+  .bottom-nav-item[aria-expanded="true"] { color: var(--text); }
+  .bottom-nav-item:focus-visible { outline: 2px solid var(--gold); outline-offset: -4px; }
+  /* "Conta" usa as iniciais do usuário no lugar do ícone */
+  .bnav-avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    flex-shrink: 0;
+  }
 }

@@ -1,36 +1,82 @@
+/* ══════════════════════════════════════════════════════════════
+   Praxis — "Inscrição em terracota"
+   Escuro: preto quente de cerâmica de figura negra, texto em osso, acento
+   terracota. Claro: argila. Cantos retos, linhas finas, hierarquia pela
+   tipografia: GFS Neohellenic nos títulos e numerais, GFS Didot nos
+   momentos de marca, Hanken Grotesk na interface.
+   Os nomes --gold* ficaram por compatibilidade: hoje são o acento terracota.
+   ══════════════════════════════════════════════════════════════ */
 :root {
-  /* Primária */
-  --gold: #C8A96E;
-  --gold-dim: rgba(200, 169, 110, 0.09);
-  --gold-border: rgba(200, 169, 110, 0.25);
-  --gold-glow: rgba(200, 169, 110, 0.22);
+  color-scheme: dark;
 
-  /* Backgrounds */
-  --bg: #060606;
-  --card: #0C0C0C;
-  --card2: #111111;
-  --card3: #161616;
+  /* Acento — terracota */
+  --gold: #D2693F;                       /* texto e ícones em destaque */
+  --gold-fill: #D2693F;                  /* fundo do botão primário */
+  --gold-fill-hover: #DD7A51;
+  --on-gold: #1A0E08;                    /* texto sobre a terracota */
+  --gold-dim: rgba(210, 105, 63, 0.12);
+  --gold-border: rgba(210, 105, 63, 0.40);
+  --gold-glow: rgba(210, 105, 63, 0.24);
 
-  /* Bordas */
-  --border: rgba(255, 255, 255, 0.06);
-  --line: #1A1A1A;
+  /* Superfícies */
+  --bg: #13100D;
+  --card: #1A1612;                       /* superfície 1: painéis, modais */
+  --card2: #211C17;                      /* superfície 2: cartões do quadro, campos, itens aninhados */
+  --card3: #2A231C;                      /* superfície 3: hover, trilhos */
+  --overlay: rgba(8, 6, 4, 0.74);
+  --lateral: #100D0B;                    /* barra lateral, um tom abaixo do fundo */
+
+  /* Aliases usados em partes antigas do código */
+  --surface2: var(--card2);
+  --surface3: var(--card3);
+  --text1: var(--text);
+
+  /* Bordas e fios */
+  --border: #2B241D;
+  --border-strong: #3A3128;
+  --line: #2B241D;
+  --tinta: #EFE5D6;                      /* fio grosso das inscrições (topo das colunas, frisos) */
+  --grade: rgba(239, 229, 214, 0.035);   /* grade sutil do fundo */
 
   /* Texto */
-  --text: #F0EDE6;
-  --text2: #C8C0B8;
-  --text3: #8A8278;
+  --text: #EFE5D6;
+  --text2: #B9AC99;
+  --text3: #908474;
 
-  /* Semânticas */
-  --green: #4EC08A;
-  --red: #E05040;
-  --blue: #5BA3E0;
+  /* Semânticas (afinadas com a paleta quente; urgência usa o próprio acento) */
+  --green: #8FB07A;
+  --green-dim: rgba(143, 176, 122, 0.12);
+  --green-border: rgba(143, 176, 122, 0.32);
+  --red: #E35D5D;
+  --red-dim: rgba(227, 93, 93, 0.12);
+  --red-border: rgba(227, 93, 93, 0.34);
+  --blue: #7FA3C9;
+  --blue-dim: rgba(127, 163, 201, 0.12);
+  --blue-border: rgba(127, 163, 201, 0.30);
+  --amber: #D9A54A;
+  --amber-dim: rgba(217, 165, 74, 0.12);
+  --amber-border: rgba(217, 165, 74, 0.32);
+  --neutral-dim: rgba(239, 229, 214, 0.05);
 
-  /* Raios */
-  --radius: 20px;
-  --radius-card: 20px;
-  --radius-sm: 10px;
-  --radius-btn: 20px;
-  --radius-input: 8px;
+  /* Raios: cantos retos, como pedra cortada */
+  --radius: 6px;                         /* modais, diálogos, folhas */
+  --radius-card: 3px;                    /* cards e painéis */
+  --radius-sm: 3px;                      /* itens internos */
+  --radius-btn: 3px;
+  --radius-input: 3px;
+  --radius-tag: 2px;                     /* selos e badges */
+  --radius-pill: 999px;                  /* só avatares e pontos */
+
+  /* Sombras: quase nada no escuro; a separação vem do tom da superfície */
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55);
+
+  /* Tipografia */
+  --font: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display: 'GFS Neohellenic', 'Hanken Grotesk', system-ui, sans-serif;   /* títulos, numerais, números de pedido */
+  --marca: 'GFS Didot', 'Didot', Georgia, 'Times New Roman', serif;        /* letreiro e momentos de marca */
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace; /* códigos e a marca AFN */
 
   /* Marca AFN — dark */
   --afn: #c44a5a;
@@ -38,24 +84,55 @@
   --afn-sys: rgba(255, 255, 255, 0.28);
 
   /* Transições */
-  --transition: 0.26s ease;
-  --transition-fast: 0.18s ease;
+  --transition: 0.2s ease;
+  --transition-fast: 0.14s ease;
 }
 
 .light {
-  --bg: #EDE8DF;
-  --card: rgba(255, 255, 255, 0.84);
-  --card2: rgba(240, 240, 242, 0.95);
-  --card3: rgba(230, 228, 224, 0.95);
-  --border: rgba(0, 0, 0, 0.08);
-  --line: #e2e2e6;
-  --text: #1A1714;
-  --text2: #4A4642;
-  --text3: #625C57;
-  --gold: #9A7030;
-  --gold-dim: rgba(154, 112, 48, 0.1);
-  --gold-border: rgba(154, 112, 48, 0.3);
-  --gold-glow: rgba(154, 112, 48, 0.2);
+  color-scheme: light;
+
+  --gold: #A4462A;
+  --gold-fill: #B5502E;
+  --gold-fill-hover: #A4462A;
+  --on-gold: #FFF7EE;
+  --gold-dim: rgba(181, 80, 46, 0.10);
+  --gold-border: rgba(164, 70, 42, 0.36);
+  --gold-glow: rgba(181, 80, 46, 0.18);
+
+  --bg: #EFE6D7;
+  --card: #FBF6EE;
+  --card2: #F6EEE2;
+  --card3: #EADFCD;
+  --overlay: rgba(40, 28, 16, 0.36);
+  --lateral: #EAE0CF;
+
+  --border: #DED0BA;
+  --border-strong: #CDBBA0;
+  --line: #E2D5C1;
+  --tinta: #1A1510;
+  --grade: rgba(26, 21, 16, 0.045);
+
+  --text: #1A1510;
+  --text2: #57493A;
+  --text3: #74644F;
+
+  --green: #456B32;
+  --green-dim: rgba(69, 107, 50, 0.10);
+  --green-border: rgba(69, 107, 50, 0.30);
+  --red: #B3261E;
+  --red-dim: rgba(179, 38, 30, 0.08);
+  --red-border: rgba(179, 38, 30, 0.30);
+  --blue: #3A6690;
+  --blue-dim: rgba(58, 102, 144, 0.09);
+  --blue-border: rgba(58, 102, 144, 0.28);
+  --amber: #835A10;
+  --amber-dim: rgba(131, 90, 16, 0.09);
+  --amber-border: rgba(131, 90, 16, 0.28);
+  --neutral-dim: rgba(26, 21, 16, 0.045);
+
+  --shadow-sm: 0 1px 0 rgba(120, 92, 60, 0.18);
+  --shadow-md: 0 8px 22px rgba(80, 56, 30, 0.10);
+  --shadow-lg: 0 24px 60px rgba(80, 56, 30, 0.16);
 
   /* Marca AFN — light */
   --afn: #6b1f2a;

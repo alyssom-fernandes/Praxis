@@ -1,4 +1,12 @@
 {
+  "name": "praxis",
+  "private": true,
+  "description": "Gestão de compras corporativas — do pedido ao pagamento",
+  "scripts": {
+    "emuladores": "firebase emulators:start --only auth,firestore,functions,storage",
+    "seed": "node _build/seed-emulator.js",
+    "servir": "npx --yes http-server . -p 8123 -c-1"
+  },
   "devDependencies": {
     "firebase-tools": "^13.35.1"
   }

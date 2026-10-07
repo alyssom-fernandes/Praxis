@@ -1,20 +1,14 @@
 {
   "name": "Praxis",
   "short_name": "Praxis",
-  "description": "Gestão de compras corporativas. Simples, rastreável, elegante.",
+  "description": "Compras sob controle, do pedido ao pagamento.",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "theme_color": "#060606",
-  "background_color": "#060606",
+  "orientation": "any",
+  "theme_color": "#13100D",
+  "background_color": "#13100D",
   "lang": "pt-BR",
   "icons": [
-    {
-      "src": "/assets/logo/praxis-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "/assets/logo/praxis-icon-192.png",
       "sizes": "192x192",
@@ -26,6 +20,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/assets/logo/praxis-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
