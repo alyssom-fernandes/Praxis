@@ -1,4 +1,4 @@
-import { auth, onAuthStateChanged } from './firebase.js'
+import { auth, onAuthStateChanged, db, doc, getDoc } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
 import { renderPedidos } from './pedidos.js'
@@ -14,6 +14,7 @@ import {
 import { gerarIniciais } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { renovarDemo } from './demo-reset.js'
+import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 
 // Expõe constantes para ui.js (evita circular imports em renderizações)
 window.__praxisConst = { STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR, PERFIS_LABEL, PERFIS_COLOR }
@@ -24,6 +25,7 @@ export const sessao = {
   usuario:   null,  // documento do Firestore
   fireUser:  null,  // FirebaseUser
   isDemo:    false,
+  contaDemo: null,  // na demo: o perfil da conta de login (usuario é a pessoa escolhida)
   // Barra lateral: contadores e nomes conhecidos (as telas vão preenchendo)
   lateral:   { contagens: {}, filtroPedidos: 'todos' },
 }
@@ -60,6 +62,8 @@ onAuthStateChanged(auth, async (fireUser) => {
     sessao.usuario  = null
     sessao.fireUser = null
     sessao.isDemo   = false
+    sessao.contaDemo = null
+    esquecerPessoa()
     sessao.lateral  = { contagens: {}, filtroPedidos: 'todos' }
     try { sessionStorage.removeItem('praxis_lateral_contagens') } catch {}
     mostrarDemoBanner(false)
@@ -78,22 +82,27 @@ onAuthStateChanged(auth, async (fireUser) => {
     }
     sessao.usuario  = usuario
     sessao.fireUser = fireUser
-    sessao.isDemo   = usuario.email === 'demo@praxis.app'
+    sessao.isDemo   = fireUser.email === 'demo@praxis.app'
 
     // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
     // de hoje. As permissões da conta demo vêm das regras (pelo e-mail), sem
-    // Cloud Functions. Uma falha aqui não impede a entrada.
+    // Cloud Functions. Uma falha aqui não impede a entrada. Depois, o app passa
+    // a agir como a pessoa escolhida na entrada (js/demo-pessoas.js).
     if (sessao.isDemo) {
+      sessao.contaDemo = usuario
       try {
         const aoComecar = () => mostrarSpinner(t('demoPreparando'))
-        if (await renovarDemo(usuario, { aoComecar }) === 'renovada') sessao.usuario = await carregarUsuario(fireUser.uid)
+        if (await renovarDemo(usuario, { aoComecar }) === 'renovada') sessao.contaDemo = await carregarUsuario(fireUser.uid)
       } catch (e) {
         console.warn('Renovação da demo falhou:', e.message)
       }
+      sessao.usuario = await _carregarPessoaDemo(pessoaEscolhida())
     }
 
     mostrarCeu(false)
     mostrarDemoBanner(sessao.isDemo)
+    // A entrada no celular costuma estar rolada (o botão da demo fica embaixo)
+    window.scrollTo(0, 0)
     _rotear()
   } catch (err) {
     console.error(err)
@@ -102,6 +111,35 @@ onAuthStateChanged(auth, async (fireUser) => {
     esconderSpinner()
   }
 })
+
+// ── Pessoas da demonstração ───────────────────────────────────
+async function _carregarPessoaDemo(id) {
+  const base = PESSOAS_DEMO.find(p => p.id === id) || PESSOAS_DEMO[0]
+  try {
+    const snap = await getDoc(doc(db, 'usuarios', base.id))
+    if (snap.exists()) return { id: snap.id, ...snap.data() }
+  } catch {}
+  // Sem o perfil no banco (a renovação falhou): usa os dados fixos da pessoa
+  return { id: base.id, nome: base.nome, email: base.email, perfil: base.perfil, ativo: true, empresas: sessao.contaDemo?.empresas || [] }
+}
+
+// "Trocar perfil" na faixa da demo: muda a pessoa sem sair da conta
+export async function trocarPessoaDemo(id) {
+  if (!sessao.isDemo) return
+  escolherPessoa(id)
+  mostrarSpinner()
+  try {
+    sessao.usuario = await _carregarPessoaDemo(id)
+    sessao.lateral = { contagens: {}, filtroPedidos: 'todos' }
+    try { sessionStorage.removeItem('praxis_lateral_contagens') } catch {}
+    mostrarDemoBanner(true)
+    window.scrollTo(0, 0)
+    navegar('pedidos', {}, { substituir: true })
+  } finally {
+    esconderSpinner()
+  }
+}
+window.__praxisTrocarPessoa = trocarPessoaDemo
 
 // ── Roteamento ────────────────────────────────────────────────
 export function navegar(tela, params = {}, { substituir = false } = {}) {

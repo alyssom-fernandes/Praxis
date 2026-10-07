@@ -1,4 +1,4 @@
-import { t } from './constants.js'
+import { t, PERFIS_LABEL } from './constants.js'
 
 // ── Command Palette (4.2) ─────────────────────────────────────
 // Busca de comandos e pedidos (botão "Buscar" da topbar, item da barra
@@ -706,7 +706,8 @@ async function _restaurarDadosDemo(btn) {
   mostrarSpinner(t('demoPreparando'))
   try {
     const { renovarDemo } = await import('./demo-reset.js')
-    await renovarDemo(window.__praxisSessao.usuario, { forcar: true })
+    const s = window.__praxisSessao
+    await renovarDemo(s.contaDemo || s.usuario, { forcar: true })
     prxToast(t('demoResetadoMsg'), 'success', 4000)
     window.__navegar?.('pedidos', {}, { substituir: true })
   } catch (err) {
@@ -718,21 +719,44 @@ async function _restaurarDadosDemo(btn) {
   }
 }
 
+// Diz com quem a pessoa está na demo (a escolhida na entrada) e deixa trocar
+function _textoFaixaDemo() {
+  const u = window.__praxisSessao?.usuario
+  const quem = u ? `<b>${_escHTML(u.nome)}</b> (${_escHTML(PERFIS_LABEL[u.perfil] || u.perfil)})` : ''
+  return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto">${u ? _escHTML(u.nome) : t('demoFaixaTitulo')}</strong>`
+    + `<span class="demo-faixa-detalhe">: ${quem ? `${t('demoFaixaComo')} ${quem}. ` : ''}${t('demoFaixaDetalhe')}</span>`
+}
+
 export function mostrarDemoBanner(isDemo) {
   if (!isDemo) { _removerDemoBanner(); return }
-  if (document.getElementById('demo-faixa')) return
+  const existente = document.getElementById('demo-faixa')
+  if (existente) {
+    existente.querySelector('.demo-faixa-texto').innerHTML = _textoFaixaDemo()
+    _medirFaixaDemo()
+    return
+  }
 
   const faixa = document.createElement('div')
   faixa.id = 'demo-faixa'
   faixa.className = 'demo-faixa'
   faixa.setAttribute('role', 'note')
   faixa.innerHTML = `
-    <span class="demo-faixa-texto"><strong>${t('demoFaixaTitulo')}</strong><span class="demo-faixa-detalhe">${t('demoFaixaDetalhe')}</span></span>
+    <span class="demo-faixa-texto">${_textoFaixaDemo()}</span>
     <span class="demo-faixa-acoes">
-      <button type="button" id="demo-faixa-restaurar">${t('demoFaixaRestaurar')}</button>
-      <button type="button" id="demo-faixa-sair">${t('demoFaixaSair')}</button>
+      <button type="button" id="demo-faixa-trocar"><span class="demo-faixa-longo">${t('demoFaixaTrocar')}</span><span class="demo-faixa-curto">${t('demoFaixaTrocarCurto')}</span></button>
+      <button type="button" id="demo-faixa-restaurar"><span class="demo-faixa-longo">${t('demoFaixaRestaurar')}</span><span class="demo-faixa-curto">${t('demoFaixaRestaurarCurto')}</span></button>
+      <button type="button" id="demo-faixa-sair"><span class="demo-faixa-longo">${t('demoFaixaSair')}</span><span class="demo-faixa-curto">${t('demoFaixaSairCurto')}</span></button>
     </span>
   `
+  faixa.querySelector('#demo-faixa-trocar').addEventListener('click', async e => {
+    const btn = e.currentTarget
+    const { abrirEscolhaPessoa } = await import('./demo-pessoas.js')
+    abrirEscolhaPessoa({
+      modo: 'trocar',
+      aoEscolher: id => window.__praxisTrocarPessoa?.(id),
+      aoFechar: () => btn.focus(),
+    })
+  })
   faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', e => _restaurarDadosDemo(e.currentTarget))
   faixa.querySelector('#demo-faixa-sair').addEventListener('click', async () => {
     const { fazerLogout } = await import('./auth.js')

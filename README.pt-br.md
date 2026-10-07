@@ -20,11 +20,14 @@ Este README também está em [inglês](README.md).
 ## Em 30 segundos
 
 1. Abra a [demonstração](https://praxis-af618.web.app) e clique em **Acessar modo demo**.
-   Você entra como administrador de três empresas fictícias, com 33 pedidos espalhados por todas as etapas.
+   Escolha quem você quer ser: uma pessoa por perfil (administrador, gestora, aprovador, compradora,
+   financeiro ou solicitante), cada uma vendo e fazendo só o que o perfil dela permite. Dá para trocar
+   a qualquer momento pela faixa no topo. São três empresas fictícias, com 33 pedidos em todas as etapas.
 2. No quadro, abra o **PRX-0003** (em aprovação): compare as três cotações e aprove ou reprove com motivo.
 3. Abra o **PRX-0012** (comprado): a primeira parcela está vencida. Registre o pagamento e veja o pedido avançar.
 4. Em **Relatórios**, troque o período e exporte em PDF ou Excel, ou mande imprimir.
-5. Mexa à vontade: os dados de demonstração voltam ao original todo dia.
+5. Troque de perfil (por exemplo, para a solicitante ou o aprovador) e veja a mesma operação pelos olhos de quem está em cada etapa.
+6. Mexa à vontade: os dados de demonstração voltam ao original todo dia.
 
 ## Telas
 

@@ -137,6 +137,8 @@ async function _carregar() {
       getDocs(collection(db, 'empresas')),
     ])
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Na demo, a conta de login não aparece: quem está na tela são as pessoas da demonstração
+      .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
       .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
     _empresas = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))

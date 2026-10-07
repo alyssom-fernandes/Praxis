@@ -21,11 +21,14 @@ This README is also available in [Portuguese](README.pt-br.md). The interface is
 ## In 30 seconds
 
 1. Open the [demo](https://praxis-af618.web.app) and click **Acessar modo demo**.
-   You sign in as the administrator of three fictitious companies, with 33 orders spread across every stage.
+   Choose who you want to be: one person per role (administrator, manager, approver, buyer, finance or
+   requester), each seeing and doing only what their role allows. You can switch at any time from the bar
+   at the top. There are three fictitious companies, with 33 orders spread across every stage.
 2. On the board, open **PRX-0003** (awaiting approval): compare the three quotes and approve, or reject with a reason.
 3. Open **PRX-0012** (purchased): its first installment is overdue. Record the payment and watch the order move on.
 4. In **Relatórios** (reports), change the period and export to PDF or Excel, or print it.
-5. Play around freely: the demo data resets every day.
+5. Switch roles (for example, to the requester or the approver) and see the same operation through the eyes of whoever owns each step.
+6. Play around freely: the demo data resets every day.
 
 ## Screens
 

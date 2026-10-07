@@ -166,11 +166,17 @@ service cloud.firestore {
     }
 
     // ── Notificações ───────────────────────────────────────────
+    // A conta demo também lê as notificações das pessoas da demonstração
+    // (IDs "demo-…", js/demo-pessoas.js), que ela representa dentro do app
+    function eDonoNotificacao(userId) {
+      return request.auth.uid == userId || (eDemo() && userId.matches('demo-.*'));
+    }
+
     match /notificacoes/{userId}/items/{notifId} {
-      allow read:   if estaLogado() && request.auth.uid == userId;
+      allow read:   if estaLogado() && eDonoNotificacao(userId);
       allow create: if estaLogado(); // Cloud Functions gravam aqui
-      allow update: if estaLogado() && request.auth.uid == userId;
-      allow delete: if estaLogado() && request.auth.uid == userId;
+      allow update: if estaLogado() && eDonoNotificacao(userId);
+      allow delete: if estaLogado() && eDonoNotificacao(userId);
     }
   }
 }

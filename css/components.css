@@ -1553,6 +1553,7 @@ body.com-offline { padding-bottom: 4.5rem; }
   line-height: 1.35;
 }
 .demo-faixa-texto { min-width: 0; }
+.demo-faixa-curto { display: none; }
 .demo-faixa strong { font-weight: 700; }
 .demo-faixa-acoes { display: flex; gap: 8px; flex-shrink: 0; }
 .demo-faixa button {
@@ -1577,7 +1578,9 @@ body.com-demo .lateral { top: var(--faixa-demo-h); height: calc(100dvh - var(--f
    o aviso quebra em duas linhas (a altura medida acompanha) em vez de vazar */
 @media (max-width: 560px) {
   .demo-faixa { gap: 8px; padding: 6px 8px 6px 14px; }
-  .demo-faixa-detalhe { display: none; }
+  .demo-faixa-detalhe, .demo-faixa-longo { display: none; }
+  .demo-faixa-curto { display: inline; }
+  .demo-faixa-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .demo-faixa-texto { line-height: 1.2; text-wrap: balance; }
   .demo-faixa button { padding: 3px 9px; min-height: 36px; }
 }

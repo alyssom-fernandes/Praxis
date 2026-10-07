@@ -3,6 +3,11 @@
 // conta demo (e na hora, pelo "Restaurar dados" da faixa). Tudo pelo
 // navegador, sem Cloud Functions: o projeto roda no plano gratuito.
 //
+// As seis pessoas da demo (js/demo-pessoas.js) ganham o perfil delas em
+// /usuarios e a sua parte nos dados: a solicitante abriu a maioria dos
+// pedidos, a compradora cotou e comprou, o aprovador decidiu, o financeiro
+// pagou. Histórico e comentários saem assinados por quem fez cada coisa.
+//
 // O que sai: os pedidos de exemplo e tudo o que os visitantes criaram com a
 // conta demo (pedidos, cotações, comentários, parcelas, histórico, anexos,
 // fornecedores novos) e as notificações da conta demo. As empresas de exemplo
@@ -15,6 +20,7 @@ import {
   db, collection, doc, getDoc, getDocs, setDoc, query, where, writeBatch, runTransaction,
   serverTimestamp, Timestamp,
 } from './firebase.js'
+import { PESSOAS_DEMO } from './demo-pessoas.js'
 
 const SUBCOLECOES = ['cotacoes', 'comentarios', 'parcelas', 'historico', 'anexos']
 const CATEGORIAS_BASE = [
@@ -82,7 +88,7 @@ async function _apagarDemo(uid) {
 
   // Contas demo: a atual e as antigas (de quando ela foi recriada no console)
   const perfisDemo = (await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
-  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id)])
+  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id), ...PESSOAS_DEMO.map(p => p.id)])
   const uidsUsuarios = new Set((await getDocs(collection(db, 'usuarios'))).docs.map(d => d.id))
 
   // Saem os pedidos de exemplo (isDemo), os abertos por qualquer conta demo e
@@ -108,7 +114,9 @@ async function _apagarDemo(uid) {
   pedidos.forEach(ref => lote.del(ref))
 
   ;(await getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true)))).docs.forEach(d => lote.del(d.ref))
-  ;(await getDocs(collection(db, 'notificacoes', uid, 'items'))).docs.forEach(d => lote.del(d.ref))
+  for (const dono of [uid, ...PESSOAS_DEMO.map(p => p.id)]) {
+    (await getDocs(collection(db, 'notificacoes', dono, 'items'))).docs.forEach(d => lote.del(d.ref))
+  }
   // Perfis antigos da conta demo
   perfisDemo.filter(d => d.id !== uid).forEach(d => lote.del(d.ref))
   await lote.fim()
@@ -117,7 +125,6 @@ async function _apagarDemo(uid) {
 // ── Recriação a partir do seed ────────────────────────────────
 async function _aplicarSeed(seed, usuario) {
   const uid = usuario.id
-  const nomeUsuario = usuario.nome || 'Demo Praxis'
   const agora = new Date()
   const agoraTs = Timestamp.fromDate(agora)
   const lote = _lotes()
@@ -166,6 +173,17 @@ async function _aplicarSeed(seed, usuario) {
   }
   const empresasIds = Object.values(empresaMap)
 
+  // Perfis das pessoas da demo (IDs fixos, regravados a cada renovação)
+  const P = Object.fromEntries(PESSOAS_DEMO.map(p => [p.perfil, p.id]))
+  const nomeDe = Object.fromEntries(PESSOAS_DEMO.map(p => [p.id, p.nome]))
+  const empresasDe = Object.fromEntries(PESSOAS_DEMO.map(p => [p.id, p.empresas.length ? p.empresas.map(k => empresaMap[k]).filter(Boolean) : empresasIds]))
+  for (const p of PESSOAS_DEMO) {
+    lote.set(doc(db, 'usuarios', p.id), {
+      nome: p.nome, email: p.email, perfil: p.perfil, ativo: true, isDemo: true,
+      empresas: empresasDe[p.id], ultimoAcesso: null, criadoEm: agoraTs,
+    })
+  }
+
   // 3. Categorias: reaproveita as existentes pelo nome; cria as que faltarem
   const categoriaMap = {}
   const existentes = (await getDocs(collection(db, 'categorias'))).docs
@@ -189,21 +207,33 @@ async function _aplicarSeed(seed, usuario) {
     for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) if (dados[campo]) dados[campo] = deslocar(dados[campo])
     const indicada = (cotacoes || []).find(c => c.indicada)
     const quando = st => hist.find(h => h.status === st)?.diasAtras
+    // Quem fez o quê: a Fernanda (solicitante) abriu a maioria; a Beatriz
+    // (gestora) abriu alguns nas empresas dela; a Diana comprou o que passou
+    // da cotação; o Carlos decidiu; o Eduardo pagou
+    const solicitante = n % 4 === 0 && empresasDe[P.gestor].includes(empresaMap[empresaKey]) ? P.gestor : P.solicitante
+    const temComprador = ['ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue', 'pago', 'reprovado'].includes(dados.status)
+    const autorDaEtapa = {
+      solicitado: solicitante, ag_cotacao: P.comprador, em_aprovacao: P.comprador,
+      aprovado: P.aprovador, reprovado: P.aprovador, comprado: P.comprador,
+      entregue: P.comprador, pago: P.financeiro, cancelado: solicitante,
+    }
+    const comentaristas = [solicitante, temComprador ? P.comprador : P.gestor, P.aprovador]
 
     lote.set(pedRef, {
       ...dados,
       empresaId:          empresaMap[empresaKey] || empresasIds[0] || '',
       categoriaId:        categoriaMap[categoriaKey] || '',
-      solicitanteId:      uid,
-      solicitanteNome:    nomeUsuario,
-      compradorId:        dados.dataCompra ? uid : null,
-      compradorAssumiuEm: dados.dataCompra ? ts(hist[1]?.diasAtras ?? 1) : null,
+      solicitanteId:      solicitante,
+      solicitanteNome:    nomeDe[solicitante],
+      compradorId:        temComprador ? P.comprador : null,
+      compradorNome:      temComprador ? nomeDe[P.comprador] : null,
+      compradorAssumiuEm: temComprador ? ts(quando('ag_cotacao') ?? hist[1]?.diasAtras ?? 1) : null,
       aprovadorIds:       [],
-      aprovadoPor:        null,
+      aprovadoPor:        ['aprovado', 'comprado', 'entregue', 'pago'].includes(dados.status) ? P.aprovador : null,
       aprovadoEm:         ['aprovado', 'comprado', 'entregue', 'pago'].includes(dados.status) ? ts(quando('aprovado') ?? 5) : null,
-      reprovadoPor:       dados.status === 'reprovado' ? uid : null,
+      reprovadoPor:       dados.status === 'reprovado' ? P.aprovador : null,
       reprovadoEm:        dados.status === 'reprovado' ? ts(quando('reprovado') ?? 3) : null,
-      canceladoPor:       dados.status === 'cancelado' ? uid : null,
+      canceladoPor:       dados.status === 'cancelado' ? solicitante : null,
       canceladoEm:        dados.status === 'cancelado' ? ts(quando('cancelado') ?? 3) : null,
       motivoCancelamento:       dados.motivoCancelamento || null,
       motivoCancelamentoOutros: dados.motivoCancelamentoOutros || null,
@@ -216,21 +246,22 @@ async function _aplicarSeed(seed, usuario) {
       atualizadoEm:       hist.length ? ts(hist[hist.length - 1].diasAtras) : agoraTs,
     })
     hist.forEach((h, i) => avulsos.push([doc(collection(pedRef, 'historico')), {
-      status: h.status, nota: h.nota || null, autorId: uid, criadoEm: ts(h.diasAtras),
+      status: h.status, nota: h.nota || null, autorId: autorDaEtapa[h.status] || solicitante, criadoEm: ts(h.diasAtras),
     }]))
     ;(comentarios || []).forEach((c, i) => avulsos.push([doc(collection(pedRef, 'comentarios')), {
-      texto: c.texto, autorId: uid, criadoEm: ts(c.diasAtras),
+      texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),
     }]))
     ;(cotacoes || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'cotacoes')), {
       fornecedorId: fornMap[_normalizar(c.fornecedorNome)] || null,
       fornecedorNome: c.fornecedorNome, valor: c.valor,
       prazoEntrega: c.prazoEntrega || null, condicoesComerciais: c.condicoesComerciais || null,
-      indicada: c.indicada === true, registradoPor: uid, criadoEm: agoraTs,
+      indicada: c.indicada === true, registradoPor: P.comprador, criadoEm: agoraTs,
     }))
     ;(parcelas || []).forEach((p, i) => lote.set(doc(collection(pedRef, 'parcelas')), {
       numero: p.numero, total: p.total, valor: p.valor,
       vencimento: p.vencimentoDias != null ? maisDias(p.vencimentoDias) : deslocar(p.vencimento),
       pago: p.pago === true, pagoEm: p.pago && p.diasAtras != null ? ts(p.diasAtras) : null,
+      pagoPor: p.pago === true ? P.financeiro : null,
       criadoEm: agoraTs,
     }))
   }

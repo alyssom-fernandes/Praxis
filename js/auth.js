@@ -4,6 +4,7 @@ import {
   doc, setDoc, serverTimestamp,
 } from './firebase.js'
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
+import { abrirEscolhaPessoa } from './demo-pessoas.js'
 import { t } from './constants.js'
 import { DEMO_CREDENTIALS } from './config.js'
 
@@ -20,7 +21,6 @@ const ICO = {
   voltar:  _svg(15, '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
   email:   _svg(20, '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'),
   alerta:  _svg(14, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
-  seta:    _svg(16, '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>'),
 }
 
 const _escapar = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -259,76 +259,15 @@ async function _fazerLogin(email, senha) {
   }
 }
 
-// ── Boas-vindas do modo demonstração ─────────────────────────
-// Momento de marca entre a entrada e o app: o título em Didot, as três
-// frentes do produto como inscrições numeradas (fio de tinta, numeral, nome)
-// e o friso de meandro na base, como na entrada.
-const _BV_FRENTES = [
-  ['Quadro de pedidos', 'Cada compra numa coluna, do pedido ao pagamento.'],
-  ['Aprovação com histórico', 'Quem aprovou, quando e com base em quais cotações.'],
-  ['Relatórios', 'Gastos por empresa, centro de custo e período.'],
-]
-
+// ── Entrada na demonstração ──────────────────────────────────
+// "Acessar modo demo" abre a escolha de quem ser (js/demo-pessoas.js); a
+// pessoa escolhida fica na aba e o login é sempre o da conta demo.
 function _mostrarBoasVindas() {
-  if (document.getElementById('boas-vindas-overlay')) return
-  const overlay = document.createElement('div')
-  overlay.id = 'boas-vindas-overlay'
-  overlay.className = 'bv-overlay'
-  overlay.setAttribute('role', 'dialog')
-  overlay.setAttribute('aria-modal', 'true')
-  overlay.setAttribute('aria-labelledby', 'bv-titulo')
-  overlay.setAttribute('aria-describedby', 'bv-texto')
-
-  overlay.innerHTML = `
-    <div class="bv-card">
-      <div class="bv-corpo">
-        <p class="bv-rotulo">Modo demonstração</p>
-        <h2 class="bv-titulo" id="bv-titulo">Conheça o Praxis por dentro</h2>
-        <p class="bv-texto" id="bv-texto">Você entra como administrador de uma empresa fictícia, com pedidos em todas as etapas. Crie, aprove e cancele à vontade: os dados voltam ao original todo dia.</p>
-        <ol class="bv-lista">
-          ${_BV_FRENTES.map(([nome, desc], i) => `
-          <li>
-            <span class="bv-n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>
-            <b class="bv-nome">${nome}</b>
-            <span class="bv-desc">${desc}</span>
-          </li>`).join('')}
-        </ol>
-        <div class="bv-acoes">
-          <button type="button" class="btn-ghost" id="bv-voltar">${t('voltar')}</button>
-          <button type="button" class="btn-primary" id="bv-comecar"><span>Começar a explorar</span>${ICO.seta}</button>
-        </div>
-      </div>
-      ${frisoGrego({ classe: 'bv-friso' })}
-    </div>
-  `
-
-  document.body.appendChild(overlay)
-  const app = document.getElementById('app')
-  if (app) app.inert = true
-  requestAnimationFrame(() => overlay.classList.add('visible'))
-  setTimeout(() => overlay.querySelector('#bv-comecar')?.focus({ preventScroll: true }), 60)
-
-  const fechar = (depois) => {
-    document.removeEventListener('keydown', aoTeclar)
-    overlay.classList.remove('visible')
-    if (app) app.inert = false
-    setTimeout(() => { overlay.remove(); depois?.() }, 200)
-  }
-  const voltarAoBotao = () => document.getElementById('btn-demo')?.focus()
-  // Esc fecha; Tab fica preso entre os dois botões (a entrada atrás está inerte)
-  const aoTeclar = e => {
-    if (e.key === 'Escape') { fechar(voltarAoBotao); return }
-    if (e.key !== 'Tab') return
-    const botoes = [...overlay.querySelectorAll('button')]
-    const i = botoes.indexOf(document.activeElement)
-    e.preventDefault()
-    botoes[e.shiftKey ? (i <= 0 ? botoes.length - 1 : i - 1) : (i + 1) % botoes.length]?.focus()
-  }
-  document.addEventListener('keydown', aoTeclar)
-
-  overlay.addEventListener('click', e => { if (e.target === overlay) fechar(voltarAoBotao) })
-  overlay.querySelector('#bv-voltar').addEventListener('click', () => fechar(voltarAoBotao))
-  overlay.querySelector('#bv-comecar').addEventListener('click', () => fechar(_entrarDemo))
+  abrirEscolhaPessoa({
+    modo: 'entrar',
+    aoEscolher: () => _entrarDemo(),
+    aoFechar: () => document.getElementById('btn-demo')?.focus(),
+  })
 }
 
 async function _entrarDemo() {
