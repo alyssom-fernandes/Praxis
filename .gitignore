@@ -32,5 +32,11 @@ desktop.ini
 # Build (não aplicável aqui — sem bundler)
 dist/
 
-# Firebase Emulator — dados locais nunca versionados
-_build/emulator-data/
+# Arquivos de trabalho que ficam só na máquina: anotações de construção,
+# especificação e auditoria internas, guia da marca AFN (comum a vários
+# projetos), configuração do navegador do editor e os dados dos emuladores
+_build/
+.claude/
+praxis-spec.md
+praxis-auditoria.md
+afn_brand_guide.html
