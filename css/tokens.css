@@ -47,9 +47,9 @@
   --green: #8FB07A;
   --green-dim: rgba(143, 176, 122, 0.12);
   --green-border: rgba(143, 176, 122, 0.32);
-  --red: #E35D5D;
-  --red-dim: rgba(227, 93, 93, 0.12);
-  --red-border: rgba(227, 93, 93, 0.34);
+  --red: #E86A6A;
+  --red-dim: rgba(232, 106, 106, 0.12);
+  --red-border: rgba(232, 106, 106, 0.34);
   --blue: #7FA3C9;
   --blue-dim: rgba(127, 163, 201, 0.12);
   --blue-border: rgba(127, 163, 201, 0.30);
@@ -79,9 +79,9 @@
   --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace; /* códigos e a marca AFN */
 
   /* Marca AFN — dark */
-  --afn: #c44a5a;
-  --afn-stroke: rgba(196, 74, 90, 0.4);
-  --afn-sys: rgba(255, 255, 255, 0.28);
+  --afn: #D65F70;                        /* guia AFN: #c44a5a; mais claro aqui para 4,5:1 */
+  --afn-stroke: rgba(214, 95, 112, 0.4);
+  --afn-sys: rgba(255, 255, 255, 0.5);    /* guia AFN: 28%; 50% aqui para 4,5:1 */
 
   /* Transições */
   --transition: 0.2s ease;
@@ -114,7 +114,7 @@
 
   --text: #1A1510;
   --text2: #57493A;
-  --text3: #74644F;
+  --text3: #6B5B47;
 
   --green: #456B32;
   --green-dim: rgba(69, 107, 50, 0.10);

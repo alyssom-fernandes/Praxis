@@ -49,7 +49,7 @@ function _quebraTitulo(texto) {
   return `${palavras.slice(0, meio).join(' ')}<br>${palavras.slice(meio).join(' ')}`
 }
 
-// Bloco da marca no login — exatamente como no afn_brand_guide.html
+// Bloco da marca no login — exatamente como no guia da marca AFN
 function _blocoMarcaAfn() {
   return `
     <div class="login-afn">

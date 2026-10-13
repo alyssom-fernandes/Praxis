@@ -76,11 +76,10 @@ input[type="checkbox"], input[type="radio"] {
   }
   .table-card-mobile tbody td::before {
     content: attr(data-label);
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     flex-shrink: 0;
     margin-right: 0.5rem;
   }

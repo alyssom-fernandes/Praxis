@@ -310,6 +310,7 @@ export const TRADUCOES = {
     secaoCotacoes:        'Cotações',
     secaoParcelas:        'Parcelas',
     btnAdicionarAnexo:    'Adicionar',
+    anexoAdicionado:      'Anexo adicionado:',
     btnComparar:          'Comparar',
     btnNovaCotacao:       'Nova cotação',
     btnAdicionarParcela:  'Adicionar parcela',
@@ -768,6 +769,7 @@ export const TRADUCOES = {
     campoDataHoje:          'Hoje',
     demoPreparando:         'Preparando a demonstração com as datas de hoje…',
     demoFaixaTitulo:        'Modo demonstração',
+    demoSelo:               'Demo',
     demoFaixaDetalhe:       'Dados fictícios, restaurados todo dia.',
     demoFaixaComo:          'você está como',
     demoFaixaTrocar:        'Trocar perfil',
@@ -794,6 +796,7 @@ export const TRADUCOES = {
     notifNaoLida:           'Não lida',
     notifVazioTitulo:       'Tudo em dia',
     notifVazioTexto:        'Aprovações, cotações e prazos dos seus pedidos aparecem aqui.',
+    notifDemoNota:          'Na demonstração, estes avisos são de exemplo; e-mails e rotinas agendadas ficam desligados.',
 
     // Pluralizáveis
     selecionado:      'selecionado',
@@ -877,7 +880,7 @@ export const TRADUCOES = {
     // Tela de pedidos — redesenho da Inscrição
     filtrosRapidos:        'Filtros rápidos',
     visualizacao:          'Visualização',
-    resumoEtapas:          'Cada número abaixo é uma etapa do caminho.',
+    resumoEtapas:          'Cada coluna é uma etapa; o número é quantos pedidos estão nela.',
     resumoEncerrados:      'Reprovados e cancelados ficam aqui para consulta.',
     resumoNenhum:          'Nenhum pedido',
     filaDescGestor:        'Entram aqui os pedidos em aberto que são urgentes ou estão parados há mais de dois dias.',
@@ -887,6 +890,7 @@ export const TRADUCOES = {
     filaDescSolicitante:   'Entram aqui os seus pedidos que ainda estão em andamento.',
     etapas:                'Etapas',
     etapaDaFila:           'Etapa com mais pedidos na sua fila',
+    etapaFilaCurto:        'Sua fila',
     etapaCurtaSolicitado:  'Solicit.',
     etapaCurtaCotacao:     'Cotação',
     etapaCurtaAprovacao:   'Aprovação',
@@ -1056,6 +1060,7 @@ export const TRADUCOES = {
     secaoCotacoes:        'Quotes',
     secaoParcelas:        'Installments',
     btnAdicionarAnexo:    'Add',
+    anexoAdicionado:      'Attachment added:',
     btnComparar:          'Compare',
     btnNovaCotacao:       'New quote',
     btnAdicionarParcela:  'Add installment',
@@ -1514,6 +1519,7 @@ export const TRADUCOES = {
     campoDataHoje:          'Today',
     demoPreparando:         'Preparing the demo with today’s dates…',
     demoFaixaTitulo:        'Demo mode',
+    demoSelo:               'Demo',
     demoFaixaDetalhe:       'Sample data, restored every day.',
     demoFaixaComo:          'you are',
     demoFaixaTrocar:        'Switch profile',
@@ -1540,6 +1546,7 @@ export const TRADUCOES = {
     notifNaoLida:           'Unread',
     notifVazioTitulo:       'All caught up',
     notifVazioTexto:        'Approvals, quotes and due dates for your orders show up here.',
+    notifDemoNota:          'In the demo these notifications are samples; e-mails and scheduled jobs are off.',
 
     // Pluralizáveis
     selecionado:      'selected',
@@ -1623,7 +1630,7 @@ export const TRADUCOES = {
     // Orders screen — Inscription redesign
     filtrosRapidos:        'Quick filters',
     visualizacao:          'View',
-    resumoEtapas:          'Each number below is a stage of the path.',
+    resumoEtapas:          'Each column is a stage; the number is how many orders it holds.',
     resumoEncerrados:      'Rejected and cancelled orders stay here for reference.',
     resumoNenhum:          'No orders',
     filaDescGestor:        'Open orders that are urgent or have been idle for more than two days land here.',
@@ -1633,6 +1640,7 @@ export const TRADUCOES = {
     filaDescSolicitante:   'Your orders that are still in progress land here.',
     etapas:                'Stages',
     etapaDaFila:           'Stage with the most orders in your queue',
+    etapaFilaCurto:        'Your queue',
     etapaCurtaSolicitado:  'Request',
     etapaCurtaCotacao:     'Quote',
     etapaCurtaAprovacao:   'Approval',
