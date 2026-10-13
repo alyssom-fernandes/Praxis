@@ -1609,8 +1609,6 @@ function _bindDragDrop(container) {
 }
 
 // ── Quadro ────────────────────────────────────────────────────
-function _dois(n) { return String(n).padStart(2, '0') }
-
 function _renderKanban(lista) {
   if (!lista.length) return _renderEmptyState(_tipoVazio())
 
@@ -1635,7 +1633,7 @@ function _renderKanban(lista) {
         const nome = colunas.length > 4 ? t(_CHAVE_ETAPA_CURTA[st]) : STATUS_LABEL[st]
         return `<button type="button" role="tab" class="${classes}" id="regua-${st}" data-etapa="${st}" data-drop-status="${st}"
           aria-selected="${sel}" aria-controls="coluna-${st}" tabindex="${sel ? 0 : -1}" aria-label="${esc(STATUS_LABEL[st])}: ${n}">
-          <span class="regua-n" aria-hidden="true">${_dois(n)}</span><span class="regua-nome" aria-hidden="true">${esc(nome)}</span>
+          <span class="regua-n" aria-hidden="true">${n}</span><span class="regua-nome" aria-hidden="true">${esc(nome)}</span>
         </button>`
       }).join('')}
     </div>`
@@ -1665,7 +1663,12 @@ function _renderKanban(lista) {
     return `
       <section class="kanban-col${ehFila ? ' eh-fila' : ''}${status === atual ? ' atual' : ''}" id="coluna-${status}" data-status="${status}" data-drop-status="${status}" aria-labelledby="etapa-${status}">
         <header class="kanban-col-header"${ehFila ? ` title="${t('etapaDaFila')}"` : ''}>
-          <span class="etapa-n${cards.length ? '' : ' zero'}" aria-hidden="true">${_dois(cards.length)}</span>
+          <!-- O numeral é a quantidade de pedidos na etapa (sem zero à esquerda,
+               para não ler como o número da etapa, que vai de 01 a 07 no detalhe) -->
+          <span class="etapa-topo">
+            <span class="etapa-n${cards.length ? '' : ' zero'}" aria-hidden="true">${cards.length}</span>
+            ${ehFila ? `<span class="etapa-fila" aria-hidden="true">${t('etapaFilaCurto')}</span>` : ''}
+          </span>
           <h2 class="etapa-nome" id="etapa-${status}">${label}<span class="sr-only">: ${cards.length} ${cards.length === 1 ? t('pedidoSing') : t('pedidosPlural')}${ehFila ? `. ${t('etapaDaFila')}` : ''}</span></h2>
           <span class="etapa-soma">${soma > 0 ? `<span title="${formatCurrency(soma)}">${_moedaCompacta.format(soma)}</span>` : '—'}</span>
         </header>
@@ -1795,7 +1798,7 @@ function _tipoVazio() {
 function _estadoVazioHTML({ icone = '', titulo, sub, acao = '' }) {
   return `
     <div class="pedidos-vazio">
-      ${icone ? `<span class="pedidos-vazio-icone">${icone}</span>` : '<span class="pedidos-vazio-n" aria-hidden="true">00</span>'}
+      ${icone ? `<span class="pedidos-vazio-icone">${icone}</span>` : '<span class="pedidos-vazio-n" aria-hidden="true">0</span>'}
       <h2 class="pedidos-vazio-titulo">${titulo}</h2>
       <p class="pedidos-vazio-sub">${sub}</p>
       ${acao ? `<div class="pedidos-vazio-acao">${acao}</div>` : ''}
@@ -1930,6 +1933,8 @@ async function _carregarDadosAuxiliares() {
   try {
     const usrSnap = await getDocs(collection(db, 'usuarios'))
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
+      .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
   } catch {
     _usuarios = []
   }
@@ -2242,7 +2247,10 @@ function _atualizarBulkBar() {
 // números com vírgula decimal e datas dd/mm/aaaa.
 function _csvCampo(v) {
   if (v == null) return ''
-  const s = String(v)
+  let s = String(v)
+  // Texto que começa como fórmula (=, +, -, @) viraria fórmula no Excel:
+  // o apóstrofo o mantém como texto. Números negativos passam intactos
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`
   return /[";\r\n]/.test(s) || /^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 function _csvNumero(n) {

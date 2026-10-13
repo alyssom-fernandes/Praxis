@@ -1,4 +1,4 @@
-import { auth, onAuthStateChanged, db, doc, getDoc } from './firebase.js'
+import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
 import { renderPedidos } from './pedidos.js'
@@ -83,6 +83,7 @@ onAuthStateChanged(auth, async (fireUser) => {
     sessao.usuario  = usuario
     sessao.fireUser = fireUser
     sessao.isDemo   = fireUser.email === 'demo@praxis.app'
+    if (!sessao.isDemo) _registrarAcesso(fireUser.uid)
 
     // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
     // de hoje. As permissões da conta demo vêm das regras (pelo e-mail), sem
@@ -112,9 +113,19 @@ onAuthStateChanged(auth, async (fireUser) => {
   }
 })
 
+// Último acesso (Cadastros › Usuários): uma gravação por pessoa e aba
+function _registrarAcesso(id) {
+  try {
+    if (sessionStorage.getItem(`praxis_acesso_${id}`)) return
+    sessionStorage.setItem(`praxis_acesso_${id}`, '1')
+  } catch {}
+  updateDoc(doc(db, 'usuarios', id), { ultimoAcesso: serverTimestamp() }).catch(() => {})
+}
+
 // ── Pessoas da demonstração ───────────────────────────────────
 async function _carregarPessoaDemo(id) {
   const base = PESSOAS_DEMO.find(p => p.id === id) || PESSOAS_DEMO[0]
+  _registrarAcesso(base.id)
   try {
     const snap = await getDoc(doc(db, 'usuarios', base.id))
     if (snap.exists()) return { id: snap.id, ...snap.data() }
@@ -701,8 +712,17 @@ export function renderFooter() {
   `
 }
 
-// Expõe navegar globalmente para uso em onclick inline do HTML
+// Expõe navegar globalmente (ui.js chama sem importar, para evitar ciclo)
 window.__navegar = navegar
+
+// Links e botões com data-navegar="tela" (e data-id): navegam sem recarregar.
+// Substitui os onclick inline, que a política de segurança (CSP) bloqueia.
+document.addEventListener('click', e => {
+  const alvo = e.target.closest?.('[data-navegar]')
+  if (!alvo || e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) return
+  e.preventDefault()
+  navegar(alvo.dataset.navegar, alvo.dataset.id ? { id: alvo.dataset.id } : {})
+})
 
 // ── Barra inferior (celular) ──────────────────────────────────
 // Pedidos · Relatórios* · Buscar · Ajustes* · Conta   (*conforme o perfil)

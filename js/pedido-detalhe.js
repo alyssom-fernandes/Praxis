@@ -1,5 +1,5 @@
 import {
-  db, storage,
+  auth, db, storage,
   doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
   query, where,
   runTransaction, writeBatch, serverTimestamp,
@@ -15,7 +15,7 @@ import {
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
-  hojeISO, maisXDiasISO, normalizarTexto, parseMoeda,
+  hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 
@@ -113,7 +113,7 @@ function _renderErroDetalhe(titulo, msg) {
     <div class="detalhe-erro" role="alert">
       <h1 class="detalhe-erro-titulo">${titulo}</h1>
       <p class="detalhe-erro-texto">${msg}</p>
-      <button class="btn-secondary" onclick="window.__navegar('pedidos')">Voltar para pedidos</button>
+      <button class="btn-secondary" data-navegar="pedidos">Voltar para pedidos</button>
     </div>
   `
 }
@@ -163,6 +163,8 @@ async function _carregarAuxiliares() {
   try {
     const usrSnap = await getDocs(collection(db, 'usuarios'))
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
+      .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
   } catch {
     _usuarios = []
   }
@@ -403,13 +405,13 @@ function _renderCabecalho(menu) {
   }
   const vinculo = (rotulo, id, num) => `
     <p class="reaberto-banner">${ICO.reabrir}<span>${rotulo}</span>
-      <a class="reaberto-link" href="?tela=detalhe&id=${_esc(id)}" onclick="event.preventDefault();window.__navegar('detalhe',{id:'${_esc(id)}'})">${_esc(num || id)}</a>
+      <a class="reaberto-link" href="?tela=detalhe&id=${encodeURIComponent(id)}" data-navegar="detalhe" data-id="${_esc(id)}">${_esc(num || id)}</a>
     </p>`
   return `
     <header class="detalhe-head">
       <div class="detalhe-head-linha">
         <nav class="detalhe-trilha" aria-label="Navegação">
-          <a href="?tela=pedidos" onclick="event.preventDefault();window.__navegar('pedidos')">${t('titulo')}</a>
+          <a href="?tela=pedidos" data-navegar="pedidos">${t('titulo')}</a>
           <span class="detalhe-trilha-sep" aria-hidden="true">/</span>
           <span class="detalhe-num" aria-current="page">${_esc(p.numeroPedido || '—')}</span>
         </nav>
@@ -1073,7 +1075,7 @@ function _renderCotacoes() {
     ].join('')
     const largura = maior ? Math.max((c.valor || 0) / maior * 100, 3) : 0
     const acoes = [
-      c.arquivoUrl ? `<a href="${_esc(c.arquivoUrl)}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
+      c.arquivoUrl ? `<a href="${_esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
       podeIndicar && !c.indicada ? `<button class="btn-ghost btn-sm" data-indicar="${_esc(c.id)}" title="${t('dtIndicarTitulo')}">${t('dtIndicar')}</button>` : '',
     ].join('')
     return `
@@ -1215,7 +1217,7 @@ function _renderParcelas() {
       else estado = `Vence em ${_dias(d)}`
     }
     const acoes = [
-      parc.comprovante ? `<a href="${_esc(parc.comprovante)}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
+      parc.comprovante ? `<a href="${_esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
       podePagar && !parc.comprovante ? `
         <label class="btn-icon" tabindex="0" aria-label="${t('dtAnexarComprovante')}" title="${t('dtAnexarComprovante')}">
           ${ICO.clipe}
@@ -1225,7 +1227,7 @@ function _renderParcelas() {
     ].join('')
     return `
       <li class="parcela-item ${cls}">
-        <div class="parcela-numero"><b>${parc.numero}</b><span>/${parc.total}</span></div>
+        <div class="parcela-numero"><b>${_esc(parc.numero)}</b><span>/${_esc(parc.total)}</span></div>
         <div class="parcela-info">
           <div class="parcela-data">${formatDate(parc.vencimento)}</div>
           <div class="parcela-venc ${cls}">${estado}</div>
@@ -1435,7 +1437,7 @@ async function _liberarClaim() {
 async function _aprovarPedido() {
   const ind = _cotacoes.find(c => c.indicada)
   const ok = await prxConfirm('Aprovar este pedido?',
-    ind ? `Proposta indicada: ${_esc(ind.fornecedorNome)}, ${formatCurrency(ind.valor)}. Em seguida o comprador registra a compra.` : 'Em seguida o comprador registra a compra.',
+    ind ? `Proposta indicada: ${ind.fornecedorNome}, ${formatCurrency(ind.valor)}. Em seguida o comprador registra a compra.` : 'Em seguida o comprador registra a compra.',
     'Aprovar', 'Cancelar')
   if (!ok) return
   if (!exigirConexao()) return
@@ -1572,7 +1574,7 @@ async function _confirmarEntrega() {
 
 async function _confirmarPagamento() {
   const ok = await prxConfirm('Confirmar pagamento total?',
-    `${_pedido.valorFinal ? formatCurrency(_pedido.valorFinal) + ' pagos' : 'Pagamento registrado'}${_pedido.fornecedorNome ? ' a ' + _esc(_pedido.fornecedorNome) : ''}. O pedido será concluído.`,
+    `${_pedido.valorFinal ? formatCurrency(_pedido.valorFinal) + ' pagos' : 'Pagamento registrado'}${_pedido.fornecedorNome ? ' a ' + _pedido.fornecedorNome : ''}. O pedido será concluído.`,
     'Confirmar', 'Cancelar')
   if (!ok) return
   if (!exigirConexao()) return
@@ -1660,7 +1662,7 @@ function _compararCotacoes() {
                 <div class="cotacao-compare-dif num">${eMenor ? 'Menor proposta' : `+${formatCurrency(dif)} · ${_pct(dif / menorValor * 100)}`}</div>
                 <div class="cotacao-compare-row"><span class="meta-label">Prazo de entrega</span><span>${_esc(c.prazoEntrega || '—')}</span></div>
                 <div class="cotacao-compare-row"><span class="meta-label">Condições</span><span>${_esc(c.condicoesComerciais || '—')}</span></div>
-                ${c.arquivoUrl ? `<a href="${_esc(c.arquivoUrl)}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
+                ${c.arquivoUrl ? `<a href="${_esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
               </div>`
           }).join('')}
         </div>
@@ -1941,6 +1943,7 @@ async function _enviarComentario() {
           pedidoId: _pedidoId,
           lida:     false,
           criadaEm: serverTimestamp(),
+          autorId:  auth.currentUser?.uid || '', // as regras conferem quem avisou
         }).catch(() => {}) // não-bloqueia se falhar
       }
     }
@@ -1960,7 +1963,7 @@ async function _indicarCotacao(cotacaoId) {
   const c = _cotacoes.find(x => x.id === cotacaoId)
   if (_pedido.status === STATUS.AG_COTACAO) {
     const ok = await prxConfirm(t('dtIndicarConfirmaTitulo'),
-      c ? `${_esc(c.fornecedorNome)}, ${formatCurrency(c.valor)}. ${t('dtIndicarConfirmaTexto')}` : t('dtIndicarConfirmaTexto'),
+      c ? `${c.fornecedorNome}, ${formatCurrency(c.valor)}. ${t('dtIndicarConfirmaTexto')}` : t('dtIndicarConfirmaTexto'),
       t('dtIndicarConfirmaOk'), t('btnCancelar'))
     if (!ok) return
   }
@@ -2615,11 +2618,11 @@ function _renderAnexos() {
       <li class="anexo-item">
         <span class="anexo-tipo" aria-hidden="true">${_esc((ext || 'arq').slice(0, 4))}</span>
         <div class="anexo-info">
-          <a class="anexo-nome" href="${_esc(a.url)}" target="_blank" rel="noopener" title="${_esc(a.nome)}">${_esc(a.nome)}</a>
+          <a class="anexo-nome" href="${_esc(urlSegura(a.url))}" target="_blank" rel="noopener" title="${_esc(a.nome)}">${_esc(a.nome)}</a>
           <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${_esc(autor)} · <span title="${ts.title}">${ts.label.toLowerCase()}</span></div>
         </div>
         <div class="anexo-acoes">
-          <a href="${_esc(a.url)}" target="_blank" rel="noopener" class="btn-icon" aria-label="Baixar ${_esc(a.nome)}" title="Baixar">${ICO.baixar}</a>
+          <a href="${_esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="Baixar ${_esc(a.nome)}" title="Baixar">${ICO.baixar}</a>
           ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${_esc(a.id)}" data-storage-path="${_esc(a.storagePath || '')}" aria-label="Remover ${_esc(a.nome)}" title="Remover">${ICO.lixeira}</button>` : ''}
         </div>
       </li>
@@ -2654,7 +2657,8 @@ async function _uploadAnexo(file) {
   try {
     const storagePath = STORAGE_PATHS.anexo(_pedidoId) + '/' + Date.now() + '_' + file.name
     const ref = storageRef(storage, storagePath)
-    await uploadBytes(ref, file)
+    // As regras do Storage só deixam apagar o anexo quem o enviou (ou um gestor)
+    await uploadBytes(ref, file, { customMetadata: { autorUid: auth.currentUser?.uid || '' } })
     const url = await getDownloadURL(ref)
     await addDoc(collection(db, 'pedidos', _pedidoId, 'anexos'), {
       nome: file.name,
@@ -2677,7 +2681,7 @@ async function _uploadAnexo(file) {
     const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'anexos'))
     _anexos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
     _renderDetalhe()
-    prxToast(`"${file.name}" ${t('btnAdicionarAnexo').toLowerCase()}.`, 'success')
+    prxToast(`${t('anexoAdicionado')} ${file.name}`, 'success')
   } catch (err) {
     prxToast(t('erroEnviarAnexo') + (err.message || 'tente novamente'), 'error')
   } finally {

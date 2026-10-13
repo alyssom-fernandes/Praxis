@@ -6,11 +6,13 @@ export function formatCurrency(value) {
   }).format(value)
 }
 
+// Só "aaaa-mm-dd" vira data; qualquer outra coisa volta escapada, porque o
+// resultado vai para innerHTML e o campo é gravado por quem usa a demo
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
-  const [y, m, d] = String(dateStr).split('-')
-  if (!y || !m || !d) return dateStr
-  return `${d}/${m}/${y}`
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr))
+  if (!m) return esc(dateStr)
+  return `${m[3]}/${m[2]}/${m[1]}`
 }
 
 export function formatDateRelative(dateStr) {
@@ -77,9 +79,12 @@ export function sanitizeString(str) {
   }[c]))
 }
 
+// As iniciais vão direto para innerHTML: só letras e números entram
 export function gerarIniciais(nome) {
-  if (!nome) return '?'
-  const partes = nome.trim().split(' ')
+  const partes = String(nome ?? '').split(/\s+/)
+    .map(p => p.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean)
+  if (!partes.length) return '?'
   if (partes.length === 1) return partes[0][0].toUpperCase()
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
 }
@@ -133,6 +138,16 @@ export function ordenarPor(arr, chave, desc = false) {
 
 export function esc(str) {
   return sanitizeString(String(str ?? ''))
+}
+
+// Link vindo do banco: só http(s); "javascript:" e afins viram "#"
+export function urlSegura(url) {
+  try {
+    const u = new URL(String(url ?? ''), location.href)
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : '#'
+  } catch {
+    return '#'
+  }
 }
 
 export function parseMoeda(str) {

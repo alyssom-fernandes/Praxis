@@ -3,35 +3,71 @@
     "public": ".",
     "ignore": [
       "firebase.json",
-      ".firebaserc",
       "firestore.rules",
       "firestore.indexes.json",
       "storage.rules",
       "functions/**",
       "docs/**",
+      "tests/**",
+      "scripts/**",
+      "_build/**",
+      "**/*.md",
       "praxis-spec.md",
-      "README.md",
-      "README.pt-br.md",
       "praxis-auditoria.md",
       "afn_brand_guide.html",
-      "_build/**",
       "package.json",
       "package-lock.json",
       "LICENSE",
-      ".gitignore",
-      ".gitattributes",
-      ".git/**",
+      "**/.*",
+      "**/.*/**",
       "node_modules/**",
       "**/node_modules/**",
       "**/*.log"
     ],
-    "rewrites": [
+    "headers": [
       {
         "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "headers": [
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://firebasestorage.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com; frame-src https://praxis-af618.firebaseapp.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+          }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
       {
         "source": "**/*.@(js|mjs)",
         "headers": [
@@ -64,12 +100,25 @@
     "rules": "storage.rules"
   },
   "emulators": {
-    "auth":      { "port": 9099 },
-    "firestore": { "port": 9090 },
-    "functions": { "port": 5001 },
-    "storage":   { "port": 9199 },
-    "hosting":   { "port": 5000 },
-    "ui":        { "enabled": true, "port": 4000 },
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 9090
+    },
+    "functions": {
+      "port": 5001
+    },
+    "storage": {
+      "port": 9199
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
     "singleProjectMode": true
   }
 }

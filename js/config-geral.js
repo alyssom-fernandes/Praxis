@@ -35,7 +35,7 @@ export async function renderConfigGeral() {
                 <dl class="cfg-fatos">
                   <div>
                     <dt>${t('cfgColPerfil')}</dt>
-                    <dd>${perfilHtml(u.perfil)}<span class="cfg-fatos-desc">${t(`perfilDesc_${u.perfil}`)}</span></dd>
+                    <dd>${perfilHtml(u.perfil)}<span class="cfg-fatos-desc">${esc(t(`perfilDesc_${u.perfil}`))}</span></dd>
                   </div>
                   <div>
                     <dt>${t('cfgColEmpresas')}</dt>

@@ -147,7 +147,7 @@ function _cmdRenderResultados(query) {
     // Vazio na voz do quadro: o numeral zerado, como uma etapa sem pedidos
     results.innerHTML = `
       <div class="cmd-empty" role="status">
-        <span class="cmd-empty-n numeral" aria-hidden="true">00</span>
+        <span class="cmd-empty-n numeral" aria-hidden="true">0</span>
         <strong>Nada encontrado para “${_escHTML(query.trim())}”</strong>
         <span>Tente o número do pedido (PRX-0012) ou uma palavra do título.</span>
       </div>`
@@ -423,7 +423,7 @@ export function prxToast(mensagem, tipo = 'info', duracao) {
   toast.setAttribute('role', cfg.papel)
   toast.innerHTML = `
     <span class="toast-ico" aria-hidden="true">${cfg.icone()}</span>
-    <span class="toast-msg">${mensagem}</span>
+    <span class="toast-msg">${_escHTML(mensagem)}</span>
     <button type="button" class="toast-fechar" aria-label="Fechar aviso">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
@@ -456,8 +456,8 @@ function _montarDialogo({ titulo, mensagem, botoes, papel = 'alertdialog', perig
   overlay._focoAnterior = document.activeElement
   overlay.innerHTML = `
     <div class="dialog${perigo ? ' dialog-perigo' : ''}" role="${papel}" aria-modal="true" aria-labelledby="${id}-titulo" ${mensagem ? `aria-describedby="${id}-texto"` : ''}>
-      <h3 id="${id}-titulo">${titulo}</h3>
-      ${mensagem ? `<p id="${id}-texto">${mensagem}</p>` : ''}
+      <h3 id="${id}-titulo">${_escHTML(titulo)}</h3>
+      ${mensagem ? `<p id="${id}-texto">${_escHTML(mensagem)}</p>` : ''}
       <div class="dialog-actions">${botoes}</div>
     </div>
   `
@@ -495,8 +495,8 @@ export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCa
     const overlay = _montarDialogo({
       titulo, mensagem, perigo: !!danger,
       botoes: `
-        <button type="button" class="btn-secondary" id="prx-confirm-cancel">${labelCancel}</button>
-        <button type="button" class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${labelOk}</button>
+        <button type="button" class="btn-secondary" id="prx-confirm-cancel">${_escHTML(labelCancel)}</button>
+        <button type="button" class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${_escHTML(labelOk)}</button>
       `,
     })
     const ok = overlay.querySelector('#prx-confirm-ok')
@@ -723,7 +723,7 @@ async function _restaurarDadosDemo(btn) {
 function _textoFaixaDemo() {
   const u = window.__praxisSessao?.usuario
   const quem = u ? `<b>${_escHTML(u.nome)}</b> (${_escHTML(PERFIS_LABEL[u.perfil] || u.perfil)})` : ''
-  return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto">${u ? _escHTML(u.nome) : t('demoFaixaTitulo')}</strong>`
+  return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto"><span class="demo-faixa-selo">${t('demoSelo')}</span>${u ? _escHTML(u.nome) : t('demoFaixaTitulo')}</strong>`
     + `<span class="demo-faixa-detalhe">: ${quem ? `${t('demoFaixaComo')} ${quem}. ` : ''}${t('demoFaixaDetalhe')}</span>`
 }
 
@@ -964,7 +964,7 @@ function _tourMostrarPasso() {
       <span class="tour-step-count"><span class="sr-only">${t('tourPasso')} </span><b class="tour-n numeral">${dois(_tourPasso + 1)}</b> <span class="tour-total">${t('tourDe')} ${dois(total)}</span></span>
       <span class="tour-pontos" aria-hidden="true">${_tourLista.map((_, i) => `<i class="${i === _tourPasso ? 'on' : i < _tourPasso ? 'feito' : ''}"></i>`).join('')}</span>
     </div>
-    <h4 class="tour-titulo" id="tour-titulo">${passo.titulo}</h4>
+    <p class="tour-titulo" id="tour-titulo">${passo.titulo}</p>
     <p class="tour-desc" id="tour-desc">${passo.desc}</p>
     <div class="tour-actions">
       <button type="button" class="btn-ghost btn-sm" id="tour-pular">${t('tourPular')}</button>
