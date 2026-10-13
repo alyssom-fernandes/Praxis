@@ -747,9 +747,13 @@ function _escala(max, n = 4, inteiro = false) {
   return { topo: passo * k, passo, n: k }
 }
 
-// Leitura dos 6 meses: média dos meses fechados, o maior mês e o mês corrente
+// Leitura dos 6 meses: média dos meses fechados, o maior mês e o mês corrente.
+// A média começa no primeiro mês com pedidos: meses antes do início do uso
+// não são "zero gasto", são falta de dado
 function _leituraMeses(D) {
-  const fechados = D.meses.filter(m => !m.atual)
+  const todos = D.meses.filter(m => !m.atual)
+  const inicio = todos.findIndex(m => m.qtd > 0)
+  const fechados = inicio > 0 ? todos.slice(inicio) : todos
   const media = fechados.reduce((s, m) => s + m.valor, 0) / (fechados.length || 1)
   const maior = D.meses.reduce((a, m) => (m.valor > a.valor ? m : a), D.meses[0])
   const atual = D.meses.find(m => m.atual)
@@ -1396,7 +1400,10 @@ async function _exportarPDF() {
       D.meses.forEach((mm, i) => {
         const h = (mm.valor / maxM) * altG
         const bx = xm + i * passo + passo * 0.2, bw = passo * 0.6
-        if (h > 0) { cor(mm.atual ? PAPEL.terracota : PAPEL.apagada, 'fill'); doc.rect(bx, baseG - h, bw, h, 'F') }
+        // Como na tela: meses fechados em terracota cheia; o mês em andamento,
+        // parcial, em contorno sobre a terracota clara
+        if (h > 0 && !mm.atual) { cor(PAPEL.terracota, 'fill'); doc.rect(bx, baseG - h, bw, h, 'F') }
+        else if (h > 0) { cor(PAPEL.apagada, 'fill'); cor(PAPEL.terracota, 'draw'); doc.setLineWidth(0.5); doc.rect(bx, baseG - h, bw, h, 'FD') }
         else if (mm.atual) { cor(PAPEL.terracota, 'fill'); doc.rect(bx, baseG - 0.5, bw, 0.5, 'F') }
         fonte('bold', 6.4); cor(mm.atual ? PAPEL.tinta : PAPEL.texto2)
         if (mm.valor) {
@@ -1416,7 +1423,7 @@ async function _exportarPDF() {
       fonte('normal', 6.6); cor(PAPEL.texto3)
       doc.text(limpo(`${tr('mediaMensal')} ${brl(L.media)}`), xm + 7, yl)
       const meio = xm + cw / 2 + 2
-      cor(PAPEL.terracota, 'fill'); doc.rect(meio, yl - 2.1, 2, 2, 'F')
+      cor(PAPEL.apagada, 'fill'); cor(PAPEL.terracota, 'draw'); doc.setLineWidth(0.35); doc.rect(meio, yl - 2.1, 2, 2, 'FD')
       doc.text(limpo(`${tr('esteMes')} ${brl(L.atual.valor)}`), meio + 3.5, yl)
       fimMensal = yl + 2
     } else {

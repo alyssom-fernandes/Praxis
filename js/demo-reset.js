@@ -3,10 +3,12 @@
 // conta demo (e na hora, pelo "Restaurar dados" da faixa). Tudo pelo
 // navegador, sem Cloud Functions: o projeto roda no plano gratuito.
 //
-// As seis pessoas da demo (js/demo-pessoas.js) ganham o perfil delas em
-// /usuarios e a sua parte nos dados: a solicitante abriu a maioria dos
-// pedidos, a compradora cotou e comprou, o aprovador decidiu, o financeiro
-// pagou. Histórico e comentários saem assinados por quem fez cada coisa.
+// As seis pessoas da demo (js/demo-pessoas.js) e três colegas ganham o perfil
+// em /usuarios e a sua parte nos dados: os pedidos são abertos pela
+// solicitante, pela gestora e por um colega de cada empresa; a compradora cota
+// e compra, o aprovador decide, o financeiro paga. Histórico e comentários saem
+// assinados por quem fez cada coisa, e cada pessoa recebe os avisos que lhe
+// caberiam (na demo não rodam as Cloud Functions que os gerariam).
 //
 // O que sai: os pedidos de exemplo e tudo o que os visitantes criaram com a
 // conta demo (pedidos, cotações, comentários, parcelas, histórico, anexos,
@@ -20,7 +22,7 @@ import {
   db, collection, doc, getDoc, getDocs, setDoc, query, where, writeBatch, runTransaction,
   serverTimestamp, Timestamp,
 } from './firebase.js'
-import { PESSOAS_DEMO } from './demo-pessoas.js'
+import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
 
 const SUBCOLECOES = ['cotacoes', 'comentarios', 'parcelas', 'historico', 'anexos']
 const CATEGORIAS_BASE = [
@@ -88,7 +90,7 @@ async function _apagarDemo(uid) {
 
   // Contas demo: a atual e as antigas (de quando ela foi recriada no console)
   const perfisDemo = (await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
-  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id), ...PESSOAS_DEMO.map(p => p.id)])
+  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id), ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)])
   const uidsUsuarios = new Set((await getDocs(collection(db, 'usuarios'))).docs.map(d => d.id))
 
   // Saem os pedidos de exemplo (isDemo), os abertos por qualquer conta demo e
@@ -114,7 +116,7 @@ async function _apagarDemo(uid) {
   pedidos.forEach(ref => lote.del(ref))
 
   ;(await getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true)))).docs.forEach(d => lote.del(d.ref))
-  for (const dono of [uid, ...PESSOAS_DEMO.map(p => p.id)]) {
+  for (const dono of [uid, ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)]) {
     (await getDocs(collection(db, 'notificacoes', dono, 'items'))).docs.forEach(d => lote.del(d.ref))
   }
   // Perfis antigos da conta demo
@@ -173,16 +175,26 @@ async function _aplicarSeed(seed, usuario) {
   }
   const empresasIds = Object.values(empresaMap)
 
-  // Perfis das pessoas da demo (IDs fixos, regravados a cada renovação)
+  // Perfis das pessoas da demo e dos colegas (IDs fixos, regravados a cada
+  // renovação). O último acesso fica em horários plausíveis; o de quem entra
+  // agora é gravado na entrada (js/app.js)
   const P = Object.fromEntries(PESSOAS_DEMO.map(p => [p.perfil, p.id]))
-  const nomeDe = Object.fromEntries(PESSOAS_DEMO.map(p => [p.id, p.nome]))
-  const empresasDe = Object.fromEntries(PESSOAS_DEMO.map(p => [p.id, p.empresas.length ? p.empresas.map(k => empresaMap[k]).filter(Boolean) : empresasIds]))
-  for (const p of PESSOAS_DEMO) {
+  const TODOS = [...PESSOAS_DEMO, ...COLEGAS_DEMO]
+  const nomeDe = Object.fromEntries(TODOS.map(p => [p.id, p.nome]))
+  const empresasDe = Object.fromEntries(TODOS.map(p => [p.id, p.empresas.length ? p.empresas.map(k => empresaMap[k]).filter(Boolean) : empresasIds]))
+  const HORAS_SEM_ENTRAR = {
+    'demo-supremo': 1, 'demo-gestor': 3, 'demo-aprovador': 26, 'demo-comprador': 2,
+    'demo-financeiro': 50, 'demo-solicitante': 6, 'demo-gustavo': 30, 'demo-helena': 75, 'demo-igor': 290,
+  }
+  const horasAtras = h => Timestamp.fromDate(new Date(agora.getTime() - h * 3600e3))
+  for (const p of TODOS) {
     lote.set(doc(db, 'usuarios', p.id), {
       nome: p.nome, email: p.email, perfil: p.perfil, ativo: true, isDemo: true,
-      empresas: empresasDe[p.id], ultimoAcesso: null, criadoEm: agoraTs,
+      empresas: empresasDe[p.id], ultimoAcesso: horasAtras(HORAS_SEM_ENTRAR[p.id] ?? 48), criadoEm: agoraTs,
     })
   }
+  const colegaDa = Object.fromEntries(COLEGAS_DEMO.map(c => [c.empresas[0], c.id]))
+  const resumo = []
 
   // 3. Categorias: reaproveita as existentes pelo nome; cria as que faltarem
   const categoriaMap = {}
@@ -207,10 +219,13 @@ async function _aplicarSeed(seed, usuario) {
     for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) if (dados[campo]) dados[campo] = deslocar(dados[campo])
     const indicada = (cotacoes || []).find(c => c.indicada)
     const quando = st => hist.find(h => h.status === st)?.diasAtras
-    // Quem fez o quê: a Fernanda (solicitante) abriu a maioria; a Beatriz
-    // (gestora) abriu alguns nas empresas dela; a Diana comprou o que passou
-    // da cotação; o Carlos decidiu; o Eduardo pagou
-    const solicitante = n % 4 === 0 && empresasDe[P.gestor].includes(empresaMap[empresaKey]) ? P.gestor : P.solicitante
+    // Quem fez o quê: a Fernanda (solicitante) abriu um pedido em cada quatro;
+    // a Beatriz (gestora), alguns nas empresas dela; os outros, o colega da
+    // empresa. A Diana comprou o que passou da cotação; o Carlos decidiu; o
+    // Eduardo pagou
+    const solicitante = n % 4 === 1 ? P.solicitante
+      : n % 4 === 0 && empresasDe[P.gestor].includes(empresaMap[empresaKey]) ? P.gestor
+      : colegaDa[empresaKey] || P.solicitante
     const temComprador = ['ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue', 'pago', 'reprovado'].includes(dados.status)
     const autorDaEtapa = {
       solicitado: solicitante, ag_cotacao: P.comprador, em_aprovacao: P.comprador,
@@ -257,6 +272,11 @@ async function _aplicarSeed(seed, usuario) {
       prazoEntrega: c.prazoEntrega || null, condicoesComerciais: c.condicoesComerciais || null,
       indicada: c.indicada === true, registradoPor: P.comprador, criadoEm: agoraTs,
     }))
+    resumo.push({
+      id: pedRef.id, numero: numeroPedido, titulo: dados.titulo, status: dados.status, urgente: dados.urgente === true,
+      solicitante, hist, parcelas: parcelas || [],
+      comentarios: (comentarios || []).map((c, i) => ({ ...c, autor: comentaristas[i % comentaristas.length] })),
+    })
     ;(parcelas || []).forEach((p, i) => lote.set(doc(collection(pedRef, 'parcelas')), {
       numero: p.numero, total: p.total, valor: p.valor,
       vencimento: p.vencimentoDias != null ? maisDias(p.vencimentoDias) : deslocar(p.vencimento),
@@ -266,7 +286,19 @@ async function _aplicarSeed(seed, usuario) {
     }))
   }
 
-  // 5. Contador dos números de pedido e empresas da conta demo
+  // 5. Avisos de exemplo, os mais recentes primeiro (até 6 por pessoa, 3 novos)
+  const porPessoa = {}
+  for (const a of _avisosDaDemo(resumo, P, nomeDe)) (porPessoa[a.para] ||= []).push(a)
+  for (const [para, lista] of Object.entries(porPessoa)) {
+    lista.sort((a, b) => a.horas - b.horas).slice(0, 6).forEach((a, i) => {
+      lote.set(doc(collection(db, 'notificacoes', para, 'items')), {
+        evento: a.evento, titulo: a.titulo, corpo: a.corpo, pedidoId: a.pedidoId,
+        lida: i >= 3, criadaEm: horasAtras(a.horas), isDemo: true,
+      })
+    })
+  }
+
+  // 6. Contador dos números de pedido e empresas da conta demo
   lote.mesclar(doc(db, '_meta', 'contadores'), { totalPedidos: n })
   lote.mesclar(doc(db, 'usuarios', uid), { empresas: empresasIds, atualizadoEm: serverTimestamp() })
   await lote.fim()
@@ -275,6 +307,62 @@ async function _aplicarSeed(seed, usuario) {
     await Promise.all(avulsos.slice(i, i + 25).map(([ref, dados]) => setDoc(ref, dados)))
   }
   return n
+}
+
+// ── Avisos que as Cloud Functions mandariam ───────────────────
+// Os mesmos eventos de functions/src (triggers.js e scheduled.js), tirados
+// dos próprios pedidos: só para as pessoas em quem dá para entrar
+function _avisosDaDemo(resumo, P, nomeDe) {
+  const avisos = []
+  const pessoas = new Set(PESSOAS_DEMO.map(p => p.id))
+  const porNome = Object.fromEntries(PESSOAS_DEMO.map(p => [_normalizar(p.nome.split(' ')[0]), p.id]))
+  const add = (para, evento, titulo, corpo, p, horas) => {
+    if (pessoas.has(para)) avisos.push({ para, evento, titulo, corpo, pedidoId: p.id, horas })
+  }
+  for (const p of resumo) {
+    const nome = `${p.numero} "${p.titulo}"`
+    const horasDesde = st => ((p.hist.find(h => h.status === st)?.diasAtras ?? 0) * 24) + 2
+    switch (p.status) {
+      case 'solicitado':
+        if (p.urgente) {
+          for (const quem of [P.comprador, P.gestor, P.supremo]) {
+            add(quem, 'pedido_urgente', 'Pedido urgente aberto', `${nome} aguarda um comprador.`, p, horasDesde('solicitado'))
+          }
+        }
+        break
+      case 'em_aprovacao':
+        add(P.aprovador, 'cotacoes_prontas', 'Pedido aguarda aprovação', `${nome} tem cotações prontas para análise.`, p, horasDesde('em_aprovacao'))
+        break
+      case 'aprovado':
+        add(P.comprador, 'pedido_aprovado', 'Pedido aprovado', `${nome} foi aprovado. Falta registrar a compra.`, p, horasDesde('aprovado'))
+        add(p.solicitante, 'pedido_aprovado', 'Pedido aprovado', `${nome} foi aprovado.`, p, horasDesde('aprovado'))
+        break
+      case 'reprovado':
+        add(p.solicitante, 'pedido_reprovado', 'Pedido reprovado', `${nome} foi reprovado.`, p, horasDesde('reprovado'))
+        break
+      case 'entregue':
+        add(P.financeiro, 'pedido_entregue', 'Pedido entregue', `${nome} foi entregue. Confirme o pagamento.`, p, horasDesde('entregue'))
+        add(p.solicitante, 'pedido_entregue_solic', 'Seu pedido foi entregue', `${nome} chegou.`, p, horasDesde('entregue'))
+        break
+    }
+    for (const parc of p.parcelas) {
+      if (parc.pago || parc.vencimentoDias == null) continue
+      const qual = `Parcela ${parc.numero}/${parc.total} de ${p.numero}`
+      const d = parc.vencimentoDias
+      // A rotina diária avisa cedo; a parcela que vence antes aparece por último
+      if (d < 0) add(P.financeiro, 'parcela_vencida', 'Parcela vencida', `${qual} venceu ${d === -1 ? 'ontem' : `há ${-d} dias`}.`, p, 5)
+      else if (d <= 7) add(P.financeiro, 'parcela_vencendo', 'Parcela a vencer', `${qual} vence ${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d} dias`}.`, p, 9 - d * 0.2)
+    }
+    for (const c of p.comentarios) {
+      for (const m of c.texto.match(/@[\p{L}]+/gu) || []) {
+        const alvo = porNome[_normalizar(m.slice(1))]
+        if (alvo && alvo !== c.autor) {
+          add(alvo, 'mencao_comentario', 'Você foi mencionado', `${nomeDe[c.autor] || 'Alguém'} mencionou você em ${nome}.`, p, (c.diasAtras ?? 0) * 24 + 4)
+        }
+      }
+    }
+  }
+  return avisos
 }
 
 // ── Ponto de entrada ─────────────────────────────────────────

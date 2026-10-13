@@ -103,19 +103,20 @@ function _renderDropdown(items) {
     <div class="notif-header">
       <div class="notif-header-titulo">
         <h3 id="notif-titulo">${t('tooltipNotificacoes')}</h3>
-        ${naoLidas ? `<span class="notif-header-conta"><b class="numeral">${String(naoLidas).padStart(2, '0')}</b> ${naoLidas === 1 ? t('notifNovaUma') : t('notifNovasVarias')}</span>` : ''}
+        ${naoLidas ? `<span class="notif-header-conta"><b class="numeral">${naoLidas}</b> ${naoLidas === 1 ? t('notifNovaUma') : t('notifNovasVarias')}</span>` : ''}
       </div>
       ${naoLidas ? `<button type="button" class="notif-marcar" id="btn-marcar-todas">${t('notifMarcarTodas')}</button>` : ''}
     </div>
     <div class="notif-list" id="notif-list">
       ${items.length ? items.slice(0, MAX_ITENS).map(_renderItem).join('') : `
         <div class="notif-empty">
-          <span class="notif-empty-n numeral" aria-hidden="true">00</span>
+          <span class="notif-empty-n numeral" aria-hidden="true">0</span>
           <strong>${t('notifVazioTitulo')}</strong>
           <span>${t('notifVazioTexto')}</span>
         </div>
       `}
     </div>
+    ${sessao.isDemo ? `<p class="notif-demo-nota">${t('notifDemoNota')}</p>` : ''}
   `
   dropdown.setAttribute('aria-labelledby', 'notif-titulo')
 

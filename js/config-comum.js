@@ -122,7 +122,10 @@ export async function completarContagensLateral(conhecidas = {}) {
   const faltam = Object.keys(_COLECOES_LATERAL).filter(k => !(k in conhecidas) && !Number.isFinite(atuais[k]))
   if (!faltam.length) return
   const tamanhos = await Promise.all(faltam.map(k =>
-    getDocs(collection(db, _COLECOES_LATERAL[k])).then(s => s.size).catch(() => null)))
+    getDocs(collection(db, _COLECOES_LATERAL[k]))
+      // Usuários: a mesma conta da lista (na demo, sem a conta de login)
+      .then(s => k === 'usuarios' && sessao.isDemo ? s.docs.filter(d => d.data().email !== 'demo@praxis.app').length : s.size)
+      .catch(() => null)))
   const contagens = {}
   faltam.forEach((k, i) => { if (tamanhos[i] != null) contagens[k] = tamanhos[i] })
   if (Object.keys(contagens).length) atualizarLateral({ contagens })

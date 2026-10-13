@@ -1,6 +1,6 @@
 {
   "_info": "Seed do modo demo — dados fictícios. Nenhum CNPJ ou dado real.",
-  "_reset": "Recriado todo domingo às 3h pela Cloud Function demoReset.",
+  "_reset": "Renovado todo dia pelo próprio app (js/demo-reset.js), no primeiro acesso do dia; as datas andam até hoje.",
   "_dataReferencia": "2026-06-09",
   "empresas": [
     {
@@ -76,60 +76,60 @@
       "urgente": false,
       "quantidade": 5,
       "unidade": "un",
-      "dataNecessaria": "2026-05-15",
+      "dataNecessaria": "2026-03-16",
       "valorEstimado": 25000,
       "valorFinal": 23750,
       "centroCusto": "TI-001",
       "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-04-20",
-      "dataEntrega": "2026-04-28",
+      "dataCompra": "2026-03-04",
+      "dataEntrega": "2026-03-12",
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
         {
           "status": "solicitado",
           "nota": null,
-          "diasAtras": 45
+          "diasAtras": 105
         },
         {
           "status": "ag_cotacao",
           "nota": "Comprador assumiu o pedido",
-          "diasAtras": 44
+          "diasAtras": 104
         },
         {
           "status": "em_aprovacao",
           "nota": "Cotação indicada",
-          "diasAtras": 42
+          "diasAtras": 102
         },
         {
           "status": "aprovado",
           "nota": null,
-          "diasAtras": 40
+          "diasAtras": 100
         },
         {
           "status": "comprado",
           "nota": "Fornecedor: TechSupply Comércio · R$ 23.750,00",
-          "diasAtras": 37
+          "diasAtras": 97
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 29
+          "diasAtras": 89
         },
         {
           "status": "pago",
           "nota": "Última parcela paga",
-          "diasAtras": 10
+          "diasAtras": 70
         }
       ],
       "comentarios": [
         {
           "texto": "Priorizar modelos com pelo menos 2 anos de garantia.",
-          "diasAtras": 44
+          "diasAtras": 104
         },
         {
-          "texto": "@Ana precisa confirmar qual configuração de RAM é necessária.",
-          "diasAtras": 43
+          "texto": "@Fernanda precisa confirmar qual configuração de RAM é necessária.",
+          "diasAtras": 103
         }
       ],
       "cotacoes": [
@@ -160,17 +160,17 @@
           "numero": 1,
           "total": 2,
           "valor": 11875,
-          "vencimento": "2026-05-20",
+          "vencimento": "2026-03-21",
           "pago": true,
-          "diasAtras": 20
+          "diasAtras": 80
         },
         {
           "numero": 2,
           "total": 2,
           "valor": 11875,
-          "vencimento": "2026-06-20",
+          "vencimento": "2026-04-21",
           "pago": true,
-          "diasAtras": 10
+          "diasAtras": 70
         }
       ]
     },
@@ -187,8 +187,8 @@
       "valorFinal": 7980,
       "centroCusto": "OP-003",
       "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-05-10",
-      "dataEntrega": "2026-05-22",
+      "dataCompra": "2026-05-13",
+      "dataEntrega": "2026-05-25",
       "empresaKey": "orbix",
       "categoriaKey": "uniformes",
       "historico": [
@@ -234,7 +234,7 @@
           "diasAtras": 34
         },
         {
-          "texto": "Confirmado com @Marcos o tamanho dos colaboradores.",
+          "texto": "Confirmado com @Fernanda o tamanho dos colaboradores.",
           "diasAtras": 33
         }
       ],
@@ -365,7 +365,7 @@
       ],
       "comentarios": [
         {
-          "texto": "URGENTE — o servidor principal está fora do ar desde ontem. @Joao precisa de ação imediata.",
+          "texto": "URGENTE — o servidor principal está fora do ar desde ontem. @Diana precisa de ação imediata.",
           "diasAtras": 3
         },
         {
@@ -564,9 +564,9 @@
       "valorEstimado": 4200,
       "valorFinal": 4050,
       "centroCusto": "MKT-001",
-      "condicaoPagamento": "antecipado",
-      "dataCompra": "2026-04-25",
-      "dataEntrega": "2026-04-25",
+      "condicaoPagamento": "apos_recebimento",
+      "dataCompra": "2026-04-28",
+      "dataEntrega": "2026-04-28",
       "empresaKey": "veltora",
       "categoriaKey": "ti",
       "historico": [
@@ -607,7 +607,7 @@
           "diasAtras": 42
         },
         {
-          "texto": "Aguardando @Financeiro registrar pagamento.",
+          "texto": "Aguardando @Eduardo registrar pagamento.",
           "diasAtras": 40
         }
       ],
@@ -671,7 +671,7 @@
           "diasAtras": 10
         },
         {
-          "texto": "@Gestor precisamos de aprovação rápida para este equipamento.",
+          "texto": "@Carlos precisamos de aprovação rápida para este equipamento.",
           "diasAtras": 7
         }
       ],
@@ -780,8 +780,8 @@
       "valorEstimado": 6800,
       "valorFinal": 6500,
       "centroCusto": "TI-003",
-      "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-05-05",
+      "condicaoPagamento": "antecipado",
+      "dataCompra": "2026-05-22",
       "dataEntrega": null,
       "empresaKey": "nexara",
       "categoriaKey": "ti",
@@ -1031,8 +1031,8 @@
       "valorFinal": 2100,
       "centroCusto": "MAN-003",
       "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-05-10",
-      "dataEntrega": "2026-05-13",
+      "dataCompra": "2026-05-16",
+      "dataEntrega": "2026-05-18",
       "empresaKey": "orbix",
       "categoriaKey": "manutencao",
       "historico": [
@@ -1059,12 +1059,12 @@
         {
           "status": "comprado",
           "nota": "Fornecedor: Manutenção Express Serviços · R$ 2.100,00",
-          "diasAtras": 27
+          "diasAtras": 24
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 24
+          "diasAtras": 22
         }
       ],
       "comentarios": [
@@ -1073,7 +1073,7 @@
           "diasAtras": 24
         },
         {
-          "texto": "@Financeiro parcela vence em 3 dias, favor confirmar pagamento.",
+          "texto": "@Eduardo parcela vence em 3 dias, favor confirmar pagamento.",
           "diasAtras": 20
         }
       ],
@@ -1179,56 +1179,56 @@
       "urgente": false,
       "quantidade": 400,
       "unidade": "L",
-      "dataNecessaria": "2026-05-05",
+      "dataNecessaria": "2026-02-24",
       "valorEstimado": 2800,
       "valorFinal": 2680,
       "centroCusto": "LOG-001",
       "condicaoPagamento": "antecipado",
-      "dataCompra": "2026-05-02",
-      "dataEntrega": "2026-05-02",
+      "dataCompra": "2026-02-24",
+      "dataEntrega": "2026-02-24",
       "empresaKey": "orbix",
       "categoriaKey": "operacional",
       "historico": [
         {
           "status": "solicitado",
           "nota": null,
-          "diasAtras": 37
+          "diasAtras": 107
         },
         {
           "status": "ag_cotacao",
           "nota": "Comprador assumiu",
-          "diasAtras": 37
+          "diasAtras": 107
         },
         {
           "status": "em_aprovacao",
           "nota": "Cotação indicada",
-          "diasAtras": 36
+          "diasAtras": 106
         },
         {
           "status": "aprovado",
           "nota": null,
-          "diasAtras": 35
+          "diasAtras": 105
         },
         {
           "status": "comprado",
           "nota": "Fornecedor: Distribuidora Alfa Ltda · R$ 2.680,00",
-          "diasAtras": 35
+          "diasAtras": 105
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 35
+          "diasAtras": 105
         },
         {
           "status": "pago",
           "nota": null,
-          "diasAtras": 34
+          "diasAtras": 104
         }
       ],
       "comentarios": [
         {
           "texto": "Abastecimento realizado na Posto Central da Av. Industrial.",
-          "diasAtras": 35
+          "diasAtras": 105
         }
       ],
       "cotacoes": [
@@ -1245,9 +1245,9 @@
           "numero": 1,
           "total": 1,
           "valor": 2680,
-          "vencimento": "2026-05-02",
+          "vencimento": "2026-02-21",
           "pago": true,
-          "diasAtras": 35
+          "diasAtras": 105
         }
       ]
     },
@@ -1259,56 +1259,56 @@
       "urgente": false,
       "quantidade": 40,
       "unidade": "licença",
-      "dataNecessaria": "2026-04-30",
+      "dataNecessaria": "2026-02-09",
       "valorEstimado": 3200,
       "valorFinal": 3100,
       "centroCusto": "TI-004",
       "condicaoPagamento": "antecipado",
-      "dataCompra": "2026-04-28",
-      "dataEntrega": "2026-04-28",
+      "dataCompra": "2026-02-10",
+      "dataEntrega": "2026-02-10",
       "empresaKey": "nexara",
       "categoriaKey": "ti",
       "historico": [
         {
           "status": "solicitado",
           "nota": null,
-          "diasAtras": 42
+          "diasAtras": 122
         },
         {
           "status": "ag_cotacao",
           "nota": "Comprador assumiu",
-          "diasAtras": 42
+          "diasAtras": 122
         },
         {
           "status": "em_aprovacao",
           "nota": "Cotação indicada",
-          "diasAtras": 40
+          "diasAtras": 120
         },
         {
           "status": "aprovado",
           "nota": null,
-          "diasAtras": 39
+          "diasAtras": 119
         },
         {
           "status": "comprado",
           "nota": "Fornecedor: TechSupply Comércio · R$ 3.100,00",
-          "diasAtras": 39
+          "diasAtras": 119
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 39
+          "diasAtras": 119
         },
         {
           "status": "pago",
           "nota": null,
-          "diasAtras": 38
+          "diasAtras": 118
         }
       ],
       "comentarios": [
         {
           "texto": "Chaves de ativação enviadas por e-mail.",
-          "diasAtras": 39
+          "diasAtras": 119
         }
       ],
       "cotacoes": [
@@ -1325,9 +1325,9 @@
           "numero": 1,
           "total": 1,
           "valor": 3100,
-          "vencimento": "2026-04-28",
+          "vencimento": "2026-02-07",
           "pago": true,
-          "diasAtras": 39
+          "diasAtras": 119
         }
       ]
     },
@@ -1520,8 +1520,8 @@
       "valorFinal": 4200,
       "centroCusto": "TI-005",
       "condicaoPagamento": "apos_recebimento",
-      "dataCompra": "2026-05-18",
-      "dataEntrega": "2026-05-23",
+      "dataCompra": "2026-05-24",
+      "dataEntrega": "2026-05-27",
       "empresaKey": "veltora",
       "categoriaKey": "ti",
       "historico": [
@@ -1548,12 +1548,12 @@
         {
           "status": "comprado",
           "nota": "Fornecedor: TechSupply Comércio · R$ 4.200,00",
-          "diasAtras": 21
+          "diasAtras": 16
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 17
+          "diasAtras": 13
         }
       ],
       "comentarios": [
@@ -1562,7 +1562,7 @@
           "diasAtras": 16
         },
         {
-          "texto": "@Financeiro parcela a vencer em breve.",
+          "texto": "@Eduardo parcela a vencer em breve.",
           "diasAtras": 14
         }
       ],
@@ -1676,56 +1676,56 @@
       "urgente": false,
       "quantidade": 20,
       "unidade": "un",
-      "dataNecessaria": "2026-05-10",
+      "dataNecessaria": "2026-01-30",
       "valorEstimado": 600,
       "valorFinal": 560,
       "centroCusto": "RH-005",
       "condicaoPagamento": "antecipado",
-      "dataCompra": "2026-05-07",
-      "dataEntrega": "2026-05-09",
+      "dataCompra": "2026-01-30",
+      "dataEntrega": "2026-02-01",
       "empresaKey": "nexara",
       "categoriaKey": "escritorio",
       "historico": [
         {
           "status": "solicitado",
           "nota": null,
-          "diasAtras": 32
+          "diasAtras": 132
         },
         {
           "status": "ag_cotacao",
           "nota": "Comprador assumiu",
-          "diasAtras": 32
+          "diasAtras": 132
         },
         {
           "status": "em_aprovacao",
           "nota": "Cotação indicada",
-          "diasAtras": 31
+          "diasAtras": 131
         },
         {
           "status": "aprovado",
           "nota": null,
-          "diasAtras": 30
+          "diasAtras": 130
         },
         {
           "status": "comprado",
           "nota": "Fornecedor: Papelaria Premium Ltda · R$ 560,00",
-          "diasAtras": 30
+          "diasAtras": 130
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 28
+          "diasAtras": 128
         },
         {
           "status": "pago",
           "nota": null,
-          "diasAtras": 28
+          "diasAtras": 128
         }
       ],
       "comentarios": [
         {
           "texto": "Fotos enviadas para a gráfica.",
-          "diasAtras": 32
+          "diasAtras": 132
         }
       ],
       "cotacoes": [
@@ -1742,9 +1742,9 @@
           "numero": 1,
           "total": 1,
           "valor": 560,
-          "vencimento": "2026-05-07",
+          "vencimento": "2026-01-27",
           "pago": true,
-          "diasAtras": 30
+          "diasAtras": 130
         }
       ]
     },
@@ -1831,7 +1831,7 @@
       "valorEstimado": 9000,
       "valorFinal": 8700,
       "centroCusto": "MKT-003",
-      "condicaoPagamento": "apos_recebimento",
+      "condicaoPagamento": "antecipado",
       "dataCompra": "2026-03-13",
       "dataEntrega": "2026-06-05",
       "empresaKey": "nexara",
@@ -1874,7 +1874,7 @@
           "diasAtras": 4
         },
         {
-          "texto": "@Financeiro favor registrar parcelas restantes.",
+          "texto": "@Eduardo favor registrar parcelas restantes.",
           "diasAtras": 3
         }
       ],
@@ -2076,56 +2076,56 @@
       "urgente": false,
       "quantidade": 5,
       "unidade": "licença",
-      "dataNecessaria": "2026-04-15",
+      "dataNecessaria": "2026-01-15",
       "valorEstimado": 6000,
       "valorFinal": 5800,
       "centroCusto": "VND-001",
       "condicaoPagamento": "antecipado",
-      "dataCompra": "2026-04-10",
-      "dataEntrega": "2026-04-10",
+      "dataCompra": "2026-01-16",
+      "dataEntrega": "2026-01-20",
       "empresaKey": "nexara",
       "categoriaKey": "marketing",
       "historico": [
         {
           "status": "solicitado",
           "nota": null,
-          "diasAtras": 60
+          "diasAtras": 150
         },
         {
           "status": "ag_cotacao",
           "nota": "Comprador assumiu",
-          "diasAtras": 59
+          "diasAtras": 149
         },
         {
           "status": "em_aprovacao",
           "nota": "Cotação indicada",
-          "diasAtras": 57
+          "diasAtras": 147
         },
         {
           "status": "aprovado",
           "nota": null,
-          "diasAtras": 55
+          "diasAtras": 145
         },
         {
           "status": "comprado",
           "nota": "Fornecedor: TechSupply Comércio · R$ 5.800,00",
-          "diasAtras": 59
+          "diasAtras": 144
         },
         {
           "status": "entregue",
           "nota": null,
-          "diasAtras": 59
+          "diasAtras": 140
         },
         {
           "status": "pago",
           "nota": null,
-          "diasAtras": 58
+          "diasAtras": 138
         }
       ],
       "comentarios": [
         {
           "texto": "Todas as contas ativadas com sucesso.",
-          "diasAtras": 58
+          "diasAtras": 148
         }
       ],
       "cotacoes": [
@@ -2142,9 +2142,9 @@
           "numero": 1,
           "total": 1,
           "valor": 5800,
-          "vencimento": "2026-04-10",
+          "vencimento": "2026-01-10",
           "pago": true,
-          "diasAtras": 59
+          "diasAtras": 141
         }
       ]
     },
