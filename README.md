@@ -10,10 +10,11 @@ belongs to it.
 
 **Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Acessar modo demo** (open demo mode).
 
+[![Rules tests](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
-![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Functions-FFCA28?style=flat-square&logo=firebase&logoColor=black)
-![No build](https://img.shields.io/badge/build-none-555?style=flat-square)
-![Theme](https://img.shields.io/badge/theme-light_and_dark-C8A96E?style=flat-square)
+![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Storage-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![No bundler](https://img.shields.io/badge/bundler-none-555?style=flat-square)
+![Theme](https://img.shields.io/badge/theme-light_and_dark-D2693F?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
 This README is also available in [Portuguese](README.pt-br.md). The interface is in Brazilian Portuguese.
@@ -25,7 +26,7 @@ This README is also available in [Portuguese](README.pt-br.md). The interface is
    requester), each seeing and doing only what their role allows. You can switch at any time from the bar
    at the top. There are three fictitious companies, with 33 orders spread across every stage.
 2. On the board, open **PRX-0003** (awaiting approval): compare the three quotes and approve, or reject with a reason.
-3. Open **PRX-0012** (purchased): its first installment is overdue. Record the payment and watch the order move on.
+3. Switch to **Eduardo Lima** (finance) and open the bell: **PRX-0012** (purchased, paid upfront) has an overdue installment. Open it and record the payment.
 4. In **Relatórios** (reports), change the period and export to PDF or Excel, or print it.
 5. Switch roles (for example, to the requester or the approver) and see the same operation through the eyes of whoever owns each step.
 6. Play around freely: the demo data resets every day.
@@ -57,11 +58,11 @@ Captured from the demo.
 - **The next step is always visible.** Each order says who needs to act and what is missing, with the time spent in each stage and the bottleneck highlighted.
 - **Comments with @mentions, attachments and a full history** in a single timeline.
 - **Reports.** Spend, orders, savings from quotes and installments due, compared with the previous period; charts by month, status, category and company; PDF and Excel export plus a print layout. Approvers see operational data only.
-- **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by Firestore rules and custom claims. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
+- **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by the Firestore and Storage rules: each stage of an order can only be moved by the role that owns it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
 - **Multiple companies.** Each user sees only the companies they belong to; the top role sees all of them.
-- **Real-time in-app notifications**; email through Resend once an API key is configured.
+- **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
 - **Command palette** (Ctrl+K), guided tour, installable PWA, light and dark themes and a dedicated phone layout.
-- **Demo mode** with fictitious data whose dates follow today's date, rebuilt every week.
+- **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
 
 ## How an order moves
 
@@ -77,14 +78,16 @@ flowchart LR
   R -.->|reopened with justification| S
 ```
 
-Any order can be cancelled, with a reason, until it is purchased. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
+An order can be cancelled with a reason: by its requester while it waits for a buyer, and by a manager until delivery. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
 
 ## Technical decisions
 
 - **No framework and no build step.** The browser loads ES Modules directly; the whole interface comes from a CSS token system with light and dark themes.
-- **Security on the server, not in the UI.** Each user's role and companies travel in the auth token (custom claims set by a Cloud Function) and Firestore rules check every read and write.
+- **Security on the server, not in the UI.** Each user's role and companies travel in the auth token (custom claims set by a Cloud Function). The Firestore and Storage rules check every read and write: who may take each step of an order, which fields that step may change, and which companies each user reaches. The rules have automated tests on the emulator (`npm run testar-regras`), run by GitHub Actions on every push.
+- **Defense in depth in the browser.** Everything written by users is escaped before it reaches the page, and the site sends a Content Security Policy with no inline scripts, plus anti-framing and no-sniff headers. Fonts are served by the site itself.
 - **No races between users.** Claiming an order and approving it use `runTransaction`: if two people click at once, only one wins.
 - **A demo that never gets stale.** The seed stores the date it was written for and shifts every date to today on each rebuild.
+- **The public demo runs on Firebase's free plan.** It has no Cloud Functions: the demo account gets its role from the rules (by e-mail), the daily rebuild runs in the app itself ([`js/demo-reset.js`](js/demo-reset.js)) and the notifications in the bell are samples. Custom claims, automatic notifications, e-mails and scheduled jobs run in the emulators or on the paid plan.
 - **Everything verifiable locally.** With the Firebase emulators the whole app runs on your machine without touching real data.
 
 More in [`docs/arquitetura.md`](docs/arquitetura.md).
@@ -109,6 +112,12 @@ npm run seed      # 33 orders, 3 companies and one account per role
 npm run servir    # the app is served at http://localhost:8123
 ```
 
+To run the security rules tests (they start and stop their own emulators):
+
+```bash
+npm run testar-regras
+```
+
 On `localhost` the app connects to the emulators by itself. Use **Acessar modo demo**, or sign in as
 `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` or `solicitante@praxis.app`, all with the
 password `demo1234`, to see the system through each role.
@@ -125,12 +134,15 @@ password `demo1234`, to see the system through each role.
 index.html            single entry point; loads js/app.js as a module
 css/                  tokens → base → components → views → themes
 js/
-  app.js              session, routes (?tela=), top bar, navigation
+  app.js              session, routes (?tela=), sidebar, navigation
   pedidos.js          board and list, filters, saved views, bulk actions
   pedido-detalhe.js   order flow, quotes, installments, comments, attachments, PDF
   relatorios.js       dashboard, charts and exports
   config-*.js         users, registries and preferences
+  demo-*.js           demo people and the daily rebuild
 functions/            triggers, scheduled jobs and the demo seed
+scripts/              emulator seed (npm run seed)
+tests/                Firestore and Storage rules tests (emulator)
 docs/                 architecture, order flow and permissions (in Portuguese)
 ```
 

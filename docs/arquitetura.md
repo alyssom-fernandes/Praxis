@@ -6,7 +6,7 @@ Praxis é uma SPA em Vanilla JS (ES Modules nativos, sem bundler) sobre Firebase
 
 ```
 Browser (ES Modules)
-  ├── js/app.js ............ auth listener + roteamento + shells (topbar/footer)
+  ├── js/app.js ............ auth listener + roteamento + moldura (barra lateral/rodapé)
   ├── js/<tela>.js ......... cada tela é um módulo com renderX() própria
   └── js/firebase.js ....... init do SDK + re-exports (Auth, Firestore, Storage, Functions)
 
@@ -61,7 +61,18 @@ pedidos/{pedidoId}/comprovantes/{parcelaId} comprovantes de pagamento
 pedidos/{pedidoId}/anexos/{timestamp_nome}  anexos gerais (PDF/imagem/DOCX/XLSX)
 ```
 
-Multiempresa: todo pedido tem `empresaId`; toda query filtra por `where('empresaId', 'in', usuario.empresas)`. As Rules repetem essa validação usando o array `empresas` do token.
+Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empresaId', 'in', usuario.empresas)` (o solicitante, por `solicitanteId`). As regras exigem esse filtro, usando o array `empresas` do token: sem ele, só o supremo lista.
+
+## Segurança
+
+| Camada | Onde | O que faz |
+|---|---|---|
+| Regras do Firestore | `firestore.rules` | Cada passo do pedido só pelo perfil dono, mudando só os campos daquele passo; empresas isoladas; ninguém muda o próprio perfil; datas validadas. Detalhes em [`permissoes.md`](permissoes.md). |
+| Regras do Storage | `storage.rules` | Arquivos só para quem tem perfil; anexo assinado com o UID de quem enviou. |
+| Testes das regras | `tests/regras.test.mjs` | Emulador, a cada envio (GitHub Actions, `.github/workflows/testes.yml`). |
+| Escape na tela | `js/utils.js` (`esc`, `formatDate`, `urlSegura`), `js/ui.js` | Todo texto gravado por usuários é escapado antes do `innerHTML`; links só `http(s)`; avisos e diálogos escapam por padrão. |
+| Cabeçalhos | `firebase.json` | CSP sem script inline (o primeiro script fica em `js/inicio.js`), `frame-ancestors 'none'`, `nosniff`, Referrer-Policy e Permissions-Policy. |
+| Fontes locais | `assets/fonts/`, `css/fontes.css` | Nenhuma requisição ao Google Fonts (nem repasse do IP do visitante). |
 
 ## Cloud Functions
 
@@ -86,7 +97,7 @@ em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
 
 | Funcionalidade | Implementação |
 |---|---|
-| **PWA** | `manifest.json` + `service-worker.js` (cache-first assets, network-first CDN, network-only Firestore/Auth) |
+| **PWA** | `manifest.json` + `service-worker.js` (rede primeiro para os arquivos do site e as CDNs, cache só sem internet; Firestore/Auth sem interceptação) |
 | **Paginação** | Slice client-side de 20 em 20 após `_filtrarPedidos()`; cursor não é necessário pois o listener já carrega tudo |
 | **Ações em massa** | `_selecionados` (`Set`); export gera CSV com BOM UTF-8; cancelamento em massa via `Promise.all` com `updateDoc` + historico |
 | **Visões salvas** | `_viewsSalvas` em `localStorage` (chave `praxis_views_{uid}`); max 8; salva 10 estados de filtro + modo |
@@ -98,8 +109,9 @@ em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
 
 ## Modo demo
 
-- Login de um clique (PT/EN) com conta pré-criada.
-- Seed canônico em `functions/seed.json`: 3 empresas, 8 fornecedores, 33 pedidos com histórico, cotações, comentários e parcelas.
+- Entrada pelo botão "Acessar modo demo", com a escolha de quem ser: seis pessoas, uma por perfil (`js/demo-pessoas.js`). O login é sempre a mesma conta demo.
+- Seed em `assets/demo/seed.json` (cópia idêntica em `functions/seed.json`, para as Functions): 3 empresas, 8 fornecedores, 33 pedidos com histórico, cotações, comentários e parcelas.
+- A renovação (`js/demo-reset.js`) distribui os pedidos entre a solicitante, a gestora e três colegas, dá a cada pessoa um último acesso plausível e grava os avisos que as Cloud Functions mandariam (parcela vencida, cotações prontas, aprovação, entrega, @menções).
 - Datas do seed são **relativas**: histórico e comentários usam `diasAtras`, parcelas podem usar `vencimentoDias`, e as datas fixas (necessidade, compra, entrega, vencimento) foram escritas para `_dataReferencia` e são deslocadas até o dia de hoje a cada reset. O dashboard sempre tem dados vivos.
-- Localmente, `npm run seed` aplica o mesmo seed nos emuladores (`_build/seed-emulator.js`), com uma conta de teste por perfil.
+- Localmente, `npm run seed` aplica o mesmo seed nos emuladores (`scripts/seed-emulator.js`), com uma conta de teste por perfil.
 - Escrita de configuração bloqueada para o usuário demo no cliente.

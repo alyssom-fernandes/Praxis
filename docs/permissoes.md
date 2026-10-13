@@ -43,12 +43,17 @@
 
 1. **Cliente** (`js/`) — botões e telas são renderizados condicionalmente pelo perfil da sessão (ex.: Solicitante não vê "Aprovar"; Aprovador entra em Relatórios mas sem os cards financeiros).
 2. **Roteamento** (`app.js`) — telas bloqueadas por perfil redirecionam para `?tela=pedidos`.
-3. **Firestore Rules** — validação server-side via Custom Claims (`perfil`, `empresas[]`):
-   - usuário só lê/escreve pedidos das empresas em que está vinculado;
-   - cotações: escrita só por compradores/gestores/supremo;
-   - parcelas: escrita só por financeiro/gestor/supremo;
-   - notificações: cada usuário só acessa as próprias.
-4. **Cloud Functions** — `setUserClaims` mantém os claims sincronizados com `/usuarios/{id}`; alterações de perfil/empresas têm efeito no próximo refresh do token.
+3. **Regras do Firestore** (`firestore.rules`) — validação no servidor via Custom Claims (`perfil`, `empresas[]`):
+   - conta sem perfil (criada fora do app) não lê nem grava nada;
+   - pedidos: cada um só é lido por quem tem a empresa dele (ou pelo solicitante, nos próprios); listar exige filtrar pelas empresas do usuário, e só o supremo lista sem filtro;
+   - cada passo do fluxo tem dono e campos próprios, como na tabela de [`fluxo-pedidos.md`](fluxo-pedidos.md): só quem aprova aprova (assinando com o próprio ID), só o comprador do pedido registra a compra, só o financeiro confirma o pagamento, e cada passo só muda os campos dele;
+   - cotações e parcelas: escrita pelo perfil certo e só em pedidos da empresa; comentários, histórico e anexos assinados por quem escreve;
+   - usuários: ninguém muda o próprio perfil nem as próprias empresas (só o último acesso); o gestor não cria nem promove ninguém a supremo e só dá acesso às empresas que ele tem;
+   - notificações: cada usuário só lê as próprias; pelo app, só se cria o aviso de @menção, assinado por quem mencionou (os automáticos vêm das Cloud Functions);
+   - datas fora do formato `aaaa-mm-dd` são recusadas para todos, inclusive a conta demo.
+4. **Regras do Storage** (`storage.rules`) — arquivos só para quem tem perfil; cotação pelo comprador, comprovante pelo financeiro; anexo assinado com o UID de quem enviou, que só ele ou um gestor apaga. Limitação conhecida: o Storage não confere a empresa do pedido (isso exigiria ler o Firestore a cada arquivo).
+5. **Testes** (`tests/regras.test.mjs`) — cada perfil tenta o que pode e o que não pode, no emulador (`npm run testar-regras`), a cada envio ao GitHub.
+6. **Cloud Functions** — `setUserClaims` mantém os claims sincronizados com `/usuarios/{id}`; alterações de perfil/empresas têm efeito no próximo refresh do token. A demo pública não tem Cloud Functions: a conta demo vale como supremo pelo e-mail (`eDemo()` nas regras).
 
 ## Relatórios por perfil
 
