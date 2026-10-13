@@ -1,13 +1,16 @@
-{
+﻿{
   "name": "praxis",
   "private": true,
-  "description": "Gestão de compras corporativas — do pedido ao pagamento",
+  "description": "GestÃ£o de compras corporativas â€” do pedido ao pagamento",
   "scripts": {
     "emuladores": "firebase emulators:start --only auth,firestore,functions,storage",
-    "seed": "node _build/seed-emulator.js",
-    "servir": "npx --yes http-server . -p 8123 -c-1"
+    "seed": "node scripts/seed-emulator.js",
+    "servir": "npx --yes http-server . -p 8123 -c-1",
+    "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\""
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
     "firebase-tools": "^13.35.1"
   }
 }

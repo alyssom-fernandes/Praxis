@@ -6,36 +6,51 @@ service firebase.storage {
     // A conta da demo pública vale como supremo mesmo sem as permissões
     // gravadas no login (quem grava é uma Cloud Function, fora do plano gratuito)
     function perfil() {
-      return request.auth.token.email == 'demo@praxis.app' ? 'supremo' : request.auth.token.perfil;
+      return request.auth.token.get('email', '') == 'demo@praxis.app' ? 'supremo' : request.auth.token.get('perfil', null);
     }
 
-    // Cotações — leitura por todos com acesso, escrita apenas compradores
+    // Conta sem perfil (criada fora do app) não lê nem grava arquivo nenhum
+    function temPerfil() {
+      return request.auth != null &&
+        perfil() in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'];
+    }
+
+    function arquivoValido(tipos) {
+      return request.resource.size < 10 * 1024 * 1024 &&  // 10 MB
+        request.resource.contentType.matches(tipos);
+    }
+
+    // Limitação conhecida: o Storage não confere a empresa do pedido (isso
+    // exigiria ler o Firestore a cada arquivo); a empresa é conferida no
+    // Firestore, que guarda os links dos arquivos
+
+    // Cotações — leitura por quem tem perfil, escrita apenas compradores
     match /pedidos/{pedidoId}/cotacoes/{cotacaoId}/{fileName} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
-        && perfil() in ['supremo', 'gestor', 'comprador']
-        && request.resource.size < 10 * 1024 * 1024  // 10 MB
-        && request.resource.contentType.matches('application/pdf|image/.*');
+      allow read: if temPerfil();
+      allow create, update: if temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'] &&
+        arquivoValido('application/pdf|image/.*');
+      allow delete: if temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'];
     }
 
-    // Comprovantes — leitura por todos, escrita apenas financeiro/gestor
+    // Comprovantes — leitura por quem tem perfil, escrita apenas financeiro/gestor
     match /pedidos/{pedidoId}/comprovantes/{parcelaId}/{fileName} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
-        && perfil() in ['supremo', 'gestor', 'financeiro']
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('application/pdf|image/.*');
+      allow read: if temPerfil();
+      allow create, update: if temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'] &&
+        arquivoValido('application/pdf|image/.*');
+      allow delete: if temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'];
     }
 
-    // Anexos gerais (4.10) — leitura por todos autenticados, escrita por qualquer logado (validação de empresa fica no Firestore)
+    // Anexos gerais — qualquer perfil anexa, assinando o arquivo com o próprio
+    // UID; apaga quem anexou ou um gestor
     match /pedidos/{pedidoId}/anexos/{fileName} {
-      allow read:   if request.auth != null;
-      allow write:  if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches(
-             'application/pdf|image/.*|application/vnd\\.openxmlformats.*|application/msword'
-           );
-      allow delete: if request.auth != null;
+      allow read: if temPerfil();
+      allow create: if temPerfil() &&
+        request.resource.metadata.autorUid == request.auth.uid &&
+        arquivoValido('application/pdf|image/.*|application/vnd\\.openxmlformats.*|application/msword');
+      allow update: if false;
+      allow delete: if temPerfil() && (
+        perfil() in ['supremo', 'gestor'] || resource.metadata.autorUid == request.auth.uid
+      );
     }
 
   }

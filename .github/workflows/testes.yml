@@ -1,0 +1,63 @@
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regras:
+    name: Regras do Firestore e do Storage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # O emulador do Firestore roda em Java
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Dependências
+        run: npm ci
+
+      - name: Sintaxe dos módulos do app
+        run: for f in js/*.js tests/*.mjs; do node --check "$f"; done
+
+      - name: Cache dos emuladores
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: emuladores-${{ hashFiles('package-lock.json') }}
+
+      - name: Testes das regras (emulador)
+        run: npm run testar-regras
+
+  functions:
+    name: Lint das Cloud Functions
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint

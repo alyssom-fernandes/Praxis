@@ -11,16 +11,22 @@ service cloud.firestore {
     // Conta da demonstração pública. A renovação diária da demo é feita pelo
     // próprio app (js/demo-reset.js, sem Cloud Functions) e precisa apagar o
     // que a demo criou; só essa conta pode.
-    function eDemo() { return request.auth.token.email == 'demo@praxis.app'; }
+    function eDemo() { return request.auth.token.get('email', '') == 'demo@praxis.app'; }
 
     // A conta demo vale como supremo mesmo sem as permissões gravadas no login
     // (quem grava é uma Cloud Function, que fica fora do plano gratuito)
     function perfil() {
-      return eDemo() ? 'supremo' : request.auth.token.perfil;
+      return eDemo() ? 'supremo' : request.auth.token.get('perfil', null);
+    }
+
+    // Conta sem perfil (criada fora do app) não lê nem grava nada
+    function temPerfil() {
+      return estaLogado() &&
+        perfil() in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'];
     }
 
     function empresasDoUsuario() {
-      return request.auth.token.empresas;
+      return request.auth.token.get('empresas', []);
     }
 
     function temAcessoEmpresa(empresaId) {
@@ -33,132 +39,256 @@ service cloud.firestore {
     function eComprador() { return perfil() in ['supremo', 'gestor', 'comprador']; }
     function eFinanceiro() { return perfil() in ['supremo', 'gestor', 'financeiro']; }
 
+    function eu() { return request.auth.uid; }
+    function mudouSo(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // Datas no formato aaaa-mm-dd (ou vazias): vale para todos, demo inclusive,
+    // porque o app as mostra na tela
+    function dataOk(campo) {
+      return request.resource.data.get(campo, null) == null ||
+        request.resource.data.get(campo, null).matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    function pedidoValido() {
+      return request.resource.data.status in
+          ['solicitado', 'ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue', 'pago', 'reprovado', 'cancelado'] &&
+        dataOk('dataNecessaria') && dataOk('dataCompra') && dataOk('dataEntrega');
+    }
+
     // ── Usuários ───────────────────────────────────────────────
     match /usuarios/{userId} {
+      // Quem não é supremo não cria, edita nem promove ninguém a supremo, e só
+      // dá acesso às empresas que ele mesmo tem
+      function semPromover() {
+        return eSupremo() || (
+          request.resource.data.get('perfil', '') != 'supremo' &&
+          (resource == null || resource.data.get('perfil', '') != 'supremo') &&
+          request.resource.data.get('empresas', []).hasOnly(empresasDoUsuario())
+        );
+      }
+
       allow read: if estaLogado() && (
         request.auth.uid == userId || eGestor()
       );
-      allow create: if estaLogado() && eGestor();
+      allow create: if temPerfil() && eGestor() && semPromover();
+      // O próprio usuário só registra o último acesso: perfil e empresas viram
+      // permissões no token (setUserClaims) e não podem ser mudados por ele
       allow update: if estaLogado() && (
-        request.auth.uid == userId || eGestor()
+        (request.auth.uid == userId && mudouSo(['ultimoAcesso'])) ||
+        (temPerfil() && eGestor() && request.auth.uid != userId && semPromover()) ||
+        eSupremo()
       );
       allow delete: if estaLogado() && eSupremo();
     }
 
     // ── Empresas ───────────────────────────────────────────────
     match /empresas/{empresaId} {
-      allow read:   if estaLogado();
-      allow create: if estaLogado() && eGestor();
-      allow update: if estaLogado() && eGestor();
-      allow delete: if estaLogado() && eSupremo();
+      allow read:   if temPerfil();
+      allow create: if temPerfil() && eGestor();
+      allow update: if temPerfil() && eGestor();
+      allow delete: if temPerfil() && eSupremo();
     }
 
     // ── Categorias ─────────────────────────────────────────────
     match /categorias/{catId} {
-      allow read:   if estaLogado();
-      allow create: if estaLogado() && eGestor();
-      allow update: if estaLogado() && eGestor();
-      allow delete: if estaLogado() && eSupremo();
+      allow read:   if temPerfil();
+      allow create: if temPerfil() && eGestor();
+      allow update: if temPerfil() && eGestor();
+      allow delete: if temPerfil() && eSupremo();
     }
 
     // ── Fornecedores ───────────────────────────────────────────
     match /fornecedores/{fornId} {
-      allow read:   if estaLogado();
-      allow create: if estaLogado() && eComprador();
-      allow update: if estaLogado() && (eComprador() || eGestor());
-      allow delete: if estaLogado() && eGestor();
+      allow read:   if temPerfil();
+      allow create: if temPerfil() && eComprador();
+      allow update: if temPerfil() && (eComprador() || eGestor());
+      allow delete: if temPerfil() && eGestor();
     }
 
-    // ── Metadados internos (contadores, config) ───────────────
-    match /_meta/{docId} {
-      allow read:  if estaLogado();
-      allow write: if estaLogado(); // transaction atômica do numeroPedido
+    // ── Metadados internos ─────────────────────────────────────
+    // Contador do número do pedido (PRX-0001…): quem abre um pedido soma 1
+    match /_meta/contadores {
+      allow read: if temPerfil();
+      allow create, update: if temPerfil() && (eSupremo() || (
+        request.resource.data.keys().hasOnly(['totalPedidos']) &&
+        request.resource.data.totalPedidos ==
+          (resource == null ? 0 : resource.data.get('totalPedidos', 0)) + 1
+      ));
+    }
+    // Trava e dia da renovação da demo: só a conta demo
+    match /_meta/demo {
+      allow read, write: if estaLogado() && eDemo();
     }
 
     // ── Pedidos ────────────────────────────────────────────────
     match /pedidos/{pedidoId} {
-      // get: acesso por documento individual (resource.data disponível)
-      allow get: if estaLogado() && (
-        eSupremo() || temAcessoEmpresa(resource.data.empresaId)
+      // Cada passo do caminho, com quem pode dá-lo e o que pode mudar
+      // (o mesmo que o app mostra em js/pedido-detalhe.js e js/pedidos.js)
+      function de(st0, st1) {
+        return resource.data.status == st0 && request.resource.data.status == st1;
+      }
+      function oComprador() {
+        return resource.data.get('compradorId', null) == eu() || eGestor();
+      }
+      function oSolicitante() { return resource.data.get('solicitanteId', null) == eu(); }
+
+      // Marca de "visto" de quem abriu o pedido e data do último comentário
+      function visto() {
+        return mudouSo(['vistoPor']) &&
+          request.resource.data.get('vistoPor', {}).diff(resource.data.get('vistoPor', {}))
+            .affectedKeys().hasOnly([eu()]);
+      }
+      function comentou() { return mudouSo(['ultimoComentarioEm']); }
+
+      function assumir() {
+        return de('solicitado', 'ag_cotacao') && eComprador() &&
+          resource.data.get('compradorId', null) == null &&
+          request.resource.data.compradorId == eu() &&
+          mudouSo(['status', 'compradorId', 'compradorNome', 'compradorAssumiuEm', 'atualizadoEm']);
+      }
+      function liberar() {
+        return de('ag_cotacao', 'solicitado') && eGestor() &&
+          request.resource.data.compradorId == null &&
+          mudouSo(['status', 'compradorId', 'compradorNome', 'compradorAssumiuEm', 'atualizadoEm']);
+      }
+      function indicarCotacao() {
+        return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
+          mudouSo(['status', 'atualizadoEm']);
+      }
+      function aprovar() {
+        return de('em_aprovacao', 'aprovado') && eAprovador() &&
+          request.resource.data.aprovadoPor == eu() &&
+          mudouSo(['status', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']);
+      }
+      function reprovar() {
+        return de('em_aprovacao', 'reprovado') && eAprovador() &&
+          request.resource.data.reprovadoPor == eu() &&
+          mudouSo(['status', 'reprovadoPor', 'reprovadoPorNome', 'reprovadoEm',
+                   'motivoReprovacao', 'motivoReprovacaoOutros', 'atualizadoEm']);
+      }
+      function comprar() {
+        return de('aprovado', 'comprado') && eComprador() && oComprador() &&
+          mudouSo(['status', 'fornecedorId', 'fornecedorNome', 'valorFinal',
+                   'condicaoPagamento', 'dataCompra', 'atualizadoEm']);
+      }
+      function receber() {
+        return de('comprado', 'entregue') && (eComprador() || oSolicitante()) &&
+          mudouSo(['status', 'dataEntrega', 'atualizadoEm']);
+      }
+      function pagar() {
+        return de('entregue', 'pago') && eFinanceiro() &&
+          mudouSo(['status', 'atualizadoEm']);
+      }
+      function cancelar() {
+        return request.resource.data.status == 'cancelado' && (
+          (oSolicitante() && resource.data.status == 'solicitado') ||
+          (eGestor() && !(resource.data.status in ['entregue', 'pago', 'reprovado', 'cancelado']))
+        ) &&
+          mudouSo(['status', 'canceladoPor', 'canceladoPorNome', 'canceladoEm',
+                   'motivoCancelamento', 'motivoCancelamentoOutros', 'atualizadoEm']);
+      }
+      function editar() {
+        return (
+          (oSolicitante() && resource.data.status == 'solicitado') ||
+          (eGestor() && !(resource.data.status in ['pago', 'reprovado', 'cancelado']))
+        ) &&
+          mudouSo(['titulo', 'descricao', 'valorEstimado', 'dataNecessaria',
+                   'categoriaId', 'urgente', 'atualizadoEm']);
+      }
+      function reabrir() {
+        return resource.data.status == 'reprovado' &&
+          resource.data.get('reabertoPara', null) == null &&
+          (eGestor() || (perfil() == 'solicitante' && oSolicitante())) &&
+          mudouSo(['reabertoPara', 'reabertaParaNum', 'atualizadoEm']);
+      }
+
+      allow get: if temPerfil() && (
+        eSupremo() || temAcessoEmpresa(resource.data.empresaId) ||
+        resource.data.solicitanteId == eu()
       );
-      // list: pré-voo não tem resource.data; app sempre filtra por where('empresaId','in',empresas)
-      allow list: if estaLogado() && (
-        eSupremo() || empresasDoUsuario() != null
+      // A consulta precisa filtrar pelas empresas do usuário (ou, para o
+      // solicitante, pelos pedidos dele); sem filtro, só o supremo lista
+      allow list: if temPerfil() && (
+        eSupremo() || resource.data.empresaId in empresasDoUsuario() ||
+        resource.data.solicitanteId == eu()
       );
-      allow create: if estaLogado() && (
-        temAcessoEmpresa(request.resource.data.empresaId) ||
-        eSupremo()
+      allow create: if temPerfil() && pedidoValido() && (
+        eSupremo() || (
+          temAcessoEmpresa(request.resource.data.empresaId) &&
+          request.resource.data.status == 'solicitado' &&
+          (request.resource.data.solicitanteId == eu() || eGestor())
+        )
       );
-      allow update: if estaLogado() && (
-        temAcessoEmpresa(resource.data.empresaId) ||
-        eSupremo()
+      allow update: if temPerfil() && pedidoValido() && (
+        eSupremo() || (
+          temAcessoEmpresa(resource.data.empresaId) &&
+          request.resource.data.empresaId == resource.data.empresaId && (
+            visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
+            aprovar() || reprovar() || comprar() || receber() || pagar() ||
+            cancelar() || editar() || reabrir()
+          )
+        )
       );
       // Pedidos nunca são deletados (apenas cancelados), exceto os da demo na renovação
       allow delete: if estaLogado() && eDemo() &&
         (resource.data.isDemo == true || resource.data.solicitanteId == request.auth.uid);
 
+      // Subcoleções: o supremo vem primeiro, para a renovação da demo (em lote)
+      // não gastar as leituras do pedido-pai que as regras permitem
+      function pai() {
+        return get(/databases/$(database)/documents/pedidos/$(pedidoId)).data;
+      }
+      function veOPedido() {
+        return eSupremo() || temAcessoEmpresa(pai().empresaId) || pai().solicitanteId == eu();
+      }
+      function daEmpresa() {
+        return temAcessoEmpresa(pai().empresaId);
+      }
+      function autorSouEu() {
+        return eSupremo() || request.resource.data.autorId == eu();
+      }
+
       // ── Cotações ─────────────────────────────────────────────
       match /cotacoes/{cotacaoId} {
-        allow read: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow create, update: if estaLogado() && eComprador();
-        allow delete: if estaLogado() && eGestor();
+        allow read: if temPerfil() && veOPedido();
+        allow create, update: if temPerfil() && (eSupremo() || (eComprador() && daEmpresa()));
+        allow delete: if temPerfil() && (eSupremo() || (eGestor() && daEmpresa()));
       }
 
       // ── Comentários ───────────────────────────────────────────
       match /comentarios/{comentarioId} {
-        allow read: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow create: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow update: if estaLogado() && (
+        allow read: if temPerfil() && veOPedido();
+        allow create: if temPerfil() && veOPedido() && autorSouEu();
+        allow update: if temPerfil() && (
           request.auth.uid == resource.data.autorId || eGestor()
         );
-        allow delete: if estaLogado() && eGestor();
+        allow delete: if temPerfil() && eGestor();
       }
 
       // ── Parcelas ──────────────────────────────────────────────
       match /parcelas/{parcelaId} {
-        allow read: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow create: if estaLogado() && eComprador();
-        allow update: if estaLogado() && eFinanceiro();
+        allow read: if temPerfil() && veOPedido();
+        allow create: if temPerfil() && (eSupremo() || (eComprador() && daEmpresa()));
+        allow update: if temPerfil() && (eSupremo() || (
+          eFinanceiro() && daEmpresa() && mudouSo(['pago', 'pagoEm', 'comprovante'])
+        ));
         allow delete: if estaLogado() && eDemo(); // só a renovação da demo
       }
 
       // ── Histórico ─────────────────────────────────────────────
       match /historico/{entradaId} {
-        allow read: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow create: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
+        allow read: if temPerfil() && veOPedido();
+        allow create: if temPerfil() && veOPedido() && autorSouEu();
         allow update: if false; // Histórico é imutável
         allow delete: if estaLogado() && eDemo(); // só a renovação da demo
       }
 
-      // ── Anexos gerais (4.10) ──────────────────────────────────
+      // ── Anexos gerais ─────────────────────────────────────────
       match /anexos/{anexoId} {
-        allow read: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow create: if estaLogado() && (
-          temAcessoEmpresa(get(/databases/$(database)/documents/pedidos/$(pedidoId)).data.empresaId) ||
-          eSupremo()
-        );
-        allow delete: if estaLogado() && (
+        allow read: if temPerfil() && veOPedido();
+        allow create: if temPerfil() && veOPedido() && autorSouEu();
+        allow delete: if temPerfil() && (
           request.auth.uid == resource.data.autorId || eGestor()
         );
         allow update: if false;
@@ -174,9 +304,20 @@ service cloud.firestore {
 
     match /notificacoes/{userId}/items/{notifId} {
       allow read:   if estaLogado() && eDonoNotificacao(userId);
-      allow create: if estaLogado(); // Cloud Functions gravam aqui
-      allow update: if estaLogado() && eDonoNotificacao(userId);
+      allow update: if estaLogado() && eDonoNotificacao(userId) && mudouSo(['lida']);
       allow delete: if estaLogado() && eDonoNotificacao(userId);
+      // Os avisos automáticos vêm das Cloud Functions (que não passam pelas
+      // regras). Pelo app, só o aviso de menção num comentário, assinado por
+      // quem mencionou; na demo, a conta demo grava os das pessoas dela
+      allow create: if estaLogado() && (
+        eDonoNotificacao(userId) || (
+          temPerfil() &&
+          request.resource.data.evento == 'mencao_comentario' &&
+          request.resource.data.autorId == request.auth.uid &&
+          request.resource.data.lida == false &&
+          request.resource.data.keys().hasOnly(['evento', 'titulo', 'corpo', 'pedidoId', 'lida', 'criadaEm', 'autorId'])
+        )
+      );
     }
   }
 }
