@@ -33,6 +33,11 @@ let _unsubPedido    = null
 let _unsubHistorico = null
 let _pedidoId    = null
 let _pedido      = null
+// Posição na régua da última renderização, e de onde o pedido acabou de
+// avançar (null quando não avançou): a régua anima só o passo que mudou
+let _posAnterior  = null
+let _avancouDe    = null
+let _avancouEm    = 0
 let _cotacoes    = []
 let _comentarios = []
 let _historico   = []
@@ -47,6 +52,8 @@ let _fornecedores = []
 export async function renderDetalhe(pedidoId) {
   if (!pedidoId) { navegar('pedidos'); return }
   _pedidoId = pedidoId
+  _posAnterior = null
+  _avancouDe = null
 
   const app = document.getElementById('app')
   app.innerHTML = `
@@ -374,6 +381,7 @@ function _renderCaminho() {
       sub = p.status === STATUS.PAGO ? `Em ${_diaMes(ent[st]) || '—'}` : (ent[st] ? formatarDataRelativa(ent[st]).label : 'Agora')
       leitor = 'etapa atual'
     } else { cls = parou ? 'cortada' : 'futura' }
+    if (_avancouDe != null && i > _avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
     return `
       <li class="caminho-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
         <span class="caminho-num" aria-hidden="true">${_dois(i + 1)}</span>
@@ -430,6 +438,18 @@ function _renderDetalhe() {
   const root = document.getElementById('detalhe-root')
   if (!root) return
 
+  // Avançou de etapa desde a última renderização (pela pessoa ou por outra, em
+  // tempo real)? Só então a régua e o bloco do próximo passo se mexem
+  // Logo depois de avançar, o detalhe se redesenha de novo (o histórico chega
+  // milissegundos depois): nesses 1,6 s a animação continua de onde estava
+  // (atraso negativo em --desde), em vez de recomeçar ou ser cortada
+  const { atual: posAgora, parou: parouAgora } = _posicaoCaminho()
+  const agora = performance.now()
+  if (_posAnterior != null && posAgora > _posAnterior && !parouAgora) { _avancouDe = _posAnterior; _avancouEm = agora }
+  else if (_avancouDe != null && (posAgora !== _posAnterior || agora - _avancouEm > 1600)) _avancouDe = null
+  _posAnterior = posAgora
+  const desde = _avancouDe != null ? Math.round(agora - _avancouEm) : 0
+
   const p       = _pedido
   const empresa = _empresas.find(e => e.id === p.empresaId)
   const categ   = _categorias.find(c => c.id === p.categoriaId)
@@ -461,7 +481,7 @@ function _renderDetalhe() {
   const cotInd = _cotacoes.find(c => c.indicada)
 
   root.innerHTML = `
-    <div class="detalhe-layout">
+    <div class="detalhe-layout${_avancouDe != null ? ' avancou' : ''}"${desde ? ` style="--desde:-${desde}ms"` : ''}>
       ${_renderCabecalho(acoes.menu)}
       ${_renderCaminho()}
       ${_renderDecisao(acoes.painel)}

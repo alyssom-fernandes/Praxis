@@ -6,7 +6,7 @@ import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc } from './utils.js'
+import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -44,8 +44,33 @@ let _arrastoAtivo = false
 let _renderPendente = false
 function _fimDoArrasto() {
   _arrastoAtivo = false
-  if (_renderPendente) { _renderPendente = false; _renderView() }
+  if (_renderPendente) { _renderPendente = false; _renderMostrandoMudancas() }
 }
+
+// Pedidos que mudaram de etapa (ou chegaram) desde a leitura anterior, por
+// esta pessoa ou por outra em tempo real. O quadro mostra para onde foram: o
+// cartão desliza até a nova coluna (View Transitions, onde houver) e fica
+// realçado por um instante. A primeira leitura não anima nada.
+let _etapaAntes = null
+let _mudaramAgora = new Set()
+// Quando cada cartão mudou: o anel segue de onde estava se o quadro se
+// redesenhar logo em seguida (outra leitura do banco), em vez de recomeçar
+const _mudouEm = new Map()
+function _renderMostrandoMudancas() {
+  const animar = _mudaramAgora.size && document.startViewTransition &&
+    !prefereMenosMovimento() && document.visibilityState === 'visible'
+  const desenhar = () => { _renderView(); _mudaramAgora = new Set() }
+  if (!animar) { desenhar(); return }
+  // Só os cartões que mudaram ganham nome de transição (no quadro antigo e no
+  // novo): eles deslizam; o resto troca na hora. Nomear todos fazia os cartões
+  // passarem por cima da faixa fixa do topo durante a transição.
+  _mudaramAgora.forEach(id => {
+    const antigo = document.querySelector(`.kcard[data-id="${CSS.escape(id)}"]`)
+    if (antigo) antigo.style.viewTransitionName = _nomeTransicao(id)
+  })
+  document.startViewTransition(desenhar)
+}
+const _nomeTransicao = id => `kc-${String(id).replace(/[^\w-]/g, '')}`
 const _TERMINAIS = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
 
 // ── Ícones (traço 2, mesma família da barra lateral) ───────────
@@ -966,6 +991,9 @@ async function _submeterNovoPedido() {
 // ── Listener em tempo real ────────────────────────────────────
 function _iniciarListenerPedidos() {
   if (_unsubPedidos) _unsubPedidos()
+  _etapaAntes = null
+  _mudaramAgora = new Set()
+  _mudouEm.clear()
 
   const perfil = sessao.usuario.perfil
 
@@ -999,11 +1027,19 @@ function _iniciarListenerPedidos() {
 
   _unsubPedidos = onSnapshot(q, snap => {
     _pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const antes = _etapaAntes
+    _etapaAntes = new Map(_pedidos.map(p => [p.id, p.status]))
+    if (antes) {
+      const mudaram = _pedidos.filter(p => antes.get(p.id) !== p.status)
+      // Mudança em massa (a renovação da demo, um cancelamento em lote) não
+      // anima: dezenas de cartões deslizando e piscando não mostram nada
+      if (mudaram.length <= 3) mudaram.forEach(p => { _mudaramAgora.add(p.id); _mudouEm.set(p.id, performance.now()) })
+    }
     // Seleção só guarda pedidos que ainda existem
     const ids = new Set(_pedidos.map(p => p.id))
     ;[..._selecionados].forEach(id => { if (!ids.has(id)) _selecionados.delete(id) })
     if (_arrastoAtivo) { _renderPendente = true; return }
-    _renderView()
+    _renderMostrandoMudancas()
   }, err => {
     console.error(err)
     prxToast(t('erroCarregarPedidos'), 'error')
@@ -1764,11 +1800,15 @@ function _renderKcard(p) {
   const valor   = _valorPedido(p)
   const naoLido = _temComentarioNaoLido(p)
   const prazo   = _prazoPedido(p)
+  const desde   = _mudouEm.has(p.id) ? Math.round(performance.now() - _mudouEm.get(p.id)) : null
+  if (desde != null && desde > 1900) _mudouEm.delete(p.id)
+  const mudou   = desde != null && desde <= 1900
   const rotulo  = [p.numeroPedido, p.titulo, p.urgente ? t('urgenteTag') : '', prazo?.texto, valor ? formatCurrency(valor) : '']
     .filter(Boolean).join(', ')
 
   return `
-    <article class="kcard${p.urgente ? ' kcard-urgente' : ''}" data-id="${p.id}"${_podeArrastar(p.status) ? ' draggable="true"' : ''} tabindex="0"
+    <article class="kcard${p.urgente ? ' kcard-urgente' : ''}${mudou ? ' kcard-mudou' : ''}" data-id="${esc(p.id)}"${_podeArrastar(p.status) ? ' draggable="true"' : ''} tabindex="0"
+      ${mudou ? `style="--desde: -${desde}ms${_mudaramAgora.has(p.id) ? `; view-transition-name: ${_nomeTransicao(p.id)}` : ''}"` : ''}
       aria-label="${esc(rotulo)}">
       <div class="kcard-top">
         ${p.numeroPedido ? `<span class="kcard-num">${esc(p.numeroPedido)}</span>` : ''}

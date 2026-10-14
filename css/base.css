@@ -369,6 +369,9 @@ button:disabled {
 }
 #spinner-overlay.visible { display: flex; flex-direction: column; gap: 18px; animation: spinnerAparece 0.2s ease 0.12s both; }
 .spinner-texto { font-size: 0.86rem; color: var(--text2); text-align: center; padding: 0 24px; }
+/* Espera longa, com texto (a renovação da demo): o fundo cobre a tela de trás,
+   para o texto não disputar com os cartões */
+#spinner-overlay:has(.spinner-texto:not(:empty)) { background: color-mix(in srgb, var(--bg) 94%, transparent); }
 .spinner-texto:empty { display: none; }
 @keyframes spinnerAparece { from { opacity: 0; } to { opacity: 1; } }
 
@@ -655,8 +658,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
   .skeleton::after { animation: none; }
 }

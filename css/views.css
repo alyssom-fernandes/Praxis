@@ -259,8 +259,8 @@
   font-size: clamp(0.95rem, 1.4vw, 1.25rem);
   color: var(--text);
   font-variant-numeric: lining-nums;
-  animation: etapaAcesa 15.4s infinite both;
-  animation-delay: calc(var(--i) * 2.2s - 19.8s);
+  animation: etapaPassa 0.6s ease both;
+  animation-delay: calc(0.5s + var(--i) * 0.42s);
 }
 .entrada-etapa-nome {
   position: absolute;
@@ -270,24 +270,35 @@
   font-weight: 500;
   white-space: nowrap;
   color: var(--text3);
-  animation: etapaNome 15.4s infinite both;
-  animation-delay: calc(var(--i) * 2.2s - 19.8s);
+  animation: nomePassa 0.6s ease both;
+  animation-delay: calc(0.5s + var(--i) * 0.42s);
 }
-/* Cada etapa fica acesa 2,2 s de um ciclo de 15,4 s (7 × 2,2): o caminho
-   percorre as sete, começando na aprovação */
-@keyframes etapaAcesa {
-  0%, 12% { background: var(--gold-fill); border-color: var(--gold-fill); color: var(--on-gold); }
-  15%, 100% { background: color-mix(in srgb, var(--bg) 70%, transparent); border-color: var(--border-strong); color: var(--text); }
+/* O momento da entrada: um percurso só, do pedido ao pagamento. Cada etapa
+   acende ao ser alcançada e fica marcada como percorrida; a última, o
+   pagamento, fica acesa. Uns 3,5 s e para: nada se mexe enquanto a pessoa
+   digita (antes era um laço de 15,4 s sem fim) */
+.entrada-etapas li:last-child .entrada-medalhao { animation-name: etapaChega; }
+.entrada-etapas li:last-child .entrada-etapa-nome { animation-name: nomeChega; }
+@keyframes etapaPassa {
+  0%   { background: color-mix(in srgb, var(--bg) 70%, transparent); border-color: var(--border-strong); color: var(--text); }
+  35%  { background: var(--gold-fill); border-color: var(--gold-fill); color: var(--on-gold); }
+  100% { background: color-mix(in srgb, var(--bg) 70%, transparent); border-color: var(--gold-border); color: var(--gold); }
 }
-@keyframes etapaNome {
-  0%, 12% { color: var(--gold); }
-  15%, 100% { color: var(--text3); }
+@keyframes etapaChega {
+  0%   { background: color-mix(in srgb, var(--bg) 70%, transparent); border-color: var(--border-strong); color: var(--text); }
+  100% { background: var(--gold-fill); border-color: var(--gold-fill); color: var(--on-gold); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .entrada-medalhao, .entrada-etapa-nome { animation: none; }
-  .entrada-etapas li:nth-child(3) .entrada-medalhao { background: var(--gold-fill); border-color: var(--gold-fill); color: var(--on-gold); }
-  .entrada-etapas li:nth-child(3) .entrada-etapa-nome { color: var(--gold); }
+@keyframes nomePassa {
+  0%   { color: var(--text3); }
+  35%  { color: var(--gold); }
+  100% { color: var(--text2); }
 }
+@keyframes nomeChega {
+  0%   { color: var(--text3); }
+  100% { color: var(--gold); }
+}
+/* Movimento reduzido: a regra global (base.css) zera duração e atraso, e a
+   régua já nasce no fim do percurso */
 
 /* Lado do formulário */
 .login-shell {
@@ -465,18 +476,20 @@
   .entrada-titulo { font-size: clamp(2.2rem, 4.6vw, 3rem); }
   .entrada-etapa-nome { font-size: 0.66rem; }
 }
-/* Tablet estreito: os sete nomes não cabem lado a lado; só a etapa acesa
-   diz o nome, centrado no medalhão (com movimento reduzido, a aprovação) */
-@keyframes etapaNomeSo {
-  0%, 12% { color: var(--gold); opacity: 1; }
-  15%, 100% { color: var(--text3); opacity: 0; }
+/* Tablet estreito: os sete nomes não cabem lado a lado; cada um aparece
+   quando a sua etapa acende, e no fim fica só o do pagamento */
+@keyframes nomeSoPassa {
+  0%   { color: var(--text3); opacity: 0; }
+  35%  { color: var(--gold); opacity: 1; }
+  100% { color: var(--text3); opacity: 0; }
+}
+@keyframes nomeSoChega {
+  0%   { color: var(--text3); opacity: 0; }
+  100% { color: var(--gold); opacity: 1; }
 }
 @media (min-width: 768px) and (max-width: 939px) {
-  .entrada-etapa-nome { font-size: 0.7rem; animation-name: etapaNomeSo; }
-}
-@media (min-width: 768px) and (max-width: 939px) and (prefers-reduced-motion: reduce) {
-  .entrada-etapa-nome { opacity: 0; }
-  .entrada-etapas li:nth-child(3) .entrada-etapa-nome { opacity: 1; }
+  .entrada-etapa-nome { font-size: 0.7rem; animation-name: nomeSoPassa; }
+  .entrada-etapas li:last-child .entrada-etapa-nome { animation-name: nomeSoChega; }
 }
 
 /* Celular: uma coluna. Marca, título curto, o formulário e, na base da
@@ -1808,6 +1821,33 @@
 .caminho-etapa.cortada { border-top-style: dashed; border-top-color: var(--border-strong); }
 .caminho-etapa.cortada .caminho-num { opacity: 0.25; }
 .caminho-etapa.cortada .caminho-nome { text-decoration: line-through; text-decoration-color: var(--text3); }
+
+/* Quando o pedido avança (a pessoa aprovou, comprou… ou alguém fez isso em
+   tempo real), a régua mostra o passo: o fio da etapa alcançada se desenha da
+   esquerda para a direita e o numeral acende; a etapa deixada vira tinta. O
+   bloco do próximo passo troca de conteúdo num esmaecer curto. Com movimento
+   reduzido, a regra global em base.css zera a duração e fica o estado final. */
+.caminho-etapa { position: relative; }
+.caminho-etapa.chegou { border-top-color: var(--border-strong); }
+.caminho-etapa.chegou::before {
+  content: '';
+  position: absolute;
+  top: -2px; left: 0; right: 0;
+  height: 2px;
+  background: var(--gold);
+  transform-origin: left center;
+  animation: fioDesenha 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) calc(0.1s + var(--desde, 0ms)) both;
+}
+.caminho-etapa.chegou .caminho-num { animation: numAcende 0.6s ease calc(0.35s + var(--desde, 0ms)) both; }
+.caminho-etapa.passou .caminho-num { animation: numTinta 0.5s ease var(--desde, 0ms) both; }
+@keyframes fioDesenha { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes numAcende {
+  from { color: var(--text3); transform: translateY(5px); opacity: 0.6; }
+  to   { color: var(--gold); transform: none; opacity: 1; }
+}
+@keyframes numTinta { from { color: var(--gold); } to { color: var(--text); } }
+.detalhe-layout.avancou .decisao { animation: decisaoTroca 0.45s ease calc(0.15s + var(--desde, 0ms)) both; }
+@keyframes decisaoTroca { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Painel de decisão: o que falta, quem responde e a ação. Fio no topo na cor
    do momento: tinta (aguardando outra pessoa), terracota (com você), oliva

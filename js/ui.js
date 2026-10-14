@@ -399,6 +399,12 @@ export function esconderSpinner() {
   if (p) p.textContent = ''
 }
 
+// Progresso da renovação da demo na tela de espera (js/demo-reset.js)
+export function progressoDemo(fase, porcento = 0) {
+  const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos', historico: 'demoFaseHistorico' }[fase]
+  if (chave) mostrarSpinner(t(chave).replace('{n}', porcento))
+}
+
 // ── Toast ─────────────────────────────────────────────────────
 // Sucesso e info somem em 4 s; erro e aviso ficam 6 s (dá tempo de ler).
 // No máximo quatro ao mesmo tempo; o mais antigo sai primeiro.
@@ -707,7 +713,7 @@ async function _restaurarDadosDemo(btn) {
   try {
     const { renovarDemo } = await import('./demo-reset.js')
     const s = window.__praxisSessao
-    await renovarDemo(s.contaDemo || s.usuario, { forcar: true })
+    await renovarDemo(s.contaDemo || s.usuario, { forcar: true, aoProgresso: progressoDemo })
     prxToast(t('demoResetadoMsg'), 'success', 4000)
     window.__navegar?.('pedidos', {}, { substituir: true })
   } catch (err) {

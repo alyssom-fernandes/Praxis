@@ -125,7 +125,7 @@ async function _apagarDemo(uid) {
 }
 
 // ── Recriação a partir do seed ────────────────────────────────
-async function _aplicarSeed(seed, usuario) {
+async function _aplicarSeed(seed, usuario, aoProgresso) {
   const uid = usuario.id
   const agora = new Date()
   const agoraTs = Timestamp.fromDate(agora)
@@ -301,9 +301,11 @@ async function _aplicarSeed(seed, usuario) {
   // 6. Contador dos números de pedido e empresas da conta demo
   lote.mesclar(doc(db, '_meta', 'contadores'), { totalPedidos: n })
   lote.mesclar(doc(db, 'usuarios', uid), { empresas: empresasIds, atualizadoEm: serverTimestamp() })
+  aoProgresso?.('pedidos', 0)
   await lote.fim()
   // Histórico e comentários depois dos pedidos (as regras deles leem o pedido)
   for (let i = 0; i < avulsos.length; i += 25) {
+    aoProgresso?.('historico', Math.round((i / avulsos.length) * 100))
     await Promise.all(avulsos.slice(i, i + 25).map(([ref, dados]) => setDoc(ref, dados)))
   }
   return n
@@ -370,7 +372,9 @@ function _avisosDaDemo(resumo, P, nomeDe) {
 // Devolve 'em-dia' quando não precisou renovar e 'renovada' quando renovou.
 // aoComecar: chamado só quando a renovação vai mesmo acontecer (para avisar
 // na tela de carregamento).
-export async function renovarDemo(usuario, { forcar = false, aoComecar } = {}) {
+// aoProgresso(fase, porcento): 'limpando', 'pedidos' e 'historico' (0–100),
+// para a tela de espera dizer o que está acontecendo.
+export async function renovarDemo(usuario, { forcar = false, aoComecar, aoProgresso } = {}) {
   let trava = await _pegarTrava(forcar)
   if (trava === 'em-dia') return 'em-dia'
   if (trava === 'ocupado') {
@@ -385,8 +389,9 @@ export async function renovarDemo(usuario, { forcar = false, aoComecar } = {}) {
     const resp = await fetch('/assets/demo/seed.json', { cache: 'no-store' })
     if (!resp.ok) throw new Error(`seed ${resp.status}`)
     const seed = await resp.json()
+    aoProgresso?.('limpando', 0)
     await _apagarDemo(usuario.id)
-    await _aplicarSeed(seed, usuario)
+    await _aplicarSeed(seed, usuario, aoProgresso)
     await runTransaction(db, async tx => {
       tx.set(doc(db, '_meta', 'demo'), { dia: _hojeSP(), renovadaEm: serverTimestamp(), travadoAte: 0 }, { merge: true })
     })

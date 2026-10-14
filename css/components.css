@@ -618,6 +618,17 @@
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 .kcard:hover { background: var(--card3); }
+/* Cartão que acabou de mudar de etapa (por esta pessoa ou por outra, em tempo
+   real): um anel de terracota que some em 1,6 s mostra onde ele chegou */
+.kcard.kcard-mudou { animation: kcardMudou 1.6s ease calc(0.3s + var(--desde, 0ms)) both; }
+@keyframes kcardMudou {
+  0%, 35% { box-shadow: 0 0 0 2px var(--gold); }
+  100%    { box-shadow: 0 0 0 2px transparent; }
+}
+/* O deslize entre colunas (js/pedidos.js, _renderMostrandoMudancas): só os
+   cartões se movem; o resto da tela troca na hora, sem esmaecer */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(*) { animation-duration: 0.45s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
 .kcard:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
 .light .kcard { background: var(--card); }
 .light .kcard:hover { background: var(--card); box-shadow: 0 1px 0 var(--border-strong), 0 0 0 1px var(--border-strong); }
