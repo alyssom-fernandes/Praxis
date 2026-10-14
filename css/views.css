@@ -1395,9 +1395,10 @@
 /* Versão em tabela do gasto mensal */
 .rel-tabela-wrap { overflow-x: auto; }
 .rel-tabela thead th {
-  font-family: var(--display);
-  font-size: 0.76rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
   border-bottom: 2px solid var(--tinta);
 }
 .rel-tabela th.dir, .rel-tabela td.dir { text-align: right; }
@@ -2249,10 +2250,10 @@
 .cfg-tabela { table-layout: fixed; }
 .cfg-tabela thead th {
   padding: 0.85rem 1rem 0.7rem;
-  font-family: var(--display);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--text3);
   border-bottom: 1px solid var(--border-strong);
 }

@@ -128,7 +128,7 @@ input[type="checkbox"], input[type="radio"] {
   .decisao-desc { font-size: 0.88rem; }
   .decisao-fatos { margin: 0 -16px; grid-template-columns: 1fr; }
   .decisao-fato { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 16px; }
-  .decisao-fato dt { margin: 0; flex-shrink: 0; max-width: 50%; white-space: normal; letter-spacing: 0.08em; line-height: 1.35; }
+  .decisao-fato dt { margin: 0; flex-shrink: 0; max-width: 50%; white-space: normal; line-height: 1.35; }
   .decisao-fato dd { align-items: flex-end; text-align: right; }
   .decisao-valor .dt-numeral { font-size: 1.3rem; }
   .decisao-sub { white-space: normal; }
