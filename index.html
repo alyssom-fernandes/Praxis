@@ -37,6 +37,18 @@
   <link rel="preload" href="/assets/fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/gfs-didot-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 
+  <!-- Módulos da entrada, pedidos em paralelo: sem isto o navegador só descobre
+       o SDK do Firebase depois de ler app.js e firebase.js (três idas e voltas).
+       Prioridade baixa: no celular lento o CSS, que segura a pintura, vem antes -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="/js/firebase.js" fetchpriority="low">
+  <link rel="modulepreload" href="/js/constants.js" fetchpriority="low">
+  <link rel="modulepreload" href="/js/ui.js" fetchpriority="low">
+  <link rel="modulepreload" href="/js/auth.js" fetchpriority="low">
+
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
 
@@ -46,12 +58,12 @@
   <link rel="apple-touch-icon" href="/assets/logo/praxis-apple-touch.png">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="/css/fontes.css?v=10">
-  <link rel="stylesheet" href="/css/tokens.css?v=10">
-  <link rel="stylesheet" href="/css/base.css?v=10">
-  <link rel="stylesheet" href="/css/components.css?v=10">
-  <link rel="stylesheet" href="/css/views.css?v=10">
-  <link rel="stylesheet" href="/css/themes.css?v=10">
+  <link rel="stylesheet" href="/css/fontes.css?v=11">
+  <link rel="stylesheet" href="/css/tokens.css?v=11">
+  <link rel="stylesheet" href="/css/base.css?v=11">
+  <link rel="stylesheet" href="/css/components.css?v=11">
+  <link rel="stylesheet" href="/css/views.css?v=11">
+  <link rel="stylesheet" href="/css/themes.css?v=11">
 
   <style>
     /* Splash de carregamento inicial — usa os tokens, então segue o tema salvo.

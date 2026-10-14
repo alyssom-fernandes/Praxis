@@ -61,13 +61,20 @@
   window.errosRegistrados = function () { return lista.slice(); };
 })();
 
-// Splash: sai logo depois que a página carrega
-window.addEventListener('load', function () {
-  setTimeout(function () {
+// Splash: sai assim que a primeira tela fica pronta (o app chama
+// window.__praxisPronto ao desenhar a entrada ou a primeira tela). Antes ele
+// esperava o "load" e mais 0,45 s, ~0,7 s depois da entrada já pronta. O "load"
+// fica de reserva, com folga, para o caso de o app falhar ao iniciar.
+(function () {
+  var saiu = false;
+  function sair() {
+    if (saiu) return;
+    saiu = true;
     var splash = document.getElementById('splash');
-    if (splash) {
-      splash.classList.add('hide');
-      setTimeout(function () { splash.remove(); }, 350);
-    }
-  }, 450);
-});
+    if (!splash) return;
+    splash.classList.add('hide');
+    setTimeout(function () { splash.remove(); }, 350);
+  }
+  window.__praxisPronto = sair;
+  window.addEventListener('load', function () { setTimeout(sair, 3000); });
+})();

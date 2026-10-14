@@ -1,19 +1,12 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
-import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
+import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, progressoDemo } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
-import { renderPedidos } from './pedidos.js'
-import { renderDetalhe } from './pedido-detalhe.js'
-import { renderRelatorios } from './relatorios.js'
-import { renderConfigUsuarios } from './config-usuarios.js'
-import { renderConfigCadastros } from './config-cadastros.js'
-import { renderConfigGeral } from './config-geral.js'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
   PERFIS, PERFIS_LABEL, PERFIS_COLOR, t,
 } from './constants.js'
 import { gerarIniciais } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
-import { renovarDemo } from './demo-reset.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 
 // Expõe constantes para ui.js (evita circular imports em renderizações)
@@ -70,10 +63,16 @@ onAuthStateChanged(auth, async (fireUser) => {
     document.getElementById('bottom-nav')?.remove()
     document.getElementById('notif-fundo')?.remove()
     renderLogin()
+    window.__praxisPronto?.()
+    // Com a entrada na tela, o quadro de pedidos vem no tempo ocioso: o
+    // primeiro clique depois do login continua instantâneo
+    ;(window.requestIdleCallback || setTimeout)(() => import('./pedidos.js').catch(() => {}))
     return
   }
 
   mostrarSpinner()
+  // A espera (com o progresso da renovação da demo) assume o lugar do splash
+  window.__praxisPronto?.()
   try {
     const usuario = await carregarUsuario(fireUser.uid)
     if (!usuario.ativo) {
@@ -93,7 +92,8 @@ onAuthStateChanged(auth, async (fireUser) => {
       sessao.contaDemo = usuario
       try {
         const aoComecar = () => mostrarSpinner(t('demoPreparando'))
-        if (await renovarDemo(usuario, { aoComecar }) === 'renovada') sessao.contaDemo = await carregarUsuario(fireUser.uid)
+        const { renovarDemo } = await import('./demo-reset.js')
+        if (await renovarDemo(usuario, { aoComecar, aoProgresso: progressoDemo }) === 'renovada') sessao.contaDemo = await carregarUsuario(fireUser.uid)
       } catch (e) {
         console.warn('Renovação da demo falhou:', e.message)
       }
@@ -104,7 +104,7 @@ onAuthStateChanged(auth, async (fireUser) => {
     mostrarDemoBanner(sessao.isDemo)
     // A entrada no celular costuma estar rolada (o botão da demo fica embaixo)
     window.scrollTo(0, 0)
-    _rotear()
+    await _rotear()
   } catch (err) {
     console.error(err)
     await fazerLogout()
@@ -197,16 +197,30 @@ function _rotear() {
     return
   }
 
-  switch (tela) {
-    case 'pedidos':        return renderPedidos()
-    case 'detalhe':        return renderDetalhe(id)
-    case 'relatorios':     return renderRelatorios()
-    case 'config-usuarios':  return renderConfigUsuarios()
-    case 'config-cadastros': return renderConfigCadastros()
-    case 'config-geral':     return renderConfigGeral()
-    default:               return _render404(tela)
-  }
+  const tela_ = _TELAS[tela]
+  if (!tela_) return _render404(tela)
+  const [modulo, render] = tela_
+  const seq = ++_rotaSeq
+  return import(modulo)
+    .then(m => { if (seq === _rotaSeq) return m[render](id) })   // outra tela foi pedida no meio: não desenha esta
+    .catch(err => {
+      console.error(err)
+      import('./ui.js').then(({ prxToast }) => prxToast(t('erroCarregar'), 'error'))
+    })
 }
+
+// Telas carregadas sob demanda: a entrada não baixa o código do quadro, do
+// detalhe, dos relatórios e dos cadastros (~470 KB sem compressão) antes de
+// aparecer. Cada uma vem na primeira visita e fica em cache.
+const _TELAS = {
+  'pedidos':          ['./pedidos.js',          'renderPedidos'],
+  'detalhe':          ['./pedido-detalhe.js',   'renderDetalhe'],
+  'relatorios':       ['./relatorios.js',       'renderRelatorios'],
+  'config-usuarios':  ['./config-usuarios.js',  'renderConfigUsuarios'],
+  'config-cadastros': ['./config-cadastros.js', 'renderConfigCadastros'],
+  'config-geral':     ['./config-geral.js',     'renderConfigGeral'],
+}
+let _rotaSeq = 0
 
 function _esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
