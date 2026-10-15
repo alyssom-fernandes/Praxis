@@ -1126,9 +1126,10 @@
   font-size: 0.82rem;
   font-weight: 600;
 }
-.rel-seg-btn + .rel-seg-btn { border-left: 1px solid var(--border); }
+.rel-seg-btn + .rel-seg-btn { border-left: 1px solid var(--border-strong); }
 .rel-seg-btn:hover:not(.active) { background: var(--card3); color: var(--text); }
-.rel-seg-btn.active { background: var(--tinta); color: var(--bg); }
+/* Ativo como no quadro/lista de Pedidos: fundo leve e o traço terracota */
+.rel-seg-btn.active { background: var(--card3); color: var(--text); box-shadow: inset 0 -2px 0 var(--gold-fill); }
 .rel-seg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
 .rel-datas { display: flex; align-items: center; gap: 8px; }
 .rel-datas[hidden] { display: none; }
@@ -1260,9 +1261,9 @@
   background: transparent;
   color: var(--text3);
 }
-.rel-mini-seg button + button { border-left: 1px solid var(--border); }
+.rel-mini-seg button + button { border-left: 1px solid var(--border-strong); }
 .rel-mini-seg button:hover:not(.active) { background: var(--card3); color: var(--text); }
-.rel-mini-seg button.active { background: var(--tinta); color: var(--bg); }
+.rel-mini-seg button.active { background: var(--card3); color: var(--text); box-shadow: inset 0 -2px 0 var(--gold-fill); }
 
 /* Gasto mensal: colunas na paleta (o mês corrente em terracota cheia, os
    anteriores apagados), média tracejada e a leitura ao lado */
@@ -2209,19 +2210,35 @@
   margin-bottom: 1.1rem;
 }
 .cfg-filtros { display: flex; align-items: center; gap: 0 1.6rem; }
+/* Abas como as de Pedidos: o ativo leva o traço terracota embaixo */
 .cfg-filtro {
+  position: relative;
   min-height: 36px;
-  padding: 0;
+  padding: 0 1px;
   gap: 0.5rem;
   border: none;
   border-radius: 0;
   background: none;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text3);
 }
-@media (hover: hover) { .cfg-filtro:hover:not(.active) { color: var(--text); } }
-.cfg-filtro.active { color: var(--text); font-weight: 700; }
+.cfg-filtro::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+@media (hover: hover) {
+  .cfg-filtro:hover:not(.active) { color: var(--text); }
+  .cfg-filtro:hover:not(.active)::after { background: var(--border-strong); }
+}
+.cfg-filtro.active { color: var(--text); }
+.cfg-filtro.active::after { background: var(--gold-fill); }
 .cfg-filtro-n {
   font-family: var(--display);
   font-size: 1.02rem;
@@ -2660,33 +2677,32 @@ input.cfg-mono { font-size: 0.85rem; }
 .cfg-fatos-forte { color: var(--text); font-weight: 600; }
 .cfg-fatos-desc { color: var(--text3); }
 
-/* Controle segmentado (tema) */
+/* Controle segmentado (tema): o mesmo desenho do quadro/lista e do período */
 .cfg-seg {
   flex-shrink: 0;
   display: inline-flex;
-  padding: 3px;
-  gap: 2px;
-  border-radius: var(--radius-sm);
-  background: var(--card2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-btn);
+  overflow: hidden;
 }
 .cfg-seg-op {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 32px;
+  min-height: 34px;
   padding: 0 0.8rem;
-  border: 1px solid transparent;
-  border-radius: 2px;
+  border: 0;
+  border-radius: 0;
   background: none;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text3);
   cursor: pointer;
 }
-.cfg-seg-op:hover { color: var(--text); }
-.cfg-seg-op.active { background: var(--card); border-color: var(--border-strong); color: var(--text); box-shadow: var(--shadow-sm); }
-.cfg-seg-op:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.cfg-seg-op + .cfg-seg-op { border-left: 1px solid var(--border-strong); }
+.cfg-seg-op:hover:not(.active) { color: var(--text); background: var(--card3); }
+.cfg-seg-op.active { color: var(--text); background: var(--card3); box-shadow: inset 0 -2px 0 var(--gold-fill); }
+.cfg-seg-op:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
 
 /* ── Configurações no celular ── */
 @media (max-width: 767px) {

@@ -13,7 +13,10 @@
 /* Hovers neutros no tema claro (no escuro usam branco translúcido) */
 .light tbody tr:hover,
 .light .notif-item:hover,
-.light .view-toggle button:hover:not(.active) { background: rgba(60, 40, 20, 0.04); }
+.light .view-toggle button:hover:not(.active),
+.light .rel-seg-btn:hover:not(.active),
+.light .rel-mini-seg button:hover:not(.active),
+.light .cfg-seg-op:hover:not(.active) { background: rgba(60, 40, 20, 0.04); }
 
 /* Select option — corrige em alguns browsers */
 select option {
