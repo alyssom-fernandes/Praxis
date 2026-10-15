@@ -110,7 +110,7 @@ em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
 ## Modo demo
 
 - Entrada pelo botão "Acessar modo demo", com a escolha de quem ser: seis pessoas, uma por perfil (`js/demo-pessoas.js`). O login é sempre a mesma conta demo.
-- Seed em `assets/demo/seed.json` (cópia idêntica em `functions/seed.json`, para as Functions): 3 empresas, 8 fornecedores, 33 pedidos com histórico, cotações, comentários e parcelas.
+- Seed em `assets/demo/seed.json` (cópia idêntica em `functions/seed.json`, para as Functions): 3 empresas, 8 fornecedores, 34 pedidos com histórico, cotações, comentários e parcelas.
 - A renovação (`js/demo-reset.js`) distribui os pedidos entre a solicitante, a gestora e três colegas, dá a cada pessoa um último acesso plausível e grava os avisos que as Cloud Functions mandariam (parcela vencida, cotações prontas, aprovação, entrega, @menções).
 - Datas do seed são **relativas**: histórico e comentários usam `diasAtras`, parcelas podem usar `vencimentoDias`, e as datas fixas (necessidade, compra, entrega, vencimento) foram escritas para `_dataReferencia` e são deslocadas até o dia de hoje a cada reset. O dashboard sempre tem dados vivos.
 - Localmente, `npm run seed` aplica o mesmo seed nos emuladores (`scripts/seed-emulator.js`), com uma conta de teste por perfil.

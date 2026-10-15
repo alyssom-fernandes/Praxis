@@ -2203,6 +2203,41 @@
         }
       ],
       "parcelas": []
+    },
+    {
+      "key": "p34",
+      "reabertoDeKey": "p07",
+      "titulo": "Cadeiras ergonômicas — sala de reunião",
+      "descricao": "Troca das 10 cadeiras antigas por modelos ergonômicos com apoio lombar regulável.",
+      "status": "solicitado",
+      "urgente": false,
+      "quantidade": 10,
+      "unidade": "un",
+      "dataNecessaria": "2026-07-04",
+      "valorEstimado": 9000,
+      "valorFinal": null,
+      "centroCusto": "ADM-002",
+      "justificativaReabertura": "Verba de mobiliário liberada no orçamento do trimestre.",
+      "condicaoPagamento": null,
+      "dataCompra": null,
+      "dataEntrega": null,
+      "empresaKey": "nexara",
+      "categoriaKey": "escritorio",
+      "historico": [
+        {
+          "status": "solicitado",
+          "nota": "Reaberto a partir de PRX-0007 — Verba de mobiliário liberada no orçamento do trimestre.",
+          "diasAtras": 6
+        }
+      ],
+      "comentarios": [
+        {
+          "texto": "Mantive as 10 cadeiras e a especificação; a Distribuidora Alfa segurou o preço da cotação anterior.",
+          "diasAtras": 6
+        }
+      ],
+      "cotacoes": [],
+      "parcelas": []
     }
   ]
 }

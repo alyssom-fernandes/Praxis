@@ -301,11 +301,13 @@ async function _aplicarSeed(seed) {
 
   // 5. Cria pedidos com subcoleções
   let pedidoCount = 0
+  const pedidoPorKey = {}  // para ligar o pedido reaberto ao reprovado de origem
   for (const ped of (seed.pedidos || [])) {
     pedidoCount++
     const {
       empresaKey, categoriaKey, key,
       abertoPor, // quem abre o pedido na demo do app (js/demo-reset.js); aqui não se aplica
+      reabertoDeKey,
       historico, comentarios, cotacoes, parcelas,
       ...pedData
     } = ped
@@ -359,6 +361,14 @@ async function _aplicarSeed(seed) {
       criadoEm:    primeiroTs,
       atualizadoEm: ultimoTs,
     })
+
+    // Pedido reaberto: liga ao reprovado de origem, como o "Reabrir" do app
+    const origem = pedidoPorKey[reabertoDeKey]
+    if (origem) {
+      await pedRef.update({ reabertoDe: origem.id, reabertaDeNum: origem.numero })
+      await db.collection('pedidos').doc(origem.id).update({ reabertoPara: pedRef.id, reabertaParaNum: numeroPedido })
+    }
+    pedidoPorKey[key] = { id: pedRef.id, numero: numeroPedido }
 
     // 5a. Histórico
     if (hist.length) {

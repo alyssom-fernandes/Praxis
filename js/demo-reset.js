@@ -209,13 +209,25 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
 
   // 4. Pedidos (IDs fixos) e subcoleções (IDs novos a cada renovação, para
   // nunca regravar um histórico, que é imutável)
+  // Pedido reaberto ("reabertoDeKey" no seed): os dois ficam ligados, como no
+  // "Reabrir" do detalhe (reabertoDe no novo, reabertoPara no reprovado)
+  const idDe = i => `demo-${String(i).padStart(4, '0')}`
+  const numDe = i => 'PRX-' + String(i).padStart(4, '0')
+  const nDaKey = {}, reabertoComo = {}
+  ;(seed.pedidos || []).forEach((p, i) => {
+    nDaKey[p.key] = i + 1
+    if (p.reabertoDeKey) reabertoComo[p.reabertoDeKey] = i + 1
+  })
   let n = 0
   for (const ped of seed.pedidos || []) {
     n++
-    const { empresaKey, categoriaKey, key, abertoPor, historico, comentarios, cotacoes, parcelas, ...dados } = ped
+    const { empresaKey, categoriaKey, key, abertoPor, reabertoDeKey, historico, comentarios, cotacoes, parcelas, ...dados } = ped
     const hist = historico || []
-    const numeroPedido = 'PRX-' + String(n).padStart(4, '0')
-    const pedRef = doc(db, 'pedidos', `demo-${String(n).padStart(4, '0')}`)
+    const numeroPedido = numDe(n)
+    const pedRef = doc(db, 'pedidos', idDe(n))
+    const de = nDaKey[reabertoDeKey], como = reabertoComo[key]
+    if (de) Object.assign(dados, { reabertoDe: idDe(de), reabertaDeNum: numDe(de) })
+    if (como) Object.assign(dados, { reabertoPara: idDe(como), reabertaParaNum: numDe(como) })
     for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) if (dados[campo]) dados[campo] = deslocar(dados[campo])
     const indicada = (cotacoes || []).find(c => c.indicada)
     // Um horário por etapa, o mesmo no pedido e no histórico (ts() sorteia a hora)

@@ -24,7 +24,7 @@ This README is also available in [Portuguese](README.pt-br.md). The interface is
 1. Open the [demo](https://praxis-af618.web.app) and click **Acessar modo demo**.
    Choose who you want to be: one person per role (administrator, manager, approver, buyer, finance or
    requester), each seeing and doing only what their role allows. You can switch at any time from the bar
-   at the top. There are three fictitious companies, with 33 orders spread across every stage.
+   at the top. There are three fictitious companies, with 34 orders spread across every stage.
 2. On the board, open **PRX-0003** (awaiting approval): compare the three quotes and approve, or reject with a reason.
 3. Switch to **Eduardo Lima** (finance) and open the bell: **PRX-0012** (purchased, paid upfront) has an overdue installment. Open it and record the payment.
 4. In **Relatórios** (reports), change the period and export to PDF or Excel, or print it.
@@ -108,7 +108,7 @@ npm run emuladores                     # keep it running
 In another terminal:
 
 ```bash
-npm run seed      # 33 orders, 3 companies and one account per role
+npm run seed      # 34 orders, 3 companies and one account per role
 npm run servir    # the app is served at http://localhost:8123
 ```
 
