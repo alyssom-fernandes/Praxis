@@ -4,6 +4,7 @@ import { prxToast, marcaPraxis } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, PERFIS, t, tomDaCor } from './constants.js'
 import { formatCurrency, formatDate, esc } from './utils.js'
+import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
 // ── Textos da tela (PT e EN) ──────────────────────────────────
 const TXT = {
@@ -1015,13 +1016,6 @@ function _esconderDica() {
 }
 
 // ── Exportações ───────────────────────────────────────────────
-// Paleta do papel (a mesma do tema claro e da impressão)
-const PAPEL = {
-  tinta: [26, 21, 16], texto2: [87, 73, 58], texto3: [116, 100, 79],
-  terracota: [181, 80, 46], terracotaTxt: [164, 70, 42], apagada: [222, 200, 182],
-  argila: [239, 230, 215], argilaClara: [250, 245, 237], linha: [226, 213, 193], linhaForte: [205, 187, 160],
-  neutra: [150, 135, 117], branco: [255, 255, 255], afn: [107, 31, 42], cinzaAfn: [80, 80, 80],
-}
 const _hex = rgb => 'FF' + rgb.map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase()
 
 function _carregarScript(src, global) {
@@ -1248,52 +1242,6 @@ async function _exportarExcel() {
   })
 }
 
-// Símbolo do Praxis (o triângulo vazado) desenhado com as primitivas do jsPDF.
-// O desenho é o _TRI de js/ui.js: o Λ do GFS Didot fechado na base. A fonte
-// não vai embutida no PDF; o símbolo vai como vetor e o nome em Helvetica.
-const _TRI_PDF = 'M296 100H323L466 527V535H521V553H77V535Q128 535 145 495ZM289 197L185 470Q172 505 175 525Q180 535 215 535H405Z'
-function _subcaminhos(d) {
-  const tk = d.match(/[MHVLQZ]|-?\d*\.?\d+/g) || []
-  const subs = []
-  let i = 0, cmd = '', cx = 0, cy = 0, atual = null
-  const num = () => Number(tk[i++])
-  while (i < tk.length) {
-    if (/[MHVLQZ]/.test(tk[i])) cmd = tk[i++]
-    if (cmd === 'M') { cx = num(); cy = num(); atual = { ini: [cx, cy], segs: [] }; subs.push(atual); cmd = 'L' }
-    else if (cmd === 'H') { const x = num(); atual.segs.push({ t: 'L', p: [x, cy] }); cx = x }
-    else if (cmd === 'V') { const y = num(); atual.segs.push({ t: 'L', p: [cx, y] }); cy = y }
-    else if (cmd === 'L') { const x = num(), y = num(); atual.segs.push({ t: 'L', p: [x, y] }); cx = x; cy = y }
-    else if (cmd === 'Q') { const qx = num(), qy = num(), x = num(), y = num(); atual.segs.push({ t: 'Q', c: [qx, qy], p: [x, y] }); cx = x; cy = y }
-    else if (cmd === 'Z') { if (atual) { cx = atual.ini[0]; cy = atual.ini[1] } cmd = '' }
-    else i++
-  }
-  return subs
-}
-function _desenharSimbolo(doc, x, y, altura, cor, fundo) {
-  const s = altura / 453                      // altura do glifo no viewBox da marca
-  const X = v => x + (v - 67.16) * s, Y = v => y + (v - 100) * s
-  _subcaminhos(_TRI_PDF).forEach((sp, k) => {
-    // Primeiro o contorno cheio; depois o vazado, na cor do papel
-    doc.setFillColor(...(k === 0 ? cor : fundo))
-    let [px, py] = [X(sp.ini[0]), Y(sp.ini[1])]
-    const linhas = sp.segs.map(sg => {
-      const [nx, ny] = [X(sg.p[0]), Y(sg.p[1])]
-      let r
-      if (sg.t === 'L') r = [nx - px, ny - py]
-      else {
-        // Quadrática → cúbica
-        const [qx, qy] = [X(sg.c[0]), Y(sg.c[1])]
-        const c1 = [px + (2 / 3) * (qx - px), py + (2 / 3) * (qy - py)]
-        const c2 = [nx + (2 / 3) * (qx - nx), ny + (2 / 3) * (qy - ny)]
-        r = [c1[0] - px, c1[1] - py, c2[0] - px, c2[1] - py, nx - px, ny - py]
-      }
-      px = nx; py = ny
-      return r
-    })
-    doc.lines(linhas, X(sp.ini[0]), Y(sp.ini[1]), [1, 1], 'F', true)
-  })
-}
-
 async function _exportarPDF() {
   if (!_podeVerFinanceiro()) { prxToast(tr('semPermissao'), 'warning'); return }
   await _comBotao(async () => {
@@ -1316,12 +1264,8 @@ async function _exportarPDF() {
       return s.trimEnd() + '...'
     }
     const dir = (s, x, yy) => doc.text(s, x, yy, { align: 'right' })
-    // Caixa alta espaçada, letra a letra (o charSpace do jsPDF desalinha o texto à direita)
-    const larguraEsp = (s, cs) => [...s].reduce((w, ch) => w + doc.getTextWidth(ch), 0) + cs * Math.max(0, [...s].length - 1)
-    const espacado = (s, x, yy, cs, aDireita = false) => {
-      let cx = aDireita ? x - larguraEsp(s, cs) : x
-      for (const ch of s) { doc.text(ch, cx, yy); cx += doc.getTextWidth(ch) + cs }
-    }
+    const larguraEsp = (s, cs) => larguraEspacada(doc, s, cs)
+    const espacado = (s, x, yy, cs, aDireita = false) => textoEspacado(doc, s, x, yy, cs, aDireita)
     const fio = (x1, yy, x2, grosso = true) => { cor(grosso ? PAPEL.tinta : PAPEL.linha, 'draw'); doc.setLineWidth(grosso ? 0.55 : 0.25); doc.line(x1, yy, x2, yy) }
     const tituloSecao = (x, yy, w, titulo, meta) => {
       fio(x, yy, x + w)
@@ -1340,7 +1284,7 @@ async function _exportarPDF() {
     // ── Página 1: o resumo, na mesma ordem da tela ──
     // Cabeçalho: símbolo em terracota + PRAXIS espaçado; à direita, o documento
     let y = M
-    _desenharSimbolo(doc, M, y, 9, PAPEL.terracota, PAPEL.branco)
+    desenharSimbolo(doc, M, y, 9, PAPEL.terracota, PAPEL.branco)
     fonte('normal', 16); cor(PAPEL.tinta)
     espacado('PRAXIS', M + 13, y + 8.6, 1.9)
     fonte('bold', 12.5); cor(PAPEL.tinta)
@@ -1413,7 +1357,7 @@ async function _exportarPDF() {
           doc.text(rot, bx + bw / 2, baseG - h - 1.5, { align: 'center' })
         }
         cor(mm.atual ? PAPEL.tinta : PAPEL.texto3)
-        const nm = new Date(mm.ano, mm.mes, 1).toLocaleDateString(_locale(), { month: 'short' }).replace('.', '').toUpperCase()
+        const nm = new Date(mm.ano, mm.mes, 1).toLocaleDateString(_locale(), { month: 'short' }).replace('.', '')
         doc.text(limpo(nm), bx + bw / 2, baseG + 4, { align: 'center' })
       })
       cor(PAPEL.texto3, 'draw'); doc.setLineWidth(0.25); doc.line(xm, baseG, xm + cw, baseG)
@@ -1526,12 +1470,12 @@ async function _exportarPDF() {
       const desenharCab = () => {
         cor(PAPEL.argila, 'fill'); doc.rect(M, y, LARG, ALT + 0.6, 'F')
         fio(M, y + ALT + 0.6, W - M)
-        fonte('bold', 6.9); cor(PAPEL.tinta)
+        fonte('bold', 7.4); cor(PAPEL.tinta)
         let cx = M
         cols.forEach((c, i) => {
-          const rot = limpo(c.t).toUpperCase()
-          if (c.dir) espacado(rot, cx + larg[i] - 2.5, y + 4.4, 0.3, true)
-          else espacado(rot, cx + 2.5, y + 4.4, 0.3)
+          const rot = limpo(c.t)
+          if (c.dir) dir(rot, cx + larg[i] - 2.5, y + 4.4)
+          else doc.text(rot, cx + 2.5, y + 4.4)
           cx += larg[i]
         })
         y += ALT + 0.9
@@ -1608,7 +1552,7 @@ async function _exportarPDF() {
     for (let i = 1; i <= total; i++) {
       doc.setPage(i)
       if (i > 1) {
-        _desenharSimbolo(doc, M, M - 1, 5, PAPEL.terracota, PAPEL.branco)
+        desenharSimbolo(doc, M, M - 1, 5, PAPEL.terracota, PAPEL.branco)
         fonte('normal', 9); cor(PAPEL.tinta); espacado('PRAXIS', M + 7.5, M + 3.8, 1)
         fonte('normal', 7.4); cor(PAPEL.texto3); dir(`${limpo(tr('relatorioCompras'))} · ${periodo}`, W - M, M + 3.8)
         fio(M, M + 7, W - M, false)

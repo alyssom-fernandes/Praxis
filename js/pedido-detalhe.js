@@ -18,6 +18,7 @@ import {
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
+import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
 // Escapa entidades HTML para evitar XSS em conteúdo renderizado via innerHTML
 function _esc(str) {
@@ -2229,67 +2230,56 @@ async function _exportarPedidoPDF() {
     const categoria = _categorias.find(c => c.id === p.categoriaId)
     const numero    = p.numeroPedido || '—'
 
-    // Paleta do documento (impressão: fundo branco, acento dourado escuro da marca)
-    const COR = {
-      texto: [18, 18, 20], texto2: [62, 62, 69], texto3: [106, 106, 115],
-      linha: [226, 226, 230], fundo: [244, 244, 246], ouro: [140, 106, 46], ouroFundo: [248, 243, 233],
-      ouroMarca: [200, 169, 110], afn: [107, 31, 42], verde: [31, 138, 87], vermelho: [201, 58, 46],
-    }
+    pdf.setProperties({ title: `Praxis · ${numero}`, subject: p.titulo || '', author: 'Praxis', creator: 'Praxis' })
+
+    // O papel do relatório de compras (js/pdf-papel.js): tinta, argila e terracota
+    const COR = PAPEL
     const M = 16, LARG = 210 - M * 2, LIMITE = 297 - 22
     let y = 0
 
     const cor   = c => pdf.setTextColor(...c)
-    const fonte = (tam, estilo = 'normal', familia = 'helvetica') => { pdf.setFont(familia, estilo); pdf.setFontSize(tam) }
+    const fonte = (tam, estilo = 'normal') => { pdf.setFont('helvetica', estilo); pdf.setFontSize(tam) }
     const tsStr = ts => {
       if (!ts) return '—'
       const d = ts.toDate ? ts.toDate() : new Date(ts)
       if (isNaN(d)) return '—'
       return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     }
-    const novaPagina = () => { pdf.addPage(); y = 28 }
+    const emitido = tsStr(new Date())
+    const novaPagina = () => { pdf.addPage(); y = 30 }
     const garantir = h => { if (y + h > LIMITE) novaPagina() }
-
-    // Marca PR▲XIS desenhada (o triângulo não existe nas fontes padrão do PDF)
-    const marca = (x, yb, tam) => {
-      fonte(tam, 'bold', 'courier'); cor(COR.texto)
-      pdf.text('PR', x, yb)
-      const w = pdf.getTextWidth('PR')
-      const cw = pdf.getTextWidth('A')
-      const h = tam * 0.25
-      pdf.setFillColor(...COR.ouroMarca)
-      pdf.triangle(x + w + cw * 0.06, yb, x + w + cw * 0.94, yb, x + w + cw / 2, yb - h, 'F')
-      pdf.text('XIS', x + w + cw, yb)
+    const fio = (yy, grosso = true) => {
+      pdf.setDrawColor(...(grosso ? COR.tinta : COR.linha)); pdf.setLineWidth(grosso ? 0.55 : 0.2)
+      pdf.line(M, yy, M + LARG, yy)
     }
 
-    const textoDireita = (txt, xDir, yy, esp = 0) => {
-      const w = pdf.getTextWidth(txt) + esp * Math.max(txt.length - 1, 0)
-      pdf.text(txt, xDir - w, yy, esp ? { charSpace: esp } : undefined)
-    }
+    // Seção: fio de tinta e o título em frase normal, como no relatório
     const secao = titulo => {
-      garantir(16)
-      y += 7
-      fonte(7.5, 'bold'); cor(COR.texto3)
-      pdf.text(titulo.toUpperCase(), M, y, { charSpace: 0.6 })
-      const w = pdf.getTextWidth(titulo.toUpperCase()) + titulo.length * 0.6
-      pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.2)
-      pdf.line(M + w + 3, y - 1.2, M + LARG, y - 1.2)
+      garantir(22)
       y += 5
+      fio(y)
+      fonte(9.5, 'bold'); cor(COR.tinta)
+      pdf.text(titulo, M, y + 5.5)
+      y += 10.5
     }
+    const rotulo = (txt, x, yy, c = COR.texto3) => { fonte(7.4, 'bold'); cor(c); pdf.text(txt, x, yy) }
 
     // Tabela simples com quebra de página e cabeçalho repetido
     const tabela = (colunas, linhas) => {
       const pad = 2.2, lh = 4
       const cabecalho = () => {
-        pdf.setFillColor(...COR.fundo)
+        pdf.setFillColor(...COR.argila)
         pdf.rect(M, y, LARG, 7, 'F')
-        fonte(7, 'bold'); cor(COR.texto3)
+        pdf.setDrawColor(...COR.tinta); pdf.setLineWidth(0.45)
+        pdf.line(M, y + 7, M + LARG, y + 7)
+        fonte(7.4, 'bold'); cor(COR.tinta)
         let x = M
         colunas.forEach(c => {
-          if (c.alinhar === 'right') textoDireita(c.titulo.toUpperCase(), x + c.w - pad, y + 4.6, 0.3)
-          else pdf.text(c.titulo.toUpperCase(), x + pad, y + 4.6, { charSpace: 0.3 })
+          const direita = c.alinhar === 'right'
+          pdf.text(c.titulo, direita ? x + c.w - pad : x + pad, y + 4.6, { align: direita ? 'right' : 'left' })
           x += c.w
         })
-        y += 7
+        y += 7.3
       }
       garantir(16)
       cabecalho()
@@ -2298,46 +2288,47 @@ async function _exportarPedidoPDF() {
         const partes = l.celulas.map((txt, i) => pdf.splitTextToSize(String(txt ?? '—'), colunas[i].w - pad * 2))
         const h = Math.max(...partes.map(pt => pt.length)) * lh + pad * 2
         if (y + h > LIMITE) { novaPagina(); cabecalho() }
-        if (l.destaque) { pdf.setFillColor(...COR.ouroFundo); pdf.rect(M, y, LARG, h, 'F') }
+        if (l.destaque) { pdf.setFillColor(...COR.argilaClara); pdf.rect(M, y, LARG, h, 'F') }
         let x = M
         partes.forEach((pt, i) => {
           const c = colunas[i]
           const estilo = (c.negrito || (l.negrito && i === 0)) ? 'bold' : 'normal'
           fonte(8.5, estilo)
-          cor(l.cores?.[i] || (i === 0 ? COR.texto : COR.texto2))
+          cor(l.cores?.[i] || (i === 0 ? COR.tinta : COR.texto2))
           const tx = c.alinhar === 'right' ? x + c.w - pad : x + pad
           pdf.text(pt, tx, y + pad + 3.1, { align: c.alinhar === 'right' ? 'right' : 'left', lineHeightFactor: 1.35 })
           x += c.w
         })
         y += h
-        pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.2)
+        pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.15)
         pdf.line(M, y, M + LARG, y)
       })
       y += 2
     }
 
-    // ── Cabeçalho do documento
-    y = 20
-    marca(M, y, 15)
-    fonte(7, 'bold'); cor(COR.texto3)
-    textoDireita('PEDIDO DE COMPRA', M + LARG, y - 5.5, 0.5)
-    fonte(13, 'bold', 'courier'); cor(COR.texto)
-    pdf.text(numero, M + LARG, y, { align: 'right' })
-    y += 5
-    pdf.setDrawColor(...COR.ouroMarca); pdf.setLineWidth(0.6)
-    pdf.line(M, y, M + LARG, y)
-    y += 10
+    // ── Cabeçalho: símbolo em terracota + PRAXIS espaçado; à direita, o número
+    y = 14
+    desenharSimbolo(pdf, M, y, 9, COR.terracota, COR.branco)
+    fonte(16, 'normal'); cor(COR.tinta)
+    textoEspacado(pdf, 'PRAXIS', M + 13, y + 8.6, 1.9)
+    fonte(12.5, 'bold'); cor(COR.tinta)
+    textoEspacado(pdf, numero, M + LARG, y + 4, 0.55, true)
+    fonte(8.5, 'normal'); cor(COR.texto3)
+    pdf.text(`Pedido de compra · emitido em ${emitido}`, M + LARG, y + 9, { align: 'right' })
+    y += 13
+    fio(y)
+    y += 11
 
-    fonte(15, 'bold'); cor(COR.texto)
+    fonte(15, 'bold'); cor(COR.tinta)
     const tituloLinhas = pdf.splitTextToSize(p.titulo || '', LARG)
     pdf.text(tituloLinhas, M, y, { lineHeightFactor: 1.25 })
     y += tituloLinhas.length * 6.6
 
-    // Status em pílula + metadados de emissão
+    // Etapa em pílula, o selo de urgente (como no quadro) e a abertura
     const stLabel = STATUS_LABEL[p.status] || p.status
     const stCor = [STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status) ? COR.vermelho
       : [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) ? COR.verde
-      : COR.ouro
+      : COR.terracotaTxt
     fonte(8, 'bold')
     const stW = pdf.getTextWidth(stLabel) + 6
     pdf.setDrawColor(...stCor); pdf.setLineWidth(0.35)
@@ -2345,14 +2336,15 @@ async function _exportarPedidoPDF() {
     cor(stCor); pdf.text(stLabel, M + 3, y)
     let xs = M + stW + 3
     if (p.urgente) {
-      const uW = pdf.getTextWidth('Urgente') + 6
-      pdf.setDrawColor(...COR.vermelho)
-      pdf.roundedRect(xs, y - 3.6, uW, 5.4, 2.7, 2.7, 'S')
-      cor(COR.vermelho); pdf.text('Urgente', xs + 3, y)
+      fonte(7, 'bold')
+      const uW = larguraEspacada(pdf, 'URGENTE', 0.25) + 4
+      pdf.setFillColor(...COR.terracota)
+      pdf.rect(xs, y - 3.6, uW, 5.4, 'F')
+      cor(COR.branco); textoEspacado(pdf, 'URGENTE', xs + 2, y - 0.1, 0.25)
       xs += uW + 3
     }
     fonte(8, 'normal'); cor(COR.texto3)
-    pdf.text(`Aberto em ${tsStr(p.criadoEm)}  ·  Emitido em ${tsStr(new Date())}`, xs + 1, y)
+    pdf.text(`Aberto em ${tsStr(p.criadoEm)}`, xs + 1, y)
     y += 4
 
     // ── Dados em grade (3 colunas)
@@ -2384,10 +2376,9 @@ async function _exportarPedidoPDF() {
       garantir(11)
       dados.slice(i, i + 3).forEach(([k, v], j) => {
         const x = M + j * colW
-        fonte(6.8, 'bold'); cor(COR.texto3)
-        pdf.text(k.toUpperCase(), x, y, { charSpace: 0.3 })
+        rotulo(k, x, y)
         const destaque = k === 'Valor final'
-        fonte(9.5, destaque ? 'bold' : 'normal'); cor(destaque ? COR.ouro : COR.texto)
+        fonte(9.5, destaque ? 'bold' : 'normal'); cor(destaque ? COR.terracotaTxt : COR.tinta)
         pdf.text(pdf.splitTextToSize(String(v), colW - 4)[0], x, y + 4.6)
       })
       y += 11
@@ -2395,8 +2386,7 @@ async function _exportarPedidoPDF() {
 
     if (p.descricao) {
       garantir(14)
-      fonte(6.8, 'bold'); cor(COR.texto3)
-      pdf.text('DESCRIÇÃO', M, y, { charSpace: 0.3 })
+      rotulo('Descrição', M, y)
       y += 4.4
       fonte(9.5, 'normal'); cor(COR.texto2)
       const linhasDesc = pdf.splitTextToSize(p.descricao, LARG)
@@ -2407,8 +2397,7 @@ async function _exportarPedidoPDF() {
     const motivoCan = p.motivoCancelamento === 'Outros' ? p.motivoCancelamentoOutros : p.motivoCancelamento
     if ((p.status === STATUS.REPROVADO && motivoRep) || (p.status === STATUS.CANCELADO && motivoCan)) {
       garantir(12); y += 2
-      fonte(6.8, 'bold'); cor(COR.vermelho)
-      pdf.text(p.status === STATUS.REPROVADO ? 'MOTIVO DA REPROVAÇÃO' : 'MOTIVO DO CANCELAMENTO', M, y, { charSpace: 0.3 })
+      rotulo(p.status === STATUS.REPROVADO ? 'Motivo da reprovação' : 'Motivo do cancelamento', M, y, COR.vermelho)
       y += 4.4
       fonte(9.5, 'normal'); cor(COR.texto2)
       pdf.splitTextToSize(p.status === STATUS.REPROVADO ? motivoRep : motivoCan, LARG).forEach(l => { pdf.text(l, M, y); y += 4.6 })
@@ -2428,7 +2417,7 @@ async function _exportarPedidoPDF() {
         celulas: [c.fornecedorNome || '—', c.prazoEntrega || '—', c.condicoesComerciais || '—', formatCurrency(c.valor),
           [c.indicada ? 'Indicada' : '', c.valor === menor && _cotacoes.length > 1 ? 'Menor valor' : ''].filter(Boolean).join(', ') || '—'],
         destaque: !!c.indicada,
-        cores: { 4: c.indicada ? COR.ouro : COR.texto3 },
+        cores: { 4: c.indicada ? COR.terracotaTxt : COR.texto3 },
       })))
     }
 
@@ -2452,7 +2441,7 @@ async function _exportarPedidoPDF() {
         }
       }))
       garantir(8)
-      fonte(9, 'bold'); cor(COR.texto)
+      fonte(9, 'bold'); cor(COR.tinta)
       const totTxt = `${formatCurrency(pago)} de ${formatCurrency(total)}`
       const totW = pdf.getTextWidth(totTxt)
       pdf.text(totTxt, M + LARG - 2.2, y + 3, { align: 'right' })
@@ -2480,32 +2469,28 @@ async function _exportarPedidoPDF() {
       }))
     }
 
-    // ── Rodapé com numeração em todas as páginas
+    // ── Cabeçalho corrido (páginas 2+) e rodapé em todas, como no relatório
     const total = pdf.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       pdf.setPage(i)
       if (i > 1) {
-        // Cabeçalho corrido nas páginas seguintes
-        marca(M, 15, 10)
-        fonte(9, 'bold', 'courier'); cor(COR.texto2)
-        pdf.text(numero, M + LARG, 15, { align: 'right' })
-        pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.2)
-        pdf.line(M, 18.5, M + LARG, 18.5)
+        desenharSimbolo(pdf, M, 13, 5, COR.terracota, COR.branco)
+        fonte(9, 'normal'); cor(COR.tinta)
+        textoEspacado(pdf, 'PRAXIS', M + 7.5, 17.8, 1)
+        fonte(7.4, 'normal'); cor(COR.texto3)
+        pdf.text(`${numero} · ${pdf.splitTextToSize(p.titulo || '', 110)[0]}`, M + LARG, 17.8, { align: 'right' })
+        fio(21, false)
       }
-      const yr = 297 - 11
-      pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.2)
-      pdf.line(M, yr - 4.5, M + LARG, yr - 4.5)
-      fonte(7.5, 'bold'); cor(COR.afn)
-      pdf.text('AFN', M, yr, { charSpace: 0.4 })
-      const wAfn = pdf.getTextWidth('AFN') + 1.2 + 1.6
-      fonte(7.5, 'normal'); cor(COR.texto3)
-      pdf.text('SYSTEMS', M + wAfn, yr, { charSpace: 0.4 })
-      const wSys = pdf.getTextWidth('SYSTEMS') + 2.8
-      cor(COR.linha.map(v => v - 60))
-      pdf.text('|', M + wAfn + wSys + 1.5, yr)
+      const yr = 297 - 10
+      fio(yr - 4, false)
+      fonte(7.2, 'bold')
+      cor(COR.afn); textoEspacado(pdf, 'AFN', M, yr, 0.4)
+      let fx = M + larguraEspacada(pdf, 'AFN', 0.4) + 1.6
+      cor(COR.cinzaAfn); textoEspacado(pdf, 'SYSTEMS', fx, yr, 0.4)
+      fx += larguraEspacada(pdf, 'SYSTEMS', 0.4) + 3
+      fonte(7.2, 'normal'); pdf.text('|  Praxis', fx, yr)
       cor(COR.texto3)
-      pdf.text('Praxis', M + wAfn + wSys + 4.5, yr)
-      pdf.text(`${numero}  ·  Página ${i} de ${total}`, M + LARG, yr, { align: 'right' })
+      pdf.text(`Página ${i} de ${total}`, M + LARG, yr, { align: 'right' })
     }
 
     pdf.save(`praxis-pedido-${numero.replace('#', '')}.pdf`)
