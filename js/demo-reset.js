@@ -212,18 +212,22 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
   let n = 0
   for (const ped of seed.pedidos || []) {
     n++
-    const { empresaKey, categoriaKey, key, historico, comentarios, cotacoes, parcelas, ...dados } = ped
+    const { empresaKey, categoriaKey, key, abertoPor, historico, comentarios, cotacoes, parcelas, ...dados } = ped
     const hist = historico || []
     const numeroPedido = 'PRX-' + String(n).padStart(4, '0')
     const pedRef = doc(db, 'pedidos', `demo-${String(n).padStart(4, '0')}`)
     for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) if (dados[campo]) dados[campo] = deslocar(dados[campo])
     const indicada = (cotacoes || []).find(c => c.indicada)
-    const quando = st => hist.find(h => h.status === st)?.diasAtras
-    // Quem fez o quê: a Fernanda (solicitante) abriu um pedido em cada quatro;
-    // a Beatriz (gestora), alguns nas empresas dela; os outros, o colega da
-    // empresa. A Diana comprou o que passou da cotação; o Carlos decidiu; o
-    // Eduardo pagou
-    const solicitante = n % 4 === 1 ? P.solicitante
+    // Um horário por etapa, o mesmo no pedido e no histórico (ts() sorteia a hora)
+    const tsHist = hist.map(h => ts(h.diasAtras))
+    const quando = (st, padrao) => { const i = hist.findIndex(h => h.status === st); return i >= 0 ? tsHist[i] : ts(padrao) }
+    // Quem fez o quê: o Artur, o Carlos e o Eduardo abriram os pedidos marcados
+    // com "abertoPor" no seed (dois cada, para ninguém ver "Meus pedidos 0");
+    // a Fernanda (solicitante), um em cada quatro; a Beatriz (gestora), alguns
+    // nas empresas dela; os outros, o colega da empresa. A Diana comprou o que
+    // passou da cotação; o Carlos decidiu; o Eduardo pagou
+    const solicitante = P[abertoPor] ? P[abertoPor]
+      : n % 4 === 1 ? P.solicitante
       : n % 4 === 0 && empresasDe[P.gestor].includes(empresaMap[empresaKey]) ? P.gestor
       : colegaDa[empresaKey] || P.solicitante
     const temComprador = ['ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue', 'pago', 'reprovado'].includes(dados.status)
@@ -242,14 +246,14 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
       solicitanteNome:    nomeDe[solicitante],
       compradorId:        temComprador ? P.comprador : null,
       compradorNome:      temComprador ? nomeDe[P.comprador] : null,
-      compradorAssumiuEm: temComprador ? ts(quando('ag_cotacao') ?? hist[1]?.diasAtras ?? 1) : null,
+      compradorAssumiuEm: temComprador ? quando('ag_cotacao', hist[1]?.diasAtras ?? 1) : null,
       aprovadorIds:       [],
       aprovadoPor:        ['aprovado', 'comprado', 'entregue', 'pago'].includes(dados.status) ? P.aprovador : null,
-      aprovadoEm:         ['aprovado', 'comprado', 'entregue', 'pago'].includes(dados.status) ? ts(quando('aprovado') ?? 5) : null,
+      aprovadoEm:         ['aprovado', 'comprado', 'entregue', 'pago'].includes(dados.status) ? quando('aprovado', 5) : null,
       reprovadoPor:       dados.status === 'reprovado' ? P.aprovador : null,
-      reprovadoEm:        dados.status === 'reprovado' ? ts(quando('reprovado') ?? 3) : null,
+      reprovadoEm:        dados.status === 'reprovado' ? quando('reprovado', 3) : null,
       canceladoPor:       dados.status === 'cancelado' ? solicitante : null,
-      canceladoEm:        dados.status === 'cancelado' ? ts(quando('cancelado') ?? 3) : null,
+      canceladoEm:        dados.status === 'cancelado' ? quando('cancelado', 3) : null,
       motivoCancelamento:       dados.motivoCancelamento || null,
       motivoCancelamentoOutros: dados.motivoCancelamentoOutros || null,
       motivoReprovacao:         dados.motivoReprovacao || null,
@@ -257,11 +261,11 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
       fornecedorId:       indicada ? (fornMap[_normalizar(indicada.fornecedorNome)] || null) : null,
       numeroPedido,
       isDemo:             true,
-      criadoEm:           hist.length ? ts(hist[0].diasAtras) : agoraTs,
-      atualizadoEm:       hist.length ? ts(hist[hist.length - 1].diasAtras) : agoraTs,
+      criadoEm:           hist.length ? tsHist[0] : agoraTs,
+      atualizadoEm:       hist.length ? tsHist[hist.length - 1] : agoraTs,
     })
     hist.forEach((h, i) => avulsos.push([doc(collection(pedRef, 'historico')), {
-      status: h.status, nota: h.nota || null, autorId: autorDaEtapa[h.status] || solicitante, criadoEm: ts(h.diasAtras),
+      status: h.status, nota: h.nota || null, autorId: autorDaEtapa[h.status] || solicitante, criadoEm: tsHist[i],
     }]))
     ;(comentarios || []).forEach((c, i) => avulsos.push([doc(collection(pedRef, 'comentarios')), {
       texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),

@@ -293,6 +293,7 @@ async function main() {
   for (const ped of seed.pedidos || []) {
     const {
       empresaKey, categoriaKey, key,
+      abertoPor, // quem abre o pedido na demo do app (js/demo-reset.js); aqui não se aplica
       historico, comentarios, cotacoes, parcelas,
       ...pedData
     } = ped

@@ -728,6 +728,7 @@
     },
     {
       "key": "p11",
+      "abertoPor": "aprovador",
       "titulo": "Treinamento NR-35 — trabalho em altura",
       "descricao": "Capacitação obrigatória para 6 colaboradores da equipe de manutenção. Certificado de 2 anos.",
       "status": "ag_cotacao",
@@ -925,6 +926,7 @@
     },
     {
       "key": "p15",
+      "abertoPor": "financeiro",
       "titulo": "Software de gestão de ponto",
       "descricao": "Licença anual para sistema de controle de ponto eletrônico. Integração com folha de pagamento.",
       "status": "cancelado",
@@ -1750,6 +1752,7 @@
     },
     {
       "key": "p27",
+      "abertoPor": "financeiro",
       "titulo": "Renovação domínio e hospedagem site",
       "descricao": "Renovação anual do domínio .com.br e plano de hospedagem para o site institucional.",
       "status": "solicitado",
@@ -1783,6 +1786,7 @@
     },
     {
       "key": "p28",
+      "abertoPor": "aprovador",
       "titulo": "Kit ferramentas para oficina",
       "descricao": "Conjunto de ferramentas para nova bancada da oficina de manutenção: furadeira, parafusadeira, set de brocas.",
       "status": "ag_cotacao",
@@ -1916,6 +1920,7 @@
     },
     {
       "key": "p30",
+      "abertoPor": "supremo",
       "titulo": "Seguro empresarial — frota e patrimônio",
       "descricao": "Renovação apólice de seguro empresarial cobrindo frota (4 veículos) e patrimônio da planta.",
       "status": "comprado",
@@ -2037,6 +2042,7 @@
     },
     {
       "key": "p31",
+      "abertoPor": "supremo",
       "titulo": "Reforma do refeitório",
       "descricao": "Ampliação do refeitório com mais 15 cadeiras e instalação de novo micro-ondas e geladeira.",
       "status": "solicitado",
