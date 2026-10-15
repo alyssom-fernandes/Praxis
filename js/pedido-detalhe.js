@@ -907,11 +907,17 @@ function _renderDecisao(acoes) {
 
   const comVoce = acoes.length > 0
   if (comVoce) tom = 'voce'
+  // Vários responsáveis (os aprovadores): as iniciais de cada um, em pilha
+  const avatarResp = !resp?.nome
+    ? `<span class="avatar avatar-sm avatar-vazio" aria-hidden="true">${ICO.usuario}</span>`
+    : resp.pessoas?.length > 1
+      ? `<span class="avatar-pilha" aria-hidden="true">${resp.pessoas.map(u => `<span class="avatar avatar-sm">${gerarIniciais(u.nome)}</span>`).join('')}</span>`
+      : `<span class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(resp.pessoas?.[0]?.nome || resp.nome)}</span>`
   const respHtml = resp ? `
     <div class="decisao-fato decisao-resp">
       <dt>${t('dtResponsavel')}</dt>
       <dd>
-        ${resp.nome ? `<span class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(resp.nome)}</span>` : `<span class="avatar avatar-sm avatar-vazio" aria-hidden="true">${ICO.usuario}</span>`}
+        ${avatarResp}
         <span class="decisao-resp-txt">
           <span class="decisao-resp-nome">${resp.nome ? _esc(resp.nome) : (resp.vazio || '—')}</span>
           <span class="decisao-resp-papel">${resp.papel}</span>
@@ -953,7 +959,7 @@ function _respAprovadores() {
     return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null, vazio: t('dtAprovadoresEmpresa') }
   }
   const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` e mais ${lista.length - 2}` : '')
-  return { papel: t('aprovadoresLabel'), nome: nomes }
+  return { papel: t('aprovadoresLabel'), nome: nomes, pessoas: lista.slice(0, 2) }
 }
 
 function _respFinanceiro() {

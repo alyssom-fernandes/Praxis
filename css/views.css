@@ -1928,6 +1928,8 @@
 .decisao-fato.prazo-atrasado .decisao-sub { color: var(--red); font-weight: 600; }
 .decisao-resp dd { flex-direction: row; align-items: center; gap: 10px; }
 .decisao-resp .avatar { width: 32px; height: 32px; font-size: 0.78rem; }
+.decisao-resp .avatar-pilha { margin-top: 0; }
+.decisao-resp .avatar-pilha .avatar { box-shadow: 0 0 0 2px var(--card); }
 .decisao-resp .avatar-vazio svg { width: 14px; height: 14px; }
 .decisao-resp-txt { display: flex; flex-direction: column; min-width: 0; }
 .decisao-resp-nome { font-size: 0.95rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
