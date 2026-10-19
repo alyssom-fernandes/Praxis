@@ -6,6 +6,7 @@
     "emuladores": "firebase emulators:start --only auth,firestore,functions,storage",
     "seed": "node scripts/seed-emulator.js",
     "servir": "npx --yes http-server . -p 8123 -c-1",
+    "testar-unidade": "node --test tests/unidade.test.mjs",
     "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\""
   },
   "devDependencies": {
