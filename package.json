@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "praxis",
   "private": true,
-  "description": "GestÃ£o de compras corporativas â€” do pedido ao pagamento",
+  "description": "Gestão de compras corporativas — do pedido ao pagamento",
   "scripts": {
     "emuladores": "firebase emulators:start --only auth,firestore,functions,storage",
     "seed": "node scripts/seed-emulator.js",
