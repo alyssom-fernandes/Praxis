@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Ferramentas da raiz: Firebase CLI, SDK e testes das regras
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      menores:
+        update-types: [minor, patch]
+
+  # Cloud Functions
+  - package-ecosystem: npm
+    directory: /functions
+    schedule:
+      interval: monthly
+    groups:
+      menores:
+        update-types: [minor, patch]
+
+  # Ações do GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      menores:
+        update-types: [minor, patch]
