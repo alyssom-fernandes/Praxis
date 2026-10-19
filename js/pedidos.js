@@ -3,7 +3,7 @@ import {
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, iniciarTour } from './ui.js'
+import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
@@ -370,7 +370,6 @@ export async function renderPedidos() {
     _mudouFiltro()
   })
   _sincronizarLateral()
-  iniciarTour(sessao.isDemo)
   await _carregarDadosAuxiliares()
   _preencherFiltros()
   _preencherModalNovoPedido()

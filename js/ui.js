@@ -746,6 +746,7 @@ export function mostrarDemoBanner(isDemo) {
   faixa.innerHTML = `
     <span class="demo-faixa-texto">${_textoFaixaDemo()}</span>
     <span class="demo-faixa-acoes">
+      <button type="button" id="demo-faixa-tour"><span class="demo-faixa-longo">${t('demoFaixaTour')}</span><span class="demo-faixa-curto">${t('demoFaixaTourCurto')}</span></button>
       <button type="button" id="demo-faixa-trocar"><span class="demo-faixa-longo">${t('demoFaixaTrocar')}</span><span class="demo-faixa-curto">${t('demoFaixaTrocarCurto')}</span></button>
       <button type="button" id="demo-faixa-restaurar"><span class="demo-faixa-longo">${t('demoFaixaRestaurar')}</span><span class="demo-faixa-curto">${t('demoFaixaRestaurarCurto')}</span></button>
       <button type="button" id="demo-faixa-sair"><span class="demo-faixa-longo">${t('demoFaixaSair')}</span><span class="demo-faixa-curto">${t('demoFaixaSairCurto')}</span></button>
@@ -760,6 +761,7 @@ export function mostrarDemoBanner(isDemo) {
       aoFechar: () => btn.focus(),
     })
   })
+  faixa.querySelector('#demo-faixa-tour').addEventListener('click', () => abrirTour())
   faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', e => _restaurarDadosDemo(e.currentTarget))
   faixa.querySelector('#demo-faixa-sair').addEventListener('click', async () => {
     const { fazerLogout } = await import('./auth.js')
@@ -878,19 +880,10 @@ function _tourVisivel(el) {
   return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
 }
 
-export function iniciarTour(isDemo = false) {
-  if (isDemo) {
-    if (sessionStorage.getItem('praxis_tour_mostrado')) return
-    sessionStorage.setItem('praxis_tour_mostrado', '1')
-  } else {
-    if (localStorage.getItem('praxis_tour_visto')) return
-  }
-  setTimeout(_tourIniciar, 700)
-}
-
-export function reativarTour() {
-  localStorage.removeItem('praxis_tour_visto')
-  sessionStorage.removeItem('praxis_tour_mostrado')
+// O tour só abre pelo botão "Fazer o tour" (na faixa da demo e em
+// Configurações › Geral): aberto sozinho, ele cobria o quadro justo na
+// primeira impressão, e no celular tomava metade da tela
+export function abrirTour() {
   // O tour começa no quadro de pedidos; de outra tela, vai até lá primeiro
   if (!document.getElementById('pedidos-view') && window.__navegar) {
     window.__navegar('pedidos')
@@ -1043,5 +1036,4 @@ function _tourAtivo() { return !!document.getElementById('tour-popover') }
 
 function _tourFinalizar() {
   _tourLimpar()
-  localStorage.setItem('praxis_tour_visto', '1')
 }

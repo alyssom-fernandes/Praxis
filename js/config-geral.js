@@ -1,6 +1,6 @@
 import { db, collection, getDocs, consulta } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
-import { reativarTour, definirTema, preferenciaTema } from './ui.js'
+import { abrirTour, definirTema, preferenciaTema } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { t } from './constants.js'
 import { ICO, cabecalho, perfilHtml, iniciais, revelarItemLateral, completarContagensLateral, esc } from './config-comum.js'
@@ -135,6 +135,6 @@ function _bindEvents() {
     grupo.querySelector(`[data-tema="${novo}"]`)?.focus()
   })
 
-  // reativarTour leva ao quadro de pedidos e começa o tour lá
-  document.getElementById('btn-ver-tour')?.addEventListener('click', () => reativarTour())
+  // abrirTour leva ao quadro de pedidos e começa o tour lá
+  document.getElementById('btn-ver-tour')?.addEventListener('click', () => abrirTour())
 }
