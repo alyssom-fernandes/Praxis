@@ -700,7 +700,7 @@ function _acoesDoPedido() {
     painel.push(`<button class="${cls}" id="btn-add-cotacao">${ICO.mais2}${t('dtRegistrarCotacao')}</button>`)
   }
 
-  if (p.status === STATUS.EM_APROVACAO && [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
+  if (p.status === STATUS.EM_APROVACAO && _podeDecidir()) {
     painel.push(`<button class="btn-danger" id="btn-reprovar">${ICO.x}${t('btnReprovar')}</button>`)
     painel.push(`<button class="btn-primary" id="btn-aprovar">${ICO.check}${t('btnAprovar')}</button>`)
   }
@@ -711,7 +711,8 @@ function _acoesDoPedido() {
   }
 
   if (p.status === STATUS.COMPRADO &&
-      ([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) || p.solicitanteId === uid)) {
+      (([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && (p.compradorId === uid || gestorMais)) ||
+       p.solicitanteId === uid)) {
     painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${ICO.caixa}${t('btnConfirmarEntrega')}</button>`)
   }
 
@@ -803,7 +804,7 @@ function _renderDecisao(acoes) {
     }
 
     case STATUS.EM_APROVACAO: {
-      const podeDecidir = [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
+      const podeDecidir = _podeDecidir()
       titulo = podeDecidir ? t('dtAprovTituloPode') : t('dtAprovTitulo')
       texto = ind
         ? `${_esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
@@ -2185,6 +2186,14 @@ function _podeAssumir() {
   const perfil = sessao.usuario.perfil
   return p.status === STATUS.SOLICITADO && !p.compradorId &&
          [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
+}
+
+// Aprova ou reprova quem tem o perfil, menos quem abriu o pedido (o supremo
+// pode), como nas regras do Firestore
+function _podeDecidir() {
+  const perfil = sessao.usuario.perfil
+  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
+         (_pedido.solicitanteId !== sessao.usuario.id || perfil === PERFIS.SUPREMO)
 }
 
 function _podeLiberar() {

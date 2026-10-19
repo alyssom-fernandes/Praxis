@@ -1498,6 +1498,18 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
     prxToast(`Seu perfil não move pedidos de "${STATUS_LABEL[statusOrigem]}" para "${STATUS_LABEL[statusDestino]}". Use a tela do pedido.`, 'error')
     return
   }
+  // As mesmas travas das regras: quem abriu não aprova o próprio pedido, e o
+  // recebimento é do comprador responsável (ou de um gestor)
+  const p = _pedidos.find(x => x.id === id)
+  const uid = sessao.usuario.id
+  if (p && statusDestino === STATUS.APROVADO && p.solicitanteId === uid && perfil !== PERFIS.SUPREMO) {
+    prxToast(t('semDecidirProprio'), 'error')
+    return
+  }
+  if (p && statusDestino === STATUS.ENTREGUE && perfil === PERFIS.COMPRADOR && p.compradorId !== uid && p.solicitanteId !== uid) {
+    prxToast(t('soCompradorRecebe'), 'error')
+    return
+  }
 
   if (!exigirConexao()) return
   mostrarSpinner()
