@@ -8,7 +8,7 @@
  *   1. Apaga dados de demo existentes no emulador
  *   2. Cria as 6 contas de Auth (uma por perfil) com senha "demo1234"
  *   3. Cria usuários no Firestore vinculados às empresas
- *   4. Cria empresas, categorias, fornecedores e 33 pedidos (com subcoleções)
+ *   4. Cria empresas, categorias, fornecedores e 34 pedidos (com subcoleções)
  *   5. Define Custom Claims via Admin SDK (perfil + empresas[])
  *
  * Datas relativas: campos diasAtras (histórico/comentários) e vencimentoDias
@@ -114,11 +114,12 @@ const USUARIOS_SEED = [
     cargo: 'Colaboradora',
   },
   {
-    // Conta demo "unificada" — usada pelo botão Modo Demo (perfil supremo)
+    // Conta demo "unificada" — usada pelo botão Modo Demo. Perfil 'demo': as
+    // regras só a deixam mexer nos dados da demonstração
     email: 'demo@praxis.app',
     senha: 'demo1234',
     nome: 'Demo Praxis',
-    perfil: 'supremo',
+    perfil: 'demo',
     cargo: 'Demo',
   },
 ]
@@ -314,7 +315,8 @@ async function main() {
     }
 
     const numeroPedido = `PRX-${String(totalPedidos + 1).padStart(4, '0')}`
-    const pedRef = db.collection('pedidos').doc()
+    // ID na área da demo ("demo-…"), que a conta demo alcança (firestore.rules)
+    const pedRef = db.collection('pedidos').doc(`demo-${String(totalPedidos + 1).padStart(4, '0')}`)
     await pedRef.set({
       ...pedData,
       empresaId,
@@ -428,7 +430,8 @@ async function main() {
 
   // Atualiza contador atômico para que novos pedidos continuem a sequência
   await db.collection('_meta').doc('contadores').set({ totalPedidos })
-  console.log(`  _meta/contadores atualizado: totalPedidos=${totalPedidos}`)
+  await db.collection('_meta').doc('contadoresDemo').set({ totalPedidos })
+  console.log(`  _meta/contadores e contadoresDemo atualizados: totalPedidos=${totalPedidos}`)
 
   console.log('\n=== Seed concluído! ===')
   console.log('\nContas de teste (senha: demo1234):')

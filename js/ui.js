@@ -1,4 +1,5 @@
 import { t, PERFIS_LABEL } from './constants.js'
+import { esc } from './utils.js'
 
 // ── Command Palette (4.2) ─────────────────────────────────────
 // Busca de comandos e pedidos (botão "Buscar" da topbar, item da barra
@@ -8,10 +9,6 @@ let _cmdActiveIdx = 0
 let _cmdGatilho   = null
 
 const _ehMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
-
-function _escHTML(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
 
 // Ignora acentos e caixa: "relatorio" encontra "Relatórios"
 function _normalizar(s) {
@@ -148,7 +145,7 @@ function _cmdRenderResultados(query) {
     results.innerHTML = `
       <div class="cmd-empty" role="status">
         <span class="cmd-empty-n numeral" aria-hidden="true">0</span>
-        <strong>Nada encontrado para “${_escHTML(query.trim())}”</strong>
+        <strong>Nada encontrado para “${esc(query.trim())}”</strong>
         <span>Tente o número do pedido (PRX-0012) ou uma palavra do título.</span>
       </div>`
     document.getElementById('cmd-input')?.removeAttribute('aria-activedescendant')
@@ -159,12 +156,12 @@ function _cmdRenderResultados(query) {
   let idx = 0
   const linhaPedido = (p) => {
     const i = idx++
-    return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-pedido-id="${_escHTML(p.id)}" role="option" aria-selected="${i === _cmdActiveIdx}">
+    return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-pedido-id="${esc(p.id)}" role="option" aria-selected="${i === _cmdActiveIdx}">
       <span class="cmd-item-icon" aria-hidden="true">${_ICONE_PEDIDO}</span>
-      <span class="cmd-item-num">${_escHTML(p.numeroPedido || '—')}</span>
-      <span class="cmd-item-label">${_escHTML(p.titulo || 'Sem título')}</span>
+      <span class="cmd-item-num">${esc(p.numeroPedido || '—')}</span>
+      <span class="cmd-item-label">${esc(p.titulo || 'Sem título')}</span>
       ${p.urgente ? `<span class="cmd-item-urg">Urgente</span>` : ''}
-      ${p.status ? `<span class="cmd-item-meta"><span class="dot ${STATUS_DOT_COLOR?.[p.status] || 'dot-gray'}" aria-hidden="true"></span>${_escHTML(STATUS_LABEL?.[p.status] ?? p.status)}</span>` : ''}
+      ${p.status ? `<span class="cmd-item-meta"><span class="dot ${STATUS_DOT_COLOR?.[p.status] || 'dot-gray'}" aria-hidden="true"></span>${esc(STATUS_LABEL?.[p.status] ?? p.status)}</span>` : ''}
     </button>`
   }
 
@@ -401,7 +398,7 @@ export function esconderSpinner() {
 
 // Progresso da renovação da demo na tela de espera (js/demo-reset.js)
 export function progressoDemo(fase, porcento = 0) {
-  const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos', historico: 'demoFaseHistorico' }[fase]
+  const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos' }[fase]
   if (chave) mostrarSpinner(t(chave).replace('{n}', porcento))
 }
 
@@ -429,7 +426,7 @@ export function prxToast(mensagem, tipo = 'info', duracao) {
   toast.setAttribute('role', cfg.papel)
   toast.innerHTML = `
     <span class="toast-ico" aria-hidden="true">${cfg.icone()}</span>
-    <span class="toast-msg">${_escHTML(mensagem)}</span>
+    <span class="toast-msg">${esc(mensagem)}</span>
     <button type="button" class="toast-fechar" aria-label="Fechar aviso">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
@@ -462,8 +459,8 @@ function _montarDialogo({ titulo, mensagem, botoes, papel = 'alertdialog', perig
   overlay._focoAnterior = document.activeElement
   overlay.innerHTML = `
     <div class="dialog${perigo ? ' dialog-perigo' : ''}" role="${papel}" aria-modal="true" aria-labelledby="${id}-titulo" ${mensagem ? `aria-describedby="${id}-texto"` : ''}>
-      <h3 id="${id}-titulo">${_escHTML(titulo)}</h3>
-      ${mensagem ? `<p id="${id}-texto">${_escHTML(mensagem)}</p>` : ''}
+      <h3 id="${id}-titulo">${esc(titulo)}</h3>
+      ${mensagem ? `<p id="${id}-texto">${esc(mensagem)}</p>` : ''}
       <div class="dialog-actions">${botoes}</div>
     </div>
   `
@@ -501,8 +498,8 @@ export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCa
     const overlay = _montarDialogo({
       titulo, mensagem, perigo: !!danger,
       botoes: `
-        <button type="button" class="btn-secondary" id="prx-confirm-cancel">${_escHTML(labelCancel)}</button>
-        <button type="button" class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${_escHTML(labelOk)}</button>
+        <button type="button" class="btn-secondary" id="prx-confirm-cancel">${esc(labelCancel)}</button>
+        <button type="button" class="${danger ? 'btn-danger' : 'btn-primary'}" id="prx-confirm-ok">${esc(labelOk)}</button>
       `,
     })
     const ok = overlay.querySelector('#prx-confirm-ok')
@@ -728,8 +725,8 @@ async function _restaurarDadosDemo(btn) {
 // Diz com quem a pessoa está na demo (a escolhida na entrada) e deixa trocar
 function _textoFaixaDemo() {
   const u = window.__praxisSessao?.usuario
-  const quem = u ? `<b>${_escHTML(u.nome)}</b> (${_escHTML(PERFIS_LABEL[u.perfil] || u.perfil)})` : ''
-  return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto"><span class="demo-faixa-selo">${t('demoSelo')}</span>${u ? _escHTML(u.nome) : t('demoFaixaTitulo')}</strong>`
+  const quem = u ? `<b>${esc(u.nome)}</b> (${esc(PERFIS_LABEL[u.perfil] || u.perfil)})` : ''
+  return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto"><span class="demo-faixa-selo">${t('demoSelo')}</span>${u ? esc(u.nome) : t('demoFaixaTitulo')}</strong>`
     + `<span class="demo-faixa-detalhe">: ${quem ? `${t('demoFaixaComo')} ${quem}. ` : ''}${t('demoFaixaDetalhe')}</span>`
 }
 
@@ -749,6 +746,7 @@ export function mostrarDemoBanner(isDemo) {
   faixa.innerHTML = `
     <span class="demo-faixa-texto">${_textoFaixaDemo()}</span>
     <span class="demo-faixa-acoes">
+      <button type="button" id="demo-faixa-tour"><span class="demo-faixa-longo">${t('demoFaixaTour')}</span><span class="demo-faixa-curto">${t('demoFaixaTourCurto')}</span></button>
       <button type="button" id="demo-faixa-trocar"><span class="demo-faixa-longo">${t('demoFaixaTrocar')}</span><span class="demo-faixa-curto">${t('demoFaixaTrocarCurto')}</span></button>
       <button type="button" id="demo-faixa-restaurar"><span class="demo-faixa-longo">${t('demoFaixaRestaurar')}</span><span class="demo-faixa-curto">${t('demoFaixaRestaurarCurto')}</span></button>
       <button type="button" id="demo-faixa-sair"><span class="demo-faixa-longo">${t('demoFaixaSair')}</span><span class="demo-faixa-curto">${t('demoFaixaSairCurto')}</span></button>
@@ -763,6 +761,7 @@ export function mostrarDemoBanner(isDemo) {
       aoFechar: () => btn.focus(),
     })
   })
+  faixa.querySelector('#demo-faixa-tour').addEventListener('click', () => abrirTour())
   faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', e => _restaurarDadosDemo(e.currentTarget))
   faixa.querySelector('#demo-faixa-sair').addEventListener('click', async () => {
     const { fazerLogout } = await import('./auth.js')
@@ -881,19 +880,10 @@ function _tourVisivel(el) {
   return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
 }
 
-export function iniciarTour(isDemo = false) {
-  if (isDemo) {
-    if (sessionStorage.getItem('praxis_tour_mostrado')) return
-    sessionStorage.setItem('praxis_tour_mostrado', '1')
-  } else {
-    if (localStorage.getItem('praxis_tour_visto')) return
-  }
-  setTimeout(_tourIniciar, 700)
-}
-
-export function reativarTour() {
-  localStorage.removeItem('praxis_tour_visto')
-  sessionStorage.removeItem('praxis_tour_mostrado')
+// O tour só abre pelo botão "Fazer o tour" (na faixa da demo e em
+// Configurações › Geral): aberto sozinho, ele cobria o quadro justo na
+// primeira impressão, e no celular tomava metade da tela
+export function abrirTour() {
   // O tour começa no quadro de pedidos; de outra tela, vai até lá primeiro
   if (!document.getElementById('pedidos-view') && window.__navegar) {
     window.__navegar('pedidos')
@@ -1046,5 +1036,4 @@ function _tourAtivo() { return !!document.getElementById('tour-popover') }
 
 function _tourFinalizar() {
   _tourLimpar()
-  localStorage.setItem('praxis_tour_visto', '1')
 }

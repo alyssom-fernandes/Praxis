@@ -2,7 +2,7 @@ import { db, collection, query, where, orderBy, limit, onSnapshot, updateDoc, do
 import { sessao, registrarLimpador } from './app.js'
 import { prxToast } from './ui.js'
 import { EVENTOS, t } from './constants.js'
-import { formatTimestamp } from './utils.js'
+import { formatTimestamp, esc } from './utils.js'
 
 // Painel de notificações da topbar: as mais recentes (lidas e não lidas),
 // com contador das não lidas no sino. As Cloud Functions gravam o campo
@@ -40,10 +40,6 @@ const ICONE_POR_EVENTO = {
   pedido_entregue_solic:      ICO.caixa,
   mencao_comentario:          ICO.balao,
   pedido_parado:              ICO.relogio,
-}
-
-function _esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
 function _quando(n) { return n.criadaEm || n.criadoEm || null }
@@ -174,12 +170,12 @@ function _renderItem(n) {
   const corpo     = n.titulo && n.corpo ? n.corpo : ''
   const quando    = formatTimestamp(_quando(n))
   return `
-    <button type="button" class="notif-item ${n.lida ? 'lida' : 'unread'}" data-id="${_esc(n.id)}" ${n.pedidoId ? `data-pedido="${_esc(n.pedidoId)}"` : ''}>
+    <button type="button" class="notif-item ${n.lida ? 'lida' : 'unread'}" data-id="${esc(n.id)}" ${n.pedidoId ? `data-pedido="${esc(n.pedidoId)}"` : ''}>
       <span class="notif-icon" aria-hidden="true">${icone}</span>
       <span class="notif-body">
-        <span class="notif-titulo">${_esc(titulo)}</span>
-        ${corpo ? `<span class="notif-corpo">${_esc(corpo)}</span>` : ''}
-        ${quando ? `<span class="notif-time">${_esc(quando)}</span>` : ''}
+        <span class="notif-titulo">${esc(titulo)}</span>
+        ${corpo ? `<span class="notif-corpo">${esc(corpo)}</span>` : ''}
+        ${quando ? `<span class="notif-time">${esc(quando)}</span>` : ''}
       </span>
       ${n.lida ? '' : `<span class="notif-ponto" aria-hidden="true"></span><span class="sr-only">${t('notifNaoLida')}</span>`}
     </button>

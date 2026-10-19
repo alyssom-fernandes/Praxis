@@ -59,7 +59,7 @@ Captured from the demo.
 - **Comments with @mentions, attachments and a full history** in a single timeline.
 - **Reports.** Spend, orders, savings from quotes and installments due, compared with the previous period; charts by month, status, category and company; PDF and Excel export plus a print layout. Approvers see operational data only.
 - **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by the Firestore and Storage rules: each stage of an order can only be moved by the role that owns it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
-- **Multiple companies.** Each user sees only the companies they belong to; the top role sees all of them.
+- **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
 - **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
 - **Command palette** (Ctrl+K), guided tour, installable PWA, light and dark themes and a dedicated phone layout.
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
@@ -78,16 +78,17 @@ flowchart LR
   R -.->|reopened with justification| S
 ```
 
-An order can be cancelled with a reason: by its requester while it waits for a buyer, and by a manager until delivery. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
+An order can be cancelled with a reason: by its requester while it waits for a buyer, and by a manager until delivery. Whoever opened an order cannot approve or reject it (only the top role can), and quotes and delivery belong to the buyer who claimed it. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
 
 ## Technical decisions
 
 - **No framework and no build step.** The browser loads ES Modules directly; the whole interface comes from a CSS token system with light and dark themes.
 - **Security on the server, not in the UI.** Each user's role and companies travel in the auth token (custom claims set by a Cloud Function). The Firestore and Storage rules check every read and write: who may take each step of an order, which fields that step may change, and which companies each user reaches. The rules have automated tests on the emulator (`npm run testar-regras`), run by GitHub Actions on every push.
 - **Defense in depth in the browser.** Everything written by users is escaped before it reaches the page, and the site sends a Content Security Policy with no inline scripts, plus anti-framing and no-sniff headers. Fonts are served by the site itself.
-- **No races between users.** Claiming an order and approving it use `runTransaction`: if two people click at once, only one wins.
+- **No races between users.** Claiming an order and approving it use `runTransaction`: if two people click at once, only one wins. Every status change writes its history entry in the same transaction or batch, so an order never moves without a record.
 - **A demo that never gets stale.** The seed stores the date it was written for and shifts every date to today on each rebuild.
-- **The public demo runs on Firebase's free plan.** It has no Cloud Functions: the demo account gets its role from the rules (by e-mail), the daily rebuild runs in the app itself ([`js/demo-reset.js`](js/demo-reset.js)) and the notifications in the bell are samples. Custom claims, automatic notifications, e-mails and scheduled jobs run in the emulators or on the paid plan.
+- **The public demo runs on Firebase's free plan.** It has no Cloud Functions: the demo account gets its role from the rules (by e-mail), the daily rebuild runs in the app itself ([`js/demo-reset.js`](js/demo-reset.js)), in the background, so the first visitor of the day sees the board right away, and the notifications in the bell are samples. Custom claims, automatic notifications, e-mails and scheduled jobs run in the emulators or on the paid plan.
+- **A demo account that cannot reach real data.** Its password ships in the public `js/config.js`, so the rules give it a role of its own, `demo`, that is worth nothing else: it only reads and writes records marked as demo (orders with `demo-…` IDs and `isDemo == true`, the demo people, companies, categories and suppliers) and files of demo orders. It never touches real users, companies, categories, orders or files, and a real order can never be turned into a demo one.
 - **Everything verifiable locally.** With the Firebase emulators the whole app runs on your machine without touching real data.
 
 More in [`docs/arquitetura.md`](docs/arquitetura.md).
@@ -127,6 +128,8 @@ password `demo1234`, to see the system through each role.
 1. Create a project with Firestore, Authentication (email and password), Storage and Cloud Functions.
 2. Fill `js/config.js` with the project keys and update `.firebaserc`.
 3. `npx firebase deploy`. The rules (`firestore.rules`, `storage.rules`) and indexes are in the repository.
+
+> **Do not create the demo account (`demo@praxis.app`) in a project with real data.** Its password goes into `js/config.js`, which the site serves to every visitor. The rules keep it away from real data, but anyone with it could still create and change demo records. The demo account belongs only in a project made for the public demo.
 
 ## Structure
 

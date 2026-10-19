@@ -8,15 +8,31 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Conta da demonstração pública. A renovação diária da demo é feita pelo
-    // próprio app (js/demo-reset.js, sem Cloud Functions) e precisa apagar o
-    // que a demo criou; só essa conta pode.
-    function eDemo() { return request.auth.token.get('email', '') == 'demo@praxis.app'; }
+    // Conta da demonstração pública. A senha dela vai no js/config.js do
+    // site, então qualquer pessoa pode usá-la fora da interface. Por isso ela
+    // tem um perfil próprio, 'demo', que não vale como nenhum outro: só lê e
+    // grava o que é da demonstração (documentos com isDemo == true, pedidos
+    // com ID "demo-…" e os avisos das pessoas da demo). Os IDs automáticos do
+    // Firestore não têm hífen, então nenhum pedido real cai nessa área.
+    // As permissões gravadas no token (custom claims) não valem para ela.
+    function eDemo() {
+      return estaLogado() && request.auth.token.get('email', '') == 'demo@praxis.app';
+    }
 
-    // A conta demo vale como supremo mesmo sem as permissões gravadas no login
-    // (quem grava é uma Cloud Function, que fica fora do plano gratuito)
     function perfil() {
-      return eDemo() ? 'supremo' : request.auth.token.get('perfil', null);
+      return eDemo() ? 'demo' : request.auth.token.get('perfil', null);
+    }
+
+    function idDemo(id) { return id.matches('demo-.*'); }
+    function marcadoDemo(dados) { return dados.get('isDemo', false) == true; }
+
+    // A conta demo lê só o que está marcado como demo (a consulta precisa
+    // filtrar por isDemo == true) e grava só documentos que continuam
+    // marcados. Um documento que já existe só é regravado se já era da demo.
+    function leDemo() { return eDemo() && marcadoDemo(resource.data); }
+    function gravaDemo(id) {
+      return eDemo() && marcadoDemo(request.resource.data) &&
+        (resource == null || marcadoDemo(resource.data) || idDemo(id));
     }
 
     // Conta sem perfil (criada fora do app) não lê nem grava nada
@@ -68,42 +84,78 @@ service cloud.firestore {
         );
       }
 
+      // O gestor só alcança quem é das empresas dele: lê quem tem ao menos
+      // uma em comum e só edita quem está inteiro dentro delas (assim ele não
+      // puxa para a sua empresa, nem muda o perfil de, alguém de outra)
+      function mesmaEmpresa() {
+        return resource.data.get('empresas', []).hasAny(empresasDoUsuario());
+      }
+      function todoNasMinhasEmpresas() {
+        return mesmaEmpresa() && resource.data.get('empresas', []).hasOnly(empresasDoUsuario());
+      }
+
+      // A conta demo: as pessoas da demonstração (IDs "demo-…", marcadas), o
+      // próprio perfil (perfil 'demo', que não dá permissão nenhuma) e os
+      // perfis antigos dela mesma (de quando a conta foi recriada no console)
+      function perfilDaContaDemo(dados) {
+        return dados.get('email', '') == 'demo@praxis.app';
+      }
+      function demoGravaUsuario() {
+        return eDemo() && (
+          (idDemo(userId) && marcadoDemo(request.resource.data) &&
+            (resource == null || marcadoDemo(resource.data))) ||
+          (request.auth.uid == userId && resource == null &&
+            perfilDaContaDemo(request.resource.data) &&
+            request.resource.data.get('perfil', '') == 'demo') ||
+          (request.auth.uid == userId && resource != null &&
+            mudouSo(['empresas', 'atualizadoEm', 'ultimoAcesso']))
+        );
+      }
+
       allow read: if estaLogado() && (
-        request.auth.uid == userId || eGestor()
+        request.auth.uid == userId || eSupremo() ||
+        (temPerfil() && eGestor() && mesmaEmpresa()) ||
+        (eDemo() && (marcadoDemo(resource.data) || perfilDaContaDemo(resource.data)))
       );
-      allow create: if temPerfil() && eGestor() && semPromover();
+      allow create: if (temPerfil() && eGestor() && semPromover()) || demoGravaUsuario();
       // O próprio usuário só registra o último acesso: perfil e empresas viram
       // permissões no token (setUserClaims) e não podem ser mudados por ele
       allow update: if estaLogado() && (
-        (request.auth.uid == userId && mudouSo(['ultimoAcesso'])) ||
-        (temPerfil() && eGestor() && request.auth.uid != userId && semPromover()) ||
-        eSupremo()
+        (request.auth.uid == userId && !eDemo() && mudouSo(['ultimoAcesso'])) ||
+        (temPerfil() && eGestor() && request.auth.uid != userId &&
+          (eSupremo() || todoNasMinhasEmpresas()) && semPromover()) ||
+        eSupremo() || demoGravaUsuario()
       );
-      allow delete: if estaLogado() && eSupremo();
+      allow delete: if estaLogado() && (
+        eSupremo() ||
+        (eDemo() && request.auth.uid != userId && perfilDaContaDemo(resource.data))
+      );
     }
 
     // ── Empresas ───────────────────────────────────────────────
+    // O gestor só edita as empresas a que tem acesso
     match /empresas/{empresaId} {
-      allow read:   if temPerfil();
-      allow create: if temPerfil() && eGestor();
-      allow update: if temPerfil() && eGestor();
+      allow read:   if temPerfil() || leDemo();
+      allow create: if (temPerfil() && eGestor()) || gravaDemo(empresaId);
+      allow update: if (temPerfil() && (eSupremo() || (eGestor() && temAcessoEmpresa(empresaId)))) ||
+        gravaDemo(empresaId);
       allow delete: if temPerfil() && eSupremo();
     }
 
     // ── Categorias ─────────────────────────────────────────────
     match /categorias/{catId} {
-      allow read:   if temPerfil();
-      allow create: if temPerfil() && eGestor();
-      allow update: if temPerfil() && eGestor();
+      allow read:   if temPerfil() || leDemo();
+      allow create: if (temPerfil() && eGestor()) || gravaDemo(catId);
+      allow update: if (temPerfil() && eGestor()) || gravaDemo(catId);
       allow delete: if temPerfil() && eSupremo();
     }
 
     // ── Fornecedores ───────────────────────────────────────────
     match /fornecedores/{fornId} {
-      allow read:   if temPerfil();
-      allow create: if temPerfil() && eComprador();
-      allow update: if temPerfil() && (eComprador() || eGestor());
-      allow delete: if temPerfil() && eGestor();
+      allow read:   if temPerfil() || leDemo();
+      allow create: if (temPerfil() && eComprador()) || gravaDemo(fornId);
+      allow update: if (temPerfil() && (eComprador() || eGestor())) || gravaDemo(fornId);
+      allow delete: if (temPerfil() && eGestor()) || leDemo();
     }
 
     // ── Metadados internos ─────────────────────────────────────
@@ -116,9 +168,13 @@ service cloud.firestore {
           (resource == null ? 0 : resource.data.get('totalPedidos', 0)) + 1
       ));
     }
+    // Contador próprio da demo: a conta demo não mexe na numeração real
+    match /_meta/contadoresDemo {
+      allow read, write: if eDemo();
+    }
     // Trava e dia da renovação da demo: só a conta demo
     match /_meta/demo {
-      allow read, write: if estaLogado() && eDemo();
+      allow read, write: if eDemo();
     }
 
     // ── Pedidos ────────────────────────────────────────────────
@@ -156,13 +212,15 @@ service cloud.firestore {
         return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
           mudouSo(['status', 'atualizadoEm']);
       }
+      // Quem abriu o pedido não decide sobre ele (o supremo passa por cima,
+      // na regra de update)
       function aprovar() {
-        return de('em_aprovacao', 'aprovado') && eAprovador() &&
+        return de('em_aprovacao', 'aprovado') && eAprovador() && !oSolicitante() &&
           request.resource.data.aprovadoPor == eu() &&
           mudouSo(['status', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']);
       }
       function reprovar() {
-        return de('em_aprovacao', 'reprovado') && eAprovador() &&
+        return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() &&
           request.resource.data.reprovadoPor == eu() &&
           mudouSo(['status', 'reprovadoPor', 'reprovadoPorNome', 'reprovadoEm',
                    'motivoReprovacao', 'motivoReprovacaoOutros', 'atualizadoEm']);
@@ -172,8 +230,9 @@ service cloud.firestore {
           mudouSo(['status', 'fornecedorId', 'fornecedorNome', 'valorFinal',
                    'condicaoPagamento', 'dataCompra', 'atualizadoEm']);
       }
+      // Recebe o comprador responsável (ou um gestor) ou quem pediu
       function receber() {
-        return de('comprado', 'entregue') && (eComprador() || oSolicitante()) &&
+        return de('comprado', 'entregue') && ((eComprador() && oComprador()) || oSolicitante()) &&
           mudouSo(['status', 'dataEntrega', 'atualizadoEm']);
       }
       function pagar() {
@@ -203,39 +262,52 @@ service cloud.firestore {
           mudouSo(['reabertoPara', 'reabertaParaNum', 'atualizadoEm']);
       }
 
-      allow get: if temPerfil() && (
+      // A marca isDemo nasce com o pedido e não muda: um pedido real nunca
+      // vira demo (e a conta demo só apaga pedidos da demo)
+      function mesmaMarcaDemo() {
+        return marcadoDemo(request.resource.data) == marcadoDemo(resource.data);
+      }
+
+      allow get: if leDemo() || (temPerfil() && (
         eSupremo() || temAcessoEmpresa(resource.data.empresaId) ||
         resource.data.solicitanteId == eu()
-      );
+      ));
       // A consulta precisa filtrar pelas empresas do usuário (ou, para o
-      // solicitante, pelos pedidos dele); sem filtro, só o supremo lista
-      allow list: if temPerfil() && (
+      // solicitante, pelos pedidos dele); sem filtro, só o supremo lista.
+      // A conta demo filtra por isDemo == true.
+      allow list: if leDemo() || (temPerfil() && (
         eSupremo() || resource.data.empresaId in empresasDoUsuario() ||
         resource.data.solicitanteId == eu()
-      );
-      allow create: if temPerfil() && pedidoValido() && (
-        eSupremo() || (
-          temAcessoEmpresa(request.resource.data.empresaId) &&
-          request.resource.data.status == 'solicitado' &&
-          (request.resource.data.solicitanteId == eu() || eGestor())
-        )
-      );
-      allow update: if temPerfil() && pedidoValido() && (
-        eSupremo() || (
-          temAcessoEmpresa(resource.data.empresaId) &&
-          request.resource.data.empresaId == resource.data.empresaId && (
-            visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
-            aprovar() || reprovar() || comprar() || receber() || pagar() ||
-            cancelar() || editar() || reabrir()
+      ));
+      allow create: if pedidoValido() && (
+        (eDemo() && idDemo(pedidoId) && marcadoDemo(request.resource.data)) ||
+        (temPerfil() && !idDemo(pedidoId) && !marcadoDemo(request.resource.data) && (
+          eSupremo() || (
+            temAcessoEmpresa(request.resource.data.empresaId) &&
+            request.resource.data.status == 'solicitado' &&
+            (request.resource.data.solicitanteId == eu() || eGestor())
           )
-        )
+        ))
+      );
+      allow update: if pedidoValido() && mesmaMarcaDemo() && (
+        leDemo() || (temPerfil() && (
+          eSupremo() || (
+            temAcessoEmpresa(resource.data.empresaId) &&
+            request.resource.data.empresaId == resource.data.empresaId && (
+              visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
+              aprovar() || reprovar() || comprar() || receber() || pagar() ||
+              cancelar() || editar() || reabrir()
+            )
+          )
+        ))
       );
       // Pedidos nunca são deletados (apenas cancelados), exceto os da demo na renovação
-      allow delete: if estaLogado() && eDemo() &&
-        (resource.data.isDemo == true || resource.data.solicitanteId == request.auth.uid);
+      allow delete: if leDemo();
 
-      // Subcoleções: o supremo vem primeiro, para a renovação da demo (em lote)
-      // não gastar as leituras do pedido-pai que as regras permitem
+      // Subcoleções: a área da demo vem primeiro e é decidida pelo ID do
+      // pedido, sem ler o pedido-pai (a renovação grava em lote, e num lote as
+      // regras podem ler no máximo 20 documentos)
+      function areaDemo() { return eDemo() && idDemo(pedidoId); }
       function pai() {
         return get(/databases/$(database)/documents/pedidos/$(pedidoId)).data;
       }
@@ -248,49 +320,59 @@ service cloud.firestore {
       function autorSouEu() {
         return eSupremo() || request.resource.data.autorId == eu();
       }
+      // O comprador que assumiu o pedido (ou um gestor da empresa)
+      function compradorDoPedido() {
+        return pai().get('compradorId', null) == eu() || eGestor();
+      }
 
       // ── Cotações ─────────────────────────────────────────────
+      // Só o comprador que assumiu o pedido (ou um gestor) registra e indica
       match /cotacoes/{cotacaoId} {
-        allow read: if temPerfil() && veOPedido();
-        allow create, update: if temPerfil() && (eSupremo() || (eComprador() && daEmpresa()));
-        allow delete: if temPerfil() && (eSupremo() || (eGestor() && daEmpresa()));
+        allow read: if areaDemo() || (temPerfil() && veOPedido());
+        allow create, update: if areaDemo() || (temPerfil() && (
+          eSupremo() || (eComprador() && daEmpresa() && compradorDoPedido())
+        ));
+        allow delete: if areaDemo() || (temPerfil() && (eSupremo() || (eGestor() && daEmpresa())));
       }
 
       // ── Comentários ───────────────────────────────────────────
+      // Editar muda só o texto; editar e apagar valem só dentro de um pedido
+      // que a pessoa vê (o gestor, só nas empresas dele)
       match /comentarios/{comentarioId} {
-        allow read: if temPerfil() && veOPedido();
-        allow create: if temPerfil() && veOPedido() && autorSouEu();
-        allow update: if temPerfil() && (
-          request.auth.uid == resource.data.autorId || eGestor()
-        );
-        allow delete: if temPerfil() && eGestor();
+        allow read: if areaDemo() || (temPerfil() && veOPedido());
+        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
+        allow update: if areaDemo() || (temPerfil() && veOPedido() &&
+          mudouSo(['texto', 'editadoEm']) && (
+            request.auth.uid == resource.data.autorId || eSupremo() || (eGestor() && daEmpresa())
+          ));
+        allow delete: if areaDemo() || (temPerfil() && (eSupremo() || (eGestor() && daEmpresa())));
       }
 
       // ── Parcelas ──────────────────────────────────────────────
       match /parcelas/{parcelaId} {
-        allow read: if temPerfil() && veOPedido();
-        allow create: if temPerfil() && (eSupremo() || (eComprador() && daEmpresa()));
-        allow update: if temPerfil() && (eSupremo() || (
+        allow read: if areaDemo() || (temPerfil() && veOPedido());
+        allow create: if areaDemo() || (temPerfil() && (eSupremo() || (eComprador() && daEmpresa())));
+        allow update: if areaDemo() || (temPerfil() && (eSupremo() || (
           eFinanceiro() && daEmpresa() && mudouSo(['pago', 'pagoEm', 'comprovante'])
-        ));
-        allow delete: if estaLogado() && eDemo(); // só a renovação da demo
+        )));
+        allow delete: if areaDemo(); // só a renovação da demo
       }
 
       // ── Histórico ─────────────────────────────────────────────
       match /historico/{entradaId} {
-        allow read: if temPerfil() && veOPedido();
-        allow create: if temPerfil() && veOPedido() && autorSouEu();
+        allow read: if areaDemo() || (temPerfil() && veOPedido());
+        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
         allow update: if false; // Histórico é imutável
-        allow delete: if estaLogado() && eDemo(); // só a renovação da demo
+        allow delete: if areaDemo(); // só a renovação da demo
       }
 
       // ── Anexos gerais ─────────────────────────────────────────
       match /anexos/{anexoId} {
-        allow read: if temPerfil() && veOPedido();
-        allow create: if temPerfil() && veOPedido() && autorSouEu();
-        allow delete: if temPerfil() && (
+        allow read: if areaDemo() || (temPerfil() && veOPedido());
+        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
+        allow delete: if areaDemo() || (temPerfil() && (
           request.auth.uid == resource.data.autorId || eGestor()
-        );
+        ));
         allow update: if false;
       }
     }
@@ -299,7 +381,7 @@ service cloud.firestore {
     // A conta demo também lê as notificações das pessoas da demonstração
     // (IDs "demo-…", js/demo-pessoas.js), que ela representa dentro do app
     function eDonoNotificacao(userId) {
-      return request.auth.uid == userId || (eDemo() && userId.matches('demo-.*'));
+      return request.auth.uid == userId || (eDemo() && idDemo(userId));
     }
 
     match /notificacoes/{userId}/items/{notifId} {

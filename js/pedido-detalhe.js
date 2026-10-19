@@ -4,6 +4,7 @@ import {
   query, where,
   runTransaction, writeBatch, serverTimestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
+  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao } from './ui.js'
@@ -15,20 +16,10 @@ import {
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
-  hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura,
+  hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
-
-// Escapa entidades HTML para evitar XSS em conteúdo renderizado via innerHTML
-function _esc(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 let _unsubPedido    = null
 let _unsubHistorico = null
@@ -160,16 +151,16 @@ async function _carregarSubcollections() {
 
 async function _carregarAuxiliares() {
   const [empSnap, catSnap, fornSnap] = await Promise.all([
-    getDocs(collection(db, 'empresas')),
-    getDocs(collection(db, 'categorias')),
-    getDocs(collection(db, 'fornecedores')),
+    getDocs(consulta(collection(db, 'empresas'))),
+    getDocs(consulta(collection(db, 'categorias'))),
+    getDocs(consulta(collection(db, 'fornecedores'))),
   ])
   _empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   // usuarios: regra permite list apenas para gestor+; demais perfis recebem lista vazia
   try {
-    const usrSnap = await getDocs(collection(db, 'usuarios'))
+    const usrSnap = await getDocs(consultaUsuarios(sessao.usuario))
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
       .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
@@ -183,7 +174,7 @@ function _fornecedorDatalistOptions() {
   return _fornecedores
     .map(f => f.nomeExibicao || f.nomeOriginal || f.nome)
     .filter(Boolean)
-    .map(nome => `<option value="${nome.replace(/"/g, '&quot;')}"></option>`)
+    .map(nome => `<option value="${esc(nome)}"></option>`)
     .join('')
 }
 
@@ -196,7 +187,7 @@ async function _buscarOuCriarFornecedor(nomeDigitado) {
     return existente.id
   }
   // Confirma no servidor (pode ter sido criado por outro fluxo)
-  const snap = await getDocs(query(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
+  const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
   if (!snap.empty) {
     const ref = snap.docs[0]
     await updateDoc(doc(db, 'fornecedores', ref.id), { usos: (ref.data().usos || 0) + 1 })
@@ -205,7 +196,7 @@ async function _buscarOuCriarFornecedor(nomeDigitado) {
   const novo = await addDoc(collection(db, 'fornecedores'), {
     nome: nomeNorm, nomeOriginal: nomeDigitado, nomeExibicao: nomeDigitado,
     cnpj: '', criadoEm: serverTimestamp(), usos: 1,
-    ...(sessao.isDemo ? { isDemo: true } : {}),
+    ...marcaDemo(),
   })
   _fornecedores.push({ id: novo.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 })
   return novo.id
@@ -289,7 +280,7 @@ function _cabModal(idTitulo, titulo, atributoFechar) {
   return `
     <div class="modal-header dt-modal-cab">
       <div class="dt-modal-tit">
-        <span class="dt-modal-num">${_esc(p.numeroPedido || '')}<span class="dt-modal-pedido">${_esc(p.titulo || '')}</span></span>
+        <span class="dt-modal-num">${esc(p.numeroPedido || '')}<span class="dt-modal-pedido">${esc(p.titulo || '')}</span></span>
         <h2 id="${idTitulo}">${titulo}</h2>
       </div>
       <button class="btn-icon" ${atributoFechar} aria-label="${t('dtFechar')}">${ICO.fechar}</button>
@@ -404,9 +395,9 @@ function _renderCabecalho(menu) {
   const criado = p.criadoEm ? formatarDataRelativa(p.criadoEm) : null
   const prazo = _estadoPrazo()
   const meta = []
-  if (empresa?.nome) meta.push(`<span>${_esc(empresa.nome)}</span>`)
+  if (empresa?.nome) meta.push(`<span>${esc(empresa.nome)}</span>`)
   if (solicNome || criado) {
-    meta.push(`<span>${solicNome ? `Aberto por ${_esc(solicNome)}` : 'Aberto'}${criado ? ` <span title="${criado.title}">${criado.label.toLowerCase()}</span>` : ''}</span>`)
+    meta.push(`<span>${solicNome ? `Aberto por ${esc(solicNome)}` : 'Aberto'}${criado ? ` <span title="${criado.title}">${criado.label.toLowerCase()}</span>` : ''}</span>`)
   }
   if (prazo) {
     meta.push(`<span>${t('dtPrazo')} <span class="detalhe-meta-data">${prazo.data}</span>${prazo.texto
@@ -414,7 +405,7 @@ function _renderCabecalho(menu) {
   }
   const vinculo = (rotulo, id, num) => `
     <p class="reaberto-banner">${ICO.reabrir}<span>${rotulo}</span>
-      <a class="reaberto-link" href="?tela=detalhe&id=${encodeURIComponent(id)}" data-navegar="detalhe" data-id="${_esc(id)}">${_esc(num || id)}</a>
+      <a class="reaberto-link" href="?tela=detalhe&id=${encodeURIComponent(id)}" data-navegar="detalhe" data-id="${esc(id)}">${esc(num || id)}</a>
     </p>`
   return `
     <header class="detalhe-head">
@@ -422,12 +413,12 @@ function _renderCabecalho(menu) {
         <nav class="detalhe-trilha" aria-label="Navegação">
           <a href="?tela=pedidos" data-navegar="pedidos">${t('titulo')}</a>
           <span class="detalhe-trilha-sep" aria-hidden="true">/</span>
-          <span class="detalhe-num" aria-current="page">${_esc(p.numeroPedido || '—')}</span>
+          <span class="detalhe-num" aria-current="page">${esc(p.numeroPedido || '—')}</span>
         </nav>
         ${p.urgente ? `<span class="detalhe-urgente">${t('urgente')}</span>` : ''}
         ${_renderMenuAcoes(menu)}
       </div>
-      <h1 class="detalhe-titulo">${_esc(p.titulo)}</h1>
+      <h1 class="detalhe-titulo">${esc(p.titulo)}</h1>
       <p class="detalhe-meta">${meta.join('<span class="detalhe-meta-sep" aria-hidden="true">·</span>')}</p>
       ${p.reabertoDe ? vinculo(t('reabertoDe'), p.reabertoDe, p.reabertaDeNum) : ''}
       ${p.reabertoPara ? vinculo(t('reabertoComo'), p.reabertoPara, p.reabertaParaNum) : ''}
@@ -465,16 +456,16 @@ function _renderDetalhe() {
   } : null
 
   const dados = [
-    [t('metaEmpresa'), _esc(empresa?.nome || '—')],
-    [t('metaCategoria'), _esc(categ?.nome || '—')],
-    [t('metaQtd'), `<span class="dt-numeral">${_esc(p.quantidade ?? '—')}</span> ${_esc(p.unidade || '')}`],
+    [t('metaEmpresa'), esc(empresa?.nome || '—')],
+    [t('metaCategoria'), esc(categ?.nome || '—')],
+    [t('metaQtd'), `<span class="dt-numeral">${esc(p.quantidade ?? '—')}</span> ${esc(p.unidade || '')}`],
     [t('metaNecessario'), p.dataNecessaria ? `<span class="dt-numeral">${formatDate(p.dataNecessaria)}</span>` : '—'],
     [t('metaValorEst'), p.valorEstimado ? `<span class="dt-numeral">${formatCurrency(p.valorEstimado)}</span>` : '—'],
-    [t('metaCentro'), `<span class="mono">${_esc(p.centroCusto || '—')}</span>`],
+    [t('metaCentro'), `<span class="mono">${esc(p.centroCusto || '—')}</span>`],
   ]
-  if (p.fornecedorNome) dados.push([t('fornecedorLabel'), _esc(p.fornecedorNome)])
+  if (p.fornecedorNome) dados.push([t('fornecedorLabel'), esc(p.fornecedorNome)])
   if (p.valorFinal) dados.push([t('metaValorFinal'), `<span class="dt-numeral">${formatCurrency(p.valorFinal)}</span>`, 'destaque'])
-  if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), _esc(CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento)])
+  if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), esc(CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento)])
   if (p.dataCompra)  dados.push([t('metaDataCompra'), `<span class="dt-numeral">${formatDate(p.dataCompra)}</span>`])
   if (p.dataEntrega) dados.push([t('metaDataEntrega'), `<span class="dt-numeral">${formatDate(p.dataEntrega)}</span>`])
 
@@ -498,7 +489,7 @@ function _renderDetalhe() {
             ${p.descricao ? `
               <div class="detalhe-descricao">
                 <div class="meta-label">${t('dtDescricao')}</div>
-                <p>${_esc(p.descricao)}</p>
+                <p>${esc(p.descricao)}</p>
               </div>` : ''}
           </section>
 
@@ -579,7 +570,7 @@ function _renderDetalhe() {
         <label for="reprov-motivo">${t('motivoLabel')} *</label>
         <select id="reprov-motivo">
           <option value="">${t('selecionar')}</option>
-          ${MOTIVOS_REPROVACAO.map(m => `<option value="${_esc(m)}">${_esc(m)}</option>`).join('')}
+          ${MOTIVOS_REPROVACAO.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" id="reprov-outros-wrap" style="display:none;margin-top:1rem">
@@ -595,7 +586,7 @@ function _renderDetalhe() {
         <label for="cancel-motivo">${t('motivoLabel')} *</label>
         <select id="cancel-motivo">
           <option value="">${t('selecionar')}</option>
-          ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${_esc(m)}">${_esc(m)}</option>`).join('')}
+          ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" id="cancel-outros-wrap" style="display:none;margin-top:1rem">
@@ -638,8 +629,8 @@ function _resumoCotacao(c, rotulo) {
   return `
     <div class="modal-resumo">
       <span class="meta-label">${rotulo}</span>
-      <div class="modal-resumo-linha"><strong>${_esc(c.fornecedorNome)}</strong><span class="dt-numeral">${formatCurrency(c.valor)}</span></div>
-      ${c.prazoEntrega || c.condicoesComerciais ? `<div class="modal-resumo-sub">${_esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · '))}</div>` : ''}
+      <div class="modal-resumo-linha"><strong>${esc(c.fornecedorNome)}</strong><span class="dt-numeral">${formatCurrency(c.valor)}</span></div>
+      ${c.prazoEntrega || c.condicoesComerciais ? `<div class="modal-resumo-sub">${esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · '))}</div>` : ''}
     </div>`
 }
 
@@ -651,12 +642,12 @@ function _corpoModalCompra() {
     <div class="form-grid form-grid-2">
       <div class="form-group col-span-2">
         <label for="mc-fornecedor">${t('fornecedorLabel')} *</label>
-        <input type="text" id="mc-fornecedor" placeholder="${t('dtNomeFornecedor')}" list="fornecedores-datalist" autocomplete="off" value="${_esc(ind?.fornecedorNome || '')}">
+        <input type="text" id="mc-fornecedor" placeholder="${t('dtNomeFornecedor')}" list="fornecedores-datalist" autocomplete="off" value="${esc(ind?.fornecedorNome || '')}">
         <datalist id="fornecedores-datalist">${_fornecedorDatalistOptions()}</datalist>
       </div>
       <div class="form-group">
         <label for="mc-valor">${t('valorFinalLabel')} *</label>
-        <input type="text" id="mc-valor" inputmode="decimal" placeholder="R$ 0,00" value="${_esc(valorIni)}">
+        <input type="text" id="mc-valor" inputmode="decimal" placeholder="R$ 0,00" value="${esc(valorIni)}">
       </div>
       <div class="form-group">
         <label for="mc-condicao">${t('condicaoPagLabel')} *</label>
@@ -699,7 +690,7 @@ function _acoesDoPedido() {
     painel.push(`<button class="${cls}" id="btn-add-cotacao">${ICO.mais2}${t('dtRegistrarCotacao')}</button>`)
   }
 
-  if (p.status === STATUS.EM_APROVACAO && [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
+  if (p.status === STATUS.EM_APROVACAO && _podeDecidir()) {
     painel.push(`<button class="btn-danger" id="btn-reprovar">${ICO.x}${t('btnReprovar')}</button>`)
     painel.push(`<button class="btn-primary" id="btn-aprovar">${ICO.check}${t('btnAprovar')}</button>`)
   }
@@ -710,13 +701,14 @@ function _acoesDoPedido() {
   }
 
   if (p.status === STATUS.COMPRADO &&
-      ([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) || p.solicitanteId === uid)) {
+      (([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && (p.compradorId === uid || gestorMais)) ||
+       p.solicitanteId === uid)) {
     painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${ICO.caixa}${t('btnConfirmarEntrega')}</button>`)
   }
 
   if (p.status === STATUS.ENTREGUE && [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
     const proxima = _proximaParcela()
-    if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${_esc(proxima.id)}">${ICO.moeda}${t('dtRegistrarPagamento')}</button>`)
+    if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${esc(proxima.id)}">${ICO.moeda}${t('dtRegistrarPagamento')}</button>`)
     else painel.push(`<button class="btn-primary" id="btn-confirmar-pagamento">${ICO.check}${t('btnConfirmarPagamento')}</button>`)
   }
 
@@ -802,13 +794,13 @@ function _renderDecisao(acoes) {
     }
 
     case STATUS.EM_APROVACAO: {
-      const podeDecidir = [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
+      const podeDecidir = _podeDecidir()
       titulo = podeDecidir ? t('dtAprovTituloPode') : t('dtAprovTitulo')
       texto = ind
-        ? `${_esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
+        ? `${esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
         : t('dtAprovSemIndicada')
       if (ind) {
-        fatos.push([t('dtPropostaIndicada'), dinheiro(ind.valor), _esc(ind.fornecedorNome)])
+        fatos.push([t('dtPropostaIndicada'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
         if (p.valorEstimado) {
           const dif = ind.valor - p.valorEstimado
           fatos.push([t('dtFrenteEstimado'), `<span class="dt-numeral">${_pct(dif / p.valorEstimado * 100)}</span>`,
@@ -828,8 +820,8 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
       const em = p.aprovadoEm || h?.em
       titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `Aprovado por ${_esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode') : t('dtAprovadoTexto')}`
-      if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), _esc(ind.fornecedorNome)])
+      texto = `${quem ? `Aprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode') : t('dtAprovadoTexto')}`
+      if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
       fatoPrazo()
       resp = { papel: t('compradorLabel'), nome: comprador() || t('dtCompradorDesignado') }
@@ -838,8 +830,8 @@ function _renderDecisao(acoes) {
 
     case STATUS.COMPRADO:
       titulo = acoes.length ? t('dtCompradoTituloPode') : t('dtCompradoTitulo')
-      texto = `${p.fornecedorNome ? `Compra feita com ${_esc(p.fornecedorNome)}${p.dataCompra ? ` em ${formatDate(p.dataCompra)}` : ''}. ` : ''}${t('dtCompradoTexto')}`
-      if (p.valorFinal) fatos.push([t('metaValorFinal'), dinheiro(p.valorFinal), _esc(p.fornecedorNome || '')])
+      texto = `${p.fornecedorNome ? `Compra feita com ${esc(p.fornecedorNome)}${p.dataCompra ? ` em ${formatDate(p.dataCompra)}` : ''}. ` : ''}${t('dtCompradoTexto')}`
+      if (p.valorFinal) fatos.push([t('metaValorFinal'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
       fatoPrazo()
       resp = { papel: t('dtRecebimento'), nome: comprador() || _nomePorId(p.solicitanteId) || p.solicitanteNome || null }
       break
@@ -869,8 +861,8 @@ function _renderDecisao(acoes) {
       rotulo = t('dtConcluido'); tom = 'ok'
       const ent = _entradas()
       titulo = t('dtPagoTitulo')
-      texto = `${p.valorFinal ? `${formatCurrency(p.valorFinal)} pagos` : 'Pago integralmente'}${p.fornecedorNome ? ` a ${_esc(p.fornecedorNome)}` : ''}.`
-      if (p.valorFinal) fatos.push([t('dtValorPago'), dinheiro(p.valorFinal), _esc(p.fornecedorNome || '')])
+      texto = `${p.valorFinal ? `${formatCurrency(p.valorFinal)} pagos` : 'Pago integralmente'}${p.fornecedorNome ? ` a ${esc(p.fornecedorNome)}` : ''}.`
+      if (p.valorFinal) fatos.push([t('dtValorPago'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
       if (ent[STATUS.PAGO]) fatos.push([t('dtConcluidoEm'), `<span class="dt-numeral">${_dataCurta(ent[STATUS.PAGO])}</span>`])
       if (p.criadoEm && ent[STATUS.PAGO]) {
         const d = Math.max(1, Math.round((_tsMs(ent[STATUS.PAGO]) - _tsMs(p.criadoEm)) / 86400000))
@@ -885,9 +877,9 @@ function _renderDecisao(acoes) {
       const h = _quemFez(STATUS.REPROVADO)
       const quem = _nomePorId(p.reprovadoPor) || p.reprovadoPorNome || h?.nome
       const em = p.reprovadoEm || h?.em
-      titulo = motivo ? _esc(motivo) : t('dtReprovadoTitulo')
-      texto = `${quem ? `Reprovado por ${_esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}.` : ''}`
-      if (p.reabertoPara) texto += ` ${t('dtJaReaberto')} ${_esc(p.reabertaParaNum || '')}.`
+      titulo = motivo ? esc(motivo) : t('dtReprovadoTitulo')
+      texto = `${quem ? `Reprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}.` : ''}`
+      if (p.reabertoPara) texto += ` ${t('dtJaReaberto')} ${esc(p.reabertaParaNum || '')}.`
       else if ([PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) texto += ` ${t('dtDicaReabrir')}`
       break
     }
@@ -898,8 +890,8 @@ function _renderDecisao(acoes) {
       const h = _quemFez(STATUS.CANCELADO)
       const quem = _nomePorId(p.canceladoPor) || p.canceladoPorNome || h?.nome
       const em = p.canceladoEm || h?.em
-      titulo = motivo ? _esc(motivo) : t('dtCanceladoTitulo')
-      texto = `${quem ? `Cancelado por ${_esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${t('dtCanceladoTexto')}`
+      titulo = motivo ? esc(motivo) : t('dtCanceladoTitulo')
+      texto = `${quem ? `Cancelado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${t('dtCanceladoTexto')}`
       break
     }
 
@@ -920,7 +912,7 @@ function _renderDecisao(acoes) {
       <dd>
         ${avatarResp}
         <span class="decisao-resp-txt">
-          <span class="decisao-resp-nome">${resp.nome ? _esc(resp.nome) : (resp.vazio || '—')}</span>
+          <span class="decisao-resp-nome">${resp.nome ? esc(resp.nome) : (resp.vazio || '—')}</span>
           <span class="decisao-resp-papel">${resp.papel}</span>
         </span>
       </dd>
@@ -981,7 +973,7 @@ function _linhaPessoa(papel, nome, status, extra = '', statusCls = '') {
       <div class="avatar avatar-sm ${real ? '' : 'avatar-vazio'}" aria-hidden="true">${real ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 13)}</div>
       <div class="pessoa-corpo">
         <div class="pessoa-role">${papel}</div>
-        <div class="pessoa-name">${nome ? _esc(nome) : `<span class="pessoa-indef">${status || 'Não definido'}</span>`}</div>
+        <div class="pessoa-name">${nome ? esc(nome) : `<span class="pessoa-indef">${status || 'Não definido'}</span>`}</div>
         ${status && nome ? `<div class="pessoa-status ${statusCls}">${status}</div>` : ''}
         ${extra}
       </div>
@@ -1042,7 +1034,7 @@ function _renderPessoaAprovadores() {
       </div>
       <div class="pessoa-corpo">
         <div class="pessoa-role">${papel}</div>
-        <div class="pessoa-name">${_esc(nomes)}</div>
+        <div class="pessoa-name">${esc(nomes)}</div>
         ${status ? `<div class="pessoa-status">${status}</div>` : ''}
       </div>
     </div>`
@@ -1102,14 +1094,14 @@ function _renderCotacoes() {
     ].join('')
     const largura = maior ? Math.max((c.valor || 0) / maior * 100, 3) : 0
     const acoes = [
-      c.arquivoUrl ? `<a href="${_esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
-      podeIndicar && !c.indicada ? `<button class="btn-ghost btn-sm" data-indicar="${_esc(c.id)}" title="${t('dtIndicarTitulo')}">${t('dtIndicar')}</button>` : '',
+      c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
+      podeIndicar && !c.indicada ? `<button class="btn-ghost btn-sm" data-indicar="${esc(c.id)}" title="${t('dtIndicarTitulo')}">${t('dtIndicar')}</button>` : '',
     ].join('')
     return `
       <li class="cotacao-item${c.indicada ? ' indicada' : ''}">
         <div class="cotacao-info">
-          <div class="cotacao-fornecedor">${_esc(c.fornecedorNome)}${marcas ? `<span class="cotacao-marcas">${marcas}</span>` : ''}</div>
-          <div class="cotacao-sub">${_esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · ') || t('dtSemCondicoes'))}</div>
+          <div class="cotacao-fornecedor">${esc(c.fornecedorNome)}${marcas ? `<span class="cotacao-marcas">${marcas}</span>` : ''}</div>
+          <div class="cotacao-sub">${esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · ') || t('dtSemCondicoes'))}</div>
         </div>
         <div class="cotacao-lado">
           <span class="cotacao-valor">${formatCurrency(c.valor)}</span>
@@ -1153,7 +1145,7 @@ function _renderActivityFeed() {
   return feed.map(item => {
     const nome = item.autorNome || _nomePorId(item.autorId)
     const ts   = formatarDataRelativa(item.criadoEm)
-    const quem = nome ? `<strong>${_esc(nome)}</strong>` : ''
+    const quem = nome ? `<strong>${esc(nome)}</strong>` : ''
 
     if (item._feedTipo === 'status') {
       const i = _ETAPAS.indexOf(item.status)
@@ -1161,23 +1153,23 @@ function _renderActivityFeed() {
       const marca = negativo
         ? `<span class="feed-marca feed-marca-neg">${_svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 12)}</span>`
         : `<span class="feed-marca feed-marca-num">${i >= 0 ? _dois(i + 1) : '·'}</span>`
-      const st = `<span class="feed-status">${_NOME_ETAPA[item.status] || _esc(item.status)}</span>`
+      const st = `<span class="feed-status">${_NOME_ETAPA[item.status] || esc(item.status)}</span>`
       const frase = item.status === STATUS.SOLICITADO && !item.nota
         ? (quem ? `${quem} abriu o pedido` : 'Pedido aberto')
         : negativo
           ? (quem ? `${quem} ${item.status === STATUS.REPROVADO ? 'reprovou' : 'cancelou'} o pedido` : (item.status === STATUS.REPROVADO ? 'Pedido reprovado' : 'Pedido cancelado'))
           : (quem ? `${quem} moveu para ${st}` : `Movido para ${st}`)
-      return evento(marca, `${frase}${item.nota ? `<div class="feed-nota">${_esc(item.nota)}</div>` : ''}`, ts, negativo ? 'feed-item-neg' : 'feed-item-etapa')
+      return evento(marca, `${frase}${item.nota ? `<div class="feed-nota">${esc(item.nota)}</div>` : ''}`, ts, negativo ? 'feed-item-neg' : 'feed-item-etapa')
     }
 
     if (item._feedTipo === 'comentario') {
-      const texto = _esc(item.texto || '').replace(/@([\wÀ-ÿ]+)/g, '<span class="mention">@$1</span>')
+      const texto = esc(item.texto || '').replace(/@([\wÀ-ÿ]+)/g, '<span class="mention">@$1</span>')
       return `
         <li class="feed-item feed-item-comment">
           <div class="feed-left"><div class="avatar avatar-sm ${nome ? '' : 'avatar-vazio'}" aria-hidden="true">${nome ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 12)}</div></div>
           <div class="feed-body">
             <div class="feed-header">
-              <span class="feed-author">${_esc(nome || 'Participante')}</span>
+              <span class="feed-author">${esc(nome || 'Participante')}</span>
               <span class="feed-time" title="${ts.title}">${ts.label}</span>
             </div>
             <div class="comentario-bolha"><div class="comment-text">${texto}</div></div>
@@ -1187,23 +1179,23 @@ function _renderActivityFeed() {
 
     if (item._feedTipo === 'cotacao') {
       return evento(icone('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
-        `${quem || 'Alguém'} registrou a cotação de <strong>${_esc(item.fornecedorNome || '—')}</strong>${item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
+        `${quem || 'Alguém'} registrou a cotação de <strong>${esc(item.fornecedorNome || '—')}</strong>${item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
     }
 
     if (item._feedTipo === 'comprovante') {
       return evento(icone('<polyline points="20 6 9 17 4 12"/>'),
-        `${quem || 'Alguém'} anexou o comprovante da parcela <strong class="num">${_esc(item.parcelaNumero || '')}</strong>`, ts)
+        `${quem || 'Alguém'} anexou o comprovante da parcela <strong class="num">${esc(item.parcelaNumero || '')}</strong>`, ts)
     }
 
     if (item._feedTipo === 'edicao') {
       return evento(icone('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
-        `${quem || 'Alguém'} alterou <strong>${_esc(item.campoLabel || item.campo || '')}</strong>
-         <div class="feed-nota"><span class="feed-antes">${_esc(item.valorAnterior || '—')}</span> → ${_esc(item.valorNovo || '—')}</div>`, ts)
+        `${quem || 'Alguém'} alterou <strong>${esc(item.campoLabel || item.campo || '')}</strong>
+         <div class="feed-nota"><span class="feed-antes">${esc(item.valorAnterior || '—')}</span> → ${esc(item.valorNovo || '—')}</div>`, ts)
     }
 
     if (item._feedTipo === 'anexo') {
       return evento(icone('<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>'),
-        `${quem || 'Alguém'} anexou <strong>${_esc(item.nomeArquivo || '—')}</strong>`, ts)
+        `${quem || 'Alguém'} anexou <strong>${esc(item.nomeArquivo || '—')}</strong>`, ts)
     }
 
     return ''
@@ -1244,17 +1236,17 @@ function _renderParcelas() {
       else estado = `Vence em ${_dias(d)}`
     }
     const acoes = [
-      parc.comprovante ? `<a href="${_esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
+      parc.comprovante ? `<a href="${esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
       podePagar && !parc.comprovante ? `
         <label class="btn-icon" tabindex="0" aria-label="${t('dtAnexarComprovante')}" title="${t('dtAnexarComprovante')}">
           ${ICO.clipe}
-          <input type="file" accept="image/*,.pdf" data-comprov="${_esc(parc.id)}" class="sr-only" tabindex="-1">
+          <input type="file" accept="image/*,.pdf" data-comprov="${esc(parc.id)}" class="sr-only" tabindex="-1">
         </label>` : '',
-      !parc.pago && podePagar ? `<button class="btn-ghost btn-sm" data-pagar="${_esc(parc.id)}" title="${t('dtRegistrarPagamento')}">${t('dtPagar')}</button>` : '',
+      !parc.pago && podePagar ? `<button class="btn-ghost btn-sm" data-pagar="${esc(parc.id)}" title="${t('dtRegistrarPagamento')}">${t('dtPagar')}</button>` : '',
     ].join('')
     return `
       <li class="parcela-item ${cls}">
-        <div class="parcela-numero"><b>${_esc(parc.numero)}</b><span>/${_esc(parc.total)}</span></div>
+        <div class="parcela-numero"><b>${esc(parc.numero)}</b><span>/${esc(parc.total)}</span></div>
         <div class="parcela-info">
           <div class="parcela-data">${formatDate(parc.vencimento)}</div>
           <div class="parcela-venc ${cls}">${estado}</div>
@@ -1429,8 +1421,8 @@ async function _assumirPedido() {
         status: STATUS.AG_COTACAO,
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.AG_COTACAO, 'Comprador assumiu o pedido')
     })
-    await _registrarHistorico(STATUS.AG_COTACAO, 'Comprador assumiu o pedido')
     prxToast(t('pedidoAssumido'), 'success')
   } catch (err) {
     prxToast(err.message || t('erroAssumir'), 'error')
@@ -1445,14 +1437,21 @@ async function _liberarClaim() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
-      compradorId: null,
-      compradorNome: null,
-      compradorAssumiuEm: null,
-      status: STATUS.SOLICITADO,
-      atualizadoEm: serverTimestamp(),
+    // Em transação: se o comprador indicou uma cotação nesse meio-tempo, o
+    // pedido não volta para a fila por cima disso
+    await runTransaction(db, async (tx) => {
+      const ref  = doc(db, 'pedidos', _pedidoId)
+      const snap = await tx.get(ref)
+      if (snap.data().status !== STATUS.AG_COTACAO) throw new Error(t('pedidoJaProcessado'))
+      tx.update(ref, {
+        compradorId: null,
+        compradorNome: null,
+        compradorAssumiuEm: null,
+        status: STATUS.SOLICITADO,
+        atualizadoEm: serverTimestamp(),
+      })
+      _historicoJunto(tx, STATUS.SOLICITADO, 'Claim liberado pelo gestor')
     })
-    await _registrarHistorico(STATUS.SOLICITADO, 'Claim liberado pelo gestor')
     prxToast(t('pedidoLiberado'), 'success')
   } catch (err) {
     prxToast(t('erroLiberarPedido'), 'error')
@@ -1481,8 +1480,8 @@ async function _aprovarPedido() {
         aprovadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.APROVADO)
     })
-    await _registrarHistorico(STATUS.APROVADO)
     prxToast(t('pedidoAprovado'), 'success')
   } catch (err) {
     prxToast(err.message || t('erroAprovar'), 'error')
@@ -1514,8 +1513,8 @@ async function _reprovarPedido() {
         motivoReprovacaoOutros: motivo === 'Outros' ? outros : null,
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.REPROVADO, motivo === 'Outros' ? outros : motivo)
     })
-    await _registrarHistorico(STATUS.REPROVADO, motivo === 'Outros' ? outros : motivo)
     fecharModal('modal-reprovar')
     prxToast(t('pedidoReprovado'), 'info')
   } catch (err) {
@@ -1544,7 +1543,8 @@ async function _executarCompra() {
     // Busca ou cria fornecedor (autocomplete + dedupe por nome normalizado)
     const fornecedorId = await _buscarOuCriarFornecedor(fornecedor)
 
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.COMPRADO,
       fornecedorId,
       fornecedorNome: fornecedor,
@@ -1553,6 +1553,8 @@ async function _executarCompra() {
       dataCompra,
       atualizadoEm: serverTimestamp(),
     })
+    _historicoJunto(lote, STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
+    await lote.commit()
 
     // Cria parcelas
     const valorParcela = valorFinal / numParc
@@ -1568,7 +1570,6 @@ async function _executarCompra() {
       })
     }
 
-    await _registrarHistorico(STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
     fecharModal('modal-compra')
     prxToast(t('compraRegistrada'), 'success')
   } catch (err) {
@@ -1585,12 +1586,14 @@ async function _confirmarEntrega() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.ENTREGUE,
       dataEntrega: hojeISO(),
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.ENTREGUE)
+    _historicoJunto(lote, STATUS.ENTREGUE)
+    await lote.commit()
     prxToast(t('entregaConfirmada'), 'success')
   } catch (err) {
     prxToast(t('erroConfirmarEntrega'), 'error')
@@ -1607,11 +1610,13 @@ async function _confirmarPagamento() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.PAGO,
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.PAGO)
+    _historicoJunto(lote, STATUS.PAGO)
+    await lote.commit()
     prxToast(t('pagamentoConfirmado'), 'success')
   } catch (err) {
     prxToast(t('erroConfirmarPagamento'), 'error')
@@ -1630,7 +1635,8 @@ async function _cancelarPedido() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.CANCELADO,
       canceladoPor: sessao.usuario.id,
       canceladoPorNome: sessao.usuario.nome || null,
@@ -1639,7 +1645,8 @@ async function _cancelarPedido() {
       motivoCancelamentoOutros: motivo === 'Outros' ? outros : null,
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.CANCELADO, motivo === 'Outros' ? outros : motivo)
+    _historicoJunto(lote, STATUS.CANCELADO, motivo === 'Outros' ? outros : motivo)
+    await lote.commit()
     fecharModal('modal-cancelar')
     prxToast(t('pedidoCanceladoMsg'), 'info')
   } catch (err) {
@@ -1684,12 +1691,12 @@ function _compararCotacoes() {
                   ${c.indicada ? `<span class="cot-marca cot-indicada">${t('dtIndicada')}</span>` : ''}
                   ${eMenor ? `<span class="cot-marca cot-menor">${t('dtMenorValor')}</span>` : ''}
                 </div>
-                <div class="cotacao-compare-fornecedor">${_esc(c.fornecedorNome)}</div>
+                <div class="cotacao-compare-fornecedor">${esc(c.fornecedorNome)}</div>
                 <div class="cotacao-compare-valor">${formatCurrency(c.valor)}</div>
                 <div class="cotacao-compare-dif num">${eMenor ? 'Menor proposta' : `+${formatCurrency(dif)} · ${_pct(dif / menorValor * 100)}`}</div>
-                <div class="cotacao-compare-row"><span class="meta-label">Prazo de entrega</span><span>${_esc(c.prazoEntrega || '—')}</span></div>
-                <div class="cotacao-compare-row"><span class="meta-label">Condições</span><span>${_esc(c.condicoesComerciais || '—')}</span></div>
-                ${c.arquivoUrl ? `<a href="${_esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
+                <div class="cotacao-compare-row"><span class="meta-label">Prazo de entrega</span><span>${esc(c.prazoEntrega || '—')}</span></div>
+                <div class="cotacao-compare-row"><span class="meta-label">Condições</span><span>${esc(c.condicoesComerciais || '—')}</span></div>
+                ${c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
               </div>`
           }).join('')}
         </div>
@@ -1714,11 +1721,11 @@ function _editarPedido() {
         <div class="form-grid form-grid-2">
           <div class="form-group col-span-2">
             <label for="edit-titulo">Título *</label>
-            <input type="text" id="edit-titulo" value="${_esc(p.titulo || '')}" maxlength="120">
+            <input type="text" id="edit-titulo" value="${esc(p.titulo || '')}" maxlength="120">
           </div>
           <div class="form-group col-span-2">
             <label for="edit-descricao">Descrição</label>
-            <textarea id="edit-descricao" rows="3" style="resize:vertical">${_esc(p.descricao || '')}</textarea>
+            <textarea id="edit-descricao" rows="3" style="resize:vertical">${esc(p.descricao || '')}</textarea>
           </div>
           <div class="form-group">
             <label for="edit-valor">Valor estimado</label>
@@ -1726,12 +1733,12 @@ function _editarPedido() {
           </div>
           <div class="form-group">
             <label for="edit-data">Necessário até</label>
-            <input type="date" id="edit-data" value="${_esc(p.dataNecessaria || '')}">
+            <input type="date" id="edit-data" value="${esc(p.dataNecessaria || '')}">
           </div>
           <div class="form-group">
             <label for="edit-categoria">Categoria</label>
             <select id="edit-categoria">
-              ${_categorias.map(c => `<option value="${_esc(c.id)}" ${p.categoriaId === c.id ? 'selected' : ''}>${_esc(c.nome)}</option>`).join('')}
+              ${_categorias.map(c => `<option value="${esc(c.id)}" ${p.categoriaId === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -1901,9 +1908,9 @@ function _handleMentionInput(e) {
 
   _mentionIndex = 0
   dd.innerHTML = `<div class="mention-titulo">Mencionar</div>` + sugestoes.map(u => `
-    <div class="mention-item" role="option" data-nome="${_esc(u.nome.split(' ')[0])}">
+    <div class="mention-item" role="option" data-nome="${esc(u.nome.split(' ')[0])}">
       <div class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(u.nome)}</div>
-      <span class="mention-nome">${_esc(u.nome)}</span>
+      <span class="mention-nome">${esc(u.nome)}</span>
       ${u.perfil ? `<span class="mention-perfil">${PERFIS_LABEL[u.perfil] || ''}</span>` : ''}
     </div>
   `).join('')
@@ -1997,20 +2004,21 @@ async function _indicarCotacao(cotacaoId) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    // Remove indicação anterior
+    // Troca a indicação e, se ainda em cotação, avança para aprovação: tudo
+    // num lote só, com a entrada do histórico
+    const lote = writeBatch(db)
     for (const c of _cotacoes) {
-      if (c.indicada) await updateDoc(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
+      if (c.indicada && c.id !== cotacaoId) lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
     }
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'cotacoes', cotacaoId), { indicada: true })
-
-    // Avança status para em_aprovacao se ainda ag_cotacao
+    lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', cotacaoId), { indicada: true })
     if (_pedido.status === STATUS.AG_COTACAO) {
-      await updateDoc(doc(db, 'pedidos', _pedidoId), {
+      lote.update(doc(db, 'pedidos', _pedidoId), {
         status: STATUS.EM_APROVACAO,
         atualizadoEm: serverTimestamp(),
       })
-      await _registrarHistorico(STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
+      _historicoJunto(lote, STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
     }
+    await lote.commit()
     prxToast(t('cotacaoIndicada'), 'success')
   } catch (err) {
     prxToast(t('erroIndicarCotacao'), 'error')
@@ -2028,18 +2036,20 @@ async function _pagarParcela(parcelaId) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
+    // A última parcela paga conclui o pedido no mesmo lote, com o histórico
+    const todasPagas = _parcelas.every(p => p.id === parcelaId ? true : p.pago)
+    const conclui = todasPagas && _pedido.status === STATUS.ENTREGUE
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
       pago: true,
       pagoEm: serverTimestamp(),
     })
-    // Verifica se todas as parcelas foram pagas
-    const todasPagas = _parcelas.every(p => p.id === parcelaId ? true : p.pago)
-    if (todasPagas && _pedido.status === STATUS.ENTREGUE) {
-      await updateDoc(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
-      await _registrarHistorico(STATUS.PAGO, 'Última parcela paga')
-    } else {
-      await _refreshParcelas()
+    if (conclui) {
+      lote.update(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
+      _historicoJunto(lote, STATUS.PAGO, 'Última parcela paga')
     }
+    await lote.commit()
+    if (!conclui) await _refreshParcelas()
     prxToast(t('pagamentoRegistrado'), 'success')
   } catch (err) {
     prxToast(t('erroRegistrarPagamento'), 'error')
@@ -2184,6 +2194,14 @@ function _podeAssumir() {
   const perfil = sessao.usuario.perfil
   return p.status === STATUS.SOLICITADO && !p.compradorId &&
          [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
+}
+
+// Aprova ou reprova quem tem o perfil, menos quem abriu o pedido (o supremo
+// pode), como nas regras do Firestore
+function _podeDecidir() {
+  const perfil = sessao.usuario.perfil
+  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
+         (_pedido.solicitanteId !== sessao.usuario.id || perfil === PERFIS.SUPREMO)
 }
 
 function _podeLiberar() {
@@ -2533,7 +2551,7 @@ async function _reabrirPedido() {
   const btn = document.getElementById('btn-confirmar-reabrir')
   await btnComLoading(btn, async () => {
     const p = _pedido
-    const contadorRef = doc(db, '_meta', 'contadores')
+    const contadorRef = contadorPedidosRef()
     let newId = null
     let newNum = null
 
@@ -2541,10 +2559,11 @@ async function _reabrirPedido() {
       const snap = await tx.get(contadorRef)
       const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
       newNum = `PRX-${String(total).padStart(4, '0')}`
-      const novoRef = doc(collection(db, 'pedidos'))
+      const novoRef = novoPedidoRef()
       newId = novoRef.id
 
       tx.set(novoRef, {
+        ...marcaDemo(),
         numeroPedido:    newNum,
         titulo:          p.titulo,
         descricao:       p.descricao || '',
@@ -2590,11 +2609,13 @@ async function _reabrirPedido() {
   })
 }
 
-async function _registrarHistorico(status, nota = null) {
-  await addDoc(collection(db, 'pedidos', _pedidoId, 'historico'), {
+// Entrada do histórico gravada na mesma transação ou no mesmo lote da
+// mudança de status: o pedido nunca muda de etapa sem deixar o registro
+function _historicoJunto(escrita, status, nota = null) {
+  escrita.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
     status,
     autorId: sessao.usuario.id,
-    autorNome: sessao.usuario.nome,
+    autorNome: sessao.usuario.nome || null,
     nota,
     criadoEm: serverTimestamp(),
   })
@@ -2627,14 +2648,14 @@ function _renderAnexos() {
     const podeRemover = a.autorId === uid || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
     return `
       <li class="anexo-item">
-        <span class="anexo-tipo" aria-hidden="true">${_esc((ext || 'arq').slice(0, 4))}</span>
+        <span class="anexo-tipo" aria-hidden="true">${esc((ext || 'arq').slice(0, 4))}</span>
         <div class="anexo-info">
-          <a class="anexo-nome" href="${_esc(urlSegura(a.url))}" target="_blank" rel="noopener" title="${_esc(a.nome)}">${_esc(a.nome)}</a>
-          <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${_esc(autor)} · <span title="${ts.title}">${ts.label.toLowerCase()}</span></div>
+          <a class="anexo-nome" href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" title="${esc(a.nome)}">${esc(a.nome)}</a>
+          <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${esc(autor)} · <span title="${ts.title}">${ts.label.toLowerCase()}</span></div>
         </div>
         <div class="anexo-acoes">
-          <a href="${_esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="Baixar ${_esc(a.nome)}" title="Baixar">${ICO.baixar}</a>
-          ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${_esc(a.id)}" data-storage-path="${_esc(a.storagePath || '')}" aria-label="Remover ${_esc(a.nome)}" title="Remover">${ICO.lixeira}</button>` : ''}
+          <a href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="Baixar ${esc(a.nome)}" title="Baixar">${ICO.baixar}</a>
+          ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${esc(a.id)}" data-storage-path="${esc(a.storagePath || '')}" aria-label="Remover ${esc(a.nome)}" title="Remover">${ICO.lixeira}</button>` : ''}
         </div>
       </li>
     `
@@ -2756,7 +2777,7 @@ function _renderSLATimeline() {
     return `
       <li class="tempo-item ${cls}">
         <span class="tempo-num" aria-hidden="true">${i >= 0 ? _dois(i + 1) : '·'}</span>
-        <span class="tempo-nome">${_NOME_ETAPA[seg.status] || _esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
+        <span class="tempo-nome">${_NOME_ETAPA[seg.status] || esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
         <span class="tempo-dur">${_formatDuracao(seg.durMs)}</span>
         <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
       </li>`

@@ -1,7 +1,7 @@
 // Peças compartilhadas pelas telas de configurações (usuários, cadastros e ajustes):
 // ícones no mesmo traço, cabeçalho de tela, perfil com ponto de cor, numerais,
 // estado vazio, validação inline e máscara de CNPJ.
-import { db, collection, getDocs } from './firebase.js'
+import { db, collection, getDocs, consulta, consultaUsuarios } from './firebase.js'
 import { sessao, atualizarLateral } from './app.js'
 import { t, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais } from './utils.js'
@@ -122,7 +122,7 @@ export async function completarContagensLateral(conhecidas = {}) {
   const faltam = Object.keys(_COLECOES_LATERAL).filter(k => !(k in conhecidas) && !Number.isFinite(atuais[k]))
   if (!faltam.length) return
   const tamanhos = await Promise.all(faltam.map(k =>
-    getDocs(collection(db, _COLECOES_LATERAL[k]))
+    getDocs(k === 'usuarios' ? consultaUsuarios(sessao.usuario) : consulta(collection(db, _COLECOES_LATERAL[k])))
       // Usuários: a mesma conta da lista (na demo, sem a conta de login)
       .then(s => k === 'usuarios' && sessao.isDemo ? s.docs.filter(d => d.data().email !== 'demo@praxis.app').length : s.size)
       .catch(() => null)))

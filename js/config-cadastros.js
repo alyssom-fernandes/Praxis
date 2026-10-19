@@ -1,5 +1,6 @@
 import {
   db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, query, where,
+  consulta, consultaUsuarios, marcaDemo,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
@@ -210,9 +211,9 @@ function _modalCategoria() {
 async function _carregar() {
   try {
     const [empSnap, catSnap, fornSnap] = await Promise.all([
-      getDocs(collection(db, 'empresas')),
-      getDocs(collection(db, 'categorias')),
-      getDocs(collection(db, 'fornecedores')),
+      getDocs(consulta(collection(db, 'empresas'))),
+      getDocs(consulta(collection(db, 'categorias'))),
+      getDocs(consulta(collection(db, 'fornecedores'))),
     ])
     const porNome = (a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')
     _empresas     = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -257,9 +258,9 @@ async function _contar() {
     const ids    = Array.isArray(raw) ? raw : Object.keys(raw || {})
     const [pedSnap, usrSnap] = await Promise.all([
       perfil === PERFIS.SUPREMO
-        ? getDocs(collection(db, 'pedidos'))
-        : (ids.length ? getDocs(query(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : null),
-      getDocs(collection(db, 'usuarios')).catch(() => null),
+        ? getDocs(consulta(collection(db, 'pedidos')))
+        : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : null),
+      getDocs(consultaUsuarios(sessao.usuario)).catch(() => null),
     ])
     const c = { empresa: {}, categoria: {}, fornecedor: {}, valorFornecedor: {}, usuariosEmpresa: null, usuarios: null }
     const soma = (obj, k, n = 1) => { if (k) obj[k] = (obj[k] || 0) + n }
@@ -295,7 +296,7 @@ async function _contar() {
 async function _seedCategorias() {
   for (const cat of CATEGORIAS_PADRAO) {
     const ref = await addDoc(collection(db, 'categorias'), {
-      nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: serverTimestamp(),
+      nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: serverTimestamp(), ...marcaDemo(),
     })
     _categorias.push({ id: ref.id, ...cat, tipo: 'padrao' })
   }

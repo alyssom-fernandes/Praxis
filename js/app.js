@@ -1,11 +1,11 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
-import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, progressoDemo } from './ui.js'
+import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
   PERFIS, PERFIS_LABEL, PERFIS_COLOR, t,
 } from './constants.js'
-import { gerarIniciais } from './utils.js'
+import { gerarIniciais, esc } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 
@@ -84,19 +84,11 @@ onAuthStateChanged(auth, async (fireUser) => {
     sessao.isDemo   = fireUser.email === 'demo@praxis.app'
     if (!sessao.isDemo) _registrarAcesso(fireUser.uid)
 
-    // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
-    // de hoje. As permissões da conta demo vêm das regras (pelo e-mail), sem
-    // Cloud Functions. Uma falha aqui não impede a entrada. Depois, o app passa
-    // a agir como a pessoa escolhida na entrada (js/demo-pessoas.js).
+    // Na demo, o app age como a pessoa escolhida na entrada
+    // (js/demo-pessoas.js). As permissões da conta demo vêm das regras (pelo
+    // e-mail), sem Cloud Functions.
     if (sessao.isDemo) {
       sessao.contaDemo = usuario
-      try {
-        const aoComecar = () => mostrarSpinner(t('demoPreparando'))
-        const { renovarDemo } = await import('./demo-reset.js')
-        if (await renovarDemo(usuario, { aoComecar, aoProgresso: progressoDemo }) === 'renovada') sessao.contaDemo = await carregarUsuario(fireUser.uid)
-      } catch (e) {
-        console.warn('Renovação da demo falhou:', e.message)
-      }
       sessao.usuario = await _carregarPessoaDemo(pessoaEscolhida())
     }
 
@@ -105,6 +97,9 @@ onAuthStateChanged(auth, async (fireUser) => {
     // A entrada no celular costuma estar rolada (o botão da demo fica embaixo)
     window.scrollTo(0, 0)
     await _rotear()
+    // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
+    // de hoje, depois que a tela já apareceu
+    if (sessao.isDemo) _renovarDemoDoDia(fireUser)
   } catch (err) {
     console.error(err)
     await fazerLogout()
@@ -112,6 +107,29 @@ onAuthStateChanged(auth, async (fireUser) => {
     esconderSpinner()
   }
 })
+
+// Renovação do dia em segundo plano: quem entra vê o quadro na hora, com os
+// dados de antes, e os pedidos voltam ao lugar conforme as gravações chegam
+// (o quadro escuta o Firestore). As outras telas leem uma vez, então são
+// redesenhadas no fim, menos se houver uma janela aberta, para não perder o
+// que a pessoa está fazendo. Uma falha aqui não atrapalha a navegação.
+async function _renovarDemoDoDia(fireUser) {
+  try {
+    const { renovarDemo } = await import('./demo-reset.js')
+    if (await renovarDemo(sessao.contaDemo) !== 'renovada') return
+    if (sessao.fireUser !== fireUser) return
+    const empresasAntes = JSON.stringify(sessao.usuario?.empresas || [])
+    sessao.contaDemo = await carregarUsuario(fireUser.uid)
+    sessao.usuario = await _carregarPessoaDemo(pessoaEscolhida())
+    mostrarDemoBanner(true)
+    const tela = new URLSearchParams(location.search).get('tela') || 'pedidos'
+    const mudouEmpresas = JSON.stringify(sessao.usuario.empresas || []) !== empresasAntes
+    const janelaAberta = document.querySelector('.modal-overlay.visible, .bv-overlay, #tour-popover, .cmd-palette-overlay.visible')
+    if ((tela !== 'pedidos' || mudouEmpresas) && !janelaAberta) _rotear()
+  } catch (e) {
+    console.warn('Renovação da demo falhou:', e.message)
+  }
+}
 
 // Último acesso (Cadastros › Usuários): uma gravação por pessoa e aba
 function _registrarAcesso(id) {
@@ -222,13 +240,9 @@ const _TELAS = {
 }
 let _rotaSeq = 0
 
-function _esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
-
 function _render404(tela) {
   const app = document.getElementById('app')
-  const nomeTela = _esc(String(tela).slice(0, 60))
+  const nomeTela = esc(String(tela).slice(0, 60))
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('')}
@@ -353,8 +367,8 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
       </nav>
 
       <div class="lateral-rodape">
-        <button type="button" class="lateral-conta" id="btn-avatar" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="${t('tooltipConta')}: ${_esc(usuario.nome)}">
-          <span class="lateral-conta-nome">${_esc(usuario.nome)}</span>
+        <button type="button" class="lateral-conta" id="btn-avatar" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="${t('tooltipConta')}: ${esc(usuario.nome)}">
+          <span class="lateral-conta-nome">${esc(usuario.nome)}</span>
           ${ICO.setas(14)}
         </button>
       </div>
@@ -574,11 +588,11 @@ function _menuUsuarioHTML() {
   const ponto = _PONTO_PERFIL[PERFIS_COLOR[perfil]] || 'dot-gray'
   return `
     <div class="um-cabecalho">
-      <div class="um-nome">${_esc(usuario.nome)}</div>
-      <div class="um-email">${_esc(usuario.email || '')}</div>
+      <div class="um-nome">${esc(usuario.nome)}</div>
+      <div class="um-email">${esc(usuario.email || '')}</div>
       <div class="um-perfil">
         <span class="um-perfil-rotulo">${t('menuPerfil')}</span>
-        <span class="um-perfil-valor"><span class="dot ${ponto}" aria-hidden="true"></span>${_esc(PERFIS_LABEL[perfil] || perfil)}</span>
+        <span class="um-perfil-valor"><span class="dot ${ponto}" aria-hidden="true"></span>${esc(PERFIS_LABEL[perfil] || perfil)}</span>
       </div>
     </div>
     <div class="um-sep" role="separator"></div>
@@ -772,7 +786,7 @@ function _renderBottomNav() {
     </button>
     ${pode.config ? item('config-usuarios', isConfig, ICO.engren(20), t('navAjustes')) : ''}
     <button type="button" class="bottom-nav-item" id="bnav-conta" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
-      <span class="bnav-avatar" aria-hidden="true">${_esc(gi(usuario.nome))}</span><span>${t('navConta')}</span>
+      <span class="bnav-avatar" aria-hidden="true">${esc(gi(usuario.nome))}</span><span>${t('navConta')}</span>
     </button>
   `
 

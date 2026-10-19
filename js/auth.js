@@ -7,6 +7,7 @@ import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, fri
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
 import { t } from './constants.js'
 import { DEMO_CREDENTIALS } from './config.js'
+import { esc } from './utils.js'
 
 const DEMO_EMAIL    = DEMO_CREDENTIALS.email
 const DEMO_PASSWORD = DEMO_CREDENTIALS.password
@@ -22,8 +23,6 @@ const ICO = {
   email:   _svg(20, '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'),
   alerta:  _svg(14, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
 }
-
-const _escapar = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 // As sete etapas do caminho, em medalhões numerados (decorativo: o texto ao
 // lado já diz o mesmo). A etapa acesa percorre o caminho devagar; com
@@ -142,7 +141,7 @@ function _mostrarErro(id, msg) {
   const el = document.getElementById(id)
   if (!el) return
   if (!msg) { el.hidden = true; el.innerHTML = ''; return }
-  el.innerHTML = `${ICO.alerta}<span>${_escapar(msg)}</span>`
+  el.innerHTML = `${ICO.alerta}<span>${esc(msg)}</span>`
   el.hidden = false
 }
 
@@ -310,7 +309,7 @@ function _mostrarEnviado(email) {
   const msg = document.getElementById('sent-msg')
   if (msg) {
     const [antes, depois] = String(t('resetMsgPara')).split('{email}')
-    msg.innerHTML = `${_escapar(antes)}<b>${_escapar(email)}</b>${_escapar(depois ?? '')}`
+    msg.innerHTML = `${esc(antes)}<b>${esc(email)}</b>${esc(depois ?? '')}`
   }
   _irParaView('sent')
 }
@@ -336,9 +335,11 @@ export async function carregarUsuario(uid) {
   if (!snap.exists()) {
     // Conta demo criada direto no console do Firebase: o perfil nasce aqui,
     // no primeiro acesso (sem Cloud Functions). A renovação da demo, logo em
-    // seguida, liga o perfil às empresas de exemplo.
+    // seguida, liga o perfil às empresas de exemplo. O perfil 'demo' não dá
+    // permissão nenhuma: dentro do app vale a pessoa escolhida na entrada, e
+    // as regras só deixam a conta mexer nos dados da demonstração.
     if (auth.currentUser?.email === DEMO_EMAIL) {
-      const perfilDemo = { nome: 'Demo Praxis', email: DEMO_EMAIL, perfil: 'supremo', ativo: true, empresas: [], ultimoAcesso: null }
+      const perfilDemo = { nome: 'Demo Praxis', email: DEMO_EMAIL, perfil: 'demo', ativo: true, empresas: [], ultimoAcesso: null }
       await setDoc(doc(db, 'usuarios', uid), { ...perfilDemo, criadoEm: serverTimestamp() })
       return { id: uid, ...perfilDemo }
     }

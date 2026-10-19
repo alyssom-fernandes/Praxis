@@ -32,6 +32,9 @@ jobs:
       - name: Sintaxe dos módulos do app
         run: for f in js/*.js tests/*.mjs; do node --check "$f"; done
 
+      - name: Testes de unidade (funções puras)
+        run: npm run testar-unidade
+
       - name: Cache dos emuladores
         uses: actions/cache@v4
         with:

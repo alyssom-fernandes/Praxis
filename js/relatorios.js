@@ -1,4 +1,4 @@
-import { db, collection, query, where, getDocs } from './firebase.js'
+import { db, collection, query, where, getDocs, consulta } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { prxToast, marcaPraxis } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -480,11 +480,11 @@ async function _carregarDados() {
   const fin    = _podeVerFinanceiro()
 
   const [empSnap, catSnap, pedSnap] = await Promise.all([
-    getDocs(collection(db, 'empresas')),
-    getDocs(collection(db, 'categorias')),
+    getDocs(consulta(collection(db, 'empresas'))),
+    getDocs(consulta(collection(db, 'categorias'))),
     perfil === PERFIS.SUPREMO
-      ? getDocs(collection(db, 'pedidos'))
-      : (ids.length ? getDocs(query(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : Promise.resolve(null)),
+      ? getDocs(consulta(collection(db, 'pedidos')))
+      : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : Promise.resolve(null)),
   ])
   _empresas   = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _categorias = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))

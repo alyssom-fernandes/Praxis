@@ -46,11 +46,11 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 | De | Para | Quem pode | Observações |
 |---|---|---|---|
 | Solicitado | Ag. cotação | Comprador, Gestor, Supremo | Claim via `runTransaction` — o primeiro vence |
-| Ag. cotação | Em aprovação | Comprador, Gestor, Supremo | Requer ≥1 cotação e 1 indicada |
-| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence |
-| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto) |
+| Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada |
+| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu o pedido não aprova (o supremo pode) |
+| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto); quem abriu o pedido não reprova (o supremo pode) |
 | Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas |
-| Comprado | Entregue | Comprador, Solicitante, Gestor, Supremo | Data de entrega real |
+| Comprado | Entregue | Comprador que assumiu, Solicitante, Gestor, Supremo | Data de entrega real |
 | Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada |
 | Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório |
 
@@ -60,6 +60,8 @@ Duas operações usam `runTransaction` obrigatoriamente:
 
 1. **Claim do comprador** — a transação relê `compradorId`; se já estiver preenchido, lança erro tratado como *"Este pedido já foi assumido por outro usuário."*
 2. **Aprovação** — a transação relê `status`; se não estiver mais `em_aprovacao`, lança erro tratado como *"Este pedido já foi aprovado por outro usuário."* Os demais aprovadores recebem notificação de que o pedido já foi processado.
+
+A liberação do claim pelo gestor também usa `runTransaction` (só devolve à fila um pedido que ainda está em cotação). Em toda mudança de status, a entrada do histórico vai na mesma transação ou no mesmo lote (`writeBatch`): se uma das duas gravações é recusada, nenhuma acontece.
 
 ## SLA de claim
 
