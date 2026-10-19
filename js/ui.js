@@ -401,7 +401,7 @@ export function esconderSpinner() {
 
 // Progresso da renovação da demo na tela de espera (js/demo-reset.js)
 export function progressoDemo(fase, porcento = 0) {
-  const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos', historico: 'demoFaseHistorico' }[fase]
+  const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos' }[fase]
   if (chave) mostrarSpinner(t(chave).replace('{n}', porcento))
 }
 
