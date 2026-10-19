@@ -5,7 +5,7 @@ import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
   PERFIS, PERFIS_LABEL, PERFIS_COLOR, t,
 } from './constants.js'
-import { gerarIniciais } from './utils.js'
+import { gerarIniciais, esc } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 
@@ -240,13 +240,9 @@ const _TELAS = {
 }
 let _rotaSeq = 0
 
-function _esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
-
 function _render404(tela) {
   const app = document.getElementById('app')
-  const nomeTela = _esc(String(tela).slice(0, 60))
+  const nomeTela = esc(String(tela).slice(0, 60))
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('')}
@@ -371,8 +367,8 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
       </nav>
 
       <div class="lateral-rodape">
-        <button type="button" class="lateral-conta" id="btn-avatar" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="${t('tooltipConta')}: ${_esc(usuario.nome)}">
-          <span class="lateral-conta-nome">${_esc(usuario.nome)}</span>
+        <button type="button" class="lateral-conta" id="btn-avatar" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="${t('tooltipConta')}: ${esc(usuario.nome)}">
+          <span class="lateral-conta-nome">${esc(usuario.nome)}</span>
           ${ICO.setas(14)}
         </button>
       </div>
@@ -592,11 +588,11 @@ function _menuUsuarioHTML() {
   const ponto = _PONTO_PERFIL[PERFIS_COLOR[perfil]] || 'dot-gray'
   return `
     <div class="um-cabecalho">
-      <div class="um-nome">${_esc(usuario.nome)}</div>
-      <div class="um-email">${_esc(usuario.email || '')}</div>
+      <div class="um-nome">${esc(usuario.nome)}</div>
+      <div class="um-email">${esc(usuario.email || '')}</div>
       <div class="um-perfil">
         <span class="um-perfil-rotulo">${t('menuPerfil')}</span>
-        <span class="um-perfil-valor"><span class="dot ${ponto}" aria-hidden="true"></span>${_esc(PERFIS_LABEL[perfil] || perfil)}</span>
+        <span class="um-perfil-valor"><span class="dot ${ponto}" aria-hidden="true"></span>${esc(PERFIS_LABEL[perfil] || perfil)}</span>
       </div>
     </div>
     <div class="um-sep" role="separator"></div>
@@ -790,7 +786,7 @@ function _renderBottomNav() {
     </button>
     ${pode.config ? item('config-usuarios', isConfig, ICO.engren(20), t('navAjustes')) : ''}
     <button type="button" class="bottom-nav-item" id="bnav-conta" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
-      <span class="bnav-avatar" aria-hidden="true">${_esc(gi(usuario.nome))}</span><span>${t('navConta')}</span>
+      <span class="bnav-avatar" aria-hidden="true">${esc(gi(usuario.nome))}</span><span>${t('navConta')}</span>
     </button>
   `
 

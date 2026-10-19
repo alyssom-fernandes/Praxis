@@ -6,7 +6,7 @@
 // pessoas são recriados a cada renovação da demo (js/demo-reset.js).
 import { t, PERFIS_LABEL } from './constants.js'
 import { frisoGrego } from './ui.js'
-import { gerarIniciais } from './utils.js'
+import { gerarIniciais, esc } from './utils.js'
 
 // empresas: chaves do seed (assets/demo/seed.json); vazio = todas
 export const PESSOAS_DEMO = [
@@ -44,8 +44,6 @@ export function esquecerPessoa() {
   try { sessionStorage.removeItem(_CHAVE) } catch {}
 }
 
-const _esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-
 // Tela de escolha. modo 'entrar' (antes do login, aberta por "Acessar modo
 // demo") ou 'trocar' (pela faixa da demo, já dentro do app).
 // aoEscolher(id) é chamado depois que a tela fecha; aoFechar() se a pessoa
@@ -74,8 +72,8 @@ export function abrirEscolhaPessoa({ modo = 'entrar', aoEscolher, aoFechar } = {
               ${i === 0 ? 'id="bv-comecar"' : ''} ${p.id === atual ? 'aria-current="true"' : ''}>
               <span class="bv-pessoa-n" aria-hidden="true">${gerarIniciais(p.nome)}</span>
               <span class="bv-pessoa-texto">
-                <span class="bv-pessoa-nome">${_esc(p.nome)}</span>
-                <span class="bv-pessoa-papel">${_esc(PERFIS_LABEL[p.perfil] || p.perfil)}${p.id === atual ? ` · ${t('demoPessoaAtual')}` : ''}</span>
+                <span class="bv-pessoa-nome">${esc(p.nome)}</span>
+                <span class="bv-pessoa-papel">${esc(PERFIS_LABEL[p.perfil] || p.perfil)}${p.id === atual ? ` · ${t('demoPessoaAtual')}` : ''}</span>
                 <span class="bv-pessoa-desc">${t(`demoPessoaDesc_${p.perfil}`)}</span>
               </span>
             </button>
