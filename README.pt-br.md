@@ -23,7 +23,7 @@ Este README também está em [inglês](README.md).
 1. Abra a [demonstração](https://praxis-af618.web.app) e clique em **Acessar modo demo**.
    Escolha quem você quer ser: uma pessoa por perfil (administrador, gestora, aprovador, compradora,
    financeiro ou solicitante), cada uma vendo e fazendo só o que o perfil dela permite. Dá para trocar
-   a qualquer momento pela faixa no topo. São três empresas fictícias, com 33 pedidos em todas as etapas.
+   a qualquer momento pela faixa no topo. São três empresas fictícias, com 34 pedidos em todas as etapas.
 2. No quadro, abra o **PRX-0003** (em aprovação): compare as três cotações e aprove ou reprove com motivo.
 3. Troque para o **Eduardo Lima** (financeiro) e abra o sino: o **PRX-0012** (comprado, pagamento antecipado) tem uma parcela vencida. Abra o pedido e registre o pagamento.
 4. Em **Relatórios**, troque o período e exporte em PDF ou Excel, ou mande imprimir.
@@ -58,7 +58,7 @@ Capturadas do modo demonstração.
 - **Comentários com @menção, anexos e histórico completo** em uma linha do tempo única.
 - **Relatórios.** Gasto, pedidos, economia nas cotações e parcelas a vencer, com comparação ao período anterior; gráficos por mês, status, categoria e empresa; exportação em PDF e Excel e versão para impressão. O aprovador vê só os dados operacionais.
 - **Seis perfis** (supremo, gestor, aprovador, comprador, financeiro e solicitante), com as permissões validadas no servidor pelas regras do Firestore e do Storage: cada etapa do pedido só anda pelas mãos do perfil responsável. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
-- **Várias empresas.** Cada usuário enxerga só as empresas às quais pertence; o supremo vê todas.
+- **Várias empresas.** Cada usuário trabalha só com os pedidos das empresas às quais pertence, e o gestor só vê e edita pessoas e empresas das dele; o supremo vê todas.
 - **Notificações em tempo real** no app. As @menções saem do próprio app; as automáticas (aprovações, entregas, parcelas a vencer) vêm das Cloud Functions, com envio por e-mail via Resend quando a chave é configurada.
 - **Paleta de comandos** (Ctrl+K), tour guiado, PWA instalável, tema claro e escuro e layout próprio para o celular.
 - **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, recriados todo dia.
@@ -77,16 +77,17 @@ flowchart LR
   R -.->|reaberto com justificativa| S
 ```
 
-O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comprador, e pelo gestor até a entrega. As regras de cada transição estão em [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
+O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comprador, e pelo gestor até a entrega. Quem abriu o pedido não o aprova nem o reprova (só o supremo pode), e as cotações e o recebimento ficam com o comprador que assumiu. As regras de cada transição estão em [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
 
 ## Decisões técnicas
 
 - **Sem framework e sem etapa de build.** O navegador carrega os ES Modules direto; a interface inteira sai de um sistema de *tokens* em CSS, com tema claro e escuro.
 - **Segurança no servidor, não na tela.** O perfil e as empresas de cada usuário viajam no token (*custom claims*, definidos por uma Cloud Function). As regras do Firestore e do Storage conferem cada leitura e escrita: quem pode dar cada passo do pedido, que campos aquele passo pode mudar e a que empresas cada usuário chega. As regras têm testes automáticos no emulador (`npm run testar-regras`), rodados pelo GitHub Actions a cada envio.
 - **Defesa em camadas no navegador.** Tudo o que os usuários escrevem é escapado antes de chegar à página, e o site envia uma política de segurança de conteúdo (CSP) sem scripts inline, mais cabeçalhos contra enquadramento e *sniffing*. As fontes são servidas pelo próprio site.
-- **Sem corrida entre usuários.** Assumir um pedido e aprovar usam `runTransaction`: se duas pessoas clicam juntas, só uma vence.
+- **Sem corrida entre usuários.** Assumir um pedido e aprovar usam `runTransaction`: se duas pessoas clicam juntas, só uma vence. Toda mudança de status grava a entrada do histórico na mesma transação ou no mesmo lote, então o pedido nunca anda sem deixar registro.
 - **Demonstração que não envelhece.** O seed guarda a data para a qual foi escrito e desloca todas as datas até o dia de hoje a cada recriação.
-- **A demonstração pública roda no plano gratuito do Firebase.** Não tem Cloud Functions: a conta demo recebe o perfil pelas regras (pelo e-mail), a recriação diária roda no próprio app ([`js/demo-reset.js`](js/demo-reset.js)) e os avisos do sino são de exemplo. *Custom claims*, notificações automáticas, e-mails e rotinas agendadas rodam nos emuladores ou no plano pago.
+- **A demonstração pública roda no plano gratuito do Firebase.** Não tem Cloud Functions: a conta demo recebe o perfil pelas regras (pelo e-mail), a recriação diária roda no próprio app ([`js/demo-reset.js`](js/demo-reset.js)), em segundo plano, para o primeiro visitante do dia ver o quadro na hora, e os avisos do sino são de exemplo. *Custom claims*, notificações automáticas, e-mails e rotinas agendadas rodam nos emuladores ou no plano pago.
+- **Uma conta demo que não alcança dados reais.** A senha dela vai no `js/config.js` público, então as regras dão a ela um perfil próprio, `demo`, que não vale como nenhum outro: só lê e grava registros marcados como demo (pedidos com ID `demo-…` e `isDemo == true`, as pessoas, empresas, categorias e fornecedores da demonstração) e arquivos de pedidos da demo. Ela nunca toca em usuários, empresas, categorias, pedidos ou arquivos reais, e nenhum pedido real vira pedido da demo.
 - **Tudo verificável localmente.** Com os emuladores do Firebase, o app roda inteiro na máquina, sem tocar em dados reais.
 
 Mais detalhes em [`docs/arquitetura.md`](docs/arquitetura.md).
@@ -107,7 +108,7 @@ npm run emuladores                     # deixe rodando
 Em outro terminal:
 
 ```bash
-npm run seed      # 33 pedidos, 3 empresas e uma conta por perfil
+npm run seed      # 34 pedidos, 3 empresas e uma conta por perfil
 npm run servir    # o app fica em http://localhost:8123
 ```
 
@@ -126,6 +127,8 @@ todos com a senha `demo1234`, para ver o sistema por cada perfil.
 1. Crie um projeto com Firestore, Authentication (e-mail e senha), Storage e Cloud Functions.
 2. Preencha `js/config.js` com as chaves do projeto e ajuste `.firebaserc`.
 3. `npx firebase deploy`. As regras (`firestore.rules`, `storage.rules`) e os índices estão no repositório.
+
+> **Não crie a conta demo (`demo@praxis.app`) num projeto com dados reais.** A senha dela vai no `js/config.js`, que o site entrega a todo visitante. As regras a mantêm longe dos dados reais, mas quem tiver a senha ainda consegue criar e alterar registros da demo. A conta demo só cabe num projeto feito para a demonstração pública.
 
 ## Estrutura
 

@@ -4,7 +4,9 @@
 // se conecta ao Auth, Firestore e Storage locais (ver js/firebase.js),
 // e a senha da conta de demonstração é a do seed do emulador.
 // Para publicar no seu próprio projeto, troque pelos valores do console do Firebase
-// (Configurações do projeto → Seus apps) e pela senha da conta demo de produção.
+// (Configurações do projeto → Seus apps). A senha da conta demo vai para o site
+// publicado: só crie a conta demo num projeto feito para a demonstração pública,
+// nunca num projeto com dados reais (ver README).
 
 export const FIREBASE_CONFIG = {
   apiKey:            'chave-local',

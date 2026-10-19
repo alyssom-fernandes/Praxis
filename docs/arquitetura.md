@@ -84,14 +84,15 @@ Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empr
 | `checkParcelasVencendo` | agendada (8h) | Parcelas vencendo em ≤3 dias → notifica financeiro/gestor. |
 | `checkParcelasVencidas` | agendada (8h) | Parcelas vencidas → notifica financeiro/gestor. |
 | `demoReset` | agendada (domingo 3h) | Versão antiga da renovação da demo, pelo servidor (exige o plano Blaze). |
-| `triggerDemoSeed` | onCall | Renovação da demo sob demanda, pelo servidor (exige o plano Blaze). |
+| `triggerDemoSeed` | onCall | Renovação da demo sob demanda, pelo servidor (exige o plano Blaze). Só a conta demo ou um supremo, no máximo uma vez por dia. |
 
 A demo publicada roda no plano gratuito e não depende dessas duas funções: a
 renovação é feita pelo próprio app em `js/demo-reset.js`. No primeiro acesso do
-dia à conta demo (e no "Restaurar dados" da faixa), o app apaga o que a demo
-criou e recria `assets/demo/seed.json` com as datas andando até hoje. Uma trava
+dia à conta demo, em segundo plano, depois que o quadro já apareceu (e na hora,
+no "Restaurar dados" da faixa), o app regrava `assets/demo/seed.json` por cima,
+com as datas andando até hoje, e apaga o que os visitantes criaram. Uma trava
 em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
-(`eDemo()`) só deixam a conta demo apagar os pedidos dela.
+dão à conta demo o perfil `demo`, que só alcança os dados da demonstração.
 
 ## Funcionalidades avançadas (Estágio 4)
 
@@ -105,7 +106,7 @@ em `_meta/demo` evita duas renovações ao mesmo tempo, e as regras do Firestore
 | **Timeline SLA** | Deriva durações de `_historico` filtrando entradas com `h.status && (!h.tipo \|\| h.tipo === 'status')`; último segmento usa `Date.now()` se pedido não-terminal |
 | **Reabertura** | `runTransaction` clona campos principais → novo pedido com `reabertoDe`; original recebe `reabertoPara` |
 | **Command palette** | `window.__getPedidos()` getter evita import circular; pedidos filtrados em tempo real |
-| **Tour guiado** | `box-shadow` 9999px como spotlight; estado em `localStorage` (regular) / `sessionStorage` (demo) |
+| **Tour guiado** | `box-shadow` 9999px como spotlight; abre só pelo botão "Fazer o tour" (faixa da demo e Configurações › Geral) |
 
 ## Modo demo
 
