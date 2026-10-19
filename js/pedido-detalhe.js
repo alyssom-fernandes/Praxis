@@ -1431,8 +1431,8 @@ async function _assumirPedido() {
         status: STATUS.AG_COTACAO,
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.AG_COTACAO, 'Comprador assumiu o pedido')
     })
-    await _registrarHistorico(STATUS.AG_COTACAO, 'Comprador assumiu o pedido')
     prxToast(t('pedidoAssumido'), 'success')
   } catch (err) {
     prxToast(err.message || t('erroAssumir'), 'error')
@@ -1447,14 +1447,21 @@ async function _liberarClaim() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
-      compradorId: null,
-      compradorNome: null,
-      compradorAssumiuEm: null,
-      status: STATUS.SOLICITADO,
-      atualizadoEm: serverTimestamp(),
+    // Em transação: se o comprador indicou uma cotação nesse meio-tempo, o
+    // pedido não volta para a fila por cima disso
+    await runTransaction(db, async (tx) => {
+      const ref  = doc(db, 'pedidos', _pedidoId)
+      const snap = await tx.get(ref)
+      if (snap.data().status !== STATUS.AG_COTACAO) throw new Error(t('pedidoJaProcessado'))
+      tx.update(ref, {
+        compradorId: null,
+        compradorNome: null,
+        compradorAssumiuEm: null,
+        status: STATUS.SOLICITADO,
+        atualizadoEm: serverTimestamp(),
+      })
+      _historicoJunto(tx, STATUS.SOLICITADO, 'Claim liberado pelo gestor')
     })
-    await _registrarHistorico(STATUS.SOLICITADO, 'Claim liberado pelo gestor')
     prxToast(t('pedidoLiberado'), 'success')
   } catch (err) {
     prxToast(t('erroLiberarPedido'), 'error')
@@ -1483,8 +1490,8 @@ async function _aprovarPedido() {
         aprovadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.APROVADO)
     })
-    await _registrarHistorico(STATUS.APROVADO)
     prxToast(t('pedidoAprovado'), 'success')
   } catch (err) {
     prxToast(err.message || t('erroAprovar'), 'error')
@@ -1516,8 +1523,8 @@ async function _reprovarPedido() {
         motivoReprovacaoOutros: motivo === 'Outros' ? outros : null,
         atualizadoEm: serverTimestamp(),
       })
+      _historicoJunto(tx, STATUS.REPROVADO, motivo === 'Outros' ? outros : motivo)
     })
-    await _registrarHistorico(STATUS.REPROVADO, motivo === 'Outros' ? outros : motivo)
     fecharModal('modal-reprovar')
     prxToast(t('pedidoReprovado'), 'info')
   } catch (err) {
@@ -1546,7 +1553,8 @@ async function _executarCompra() {
     // Busca ou cria fornecedor (autocomplete + dedupe por nome normalizado)
     const fornecedorId = await _buscarOuCriarFornecedor(fornecedor)
 
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.COMPRADO,
       fornecedorId,
       fornecedorNome: fornecedor,
@@ -1555,6 +1563,8 @@ async function _executarCompra() {
       dataCompra,
       atualizadoEm: serverTimestamp(),
     })
+    _historicoJunto(lote, STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
+    await lote.commit()
 
     // Cria parcelas
     const valorParcela = valorFinal / numParc
@@ -1570,7 +1580,6 @@ async function _executarCompra() {
       })
     }
 
-    await _registrarHistorico(STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
     fecharModal('modal-compra')
     prxToast(t('compraRegistrada'), 'success')
   } catch (err) {
@@ -1587,12 +1596,14 @@ async function _confirmarEntrega() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.ENTREGUE,
       dataEntrega: hojeISO(),
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.ENTREGUE)
+    _historicoJunto(lote, STATUS.ENTREGUE)
+    await lote.commit()
     prxToast(t('entregaConfirmada'), 'success')
   } catch (err) {
     prxToast(t('erroConfirmarEntrega'), 'error')
@@ -1609,11 +1620,13 @@ async function _confirmarPagamento() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.PAGO,
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.PAGO)
+    _historicoJunto(lote, STATUS.PAGO)
+    await lote.commit()
     prxToast(t('pagamentoConfirmado'), 'success')
   } catch (err) {
     prxToast(t('erroConfirmarPagamento'), 'error')
@@ -1632,7 +1645,8 @@ async function _cancelarPedido() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), {
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.CANCELADO,
       canceladoPor: sessao.usuario.id,
       canceladoPorNome: sessao.usuario.nome || null,
@@ -1641,7 +1655,8 @@ async function _cancelarPedido() {
       motivoCancelamentoOutros: motivo === 'Outros' ? outros : null,
       atualizadoEm: serverTimestamp(),
     })
-    await _registrarHistorico(STATUS.CANCELADO, motivo === 'Outros' ? outros : motivo)
+    _historicoJunto(lote, STATUS.CANCELADO, motivo === 'Outros' ? outros : motivo)
+    await lote.commit()
     fecharModal('modal-cancelar')
     prxToast(t('pedidoCanceladoMsg'), 'info')
   } catch (err) {
@@ -1999,20 +2014,21 @@ async function _indicarCotacao(cotacaoId) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    // Remove indicação anterior
+    // Troca a indicação e, se ainda em cotação, avança para aprovação: tudo
+    // num lote só, com a entrada do histórico
+    const lote = writeBatch(db)
     for (const c of _cotacoes) {
-      if (c.indicada) await updateDoc(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
+      if (c.indicada && c.id !== cotacaoId) lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
     }
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'cotacoes', cotacaoId), { indicada: true })
-
-    // Avança status para em_aprovacao se ainda ag_cotacao
+    lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', cotacaoId), { indicada: true })
     if (_pedido.status === STATUS.AG_COTACAO) {
-      await updateDoc(doc(db, 'pedidos', _pedidoId), {
+      lote.update(doc(db, 'pedidos', _pedidoId), {
         status: STATUS.EM_APROVACAO,
         atualizadoEm: serverTimestamp(),
       })
-      await _registrarHistorico(STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
+      _historicoJunto(lote, STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
     }
+    await lote.commit()
     prxToast(t('cotacaoIndicada'), 'success')
   } catch (err) {
     prxToast(t('erroIndicarCotacao'), 'error')
@@ -2030,18 +2046,20 @@ async function _pagarParcela(parcelaId) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
+    // A última parcela paga conclui o pedido no mesmo lote, com o histórico
+    const todasPagas = _parcelas.every(p => p.id === parcelaId ? true : p.pago)
+    const conclui = todasPagas && _pedido.status === STATUS.ENTREGUE
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
       pago: true,
       pagoEm: serverTimestamp(),
     })
-    // Verifica se todas as parcelas foram pagas
-    const todasPagas = _parcelas.every(p => p.id === parcelaId ? true : p.pago)
-    if (todasPagas && _pedido.status === STATUS.ENTREGUE) {
-      await updateDoc(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
-      await _registrarHistorico(STATUS.PAGO, 'Última parcela paga')
-    } else {
-      await _refreshParcelas()
+    if (conclui) {
+      lote.update(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
+      _historicoJunto(lote, STATUS.PAGO, 'Última parcela paga')
     }
+    await lote.commit()
+    if (!conclui) await _refreshParcelas()
     prxToast(t('pagamentoRegistrado'), 'success')
   } catch (err) {
     prxToast(t('erroRegistrarPagamento'), 'error')
@@ -2601,11 +2619,13 @@ async function _reabrirPedido() {
   })
 }
 
-async function _registrarHistorico(status, nota = null) {
-  await addDoc(collection(db, 'pedidos', _pedidoId, 'historico'), {
+// Entrada do histórico gravada na mesma transação ou no mesmo lote da
+// mudança de status: o pedido nunca muda de etapa sem deixar o registro
+function _historicoJunto(escrita, status, nota = null) {
+  escrita.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
     status,
     autorId: sessao.usuario.id,
-    autorNome: sessao.usuario.nome,
+    autorNome: sessao.usuario.nome || null,
     nota,
     criadoEm: serverTimestamp(),
   })

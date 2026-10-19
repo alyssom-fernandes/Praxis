@@ -1523,14 +1523,17 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
       campos.aprovadoPor = sessao.usuario.id
       campos.aprovadoEm  = serverTimestamp()
     }
-    await updateDoc(doc(db, 'pedidos', id), campos)
-    addDoc(collection(db, 'pedidos', id, 'historico'), {
+    // Status e histórico no mesmo lote: um não grava sem o outro
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', id), campos)
+    lote.set(doc(collection(db, 'pedidos', id, 'historico')), {
       status:    statusDestino,
       autorId:   sessao.usuario.id,
       autorNome: sessao.usuario.nome || '',
       nota:      null,
       criadoEm:  serverTimestamp(),
-    }).catch(() => {})
+    })
+    await lote.commit()
     prxToast(`Pedido movido para "${STATUS_LABEL[statusDestino]}".`, 'success')
   } catch (err) {
     prxToast('Não foi possível mover o pedido: ' + (err.message || 'tente novamente'), 'error')
@@ -2425,8 +2428,10 @@ async function _confirmarBulkCancel() {
   if (btnConfirmar) btnConfirmar.disabled = true
   mostrarSpinner()
   try {
+    // Um lote por pedido: o cancelamento e a entrada do histórico gravam juntos
     await Promise.all(candidatos.map(async p => {
-      await updateDoc(doc(db, 'pedidos', p.id), {
+      const lote = writeBatch(db)
+      lote.update(doc(db, 'pedidos', p.id), {
         status: STATUS.CANCELADO,
         canceladoPor: uid,
         canceladoEm: serverTimestamp(),
@@ -2434,13 +2439,14 @@ async function _confirmarBulkCancel() {
         motivoCancelamentoOutros: motivo === 'Outros' ? motivoOutros : null,
         atualizadoEm: serverTimestamp(),
       })
-      addDoc(collection(db, 'pedidos', p.id, 'historico'), {
+      lote.set(doc(collection(db, 'pedidos', p.id, 'historico')), {
         status: STATUS.CANCELADO,
         autorId: uid,
         autorNome: sessao.usuario.nome || '',
         nota: motivo === 'Outros' ? motivoOutros : motivo,
         criadoEm: serverTimestamp(),
-      }).catch(() => {})
+      })
+      await lote.commit()
     }))
     fecharModal('modal-bulk-cancel')
     _selecionados.clear()
