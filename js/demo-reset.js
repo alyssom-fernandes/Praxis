@@ -1,7 +1,10 @@
 // ── Renovação da demonstração, feita pelo próprio app ─────────
 // A demo pública é renovada uma vez por dia, no primeiro acesso do dia à
 // conta demo (e na hora, pelo "Restaurar dados" da faixa). Tudo pelo
-// navegador, sem Cloud Functions: o projeto roda no plano gratuito.
+// navegador, sem Cloud Functions: o projeto roda no plano gratuito. A
+// renovação do dia corre em segundo plano (js/app.js): quem entra vê o
+// quadro na hora, com os dados de ontem, e os pedidos voltam ao lugar
+// conforme as gravações chegam.
 //
 // As seis pessoas da demo (js/demo-pessoas.js) e três colegas ganham o perfil
 // em /usuarios e a sua parte nos dados: os pedidos são abertos pela
@@ -10,16 +13,18 @@
 // assinados por quem fez cada coisa, e cada pessoa recebe os avisos que lhe
 // caberiam (na demo não rodam as Cloud Functions que os gerariam).
 //
-// O que sai: os pedidos de exemplo e tudo o que os visitantes criaram com a
-// conta demo (pedidos, cotações, comentários, parcelas, histórico, anexos,
-// fornecedores novos) e as notificações da conta demo. As empresas de exemplo
-// são regravadas com os mesmos IDs, para as permissões da conta continuarem.
-// Nada de outros usuários é tocado. As regras do Firestore só deixam a conta
-// demo apagar isso (função eDemo() em firestore.rules).
+// O que volta: assets/demo/seed.json, com as datas andando até hoje. Os
+// pedidos de exemplo, as pessoas, as empresas e os fornecedores têm IDs
+// fixos e são regravados por cima (o quadro aberto não chega a esvaziar).
 //
-// O que volta: assets/demo/seed.json, com as datas andando até hoje.
+// O que sai: tudo o que os visitantes criaram com a conta demo (pedidos,
+// cotações, comentários, parcelas, histórico, anexos, fornecedores novos), as
+// subcoleções antigas dos pedidos de exemplo e os avisos da demo. A conta
+// demo só alcança o que é da demonstração (perfil 'demo' em firestore.rules:
+// documentos marcados com isDemo e pedidos com ID "demo-…"); nada de outros
+// usuários é lido nem tocado.
 import {
-  db, collection, doc, getDoc, getDocs, setDoc, query, where, writeBatch, runTransaction,
+  db, collection, doc, getDoc, getDocs, query, where, writeBatch, runTransaction,
   serverTimestamp, Timestamp,
 } from './firebase.js'
 import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
@@ -45,10 +50,9 @@ function _hojeSP() {
 const _normalizar = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const _slug = s => _normalizar(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-// Grava em lotes de até 450 operações (o limite do Firestore é 500). Só entra
-// no lote o que as regras liberam sem consultar outro documento: num lote, as
-// regras podem fazer no máximo 20 consultas no total (get), e o histórico e os
-// comentários consultam o pedido a cada item. Esses vão um a um (_avulsos).
+// Grava em lotes de até 450 operações (o limite do Firestore é 500). Para a
+// conta demo, as regras decidem pelo ID do pedido, sem consultar o
+// pedido-pai, então histórico e comentários também cabem nos lotes.
 function _lotes() {
   let batch = writeBatch(db), n = 0
   const pendentes = []
@@ -61,7 +65,7 @@ function _lotes() {
   }
 }
 
-// ── Trava: um visitante renova, os outros esperam ─────────────
+// ── Trava: um visitante renova de cada vez ────────────────────
 async function _pegarTrava(forcar) {
   const ref = doc(db, '_meta', 'demo')
   return runTransaction(db, async tx => {
@@ -84,53 +88,42 @@ async function _esperarOutroVisitante() {
   }
 }
 
-// ── Limpeza ──────────────────────────────────────────────────
-async function _apagarDemo(uid) {
-  const lote = _lotes()
-
-  // Contas demo: a atual e as antigas (de quando ela foi recriada no console)
-  const perfisDemo = (await getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app')))).docs
-  const uidsDemo = new Set([uid, ...perfisDemo.map(d => d.id), ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)])
-  const uidsUsuarios = new Set((await getDocs(collection(db, 'usuarios'))).docs.map(d => d.id))
-
-  // Saem os pedidos de exemplo (isDemo), os abertos por qualquer conta demo e
-  // os de autor que não existe mais (visitantes de uma conta demo apagada).
-  // Os dois últimos ganham antes a marca isDemo: as regras só deixam a conta
-  // demo apagar pedidos marcados ou dela mesma.
-  const pedidos = new Map()
-  const marcar = _lotes()
-  for (const d of (await getDocs(collection(db, 'pedidos'))).docs) {
-    const p = d.data()
-    const daDemo = p.isDemo === true || uidsDemo.has(p.solicitanteId) || !uidsUsuarios.has(p.solicitanteId)
-    if (!daDemo) continue
-    pedidos.set(d.id, d.ref)
-    if (p.isDemo !== true && p.solicitanteId !== uid) marcar.mesclar(d.ref, { isDemo: true })
-  }
-  await marcar.fim()
-
-  await Promise.all([...pedidos.values()].map(async ref => {
-    for (const sub of SUBCOLECOES) {
-      (await getDocs(collection(ref, sub))).docs.forEach(d => lote.del(d.ref))
-    }
+// ── O que a demo tem agora ────────────────────────────────────
+// Só o que a conta demo alcança: pedidos marcados, as subcoleções dos que
+// estão na área da demo (ID "demo-…"), fornecedores marcados, os avisos das
+// pessoas da demo e os perfis antigos da própria conta (de quando ela foi
+// recriada no console)
+async function _lerDemoAtual(uid) {
+  const [perfisConta, pedidos, fornecedores] = await Promise.all([
+    getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app'))),
+    getDocs(query(collection(db, 'pedidos'), where('isDemo', '==', true))),
+    getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true))),
+  ])
+  const subdocs = []
+  await Promise.all(pedidos.docs.filter(d => d.id.startsWith('demo-')).map(async d => {
+    const snaps = await Promise.all(SUBCOLECOES.map(sub => getDocs(collection(d.ref, sub))))
+    snaps.forEach(s => s.docs.forEach(x => subdocs.push(x.ref)))
   }))
-  pedidos.forEach(ref => lote.del(ref))
-
-  ;(await getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true)))).docs.forEach(d => lote.del(d.ref))
-  for (const dono of [uid, ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)]) {
-    (await getDocs(collection(db, 'notificacoes', dono, 'items'))).docs.forEach(d => lote.del(d.ref))
+  const donos = [uid, ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)]
+  const avisos = (await Promise.all(donos.map(dono => getDocs(collection(db, 'notificacoes', dono, 'items')))))
+    .flatMap(s => s.docs.map(d => d.ref))
+  return {
+    pedidos: pedidos.docs.map(d => d.ref),
+    fornecedores: fornecedores.docs.map(d => d.ref),
+    perfisAntigos: perfisConta.docs.filter(d => d.id !== uid).map(d => d.ref),
+    subdocs, avisos,
   }
-  // Perfis antigos da conta demo
-  perfisDemo.filter(d => d.id !== uid).forEach(d => lote.del(d.ref))
-  await lote.fim()
 }
 
 // ── Recriação a partir do seed ────────────────────────────────
-async function _aplicarSeed(seed, usuario, aoProgresso) {
+// Grava o seed por cima e apaga o que não voltou. Nenhum documento é
+// regravado e apagado na mesma renovação (os lotes vão em paralelo).
+async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
   const uid = usuario.id
   const agora = new Date()
   const agoraTs = Timestamp.fromDate(agora)
   const lote = _lotes()
-  const avulsos = []
+  const gravados = new Set()
 
   // Horários "naturais" (entre 8h e 18h), sempre os mesmos para o mesmo item
   let semente = 7
@@ -158,14 +151,15 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
     const nomeNorm = _normalizar(forn.nome)
     const id = `demo-${_slug(forn.nome)}`
     lote.set(doc(db, 'fornecedores', id), { ...dados, usos: usos || 0, nome: nomeNorm, nomeExibicao: forn.nome, ativo: true, isDemo: true, criadoEm: agoraTs })
+    gravados.add(`fornecedores/${id}`)
     fornMap[nomeNorm] = id
   }
 
-  // 2. Empresas: mantêm o ID de antes (achadas pelo nome, com ou sem a marca
-  // isDemo), para as permissões dos usuários, os filtros e as visões salvas
+  // 2. Empresas: mantêm o ID de antes (achadas pelo nome entre as da demo),
+  // para as permissões dos usuários, os filtros e as visões salvas
   // continuarem valendo
   const empresaMap = {}
-  const empresasAntes = (await getDocs(collection(db, 'empresas'))).docs
+  const empresasAntes = (await getDocs(query(collection(db, 'empresas'), where('isDemo', '==', true)))).docs
   for (const emp of seed.empresas || []) {
     const { key, ...dados } = emp
     const antes = empresasAntes.find(d => _normalizar(d.data().nome) === _normalizar(emp.nome))
@@ -196,14 +190,14 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
   const colegaDa = Object.fromEntries(COLEGAS_DEMO.map(c => [c.empresas[0], c.id]))
   const resumo = []
 
-  // 3. Categorias: reaproveita as existentes pelo nome; cria as que faltarem
+  // 3. Categorias: reaproveita as da demo pelo nome; cria as que faltarem
   const categoriaMap = {}
-  const existentes = (await getDocs(collection(db, 'categorias'))).docs
+  const existentes = (await getDocs(query(collection(db, 'categorias'), where('isDemo', '==', true)))).docs
   for (const c of CATEGORIAS_BASE) {
     const achada = existentes.find(d => _normalizar(d.data().nome) === _normalizar(c.nome))
     if (achada) { categoriaMap[c.key] = achada.id; continue }
     const id = `demo-${c.key}`
-    lote.set(doc(db, 'categorias', id), { nome: c.nome, cor: c.cor, tipo: 'padrao', criadaEm: agoraTs })
+    lote.set(doc(db, 'categorias', id), { nome: c.nome, cor: c.cor, tipo: 'padrao', isDemo: true, criadaEm: agoraTs })
     categoriaMap[c.key] = id
   }
 
@@ -225,6 +219,7 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
     const hist = historico || []
     const numeroPedido = numDe(n)
     const pedRef = doc(db, 'pedidos', idDe(n))
+    gravados.add(`pedidos/${pedRef.id}`)
     const de = nDaKey[reabertoDeKey], como = reabertoComo[key]
     if (de) Object.assign(dados, { reabertoDe: idDe(de), reabertaDeNum: numDe(de) })
     if (como) Object.assign(dados, { reabertoPara: idDe(como), reabertaParaNum: numDe(como) })
@@ -276,12 +271,12 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
       criadoEm:           hist.length ? tsHist[0] : agoraTs,
       atualizadoEm:       hist.length ? tsHist[hist.length - 1] : agoraTs,
     })
-    hist.forEach((h, i) => avulsos.push([doc(collection(pedRef, 'historico')), {
+    hist.forEach((h, i) => lote.set(doc(collection(pedRef, 'historico')), {
       status: h.status, nota: h.nota || null, autorId: autorDaEtapa[h.status] || solicitante, criadoEm: tsHist[i],
-    }]))
-    ;(comentarios || []).forEach((c, i) => avulsos.push([doc(collection(pedRef, 'comentarios')), {
+    }))
+    ;(comentarios || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'comentarios')), {
       texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),
-    }]))
+    }))
     ;(cotacoes || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'cotacoes')), {
       fornecedorId: fornMap[_normalizar(c.fornecedorNome)] || null,
       fornecedorNome: c.fornecedorNome, valor: c.valor,
@@ -314,16 +309,23 @@ async function _aplicarSeed(seed, usuario, aoProgresso) {
     })
   }
 
-  // 6. Contador dos números de pedido e empresas da conta demo
-  lote.mesclar(doc(db, '_meta', 'contadores'), { totalPedidos: n })
+  // 6. Contador dos números de pedido da demo e empresas da conta demo
+  lote.mesclar(doc(db, '_meta', 'contadoresDemo'), { totalPedidos: n })
   lote.mesclar(doc(db, 'usuarios', uid), { empresas: empresasIds, atualizadoEm: serverTimestamp() })
+
+  // 7. Sai o que não voltou: pedidos e fornecedores criados pelos visitantes,
+  // as subcoleções e os avisos de antes e os perfis antigos da conta demo.
+  // Os pedidos marcados fora da área da demo (de seeds antigos, com ID
+  // automático) saem sem as subcoleções, que a conta demo não alcança.
+  const sobra = ref => !gravados.has(ref.path)
+  antes.pedidos.filter(sobra).forEach(ref => lote.del(ref))
+  antes.fornecedores.filter(sobra).forEach(ref => lote.del(ref))
+  antes.subdocs.forEach(ref => lote.del(ref))
+  antes.avisos.forEach(ref => lote.del(ref))
+  antes.perfisAntigos.forEach(ref => lote.del(ref))
+
   aoProgresso?.('pedidos', 0)
   await lote.fim()
-  // Histórico e comentários depois dos pedidos (as regras deles leem o pedido)
-  for (let i = 0; i < avulsos.length; i += 25) {
-    aoProgresso?.('historico', Math.round((i / avulsos.length) * 100))
-    await Promise.all(avulsos.slice(i, i + 25).map(([ref, dados]) => setDoc(ref, dados)))
-  }
   return n
 }
 
@@ -385,18 +387,21 @@ function _avisosDaDemo(resumo, P, nomeDe) {
 
 // ── Ponto de entrada ─────────────────────────────────────────
 // Garante a demo do dia (forcar=false) ou renova agora (forcar=true).
-// Devolve 'em-dia' quando não precisou renovar e 'renovada' quando renovou.
-// aoComecar: chamado só quando a renovação vai mesmo acontecer (para avisar
-// na tela de carregamento).
-// aoProgresso(fase, porcento): 'limpando', 'pedidos' e 'historico' (0–100),
-// para a tela de espera dizer o que está acontecendo.
+// Devolve 'em-dia' quando não precisou renovar (ou quando outro visitante já
+// está renovando) e 'renovada' quando renovou.
+// aoComecar: chamado só quando a renovação vai mesmo acontecer.
+// aoProgresso(fase): 'limpando' (lendo o que existe) e 'pedidos' (gravando),
+// para a tela de espera do "Restaurar dados" dizer o que está acontecendo.
 export async function renovarDemo(usuario, { forcar = false, aoComecar, aoProgresso } = {}) {
   let trava = await _pegarTrava(forcar)
   if (trava === 'em-dia') return 'em-dia'
   if (trava === 'ocupado') {
+    // A entrada do dia não espera: o outro visitante já está renovando, e os
+    // pedidos chegam sozinhos ao quadro. O "Restaurar dados" espera ele
+    // terminar e renova de novo.
+    if (!forcar) return 'em-dia'
     aoComecar?.()
     await _esperarOutroVisitante()
-    if (!forcar) return 'em-dia'
     trava = await _pegarTrava(true)
     if (trava !== 'minha') return 'em-dia'
   }
@@ -406,8 +411,8 @@ export async function renovarDemo(usuario, { forcar = false, aoComecar, aoProgre
     if (!resp.ok) throw new Error(`seed ${resp.status}`)
     const seed = await resp.json()
     aoProgresso?.('limpando', 0)
-    await _apagarDemo(usuario.id)
-    await _aplicarSeed(seed, usuario, aoProgresso)
+    const antes = await _lerDemoAtual(usuario.id)
+    await _aplicarSeed(seed, usuario, antes, aoProgresso)
     await runTransaction(db, async tx => {
       tx.set(doc(db, '_meta', 'demo'), { dia: _hojeSP(), renovadaEm: serverTimestamp(), travadoAte: 0 }, { merge: true })
     })

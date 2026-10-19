@@ -4,6 +4,7 @@ import {
   query, where,
   runTransaction, writeBatch, serverTimestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
+  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao } from './ui.js'
@@ -160,16 +161,16 @@ async function _carregarSubcollections() {
 
 async function _carregarAuxiliares() {
   const [empSnap, catSnap, fornSnap] = await Promise.all([
-    getDocs(collection(db, 'empresas')),
-    getDocs(collection(db, 'categorias')),
-    getDocs(collection(db, 'fornecedores')),
+    getDocs(consulta(collection(db, 'empresas'))),
+    getDocs(consulta(collection(db, 'categorias'))),
+    getDocs(consulta(collection(db, 'fornecedores'))),
   ])
   _empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   // usuarios: regra permite list apenas para gestor+; demais perfis recebem lista vazia
   try {
-    const usrSnap = await getDocs(collection(db, 'usuarios'))
+    const usrSnap = await getDocs(consultaUsuarios(sessao.usuario))
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
       .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
@@ -196,7 +197,7 @@ async function _buscarOuCriarFornecedor(nomeDigitado) {
     return existente.id
   }
   // Confirma no servidor (pode ter sido criado por outro fluxo)
-  const snap = await getDocs(query(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
+  const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
   if (!snap.empty) {
     const ref = snap.docs[0]
     await updateDoc(doc(db, 'fornecedores', ref.id), { usos: (ref.data().usos || 0) + 1 })
@@ -205,7 +206,7 @@ async function _buscarOuCriarFornecedor(nomeDigitado) {
   const novo = await addDoc(collection(db, 'fornecedores'), {
     nome: nomeNorm, nomeOriginal: nomeDigitado, nomeExibicao: nomeDigitado,
     cnpj: '', criadoEm: serverTimestamp(), usos: 1,
-    ...(sessao.isDemo ? { isDemo: true } : {}),
+    ...marcaDemo(),
   })
   _fornecedores.push({ id: novo.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 })
   return novo.id
@@ -2533,7 +2534,7 @@ async function _reabrirPedido() {
   const btn = document.getElementById('btn-confirmar-reabrir')
   await btnComLoading(btn, async () => {
     const p = _pedido
-    const contadorRef = doc(db, '_meta', 'contadores')
+    const contadorRef = contadorPedidosRef()
     let newId = null
     let newNum = null
 
@@ -2541,10 +2542,11 @@ async function _reabrirPedido() {
       const snap = await tx.get(contadorRef)
       const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
       newNum = `PRX-${String(total).padStart(4, '0')}`
-      const novoRef = doc(collection(db, 'pedidos'))
+      const novoRef = novoPedidoRef()
       newId = novoRef.id
 
       tx.set(novoRef, {
+        ...marcaDemo(),
         numeroPedido:    newNum,
         titulo:          p.titulo,
         descricao:       p.descricao || '',

@@ -336,9 +336,11 @@ export async function carregarUsuario(uid) {
   if (!snap.exists()) {
     // Conta demo criada direto no console do Firebase: o perfil nasce aqui,
     // no primeiro acesso (sem Cloud Functions). A renovação da demo, logo em
-    // seguida, liga o perfil às empresas de exemplo.
+    // seguida, liga o perfil às empresas de exemplo. O perfil 'demo' não dá
+    // permissão nenhuma: dentro do app vale a pessoa escolhida na entrada, e
+    // as regras só deixam a conta mexer nos dados da demonstração.
     if (auth.currentUser?.email === DEMO_EMAIL) {
-      const perfilDemo = { nome: 'Demo Praxis', email: DEMO_EMAIL, perfil: 'supremo', ativo: true, empresas: [], ultimoAcesso: null }
+      const perfilDemo = { nome: 'Demo Praxis', email: DEMO_EMAIL, perfil: 'demo', ativo: true, empresas: [], ultimoAcesso: null }
       await setDoc(doc(db, 'usuarios', uid), { ...perfilDemo, criadoEm: serverTimestamp() })
       return { id: uid, ...perfilDemo }
     }

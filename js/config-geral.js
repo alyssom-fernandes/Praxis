@@ -1,4 +1,4 @@
-import { db, collection, getDocs } from './firebase.js'
+import { db, collection, getDocs, consulta } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { reativarTour, definirTema, preferenciaTema } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -87,7 +87,7 @@ export async function renderConfigGeral() {
 async function _minhasEmpresas(u) {
   let todas = null
   try {
-    const snap = await getDocs(collection(db, 'empresas'))
+    const snap = await getDocs(consulta(collection(db, 'empresas')))
     todas = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
   } catch (err) {

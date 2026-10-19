@@ -3,10 +3,16 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // A conta da demo pública vale como supremo mesmo sem as permissões
-    // gravadas no login (quem grava é uma Cloud Function, fora do plano gratuito)
+    // A conta da demo pública tem o perfil próprio 'demo' (ver firestore.rules):
+    // só mexe em arquivos de pedidos da demo (IDs "demo-…")
+    function eDemo() {
+      return request.auth != null && request.auth.token.get('email', '') == 'demo@praxis.app';
+    }
     function perfil() {
-      return request.auth.token.get('email', '') == 'demo@praxis.app' ? 'supremo' : request.auth.token.get('perfil', null);
+      return eDemo() ? 'demo' : request.auth.token.get('perfil', null);
+    }
+    function areaDemo(pedidoId) {
+      return eDemo() && pedidoId.matches('demo-.*');
     }
 
     // Conta sem perfil (criada fora do app) não lê nem grava arquivo nenhum
@@ -26,31 +32,31 @@ service firebase.storage {
 
     // Cotações — leitura por quem tem perfil, escrita apenas compradores
     match /pedidos/{pedidoId}/cotacoes/{cotacaoId}/{fileName} {
-      allow read: if temPerfil();
-      allow create, update: if temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'] &&
+      allow read: if temPerfil() || areaDemo(pedidoId);
+      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'])) &&
         arquivoValido('application/pdf|image/.*');
-      allow delete: if temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'];
+      allow delete: if areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'comprador']);
     }
 
     // Comprovantes — leitura por quem tem perfil, escrita apenas financeiro/gestor
     match /pedidos/{pedidoId}/comprovantes/{parcelaId}/{fileName} {
-      allow read: if temPerfil();
-      allow create, update: if temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'] &&
+      allow read: if temPerfil() || areaDemo(pedidoId);
+      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'])) &&
         arquivoValido('application/pdf|image/.*');
-      allow delete: if temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'];
+      allow delete: if areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro']);
     }
 
     // Anexos gerais — qualquer perfil anexa, assinando o arquivo com o próprio
     // UID; apaga quem anexou ou um gestor
     match /pedidos/{pedidoId}/anexos/{fileName} {
-      allow read: if temPerfil();
-      allow create: if temPerfil() &&
+      allow read: if temPerfil() || areaDemo(pedidoId);
+      allow create: if (temPerfil() || areaDemo(pedidoId)) &&
         request.resource.metadata.autorUid == request.auth.uid &&
         arquivoValido('application/pdf|image/.*|application/vnd\\.openxmlformats.*|application/msword');
       allow update: if false;
-      allow delete: if temPerfil() && (
+      allow delete: if areaDemo(pedidoId) || (temPerfil() && (
         perfil() in ['supremo', 'gestor'] || resource.metadata.autorUid == request.auth.uid
-      );
+      ));
     }
 
   }

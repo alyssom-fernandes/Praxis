@@ -253,7 +253,7 @@ async function _aplicarSeed(seed) {
       { key: 'servicos',   nome: 'Serviços',          cor: '#8A8278' },
     ]
     for (const cat of cats) {
-      const ref = await db.collection('categorias').add({ nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: agoraTs })
+      const ref = await db.collection('categorias').add({ nome: cat.nome, cor: cat.cor, tipo: 'padrao', isDemo: true, criadaEm: agoraTs })
       categoriaMap[cat.key] = ref.id
     }
   } else {
@@ -329,7 +329,9 @@ async function _aplicarSeed(seed) {
       if (pedData[campo]) pedData[campo] = _deslocar(pedData[campo])
     }
 
-    const pedRef = db.collection('pedidos').doc()
+    // ID na área da demo ("demo-…"): só assim a conta demo alcança as
+    // subcoleções do pedido (firestore.rules)
+    const pedRef = db.collection('pedidos').doc(`demo-${db.collection('pedidos').doc().id}`)
     await pedRef.set({
       ...pedData,
       empresaId,
@@ -442,8 +444,8 @@ async function _aplicarSeed(seed) {
       await parBatch.commit()
     }
   }
-  // Atualiza contador para que novos pedidos reais continuem a sequência
-  await db.collection('_meta').doc('contadores').set({ totalPedidos: pedidoCount }, { merge: true })
+  // Contador próprio da demo, para os pedidos abertos na demo continuarem a sequência
+  await db.collection('_meta').doc('contadoresDemo').set({ totalPedidos: pedidoCount }, { merge: true })
   console.log(`${pedidoCount} pedidos demo criados com subcoleções. Contador: PRX-${String(pedidoCount).padStart(4,'0')}`)
 }
 

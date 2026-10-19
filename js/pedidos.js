@@ -1,4 +1,7 @@
-import { db, collection, query, where, orderBy, getDocs, onSnapshot, doc, runTransaction, serverTimestamp, updateDoc, addDoc } from './firebase.js'
+import {
+  db, collection, query, where, orderBy, getDocs, onSnapshot, doc, runTransaction, serverTimestamp, updateDoc, addDoc, writeBatch,
+  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
+} from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, iniciarTour } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -932,13 +935,14 @@ async function _submeterNovoPedido() {
   if (btnAbrir) btnAbrir.disabled = true
   mostrarSpinner()
   try {
-    const contadorRef  = doc(db, '_meta', 'contadores')
-    const novoPedidoRef = doc(collection(db, 'pedidos'))
+    const contadorRef  = contadorPedidosRef()
+    const pedidoRef    = novoPedidoRef()
     await runTransaction(db, async (tx) => {
       const snap  = await tx.get(contadorRef)
       const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
       const numeroPedido = `PRX-${String(total).padStart(4, '0')}`
-      tx.set(novoPedidoRef, {
+      tx.set(pedidoRef, {
+        ...marcaDemo(),
         titulo,
         descricao:       obs || '',
         empresaId,
@@ -1000,10 +1004,10 @@ function _iniciarListenerPedidos() {
   let q
   if (perfil === PERFIS.SUPREMO) {
     // Supremo enxerga todos os pedidos sem filtro por empresa
-    q = query(collection(db, 'pedidos'), orderBy('criadoEm', 'desc'))
+    q = consulta(collection(db, 'pedidos'), orderBy('criadoEm', 'desc'))
   } else if (perfil === PERFIS.SOLICITANTE) {
     // Solicitante vê apenas pedidos que ele mesmo abriu
-    q = query(
+    q = consulta(
       collection(db, 'pedidos'),
       where('solicitanteId', '==', sessao.usuario.id),
       orderBy('criadoEm', 'desc')
@@ -1018,7 +1022,7 @@ function _iniciarListenerPedidos() {
       return
     }
     // Firebase limita 'in' a 30 itens — MVP com ≤10 empresas está OK
-    q = query(
+    q = consulta(
       collection(db, 'pedidos'),
       where('empresaId', 'in', empresas.slice(0, 10)),
       orderBy('criadoEm', 'desc')
@@ -1962,8 +1966,8 @@ function _renderLista(lista, totalFiltrada, totalPaginas, inicio) {
 // ── Auxiliares ────────────────────────────────────────────────
 async function _carregarDadosAuxiliares() {
   const [catSnap, empSnap] = await Promise.all([
-    getDocs(collection(db, 'categorias')),
-    getDocs(collection(db, 'empresas')),
+    getDocs(consulta(collection(db, 'categorias'))),
+    getDocs(consulta(collection(db, 'empresas'))),
   ])
   _categorias = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _empresasTodas = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -1971,7 +1975,7 @@ async function _carregarDadosAuxiliares() {
   _empresas = _empresasTodas.filter(e => e.ativa !== false)
   // usuarios: regra permite list apenas para gestor+; demais perfis recebem lista vazia
   try {
-    const usrSnap = await getDocs(collection(db, 'usuarios'))
+    const usrSnap = await getDocs(consultaUsuarios(sessao.usuario))
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
       .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))

@@ -1,4 +1,4 @@
-import { db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp } from './firebase.js'
+import { db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, consulta, consultaUsuarios } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -133,8 +133,8 @@ export async function renderConfigUsuarios() {
 async function _carregar() {
   try {
     const [usrSnap, empSnap] = await Promise.all([
-      getDocs(collection(db, 'usuarios')),
-      getDocs(collection(db, 'empresas')),
+      getDocs(consultaUsuarios(sessao.usuario)),
+      getDocs(consulta(collection(db, 'empresas'))),
     ])
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não aparece: quem está na tela são as pessoas da demonstração
