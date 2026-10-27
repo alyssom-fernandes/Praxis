@@ -97,7 +97,7 @@ More in [`docs/arquitetura.md`](docs/arquitetura.md).
 
 ### Locally, with the emulators (no Firebase account needed)
 
-Requirements: Node.js 20+ and Java 11+ (for the Firestore emulator).
+Requirements: Node.js 24.12+ and Java 21+ (for the Firestore emulator).
 
 ```bash
 npm install

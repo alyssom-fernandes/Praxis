@@ -1,5 +1,7 @@
-const admin = require('firebase-admin')
-admin.initializeApp()
+const { initializeApp } = require('firebase-admin/app')
+const { getAuth } = require('firebase-admin/auth')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+initializeApp()
 
 const triggers  = require('./src/triggers')
 const scheduled = require('./src/scheduled')
@@ -19,8 +21,8 @@ const triggerDemoSeed = onCall(
     }
 
     // A mesma trava de js/demo-reset.js, em _meta/demo
-    const metaRef = admin.firestore().doc('_meta/demo')
-    const situacao = await admin.firestore().runTransaction(async tx => {
+    const metaRef = getFirestore().doc('_meta/demo')
+    const situacao = await getFirestore().runTransaction(async tx => {
       const agora = new Date()
       const s = situacaoRenovacao((await tx.get(metaRef)).data(), agora)
       if (s === 'livre') tx.set(metaRef, { travadoAte: agora.getTime() + TRAVA_MS }, { merge: true })
@@ -32,7 +34,7 @@ const triggerDemoSeed = onCall(
     try {
       await scheduled.__runDemoReset()
       await metaRef.set({
-        dia: hojeSP(), renovadaEm: admin.firestore.FieldValue.serverTimestamp(), travadoAte: 0,
+        dia: hojeSP(), renovadaEm: FieldValue.serverTimestamp(), travadoAte: 0,
       }, { merge: true })
     } catch (err) {
       console.error('triggerDemoSeed:', err)
@@ -51,13 +53,13 @@ const fixDemoClaims = onCall(
     if (!request.auth || request.auth.token.email !== EMAIL_DEMO) {
       throw new HttpsError('permission-denied', 'Apenas o usuário demo pode chamar esta função.')
     }
-    const snap = await admin.firestore()
+    const snap = await getFirestore()
       .collection('usuarios').where('email', '==', EMAIL_DEMO).limit(1).get()
     if (snap.empty) throw new HttpsError('not-found', 'Documento do usuário demo não encontrado.')
     const uid = snap.docs[0].id
     const userData = snap.docs[0].data()
     const empresas = Array.isArray(userData.empresas) ? userData.empresas : []
-    await admin.auth().setCustomUserClaims(uid, { perfil: 'demo', empresas })
+    await getAuth().setCustomUserClaims(uid, { perfil: 'demo', empresas })
     return { ok: true }
   }
 )
