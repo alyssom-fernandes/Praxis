@@ -1,9 +1,10 @@
 const { onDocumentWritten, onDocumentUpdated } = require('firebase-functions/v2/firestore')
-const admin = require('firebase-admin')
+const { getAuth } = require('firebase-admin/auth')
+const { getFirestore } = require('firebase-admin/firestore')
 const { enviarEmail } = require('./email')
 const { criarNotificacao, buscarUsuariosPorPerfil } = require('./utils')
 
-const db = admin.firestore()
+const db = getFirestore()
 
 // ── setUserClaims ──────────────────────────────────────────────
 // Trigger: ao criar ou atualizar um documento em /usuarios/{userId}
@@ -17,7 +18,7 @@ exports.setUserClaims = onDocumentWritten(
     if (!data) {
       // Documento deletado — limpa claims
       try {
-        await admin.auth().setCustomUserClaims(userId, {})
+        await getAuth().setCustomUserClaims(userId, {})
       } catch (err) {
         console.error('setUserClaims delete error:', err)
       }
@@ -25,7 +26,7 @@ exports.setUserClaims = onDocumentWritten(
     }
 
     try {
-      await admin.auth().setCustomUserClaims(userId, {
+      await getAuth().setCustomUserClaims(userId, {
         perfil:   data.perfil   || '',
         empresas: data.empresas || [],
       })

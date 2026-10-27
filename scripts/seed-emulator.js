@@ -22,23 +22,26 @@ process.env.FIRESTORE_EMULATOR_HOST = 'localhost:9090'
 process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099'
 
 // firebase-admin vem das dependências das Functions: o seed roda de qualquer pasta
-const admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] }))
+const doFunctions = (modulo) => require(require.resolve(modulo, { paths: [require('path').join(__dirname, '..', 'functions')] }))
+const { initializeApp } = doFunctions('firebase-admin/app')
+const { getAuth } = doFunctions('firebase-admin/auth')
+const { getFirestore, Timestamp } = doFunctions('firebase-admin/firestore')
 const seed  = require('../functions/seed.json')
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'praxis-af618' })
-const db   = admin.firestore()
-const auth = admin.auth()
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'praxis-af618' })
+const db   = getFirestore()
+const auth = getAuth()
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const agora = new Date()
 
 function ts(diasAtras) {
-  if (diasAtras == null) return admin.firestore.Timestamp.now()
+  if (diasAtras == null) return Timestamp.now()
   const d = new Date(agora)
   d.setDate(d.getDate() - diasAtras)
   d.setHours(8 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0)
-  return admin.firestore.Timestamp.fromDate(d)
+  return Timestamp.fromDate(d)
 }
 
 function isoMaisDias(n) {
@@ -51,7 +54,7 @@ function normalizar(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }
 
-const agoraTs = admin.firestore.Timestamp.now()
+const agoraTs = Timestamp.now()
 
 // As datas fixas do seed (necessidade, compra, entrega, vencimento) foram
 // escritas para seed._dataReferencia; todas andam a mesma distância até hoje,

@@ -10,8 +10,8 @@
     "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\""
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "5.0.2",
-    "firebase": "12.19.0",
-    "firebase-tools": "^13.35.1"
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.1.0",
+    "firebase-tools": "^15.34.1"
   }
 }

@@ -1,5 +1,5 @@
-const admin = require('firebase-admin')
-const db = admin.firestore()
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const db = getFirestore()
 
 // ── Cria uma notificação in-app para um usuário ───────────────
 async function criarNotificacao(userId, { evento, titulo, corpo, pedidoId = null }) {
@@ -11,7 +11,7 @@ async function criarNotificacao(userId, { evento, titulo, corpo, pedidoId = null
       corpo,
       pedidoId,
       lida:     false,
-      criadaEm: admin.firestore.FieldValue.serverTimestamp(),
+      criadaEm: FieldValue.serverTimestamp(),
     })
   } catch (err) {
     console.error(`criarNotificacao error (${userId}):`, err.message)

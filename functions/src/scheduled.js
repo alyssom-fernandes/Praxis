@@ -1,9 +1,10 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler')
-const admin = require('firebase-admin')
+const { getAuth } = require('firebase-admin/auth')
+const { getFirestore, Timestamp } = require('firebase-admin/firestore')
 const { criarNotificacao, buscarUsuariosPorPerfil } = require('./utils')
 const { enviarEmail } = require('./email')
 
-const db = admin.firestore()
+const db = getFirestore()
 
 // ── checkClaimTimeout ──────────────────────────────────────────
 // Roda a cada hora — verifica pedidos sem comprador há muito tempo
@@ -185,15 +186,15 @@ async function _aplicarSeed(seed) {
 
   // Converte diasAtras em Timestamp real
   function _ts(diasAtras) {
-    if (diasAtras == null) return admin.firestore.Timestamp.now()
+    if (diasAtras == null) return Timestamp.now()
     const d = new Date(agora)
     d.setDate(d.getDate() - diasAtras)
     // Hora aleatória entre 8h e 18h para parecer natural
     d.setHours(8 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0)
-    return admin.firestore.Timestamp.fromDate(d)
+    return Timestamp.fromDate(d)
   }
 
-  const agoraTs = admin.firestore.Timestamp.now()
+  const agoraTs = Timestamp.now()
 
   // As datas fixas do seed (necessidade, compra, entrega, vencimento) foram
   // escritas para seed._dataReferencia; todas andam a mesma distância até hoje,
@@ -289,7 +290,7 @@ async function _aplicarSeed(seed) {
       atualizadoEm: agoraTs,
     })
     try {
-      await admin.auth().setCustomUserClaims(demoUser.id, {
+      await getAuth().setCustomUserClaims(demoUser.id, {
         perfil:   demoUser.perfil || 'supremo',
         empresas: todasEmpresasIds,
       })

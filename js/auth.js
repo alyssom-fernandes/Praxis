@@ -330,7 +330,7 @@ export async function carregarUsuario(uid) {
   } catch (e) {
     console.warn('Erro ao renovar token:', e.message)
   }
-  const { getDocFromServer } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+  const { getDocFromServer } = await import('https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js')
   const snap = await getDocFromServer(doc(db, 'usuarios', uid))
   if (!snap.exists()) {
     // Conta demo criada direto no console do Firebase: o perfil nasce aqui,
