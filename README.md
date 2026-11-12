@@ -19,6 +19,8 @@ belongs to it.
 
 This README is also available in [Portuguese](README.pt-br.md). The interface is in Brazilian Portuguese.
 
+**Case study:** [how it was built and why, with links to the code](https://alyssom-fernandes.github.io/portfolio/en/projetos/praxis/) on my portfolio.
+
 ## In 30 seconds
 
 1. Open the [demo](https://praxis-af618.web.app) and click **Acessar modo demo**.
