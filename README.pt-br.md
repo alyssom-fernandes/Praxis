@@ -18,6 +18,8 @@ etapa tem responsável, prazo e histórico, e cada perfil vê só o que lhe cabe
 
 Este README também está em [inglês](README.md).
 
+**Estudo de caso:** [como foi construído e por quê, com links para o código](https://alyssom-fernandes.github.io/portfolio/projetos/praxis/) no meu portfólio.
+
 ## Em 30 segundos
 
 1. Abra a [demonstração](https://praxis-af618.web.app) e clique em **Acessar modo demo**.
