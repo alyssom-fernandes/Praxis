@@ -531,6 +531,8 @@ button:disabled {
   background: var(--card);
   z-index: 2;
 }
+/* Ação destrutiva fica longe das demais, no canto esquerdo (ex.: cancelar convite) */
+.modal-footer .cfg-acao-esquerda { margin-right: auto; }
 
 /* Alert/Confirm dialog */
 .dialog-overlay {

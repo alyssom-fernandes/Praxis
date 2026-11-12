@@ -8,8 +8,20 @@ service firebase.storage {
     function eDemo() {
       return request.auth != null && request.auth.token.get('email', '') == 'demo@praxis.app';
     }
+    // Perfil de quem está logado: no token (custom claims, plano Blaze) ou,
+    // sem as claims, no documento da pessoa em /usuarios do Firestore (regra
+    // entre serviços, como em firestore.rules). Usuário inativo fica sem perfil.
+    function temClaims() {
+      return request.auth.token.get('perfil', null) != null;
+    }
+    function meuDocumento() {
+      return firestore.exists(/databases/(default)/documents/usuarios/$(request.auth.uid))
+        ? firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data
+        : {};
+    }
     function perfil() {
-      return eDemo() ? 'demo' : request.auth.token.get('perfil', null);
+      return eDemo() ? 'demo' : (temClaims() ? request.auth.token.perfil
+        : (meuDocumento().get('ativo', true) == false ? null : meuDocumento().get('perfil', null)));
     }
     function areaDemo(pedidoId) {
       return eDemo() && pedidoId.matches('demo-.*');

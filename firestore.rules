@@ -19,8 +19,24 @@ service cloud.firestore {
       return estaLogado() && request.auth.token.get('email', '') == 'demo@praxis.app';
     }
 
+    // Perfil e empresas de quem está logado. Com a Cloud Function setUserClaims
+    // (plano Blaze), vêm do token (custom claims). Sem ela, no plano gratuito,
+    // vêm do documento da própria pessoa em /usuarios, que só um gestor ou o
+    // supremo altera (regras de /usuarios abaixo). Usuário inativo fica sem perfil.
+    function temClaims() {
+      return request.auth.token.get('perfil', null) != null;
+    }
+    function caminhoMeuUsuario() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+    function meuDocumento() {
+      return exists(caminhoMeuUsuario()) ? get(caminhoMeuUsuario()).data : {};
+    }
+    function perfilDoDocumento() {
+      return meuDocumento().get('ativo', true) == false ? null : meuDocumento().get('perfil', null);
+    }
     function perfil() {
-      return eDemo() ? 'demo' : request.auth.token.get('perfil', null);
+      return eDemo() ? 'demo' : (temClaims() ? request.auth.token.perfil : perfilDoDocumento());
     }
 
     function idDemo(id) { return id.matches('demo-.*'); }
@@ -42,7 +58,7 @@ service cloud.firestore {
     }
 
     function empresasDoUsuario() {
-      return request.auth.token.get('empresas', []);
+      return temClaims() ? request.auth.token.get('empresas', []) : meuDocumento().get('empresas', []);
     }
 
     function temAcessoEmpresa(empresaId) {
@@ -112,14 +128,36 @@ service cloud.firestore {
         );
       }
 
+      // Primeiro acesso de quem foi convidado: a própria pessoa cria o seu
+      // perfil copiando o convite (/convites/{e-mail}) campo a campo, enquanto
+      // ele vale. O app apaga o convite no mesmo lote.
+      function caminhoConvite() {
+        return /databases/$(database)/documents/convites/$(request.auth.token.get('email', '').lower());
+      }
+      function aceitaConvite() {
+        return request.auth.uid == userId && !eDemo() &&
+          request.auth.token.get('email', '') != '' &&
+          exists(caminhoConvite()) &&
+          get(caminhoConvite()).data.expiraEm > request.time &&
+          request.resource.data.keys().hasOnly(
+            ['nome', 'email', 'perfil', 'empresas', 'ativo', 'convidadoPor', 'criadoEm', 'ultimoAcesso']) &&
+          request.resource.data.get('nome', '') == get(caminhoConvite()).data.nome &&
+          request.resource.data.get('email', '') == get(caminhoConvite()).data.email &&
+          request.resource.data.get('perfil', '') == get(caminhoConvite()).data.perfil &&
+          request.resource.data.get('empresas', []) == get(caminhoConvite()).data.empresas &&
+          request.resource.data.get('ativo', false) == get(caminhoConvite()).data.ativo &&
+          request.resource.data.get('convidadoPor', '') == get(caminhoConvite()).data.criadoPor;
+      }
+
       allow read: if estaLogado() && (
         request.auth.uid == userId || eSupremo() ||
         (temPerfil() && eGestor() && mesmaEmpresa()) ||
         (eDemo() && (marcadoDemo(resource.data) || perfilDaContaDemo(resource.data)))
       );
-      allow create: if (temPerfil() && eGestor() && semPromover()) || demoGravaUsuario();
-      // O próprio usuário só registra o último acesso: perfil e empresas viram
-      // permissões no token (setUserClaims) e não podem ser mudados por ele
+      allow create: if (temPerfil() && eGestor() && semPromover()) || demoGravaUsuario() || aceitaConvite();
+      // O próprio usuário só registra o último acesso: perfil e empresas valem
+      // como permissão (no token, pela setUserClaims, ou lidos daqui pelas
+      // regras) e não podem ser mudados por ele
       allow update: if estaLogado() && (
         (request.auth.uid == userId && !eDemo() && mudouSo(['ultimoAcesso'])) ||
         (temPerfil() && eGestor() && request.auth.uid != userId &&
@@ -129,6 +167,49 @@ service cloud.firestore {
       allow delete: if estaLogado() && (
         eSupremo() ||
         (eDemo() && request.auth.uid != userId && perfilDaContaDemo(resource.data))
+      );
+    }
+
+    // ── Convites ───────────────────────────────────────────────
+    // Quem administra convida pelo e-mail (o ID é o e-mail em minúsculas), com
+    // perfil, empresas e prazo de até 60 dias. No primeiro acesso, a pessoa cria
+    // o próprio perfil a partir do convite (aceitaConvite, em /usuarios) e o
+    // apaga. Confiar no e-mail do token depende da criação de contas desligada
+    // no Firebase Auth: só quem administra cria a conta de login.
+    match /convites/{email} {
+      function meuEmail() { return request.auth.token.get('email', '').lower(); }
+      function conviteValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+            ['email', 'nome', 'perfil', 'empresas', 'ativo', 'criadoPor', 'criadoPorNome', 'criadoEm', 'expiraEm']) &&
+          d.email == email && email == email.lower() && email.matches('^[^@/ ]+@[^@/ ]+$') &&
+          d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80 &&
+          d.perfil in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'] &&
+          d.empresas is list && d.ativo == true &&
+          d.criadoPor == request.auth.uid &&
+          d.expiraEm is timestamp && d.expiraEm > request.time &&
+          d.expiraEm < request.time + duration.value(61, 'd') &&
+          (eSupremo() || (d.perfil != 'supremo' && d.empresas.size() > 0 &&
+            d.empresas.hasOnly(empresasDoUsuario())));
+      }
+      // O gestor alcança os convites inteiros dentro das empresas dele (como
+      // nos usuários); o supremo, todos
+      function conviteDoGestor() {
+        return eSupremo() || (eGestor() &&
+          resource.data.get('perfil', '') != 'supremo' &&
+          resource.data.get('empresas', []).hasOnly(empresasDoUsuario()));
+      }
+
+      allow read: if estaLogado() && (
+        meuEmail() == email ||
+        (temPerfil() && (eSupremo() || (eGestor() &&
+          resource.data.get('empresas', []).hasAny(empresasDoUsuario()))))
+      );
+      allow create: if temPerfil() && eGestor() && conviteValido();
+      allow update: if temPerfil() && eGestor() && conviteDoGestor() && conviteValido();
+      allow delete: if estaLogado() && (
+        (temPerfil() && conviteDoGestor()) ||
+        (meuEmail() == email && existsAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)))
       );
     }
 

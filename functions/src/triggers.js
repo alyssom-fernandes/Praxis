@@ -15,8 +15,9 @@ exports.setUserClaims = onDocumentWritten(
     const userId = event.params.userId
     const data   = event.data?.after?.data()
 
-    if (!data) {
-      // Documento deletado — limpa claims
+    if (!data || data.ativo === false) {
+      // Documento apagado ou usuário desativado: limpa as claims (as regras
+      // também negam o perfil de quem está inativo)
       try {
         await getAuth().setCustomUserClaims(userId, {})
       } catch (err) {

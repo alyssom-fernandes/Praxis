@@ -1,6 +1,6 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
-import { renderLogin, carregarUsuario, fazerLogout } from './auth.js'
+import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada } from './auth.js'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
   PERFIS, PERFIS_LABEL, PERFIS_COLOR, t,
@@ -76,6 +76,7 @@ onAuthStateChanged(auth, async (fireUser) => {
   try {
     const usuario = await carregarUsuario(fireUser.uid)
     if (!usuario.ativo) {
+      avisarNaEntrada(t('entradaInativo'))
       await fazerLogout()
       return
     }
@@ -101,7 +102,11 @@ onAuthStateChanged(auth, async (fireUser) => {
     // de hoje, depois que a tela já apareceu
     if (sessao.isDemo) _renovarDemoDoDia(fireUser)
   } catch (err) {
-    console.error(err)
+    // Conta sem perfil ou convite vencido são situações previstas, com aviso na entrada
+    if (String(err?.code || '').startsWith('praxis/')) console.warn(err.message)
+    else console.error(err)
+    if (err?.code === 'praxis/sem-perfil') avisarNaEntrada(t('entradaSemPerfil'))
+    else if (err?.code === 'praxis/convite-expirado') avisarNaEntrada(t('entradaConviteExpirado'))
     await fazerLogout()
   } finally {
     esconderSpinner()

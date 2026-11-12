@@ -3,7 +3,9 @@
 //   npm run testar-regras
 //
 // Cada perfil tenta o que pode e o que não pode. As permissões chegam no
-// token (custom claims), como em produção: { perfil, empresas }.
+// token (custom claims), como com a Cloud Function setUserClaims: { perfil,
+// empresas }. As contas sem claims testam o plano gratuito, em que as regras
+// leem o perfil do documento da pessoa em /usuarios.
 
 import { test, before, after, beforeEach } from 'node:test'
 import { readFileSync } from 'node:fs'
@@ -28,6 +30,13 @@ const conta = {
   financeiro:  ['u-fin', { perfil: 'financeiro', empresas: ['e1'] }],
   solicitante: ['u-sol', { perfil: 'solicitante', empresas: ['e1'] }],
   semPerfil:   ['u-x', {}],
+  // Sem claims (plano gratuito): o perfil vem do documento em /usuarios
+  semClaims:      ['u-doc', { email: 'doc@x.com' }],
+  inativo:        ['u-inat', { email: 'inat@x.com' }],
+  // Convites: quem foi convidado, quem não foi e quem tem convite vencido
+  convidado:      ['u-conv', { email: 'convidado@x.com' }],
+  intruso:        ['u-intr', { email: 'outro@x.com' }],
+  convidadoVelho: ['u-velho', { email: 'velho@x.com' }],
   // A conta demo pública: mesmo com permissões de supremo no token (como
   // as que uma Cloud Function poderia gravar), vale só o perfil 'demo'
   demo:        ['u-demo', { email: 'demo@praxis.app', perfil: 'supremo', empresas: ['e1', 'e2'] }],
@@ -41,6 +50,11 @@ const pedido = (extra = {}) => ({
   solicitanteId: 'u-sol', compradorId: null, dataNecessaria: '2026-11-30', ...extra,
 })
 const pedidoDemo = (extra = {}) => pedido({ empresaId: 'demo-nexara', solicitanteId: 'demo-solicitante', isDemo: true, ...extra })
+const daqui = dias => new Date(Date.now() + dias * 864e5)
+const convite = (extra = {}) => ({
+  email: 'novo@x.com', nome: 'Convidado', perfil: 'comprador', empresas: ['e1'], ativo: true,
+  criadoPor: 'u-ges', criadoPorNome: 'Ges', criadoEm: new Date(), expiraEm: daqui(30), ...extra,
+})
 
 before(async () => {
   env = await initializeTestEnvironment({
@@ -62,6 +76,10 @@ beforeEach(async () => {
     await setDoc(doc(f, 'usuarios/u-sup'), { nome: 'Sup', perfil: 'supremo', empresas: [] })
     await setDoc(doc(f, 'usuarios/demo-gestor'), { nome: 'Pessoa da demo', perfil: 'gestor', empresas: ['demo-nexara'], isDemo: true })
     await setDoc(doc(f, 'usuarios/u-demo-antigo'), { nome: 'Demo antiga', email: 'demo@praxis.app', perfil: 'supremo' })
+    await setDoc(doc(f, 'usuarios/u-doc'), { nome: 'Doc', email: 'doc@x.com', perfil: 'comprador', empresas: ['e1'], ativo: true })
+    await setDoc(doc(f, 'usuarios/u-inat'), { nome: 'Inat', email: 'inat@x.com', perfil: 'gestor', empresas: ['e1'], ativo: false })
+    await setDoc(doc(f, 'convites/convidado@x.com'), convite({ email: 'convidado@x.com' }))
+    await setDoc(doc(f, 'convites/velho@x.com'), convite({ email: 'velho@x.com', expiraEm: daqui(-1) }))
     await setDoc(doc(f, 'empresas/e1'), { nome: 'Empresa 1' })
     await setDoc(doc(f, 'empresas/e2'), { nome: 'Empresa 2' })
     await setDoc(doc(f, 'empresas/demo-nexara'), { nome: 'Empresa da demo', isDemo: true })
@@ -361,6 +379,102 @@ test('ninguém cria aviso falso para outra pessoa', async () => {
   await assertFails(addDoc(collection(db('demo'), 'notificacoes/u-sol/items'), { evento: 'parcela_vencida', lida: false }))
 })
 
+// ── Compra num lote só ─────────────────────────────────────────
+// A tela aceita até 60 parcelas; pedido, histórico e parcelas vão juntos, e
+// as regras precisam caber no limite de leituras de um lote
+test('a compra grava pedido, histórico e 60 parcelas num lote só', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/aprov1'), pedido({ status: 'aprovado', compradorId: 'u-com' }))
+    await setDoc(doc(ctx.firestore(), 'pedidos/aprov2'), pedido({ status: 'aprovado', compradorId: 'u-doc' }))
+  })
+  const compra = (quem, uid, id, n) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    lote.update(doc(f, `pedidos/${id}`), {
+      status: 'comprado', fornecedorId: 'f1', fornecedorNome: 'Fornecedor', valorFinal: 1000,
+      condicaoPagamento: 'parcelado', dataCompra: '2026-11-12', atualizadoEm: new Date(),
+    })
+    lote.set(doc(collection(f, `pedidos/${id}/historico`)), { status: 'comprado', autorId: uid, nota: 'Compra', criadoEm: new Date() })
+    for (let i = 0; i < n; i++) {
+      lote.set(doc(collection(f, `pedidos/${id}/parcelas`)), {
+        numero: i + 1, total: n, valor: 16.66, vencimento: '2026-12-12', pago: false, pagoEm: null, comprovante: null,
+      })
+    }
+    return lote.commit()
+  }
+  await assertSucceeds(compra('comprador', 'u-com', 'aprov1', 60))
+  // Sem claims, o perfil vem do documento, também dentro do lote
+  await assertSucceeds(compra('semClaims', 'u-doc', 'aprov2', 60))
+})
+
+// ── Perfil sem custom claims (plano gratuito) ──────────────────
+test('sem claims, o perfil e as empresas vêm do documento do usuário', async () => {
+  await assertSucceeds(getDoc(doc(db('semClaims'), 'pedidos/p1')))
+  await assertFails(getDoc(doc(db('semClaims'), 'pedidos/p2')))
+  await assertSucceeds(getDocs(query(collection(db('semClaims'), 'pedidos'), where('empresaId', 'in', ['e1']))))
+  await assertFails(getDocs(query(collection(db('semClaims'), 'pedidos'), where('empresaId', 'in', ['e1', 'e2']))))
+  // Age como o comprador que o documento diz que é, e só como ele
+  await assertSucceeds(updateDoc(doc(db('semClaims'), 'pedidos/p1'), {
+    status: 'ag_cotacao', compradorId: 'u-doc', compradorNome: 'Doc', compradorAssumiuEm: new Date(), atualizadoEm: new Date(),
+  }))
+  await assertFails(updateDoc(doc(db('semClaims'), 'pedidos/emAprov'), {
+    status: 'aprovado', aprovadoPor: 'u-doc', aprovadoPorNome: 'Doc', aprovadoEm: new Date(), atualizadoEm: new Date(),
+  }))
+  // E não muda o próprio perfil nem as próprias empresas
+  await assertFails(updateDoc(doc(db('semClaims'), 'usuarios/u-doc'), { perfil: 'gestor' }))
+  await assertFails(updateDoc(doc(db('semClaims'), 'usuarios/u-doc'), { empresas: ['e1', 'e2'] }))
+})
+
+test('usuário inativo fica sem perfil, mesmo com o documento', async () => {
+  await assertFails(getDoc(doc(db('inativo'), 'pedidos/p1')))
+  await assertFails(getDoc(doc(db('inativo'), 'empresas/e1')))
+  await assertFails(setDoc(doc(db('inativo'), 'usuarios/novo2'), { nome: 'N', perfil: 'comprador', empresas: ['e1'] }))
+})
+
+// ── Convites ───────────────────────────────────────────────────
+test('o gestor convida só para as empresas dele, sem supremo e com prazo', async () => {
+  await assertSucceeds(setDoc(doc(db('gestor'), 'convites/novo@x.com'), convite()))
+  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', empresas: ['e2'] })))
+  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', perfil: 'supremo' })))
+  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', expiraEm: daqui(90) })))
+  await assertFails(setDoc(doc(db('gestor'), 'convites/Outro@x.com'), convite({ email: 'Outro@x.com' })))
+  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-sup' })))
+  await assertFails(setDoc(doc(db('comprador'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-com' })))
+  await assertFails(setDoc(doc(db('demo'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-demo' })))
+  // Listar exige filtrar pelas empresas; o gestor de outra empresa não lê
+  await assertSucceeds(getDocs(query(collection(db('gestor'), 'convites'), where('empresas', 'array-contains-any', ['e1']))))
+  await assertFails(getDocs(collection(db('gestor'), 'convites')))
+  await assertFails(getDoc(doc(db('gestorE2'), 'convites/convidado@x.com')))
+  await assertFails(deleteDoc(doc(db('gestorE2'), 'convites/convidado@x.com')))
+  await assertSucceeds(deleteDoc(doc(db('gestor'), 'convites/novo@x.com')))
+})
+
+test('no primeiro acesso, o convidado cria o próprio perfil igual ao convite', async () => {
+  const aceite = (quem, uid, email, mudar = {}) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    lote.set(doc(f, `usuarios/${uid}`), {
+      nome: 'Convidado', email, perfil: 'comprador', empresas: ['e1'], ativo: true,
+      convidadoPor: 'u-ges', criadoEm: new Date(), ultimoAcesso: null, ...mudar,
+    })
+    lote.delete(doc(f, `convites/${email}`))
+    return lote.commit()
+  }
+  // Quem não foi convidado não lê nem usa o convite de outra pessoa
+  await assertFails(getDoc(doc(db('intruso'), 'convites/convidado@x.com')))
+  await assertFails(aceite('intruso', 'u-intr', 'convidado@x.com'))
+  // O convidado não muda o que o convite diz, e convite vencido não vale
+  await assertFails(aceite('convidado', 'u-conv', 'convidado@x.com', { perfil: 'gestor' }))
+  await assertFails(aceite('convidado', 'u-conv', 'convidado@x.com', { empresas: ['e1', 'e2'] }))
+  await assertFails(aceite('convidadoVelho', 'u-velho', 'velho@x.com'))
+  // Lê o próprio convite e cria o perfil a partir dele, apagando o convite
+  await assertSucceeds(getDoc(doc(db('convidado'), 'convites/convidado@x.com')))
+  await assertSucceeds(aceite('convidado', 'u-conv', 'convidado@x.com'))
+  // A partir daí, o perfil vale: lê os pedidos da empresa do convite
+  await assertSucceeds(getDoc(doc(db('convidado'), 'pedidos/p1')))
+  await assertFails(getDoc(doc(db('convidado'), 'pedidos/p2')))
+})
+
 // ── Storage ────────────────────────────────────────────────────
 const pdf = new Uint8Array([37, 80, 68, 70]) // "%PDF"
 
@@ -381,6 +495,14 @@ test('cotação em arquivo só por quem compra', async () => {
   const caminho = 'pedidos/p1/cotacoes/c1/proposta.pdf'
   await assertFails(uploadBytes(ref(st('solicitante'), caminho), pdf, { contentType: 'application/pdf' }))
   await assertSucceeds(uploadBytes(ref(st('comprador'), caminho), pdf, { contentType: 'application/pdf' }))
+})
+
+test('sem claims, os arquivos seguem o perfil do documento', async () => {
+  const caminho = 'pedidos/p1/cotacoes/c2/proposta.pdf'
+  await assertSucceeds(uploadBytes(ref(st('semClaims'), caminho), pdf, { contentType: 'application/pdf' }))
+  await assertFails(uploadBytes(ref(st('semClaims'), 'pedidos/p1/comprovantes/x1/recibo.pdf'), pdf, { contentType: 'application/pdf' }))
+  await assertSucceeds(getBytes(ref(st('semClaims'), caminho)))
+  await assertFails(getBytes(ref(st('inativo'), caminho)))
 })
 
 test('a conta demo só mexe em arquivos de pedidos da demo', async () => {

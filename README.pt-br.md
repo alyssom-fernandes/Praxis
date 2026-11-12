@@ -84,11 +84,11 @@ O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comp
 ## Decisões técnicas
 
 - **Sem framework e sem etapa de build.** O navegador carrega os ES Modules direto; a interface inteira sai de um sistema de *tokens* em CSS, com tema claro e escuro.
-- **Segurança no servidor, não na tela.** O perfil e as empresas de cada usuário viajam no token (*custom claims*, definidos por uma Cloud Function). As regras do Firestore e do Storage conferem cada leitura e escrita: quem pode dar cada passo do pedido, que campos aquele passo pode mudar e a que empresas cada usuário chega. As regras têm testes automáticos no emulador (`npm run testar-regras`), rodados pelo GitHub Actions a cada envio.
+- **Segurança no servidor, não na tela.** O perfil e as empresas de cada usuário vêm do token (*custom claims*, definidos por uma Cloud Function) ou, no plano gratuito, sem a Function, do documento da própria pessoa, que só um gestor ou o supremo altera. As regras do Firestore e do Storage conferem cada leitura e escrita: quem pode dar cada passo do pedido, que campos aquele passo pode mudar e a que empresas cada usuário chega. As regras têm testes automáticos no emulador (`npm run testar-regras`), rodados pelo GitHub Actions a cada envio.
 - **Defesa em camadas no navegador.** Tudo o que os usuários escrevem é escapado antes de chegar à página, e o site envia uma política de segurança de conteúdo (CSP) sem scripts inline, mais cabeçalhos contra enquadramento e *sniffing*. As fontes são servidas pelo próprio site.
 - **Sem corrida entre usuários.** Assumir um pedido e aprovar usam `runTransaction`: se duas pessoas clicam juntas, só uma vence. Toda mudança de status grava a entrada do histórico na mesma transação ou no mesmo lote, então o pedido nunca anda sem deixar registro.
 - **Demonstração que não envelhece.** O seed guarda a data para a qual foi escrito e desloca todas as datas até o dia de hoje a cada recriação.
-- **A demonstração pública roda no plano gratuito do Firebase.** Não tem Cloud Functions: a conta demo recebe o perfil pelas regras (pelo e-mail), a recriação diária roda no próprio app ([`js/demo-reset.js`](js/demo-reset.js)), em segundo plano, para o primeiro visitante do dia ver o quadro na hora, e os avisos do sino são de exemplo. *Custom claims*, notificações automáticas, e-mails e rotinas agendadas rodam nos emuladores ou no plano pago.
+- **A demonstração pública roda no plano gratuito do Firebase.** Não tem Cloud Functions: a conta demo recebe o perfil pelas regras (pelo e-mail), a recriação diária roda no próprio app ([`js/demo-reset.js`](js/demo-reset.js)), em segundo plano, para o primeiro visitante do dia ver o quadro na hora, e os avisos do sino são de exemplo. Na demonstração, a pessoa escolhida muda a tela e as ações oferecidas; a imposição de cada perfil no servidor fica provada pelos testes das regras. Notificações automáticas, e-mails e rotinas agendadas rodam nos emuladores ou no plano pago.
 - **Uma conta demo que não alcança dados reais.** A senha dela vai no `js/config.js` público, então as regras dão a ela um perfil próprio, `demo`, que não vale como nenhum outro: só lê e grava registros marcados como demo (pedidos com ID `demo-…` e `isDemo == true`, as pessoas, empresas, categorias e fornecedores da demonstração) e arquivos de pedidos da demo. Ela nunca toca em usuários, empresas, categorias, pedidos ou arquivos reais, e nenhum pedido real vira pedido da demo.
 - **Tudo verificável localmente.** Com os emuladores do Firebase, o app roda inteiro na máquina, sem tocar em dados reais.
 
@@ -128,7 +128,10 @@ todos com a senha `demo1234`, para ver o sistema por cada perfil.
 
 1. Crie um projeto com Firestore, Authentication (e-mail e senha), Storage e Cloud Functions.
 2. Preencha `js/config.js` com as chaves do projeto e ajuste `.firebaserc`.
-3. `npx firebase deploy`. As regras (`firestore.rules`, `storage.rules`) e os índices estão no repositório.
+3. `npx firebase deploy`. As regras (`firestore.rules`, `storage.rules`) e os índices estão no repositório. As regras do Storage leem o perfil no Firestore; na primeira publicação, o Firebase pede para liberar esse acesso.
+4. Em Authentication › Configurações › Ações do usuário, desligue a criação de contas: só quem administra cria contas de login.
+5. Crie o primeiro supremo à mão: a conta de login no Authentication e, no Firestore, o documento `usuarios/{UID da conta}` com `nome`, `email`, `perfil: "supremo"`, `empresas: []` e `ativo: true`.
+6. Daí em diante, as pessoas entram por convite: em Configurações › Usuários, quem administra convida pelo e-mail, cria a conta de login com esse e-mail no Authentication e, no primeiro acesso, a pessoa recebe o perfil do convite.
 
 > **Não crie a conta demo (`demo@praxis.app`) num projeto com dados reais.** A senha dela vai no `js/config.js`, que o site entrega a todo visitante. As regras a mantêm longe dos dados reais, mas quem tiver a senha ainda consegue criar e alterar registros da demo. A conta demo só cabe num projeto feito para a demonstração pública.
 

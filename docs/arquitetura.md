@@ -12,7 +12,7 @@ Browser (ES Modules)
 
 Firebase
   ├── Firestore ............ dados (pedidos, usuarios, empresas, categorias, fornecedores)
-  ├── Auth ................. e-mail/senha + Custom Claims { perfil, empresas[] }
+  ├── Auth ................. e-mail/senha + Custom Claims { perfil, empresas[] } (plano Blaze)
   ├── Storage .............. arquivos de cotação e comprovantes de pagamento
   ├── Cloud Functions ...... triggers de notificação, claims, jobs agendados
   └── Hosting .............. estáticos (deploy via firebase deploy --only hosting)
@@ -24,7 +24,8 @@ Firebase
 |---|---|
 | **Sem bundler** | ES Modules nativos atendem o escopo; zero passo de build, deploy direto. |
 | **Roteamento por `?tela=`** | Simples, indexável, sem dependência de History API ou router externo. |
-| **Custom Claims para perfil/empresas** | As Firestore Rules validam permissões server-side sem leitura extra de documento. Setadas pela function `setUserClaims` em todo write de `/usuarios/{id}`. |
+| **Perfil e empresas no token ou no documento** | Com a function `setUserClaims` (plano Blaze), as regras usam as Custom Claims, sem leitura extra. Sem ela (plano gratuito), as regras do Firestore e do Storage leem `/usuarios/{uid}`: uma leitura a mais por avaliação, e mudar perfil ou empresas vale na hora. Usuário inativo fica sem perfil nos dois caminhos. |
+| **Pessoas novas entram por convite** | O perfil precisa ter o ID igual ao UID da conta de login, que só existe depois que a conta é criada. O gestor grava `/convites/{e-mail}`; no primeiro acesso, a própria pessoa cria `/usuarios/{uid}` copiando o convite, num lote que também apaga o convite, e as regras conferem campo a campo e o prazo. |
 | **`runTransaction` no claim e na aprovação** | Dois compradores (ou dois aprovadores) simultâneos: o primeiro vence, o segundo recebe erro amigável. |
 | **Dados desnormalizados** (`fornecedorNome`, `autorNome`) | Evita N+1 de leituras na renderização de listas. |
 | **Tokens CSS** (`css/tokens.css`) | Dark mode padrão + override `.light` no `<html>`; troca de tema sem re-render. |
@@ -35,7 +36,9 @@ Firebase
 ## Modelo de dados (Firestore)
 
 ```
-/usuarios/{id}        nome, email, perfil, empresas[], ativo
+/usuarios/{uid}       nome, email, perfil, empresas[], ativo, convidadoPor (ID = UID da conta de login)
+/convites/{email}     email, nome, perfil, empresas[], ativo, criadoPor, criadoPorNome, criadoEm,
+                      expiraEm (até 60 dias; apagado quando a pessoa entra)
 /empresas/{id}        nome, cnpj, ativa
 /categorias/{id}      nome, cor, tipo (padrao|personalizada)
 /fornecedores/{id}    nome (normalizado), nomeExibicao, cnpj, usos
@@ -78,7 +81,7 @@ Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empr
 
 | Função | Tipo | Papel |
 |---|---|---|
-| `setUserClaims` | trigger (write em `/usuarios`) | Sincroniza Custom Claims com o documento. |
+| `setUserClaims` | trigger (write em `/usuarios`) | Sincroniza Custom Claims com o documento; limpa as de quem foi apagado ou desativado. Sem ela, as regras leem o documento. |
 | `onPedidoStatusChange` | trigger (update em `/pedidos`) | Despacha notificações in-app/e-mail por transição de status. |
 | `checkClaimTimeout` | agendada (1h) | Pedido sem comprador há 48h (ou urgente há 4h) → notifica gestores. |
 | `checkParcelasVencendo` | agendada (8h) | Parcelas vencendo em ≤3 dias → notifica financeiro/gestor. |

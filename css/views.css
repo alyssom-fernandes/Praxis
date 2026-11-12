@@ -2598,6 +2598,9 @@ input.cfg-mono { font-size: 0.85rem; }
 .cfg-linha-interruptor .cfg-rotulo-campo { margin-bottom: 0.1rem; color: var(--text); }
 .cfg-linha-desc { font-size: 0.76rem; color: var(--text3); }
 #emp-ativa-grupo[hidden] { display: none; }
+/* Usuários: o interruptor de acesso some no convite, e o filtro de convites só aparece quando há algum */
+#usr-ativo-grupo[hidden],
+.cfg-filtro[hidden] { display: none; }
 
 /* Cor da categoria: amostras quadradas, como o ponto da categoria na lista */
 .cfg-cores { display: flex; flex-wrap: wrap; gap: 0.375rem; }

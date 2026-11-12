@@ -85,11 +85,11 @@ An order can be cancelled with a reason: by its requester while it waits for a b
 ## Technical decisions
 
 - **No framework and no build step.** The browser loads ES Modules directly; the whole interface comes from a CSS token system with light and dark themes.
-- **Security on the server, not in the UI.** Each user's role and companies travel in the auth token (custom claims set by a Cloud Function). The Firestore and Storage rules check every read and write: who may take each step of an order, which fields that step may change, and which companies each user reaches. The rules have automated tests on the emulator (`npm run testar-regras`), run by GitHub Actions on every push.
+- **Security on the server, not in the UI.** Each user's role and companies come from the auth token (custom claims set by a Cloud Function) or, on the free plan without the Function, from the person's own document, which only a manager or the supremo can change. The Firestore and Storage rules check every read and write: who may take each step of an order, which fields that step may change, and which companies each user reaches. The rules have automated tests on the emulator (`npm run testar-regras`), run by GitHub Actions on every push.
 - **Defense in depth in the browser.** Everything written by users is escaped before it reaches the page, and the site sends a Content Security Policy with no inline scripts, plus anti-framing and no-sniff headers. Fonts are served by the site itself.
 - **No races between users.** Claiming an order and approving it use `runTransaction`: if two people click at once, only one wins. Every status change writes its history entry in the same transaction or batch, so an order never moves without a record.
 - **A demo that never gets stale.** The seed stores the date it was written for and shifts every date to today on each rebuild.
-- **The public demo runs on Firebase's free plan.** It has no Cloud Functions: the demo account gets its role from the rules (by e-mail), the daily rebuild runs in the app itself ([`js/demo-reset.js`](js/demo-reset.js)), in the background, so the first visitor of the day sees the board right away, and the notifications in the bell are samples. Custom claims, automatic notifications, e-mails and scheduled jobs run in the emulators or on the paid plan.
+- **The public demo runs on Firebase's free plan.** It has no Cloud Functions: the demo account gets its role from the rules (by e-mail), the daily rebuild runs in the app itself ([`js/demo-reset.js`](js/demo-reset.js)), in the background, so the first visitor of the day sees the board right away, and the notifications in the bell are samples. In the demo, the person you pick changes the screens and the actions offered; the server-side enforcement of each role is proven by the rules tests. Automatic notifications, e-mails and scheduled jobs run in the emulators or on the paid plan.
 - **A demo account that cannot reach real data.** Its password ships in the public `js/config.js`, so the rules give it a role of its own, `demo`, that is worth nothing else: it only reads and writes records marked as demo (orders with `demo-…` IDs and `isDemo == true`, the demo people, companies, categories and suppliers) and files of demo orders. It never touches real users, companies, categories, orders or files, and a real order can never be turned into a demo one.
 - **Everything verifiable locally.** With the Firebase emulators the whole app runs on your machine without touching real data.
 
@@ -129,7 +129,10 @@ password `demo1234`, to see the system through each role.
 
 1. Create a project with Firestore, Authentication (email and password), Storage and Cloud Functions.
 2. Fill `js/config.js` with the project keys and update `.firebaserc`.
-3. `npx firebase deploy`. The rules (`firestore.rules`, `storage.rules`) and indexes are in the repository.
+3. `npx firebase deploy`. The rules (`firestore.rules`, `storage.rules`) and indexes are in the repository. The Storage rules read the role from Firestore; on the first deploy, Firebase asks you to allow that access.
+4. In Authentication › Settings › User actions, turn off account creation: only administrators create sign-in accounts.
+5. Create the first supremo by hand: the sign-in account in Authentication and, in Firestore, the document `usuarios/{account UID}` with `nome`, `email`, `perfil: "supremo"`, `empresas: []` and `ativo: true`.
+6. From then on, people join by invitation: in Settings › Users, an administrator invites by email, creates the sign-in account with that email in Authentication, and on first sign-in the person gets the role from the invitation.
 
 > **Do not create the demo account (`demo@praxis.app`) in a project with real data.** Its password goes into `js/config.js`, which the site serves to every visitor. The rules keep it away from real data, but anyone with it could still create and change demo records. The demo account belongs only in a project made for the public demo.
 

@@ -43,8 +43,9 @@
 
 1. **Cliente** (`js/`) — botões e telas são renderizados condicionalmente pelo perfil da sessão (ex.: Solicitante não vê "Aprovar"; Aprovador entra em Relatórios mas sem os cards financeiros).
 2. **Roteamento** (`app.js`) — telas bloqueadas por perfil redirecionam para `?tela=pedidos`.
-3. **Regras do Firestore** (`firestore.rules`) — validação no servidor via Custom Claims (`perfil`, `empresas[]`):
-   - conta sem perfil (criada fora do app) não lê nem grava nada;
+3. **Regras do Firestore** (`firestore.rules`) — validação no servidor pelo perfil e pelas empresas da pessoa: no token (Custom Claims `perfil`, `empresas[]`) ou, sem elas, no documento `/usuarios/{uid}`, que ela não altera:
+   - conta sem perfil (criada fora do app) não lê nem grava nada, e usuário inativo fica sem perfil;
+   - convites: o gestor convida só para as empresas dele e nunca como supremo, com prazo de até 60 dias; no primeiro acesso, a própria pessoa cria o seu perfil igual ao convite, enquanto ele vale, e o apaga no mesmo lote;
    - pedidos: cada um só é lido por quem tem a empresa dele (ou pelo solicitante, nos próprios); listar exige filtrar pelas empresas do usuário, e só o supremo lista sem filtro;
    - cada passo do fluxo tem dono e campos próprios, como na tabela de [`fluxo-pedidos.md`](fluxo-pedidos.md): só quem aprova aprova (assinando com o próprio ID), e nunca o próprio pedido (o supremo pode); só o comprador do pedido registra a compra e confirma o recebimento (além de quem pediu); só o financeiro confirma o pagamento, e cada passo só muda os campos dele;
    - a marca `isDemo` nasce com o pedido e não muda: ninguém transforma um pedido real em pedido da demo;
@@ -55,7 +56,7 @@
    - datas fora do formato `aaaa-mm-dd` são recusadas para todos, inclusive a conta demo.
 4. **Regras do Storage** (`storage.rules`) — arquivos só para quem tem perfil; cotação pelo comprador, comprovante pelo financeiro; anexo assinado com o UID de quem enviou, que só ele ou um gestor apaga; a conta demo só mexe em arquivos de pedidos com ID `demo-…`. Limitação conhecida: o Storage não confere a empresa do pedido (isso exigiria ler o Firestore a cada arquivo).
 5. **Testes** (`tests/regras.test.mjs`) — cada perfil tenta o que pode e o que não pode, no emulador (`npm run testar-regras`), a cada envio ao GitHub.
-6. **Cloud Functions** — `setUserClaims` mantém os claims sincronizados com `/usuarios/{id}`; alterações de perfil/empresas têm efeito no próximo refresh do token. A demo pública não tem Cloud Functions: a conta demo recebe o perfil `demo` pelo e-mail (`eDemo()` nas regras), e os claims gravados no token dela não valem. `triggerDemoSeed` (plano pago) só atende a conta demo ou um supremo, uma vez por dia.
+6. **Cloud Functions** — `setUserClaims` mantém os claims sincronizados com `/usuarios/{id}` (e os limpa de quem é desativado); alterações de perfil/empresas têm efeito no próximo refresh do token. Sem a Function, as regras leem o documento, e a mudança vale na hora. A demo pública não tem Cloud Functions: a conta demo recebe o perfil `demo` pelo e-mail (`eDemo()` nas regras), e os claims gravados no token dela não valem. `triggerDemoSeed` (plano pago) só atende a conta demo ou um supremo, uma vez por dia.
 
 ## Relatórios por perfil
 

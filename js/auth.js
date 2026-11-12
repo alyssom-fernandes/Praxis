@@ -1,7 +1,7 @@
 import {
   auth, db,
   signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
-  doc, setDoc, serverTimestamp,
+  doc, getDoc, setDoc, writeBatch, serverTimestamp,
 } from './firebase.js'
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
@@ -135,6 +135,18 @@ export function renderLogin() {
 
   mostrarCeu(true)
   _bindLoginEvents()
+  // Quem entrou sem acesso volta para cá sabendo o motivo
+  if (_avisoEntrada) {
+    _mostrarErro('login-erro', _avisoEntrada)
+    _avisoEntrada = ''
+  }
+}
+
+// Aviso mostrado uma vez na próxima tela de entrada (conta sem perfil,
+// convite vencido, acesso desativado)
+let _avisoEntrada = ''
+export function avisarNaEntrada(msg) {
+  _avisoEntrada = msg || ''
 }
 
 function _mostrarErro(id, msg) {
@@ -343,9 +355,49 @@ export async function carregarUsuario(uid) {
       await setDoc(doc(db, 'usuarios', uid), { ...perfilDemo, criadoEm: serverTimestamp() })
       return { id: uid, ...perfilDemo }
     }
-    throw new Error('Usuário não encontrado no sistema.')
+    // Primeiro acesso de quem foi convidado: o perfil nasce do convite
+    const convidado = await _aceitarConvite(uid)
+    if (convidado) return convidado
+    throw _erroEntrada('praxis/sem-perfil', 'Usuário não encontrado no sistema.')
   }
   return { id: snap.id, ...snap.data() }
+}
+
+// Convite pendente para o e-mail da conta (/convites/{e-mail}, criado em
+// Configurações › Usuários): a própria pessoa grava o seu perfil copiando o
+// convite e apaga o convite, no mesmo lote. As regras conferem campo a campo
+// e o prazo (firestore.rules, aceitaConvite).
+async function _aceitarConvite(uid) {
+  const email = String(auth.currentUser?.email || '').trim().toLowerCase()
+  if (!email) return null
+  const ref = doc(db, 'convites', email)
+  let snap
+  try {
+    snap = await getDoc(ref)
+  } catch (e) {
+    console.warn('Convite não lido:', e.message)
+    return null
+  }
+  if (!snap.exists()) return null
+  const c = snap.data()
+  if (!c.expiraEm?.toMillis || c.expiraEm.toMillis() <= Date.now()) {
+    throw _erroEntrada('praxis/convite-expirado', 'Convite expirado.')
+  }
+  const perfil = {
+    nome: c.nome, email: c.email, perfil: c.perfil, empresas: c.empresas,
+    ativo: c.ativo, convidadoPor: c.criadoPor, ultimoAcesso: null,
+  }
+  const lote = writeBatch(db)
+  lote.set(doc(db, 'usuarios', uid), { ...perfil, criadoEm: serverTimestamp() })
+  lote.delete(ref)
+  await lote.commit()
+  return { id: uid, ...perfil }
+}
+
+function _erroEntrada(codigo, mensagem) {
+  const erro = new Error(mensagem)
+  erro.code = codigo
+  return erro
 }
 
 // ── Tradução de erros Firebase Auth ──────────────────────────
