@@ -30,6 +30,9 @@ jobs:
       - name: Dependências
         run: npm ci
 
+      - name: Lint do front (ESLint)
+        run: npm run lint
+
       - name: Sintaxe dos módulos do app
         run: for f in js/*.js tests/*.mjs; do node --check "$f"; done
 

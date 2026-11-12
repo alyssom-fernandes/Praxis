@@ -1,5 +1,5 @@
 import {
-  db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, query, where,
+  db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, where,
   consulta, consultaUsuarios, marcaDemo,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
@@ -314,8 +314,8 @@ const _numHtml  = n => (n == null ? '<span class="cfg-mudo">—</span>' : n === 
 function _atualizarResumo() {
   const el = document.getElementById('cad-resumo')
   if (!el) return
-  let numeros = ''
-  let desc = ''
+  let numeros
+  let desc
   if (_secao === 'empresas') {
     const inativas = _empresas.filter(e => e.ativa === false).length
     numeros = plural(_empresas.length, 'cfgEmpresaSing', 'cfgEmpresaPlur') +

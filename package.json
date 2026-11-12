@@ -7,11 +7,15 @@
     "seed": "node scripts/seed-emulator.js",
     "servir": "npx --yes http-server . -p 8123 -c-1",
     "testar-unidade": "node --test tests/unidade.test.mjs",
-    "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\""
+    "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\"",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "6.0.0",
+    "eslint": "^10.14.0",
     "firebase": "13.1.0",
-    "firebase-tools": "^15.34.1"
+    "firebase-tools": "^15.34.1",
+    "globals": "^17.14.0"
   }
 }

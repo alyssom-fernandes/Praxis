@@ -39,7 +39,7 @@
   };
   if (window.fetch) {
     var fetchOriginal = window.fetch;
-    window.fetch = function (recurso, opcoes) {
+    window.fetch = function (recurso, _opcoes) {
       var url = recurso && recurso.url ? recurso.url : recurso;
       return fetchOriginal.apply(this, arguments).then(function (resp) {
         // Senha errada ou e-mail sem conta voltam como 400 da API de

@@ -451,7 +451,7 @@ function _registrarListenersDocumento() {
   })
 }
 
-export function initTopbarEvents(modoConfig = false) {
+export function initTopbarEvents(_modoConfig = false) {
   _registrarListenersDocumento()
 
   // Links da barra lateral (marca e itens) — navegação sem recarregar

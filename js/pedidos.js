@@ -1,5 +1,5 @@
 import {
-  db, collection, query, where, orderBy, getDocs, onSnapshot, doc, runTransaction, serverTimestamp, updateDoc, addDoc, writeBatch,
+  db, collection, where, orderBy, getDocs, onSnapshot, doc, runTransaction, serverTimestamp, writeBatch,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'

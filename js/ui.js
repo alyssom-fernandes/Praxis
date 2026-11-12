@@ -152,7 +152,7 @@ function _cmdRenderResultados(query) {
     return
   }
 
-  let html = ''
+  let html
   let idx = 0
   const linhaPedido = (p) => {
     const i = idx++

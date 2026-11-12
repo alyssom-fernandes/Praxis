@@ -1,4 +1,4 @@
-import { db, collection, query, where, getDocs, consulta } from './firebase.js'
+import { db, collection, where, getDocs, consulta } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { prxToast, marcaPraxis } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -1252,6 +1252,7 @@ async function _exportarPDF() {
     doc.setProperties({ title: `Praxis · ${tr('relatorioCompras')}`, subject: _nomeArquivo('pdf'), author: 'Praxis', creator: 'Praxis' })
     const W = 297, H = 210, M = 14, LARG = W - 2 * M
     const TOPO_CONT = M + 14                  // início do conteúdo nas páginas seguintes
+    // eslint-disable-next-line no-control-regex -- a fonte padrão do PDF só aceita Latin-1: o intervalo  -� é o alvo
     const limpo = s => String(s ?? '').replace(/[  ]/g, ' ').replace(/[–—−]/g, '-').replace(/[^\x00-\xFF]/g, '')
     const brl = v => limpo(_brl(v))
     const compacto = v => limpo(_brlCompacto(v))

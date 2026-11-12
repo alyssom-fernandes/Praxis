@@ -1,7 +1,6 @@
 import {
   auth, db, storage,
-  doc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
-  query, where,
+  doc, collection, where, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
   runTransaction, writeBatch, serverTimestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
@@ -763,7 +762,7 @@ function _renderDecisao(acoes) {
   const ind = _cotacoes.find(c => c.indicada)
   const n = _cotacoes.length
   const fatos = []     // [rótulo, valor, detalhe, classe]
-  let rotulo = t('dtProximoPasso'), tom = 'neutro', titulo = '', texto = '', resp = null
+  let rotulo = t('dtProximoPasso'), tom = 'neutro', titulo, texto, resp = null
   const ultimaNota = st => [..._historico].reverse().find(h => h.status === st && h.nota)?.nota
   const dinheiro = v => `<span class="dt-numeral">${formatCurrency(v)}</span>`
   const prazo = _estadoPrazo()
@@ -1223,7 +1222,7 @@ function _renderParcelasBloco() {
 function _renderParcelas() {
   const podePagar = _podePagarParcela()
   return _parcelas.map(parc => {
-    let estado = '', cls = ''
+    let estado, cls = ''
     if (parc.pago) {
       estado = parc.pagoEm ? `Paga em ${_dataCurta(parc.pagoEm)}` : 'Paga'
       cls = 'paga'

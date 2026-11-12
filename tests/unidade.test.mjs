@@ -13,7 +13,7 @@ import { TRADUCOES, tomDaCor, corCategoria, TONS_CATEGORIA } from '../js/constan
 import acessoDemo from '../functions/src/demo-acesso.js'
 
 // O Intl separa "R$" do número com um espaço não separável
-const semNbsp = s => s.replace(/ /g, ' ')
+const semNbsp = s => s.replace(/\u00a0/g, ' ')
 
 // ── Formatação ─────────────────────────────────────────────────
 test('moeda em reais, com traço quando não há valor', () => {

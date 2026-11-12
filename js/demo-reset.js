@@ -277,7 +277,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     ;(comentarios || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'comentarios')), {
       texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),
     }))
-    ;(cotacoes || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'cotacoes')), {
+    ;(cotacoes || []).forEach((c, _i) => lote.set(doc(collection(pedRef, 'cotacoes')), {
       fornecedorId: fornMap[_normalizar(c.fornecedorNome)] || null,
       fornecedorNome: c.fornecedorNome, valor: c.valor,
       prazoEntrega: c.prazoEntrega || null, condicoesComerciais: c.condicoesComerciais || null,
@@ -288,7 +288,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
       solicitante, hist, parcelas: parcelas || [],
       comentarios: (comentarios || []).map((c, i) => ({ ...c, autor: comentaristas[i % comentaristas.length] })),
     })
-    ;(parcelas || []).forEach((p, i) => lote.set(doc(collection(pedRef, 'parcelas')), {
+    ;(parcelas || []).forEach((p, _i) => lote.set(doc(collection(pedRef, 'parcelas')), {
       numero: p.numero, total: p.total, valor: p.valor,
       vencimento: p.vencimentoDias != null ? maisDias(p.vencimentoDias) : deslocar(p.vencimento),
       pago: p.pago === true, pagoEm: p.pago && p.diasAtras != null ? ts(p.diasAtras) : null,
