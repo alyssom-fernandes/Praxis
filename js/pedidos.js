@@ -1020,10 +1020,12 @@ function _iniciarListenerPedidos() {
       _renderView()
       return
     }
-    // Firebase limita 'in' a 30 itens — MVP com ≤10 empresas está OK
+    // O Firestore aceita até 30 valores num 'in'; acima disso, avisa em vez de
+    // cortar em silêncio
+    if (empresas.length > 30) console.warn(`Praxis: ${empresas.length} empresas; a lista mostra os pedidos das 30 primeiras.`)
     q = consulta(
       collection(db, 'pedidos'),
-      where('empresaId', 'in', empresas.slice(0, 10)),
+      where('empresaId', 'in', empresas.slice(0, 30)),
       orderBy('criadoEm', 'desc')
     )
   }

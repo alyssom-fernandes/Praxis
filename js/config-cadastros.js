@@ -259,7 +259,7 @@ async function _contar() {
     const [pedSnap, usrSnap] = await Promise.all([
       perfil === PERFIS.SUPREMO
         ? getDocs(consulta(collection(db, 'pedidos')))
-        : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : null),
+        : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 30)))) : null),
       getDocs(consultaUsuarios(sessao.usuario)).catch(() => null),
     ])
     const c = { empresa: {}, categoria: {}, fornecedor: {}, valorFornecedor: {}, usuariosEmpresa: null, usuarios: null }

@@ -484,7 +484,7 @@ async function _carregarDados() {
     getDocs(consulta(collection(db, 'categorias'))),
     perfil === PERFIS.SUPREMO
       ? getDocs(consulta(collection(db, 'pedidos')))
-      : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 10)))) : Promise.resolve(null)),
+      : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 30)))) : Promise.resolve(null)),
   ])
   _empresas   = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   _categorias = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
