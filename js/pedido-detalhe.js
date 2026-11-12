@@ -1,7 +1,7 @@
 import {
   auth, db, storage,
   doc, collection, where, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
-  runTransaction, writeBatch, serverTimestamp,
+  runTransaction, writeBatch, serverTimestamp, increment,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
@@ -16,6 +16,7 @@ import {
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
+  dividirEmParcelas, vencimentosMensais,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -181,15 +182,16 @@ function _fornecedorDatalistOptions() {
 async function _buscarOuCriarFornecedor(nomeDigitado) {
   const nomeNorm = normalizarTexto(nomeDigitado)
   const existente = _fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)
+  // A contagem de usos soma no servidor: duas compras ao mesmo tempo não se anulam
   if (existente) {
-    await updateDoc(doc(db, 'fornecedores', existente.id), { usos: (existente.usos || 0) + 1 })
+    await updateDoc(doc(db, 'fornecedores', existente.id), { usos: increment(1) })
     return existente.id
   }
   // Confirma no servidor (pode ter sido criado por outro fluxo)
   const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
   if (!snap.empty) {
     const ref = snap.docs[0]
-    await updateDoc(doc(db, 'fornecedores', ref.id), { usos: (ref.data().usos || 0) + 1 })
+    await updateDoc(doc(db, 'fornecedores', ref.id), { usos: increment(1) })
     return ref.id
   }
   const novo = await addDoc(collection(db, 'fornecedores'), {
@@ -1313,7 +1315,15 @@ function _atualizarResumoParcelasCompra() {
   if (!el) return
   const valor = parseMoeda(document.getElementById('mc-valor')?.value || '')
   const n = parseInt(document.getElementById('mc-parcelas')?.value) || 1
-  el.textContent = valor > 0 ? (n > 1 ? `${n} parcelas mensais de ${formatCurrency(valor / n)}` : `Pagamento único de ${formatCurrency(valor)}`) : ''
+  if (!(valor > 0)) { el.textContent = ''; return }
+  if (n <= 1) { el.textContent = `Pagamento único de ${formatCurrency(valor)}`; return }
+  // Os mesmos valores que serão gravados: a última parcela leva a diferença dos centavos
+  const parcelas = dividirEmParcelas(valor, n)
+  const primeira = parcelas[0]
+  const ultima = parcelas[parcelas.length - 1]
+  el.textContent = ultima === primeira
+    ? `${n} parcelas mensais de ${formatCurrency(primeira)}`
+    : `${n} parcelas mensais de ${formatCurrency(primeira)}, a última de ${formatCurrency(ultima)}`
 }
 
 function _bindDetalheEvents() {
@@ -1553,21 +1563,19 @@ async function _executarCompra() {
       atualizadoEm: serverTimestamp(),
     })
     _historicoJunto(lote, STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
-    await lote.commit()
-
-    // Cria parcelas
-    const valorParcela = valorFinal / numParc
-    const venc1Date = new Date(venc1 + 'T00:00:00')
-    for (let i = 0; i < numParc; i++) {
-      const d = new Date(venc1Date)
-      d.setMonth(d.getMonth() + i)
-      const vencISO = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-      await addDoc(collection(db, 'pedidos', _pedidoId, 'parcelas'), {
+    // As parcelas vão no mesmo lote: a compra nunca fica registrada sem elas.
+    // Valores em centavos (a última leva a diferença) e vencimentos que
+    // respeitam o fim do mês.
+    const valores = dividirEmParcelas(valorFinal, numParc)
+    const vencimentos = vencimentosMensais(venc1, numParc)
+    valores.forEach((valor, i) => {
+      lote.set(doc(collection(db, 'pedidos', _pedidoId, 'parcelas')), {
         numero: i + 1, total: numParc,
-        valor: valorParcela, vencimento: vencISO,
+        valor, vencimento: vencimentos[i],
         pago: false, pagoEm: null, comprovante: null,
       })
-    }
+    })
+    await lote.commit()
 
     fecharModal('modal-compra')
     prxToast(t('compraRegistrada'), 'success')

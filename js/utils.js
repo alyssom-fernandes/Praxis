@@ -156,6 +156,33 @@ export function parseMoeda(str) {
   return parseFloat(n) || 0
 }
 
+// Divide um valor em n parcelas, em centavos: as primeiras com o valor
+// arredondado para baixo e a última com a diferença, para a soma bater com o
+// total (R$ 100,00 em 3 vira 33,33 + 33,33 + 33,34)
+export function dividirEmParcelas(valor, n) {
+  const qtd = Math.max(1, Math.floor(Number(n) || 1))
+  const totalCentavos = Math.round(Number(valor) * 100)
+  if (!Number.isFinite(totalCentavos)) return []
+  const base = Math.floor(totalCentavos / qtd)
+  const resto = totalCentavos - base * qtd
+  return Array.from({ length: qtd }, (_, i) => (i === qtd - 1 ? base + resto : base) / 100)
+}
+
+// Vencimentos mensais a partir do primeiro (aaaa-mm-dd), no mesmo dia de cada
+// mês ou no último dia quando o mês é mais curto (31/01 → 28/02 ou 29/02)
+export function vencimentosMensais(primeiroISO, n) {
+  const [ano, mes, dia] = String(primeiroISO || '').split('-').map(Number)
+  if (!ano || !mes || !dia) return []
+  const qtd = Math.max(1, Math.floor(Number(n) || 1))
+  return Array.from({ length: qtd }, (_, i) => {
+    const indice = mes - 1 + i
+    const a = ano + Math.floor(indice / 12)
+    const m = indice % 12
+    const ultimoDia = new Date(Date.UTC(a, m + 1, 0)).getUTCDate()
+    return `${a}-${String(m + 1).padStart(2, '0')}-${String(Math.min(dia, ultimoDia)).padStart(2, '0')}`
+  })
+}
+
 export function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1048576) return `${(bytes/1024).toFixed(1)} KB`

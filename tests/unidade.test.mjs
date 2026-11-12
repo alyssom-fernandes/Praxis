@@ -8,6 +8,7 @@ import {
   formatCurrency, formatDate, gerarIniciais, normalizarTexto, parseMoeda, esc, formatCNPJ,
   formatFileSize, pluralizar, calcularSLA, maisXDiasISO, hojeISO, dataEhPassado, dataEhProximos,
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
+  dividirEmParcelas, vencimentosMensais,
 } from '../js/utils.js'
 import { TRADUCOES, tomDaCor, corCategoria, TONS_CATEGORIA } from '../js/constants.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
@@ -138,4 +139,27 @@ test('a demo renova no máximo uma vez por dia e uma de cada vez', () => {
   assert.equal(situacaoRenovacao({ dia: '2026-10-18', travadoAte: agora.getTime() + 1000 }, agora), 'ocupado')
   assert.equal(situacaoRenovacao({ dia: '2026-10-18', travadoAte: agora.getTime() - 1000 }, agora), 'livre')
   assert.equal(situacaoRenovacao(undefined, agora), 'livre')
+})
+
+// ── Parcelas da compra ─────────────────────────────────────────
+test('parcelas em centavos: a soma bate com o total e a última leva a diferença', () => {
+  assert.deepEqual(dividirEmParcelas(100, 3), [33.33, 33.33, 33.34])
+  assert.deepEqual(dividirEmParcelas(18000, 1), [18000])
+  for (const n of [1, 2, 3, 7, 12, 24, 60]) {
+    for (const total of [100, 99.99, 1234.56, 0.05, 18000, 6500.01]) {
+      const parcelas = dividirEmParcelas(total, n)
+      assert.equal(parcelas.length, n)
+      const somaCentavos = parcelas.reduce((s, v) => s + Math.round(v * 100), 0)
+      assert.equal(somaCentavos, Math.round(total * 100), `${total} em ${n}`)
+      parcelas.forEach(v => assert.ok(Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, `${v} tem mais de 2 casas`))
+    }
+  }
+})
+
+test('vencimentos mensais respeitam o fim do mês e a virada do ano', () => {
+  assert.deepEqual(vencimentosMensais('2026-01-31', 3), ['2026-01-31', '2026-02-28', '2026-03-31'])
+  assert.deepEqual(vencimentosMensais('2028-01-31', 2), ['2028-01-31', '2028-02-29'])
+  assert.deepEqual(vencimentosMensais('2026-11-15', 3), ['2026-11-15', '2026-12-15', '2027-01-15'])
+  assert.deepEqual(vencimentosMensais('2026-11-15', 1), ['2026-11-15'])
+  assert.deepEqual(vencimentosMensais('', 2), [])
 })

@@ -28,6 +28,7 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  increment,
 } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js'
 import {
   getStorage,
@@ -117,7 +118,7 @@ export {
   // Firestore
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, runTransaction,
-  serverTimestamp, Timestamp, writeBatch,
+  serverTimestamp, Timestamp, writeBatch, increment,
   // Storage
   storageRef, uploadBytes, getDownloadURL, deleteObject,
 }
