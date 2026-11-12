@@ -178,29 +178,53 @@ function _fornecedorDatalistOptions() {
     .join('')
 }
 
-// Busca fornecedor por nome normalizado; cria se não existir. Incrementa usos.
-async function _buscarOuCriarFornecedor(nomeDigitado) {
+// Fornecedor da compra ou da cotação, pelo nome normalizado: o que já existe
+// ganha mais um uso, e o que não existe é criado. As gravações vão no lote de
+// quem chama, então o uso só conta se a compra ou a cotação for gravada.
+// Devolve o ID e, se o fornecedor é novo, a entrada para a lista local (que
+// quem chama acrescenta depois de gravar o lote).
+async function _fornecedorNoLote(nomeDigitado, lote) {
   const nomeNorm = normalizarTexto(nomeDigitado)
-  const existente = _fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)
-  // A contagem de usos soma no servidor: duas compras ao mesmo tempo não se anulam
-  if (existente) {
-    await updateDoc(doc(db, 'fornecedores', existente.id), { usos: increment(1) })
-    return existente.id
+  let id = _fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)?.id
+  if (!id) {
+    // Confirma no servidor (pode ter sido criado por outro fluxo)
+    const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
+    id = snap.docs[0]?.id
   }
-  // Confirma no servidor (pode ter sido criado por outro fluxo)
-  const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
-  if (!snap.empty) {
-    const ref = snap.docs[0]
-    await updateDoc(doc(db, 'fornecedores', ref.id), { usos: increment(1) })
-    return ref.id
+  if (id) {
+    // A contagem de usos soma no servidor: duas compras ao mesmo tempo não se anulam
+    lote.update(doc(db, 'fornecedores', id), { usos: increment(1) })
+    return { id, novo: null }
   }
-  const novo = await addDoc(collection(db, 'fornecedores'), {
+  const ref = doc(collection(db, 'fornecedores'))
+  lote.set(ref, {
     nome: nomeNorm, nomeOriginal: nomeDigitado, nomeExibicao: nomeDigitado,
     cnpj: '', criadoEm: serverTimestamp(), usos: 1,
     ...marcaDemo(),
   })
-  _fornecedores.push({ id: novo.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 })
-  return novo.id
+  return { id: ref.id, novo: { id: ref.id, nome: nomeNorm, nomeExibicao: nomeDigitado, usos: 1 } }
+}
+
+// Envia o arquivo (quando há) e grava o lote que quem chama monta, já com o
+// endereço do arquivo. Se algo falhar depois do envio, o arquivo é apagado:
+// não sobra arquivo no Storage sem o registro no Firestore.
+async function _enviarEGravar(arquivoRef, arquivo, metadados, montarLote) {
+  let enviado = false
+  try {
+    let url = null
+    if (arquivoRef) {
+      await uploadBytes(arquivoRef, arquivo, metadados)
+      enviado = true
+      url = await getDownloadURL(arquivoRef)
+    }
+    const lote = writeBatch(db)
+    const resultado = await montarLote(lote, url)
+    await lote.commit()
+    return resultado
+  } catch (err) {
+    if (enviado) deleteObject(arquivoRef).catch(() => {})
+    throw err
+  }
 }
 
 // ── Ícones (traço 2, mesma família) ───────────────────────────
@@ -1549,13 +1573,13 @@ async function _executarCompra() {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    // Busca ou cria fornecedor (autocomplete + dedupe por nome normalizado)
-    const fornecedorId = await _buscarOuCriarFornecedor(fornecedor)
-
+    // Fornecedor (novo ou com mais um uso), pedido, histórico e parcelas num
+    // lote só: a compra nunca fica registrada pela metade
     const lote = writeBatch(db)
+    const forn = await _fornecedorNoLote(fornecedor, lote)
     lote.update(doc(db, 'pedidos', _pedidoId), {
       status: STATUS.COMPRADO,
-      fornecedorId,
+      fornecedorId: forn.id,
       fornecedorNome: fornecedor,
       valorFinal,
       condicaoPagamento: condicao,
@@ -1563,9 +1587,8 @@ async function _executarCompra() {
       atualizadoEm: serverTimestamp(),
     })
     _historicoJunto(lote, STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
-    // As parcelas vão no mesmo lote: a compra nunca fica registrada sem elas.
-    // Valores em centavos (a última leva a diferença) e vencimentos que
-    // respeitam o fim do mês.
+    // Parcelas em centavos (a última leva a diferença), com vencimentos que
+    // respeitam o fim do mês
     const valores = dividirEmParcelas(valorFinal, numParc)
     const vencimentos = vencimentosMensais(venc1, numParc)
     valores.forEach((valor, i) => {
@@ -1576,6 +1599,7 @@ async function _executarCompra() {
       })
     })
     await lote.commit()
+    if (forn.novo) _fornecedores.push(forn.novo)
 
     fecharModal('modal-compra')
     prxToast(t('compraRegistrada'), 'success')
@@ -1803,21 +1827,24 @@ async function _salvarEdicaoPedido(fechar) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId), { ...novos, atualizadoEm: serverTimestamp() })
-    const batch = writeBatch(db)
-    for (const campo of alteracoes) {
-      batch.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
-        tipo:          'edicao',
-        campo,
-        campoLabel:    _CAMPO_LABEL[campo] || campo,
-        valorAnterior: formatar(campo, p[campo]),
-        valorNovo:     formatar(campo, novos[campo]),
-        autorId:       sessao.usuario.id,
-        autorNome:     sessao.usuario.nome,
-        criadoEm:      serverTimestamp(),
-      })
-    }
-    await batch.commit()
+    // A edição e as entradas do histórico (uma por campo) vão no mesmo lote, e
+    // o pedido aponta para a primeira: as regras recusam a edição sem ela
+    const lote = writeBatch(db)
+    const entradas = alteracoes.map(() => doc(collection(db, 'pedidos', _pedidoId, 'historico')))
+    lote.update(doc(db, 'pedidos', _pedidoId), {
+      ...novos, ultimaEdicaoId: entradas[0].id, atualizadoEm: serverTimestamp(),
+    })
+    alteracoes.forEach((campo, i) => lote.set(entradas[i], {
+      tipo:          'edicao',
+      campo,
+      campoLabel:    _CAMPO_LABEL[campo] || campo,
+      valorAnterior: formatar(campo, p[campo]),
+      valorNovo:     formatar(campo, novos[campo]),
+      autorId:       sessao.usuario.id,
+      autorNome:     sessao.usuario.nome,
+      criadoEm:      serverTimestamp(),
+    }))
+    await lote.commit()
     fechar()
     prxToast(t('pedidoAtualizado'), 'success')
   } catch (err) {
@@ -2069,19 +2096,23 @@ async function _anexarComprovante(parcelaId, file) {
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    const path = STORAGE_PATHS.comprovante(_pedidoId, parcelaId) + '/' + file.name
-    const ref  = storageRef(storage, path)
-    await uploadBytes(ref, file)
-    const url = await getDownloadURL(ref)
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), { comprovante: url })
     const parc = _parcelas.find(p => p.id === parcelaId)
-    addDoc(collection(db, 'pedidos', _pedidoId, 'historico'), {
-      tipo:          'comprovante',
-      parcelaNumero: parc ? `${parc.numero}/${parc.total}` : '',
-      autorId:       sessao.usuario.id,
-      autorNome:     sessao.usuario.nome,
-      criadoEm:      serverTimestamp(),
-    }).catch(() => {})
+    const arquivoRef = storageRef(storage, STORAGE_PATHS.comprovante(_pedidoId, parcelaId) + '/' + file.name)
+    // O comprovante e a entrada do histórico vão no mesmo lote, e a parcela
+    // aponta para a entrada (as regras recusam o comprovante sem ela)
+    await _enviarEGravar(arquivoRef, file, undefined, (lote, url) => {
+      const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
+      lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
+        comprovante: url, comprovanteEventoId: entrada.id,
+      })
+      lote.set(entrada, {
+        tipo:          'comprovante',
+        parcelaNumero: parc ? `${parc.numero}/${parc.total}` : '',
+        autorId:       sessao.usuario.id,
+        autorNome:     sessao.usuario.nome,
+        criadoEm:      serverTimestamp(),
+      })
+    })
     await _refreshParcelas()
     prxToast(t('comprovanteAnexado'), 'success')
   } catch (err) {
@@ -2151,38 +2182,34 @@ async function _mostrarModalCotacao() {
     if (btnSalvar) btnSalvar.disabled = true
     mostrarSpinner()
     try {
-      let arquivoUrl = null
-      let arquivoNome = null
-      const cotId = doc(collection(db, 'pedidos', _pedidoId, 'cotacoes')).id
-
-      if (arquivo) {
-        const path = STORAGE_PATHS.cotacao(_pedidoId, cotId) + '/' + arquivo.name
-        const ref  = storageRef(storage, path)
-        await uploadBytes(ref, arquivo)
-        arquivoUrl  = await getDownloadURL(ref)
-        arquivoNome = arquivo.name
-      }
-
-      // Linka (ou cria) o fornecedor estruturado, evitando duplicatas
-      const fornecedorId = await _buscarOuCriarFornecedor(fornNome)
-
-      await addDoc(collection(db, 'pedidos', _pedidoId, 'cotacoes'), {
-        fornecedorId,
-        fornecedorNome: fornNome,
-        valor, prazoEntrega: prazo, condicoesComerciais: cond,
-        arquivoUrl, arquivoNome,
-        indicada: false,
-        criadaEm: serverTimestamp(),
-        compradorId: sessao.usuario.id,
+      const cotRef = doc(collection(db, 'pedidos', _pedidoId, 'cotacoes'))
+      const arquivoRef = arquivo
+        ? storageRef(storage, STORAGE_PATHS.cotacao(_pedidoId, cotRef.id) + '/' + arquivo.name)
+        : null
+      // Fornecedor, cotação e histórico num lote só; a entrada do histórico usa
+      // o ID da cotação, como as regras exigem
+      const forn = await _enviarEGravar(arquivoRef, arquivo, undefined, async (lote, url) => {
+        const f = await _fornecedorNoLote(fornNome, lote)
+        lote.set(cotRef, {
+          fornecedorId: f.id,
+          fornecedorNome: fornNome,
+          valor, prazoEntrega: prazo, condicoesComerciais: cond,
+          arquivoUrl: url, arquivoNome: arquivo ? arquivo.name : null,
+          indicada: false,
+          criadaEm: serverTimestamp(),
+          compradorId: sessao.usuario.id,
+        })
+        lote.set(doc(db, 'pedidos', _pedidoId, 'historico', cotRef.id), {
+          tipo: 'cotacao',
+          fornecedorNome: fornNome,
+          valor,
+          autorId:   sessao.usuario.id,
+          autorNome: sessao.usuario.nome,
+          criadoEm:  serverTimestamp(),
+        })
+        return f
       })
-      addDoc(collection(db, 'pedidos', _pedidoId, 'historico'), {
-        tipo: 'cotacao',
-        fornecedorNome: fornNome,
-        valor,
-        autorId:   sessao.usuario.id,
-        autorNome: sessao.usuario.nome,
-        criadoEm:  serverTimestamp(),
-      }).catch(() => {})
+      if (forn.novo) _fornecedores.push(forn.novo)
       fechar()
       await _refreshCotacoes()
       prxToast(t('cotacaoAdicionada'), 'success')
@@ -2695,27 +2722,31 @@ async function _uploadAnexo(file) {
   mostrarSpinner()
   try {
     const storagePath = STORAGE_PATHS.anexo(_pedidoId) + '/' + Date.now() + '_' + file.name
-    const ref = storageRef(storage, storagePath)
-    // As regras do Storage só deixam apagar o anexo quem o enviou (ou um gestor)
-    await uploadBytes(ref, file, { customMetadata: { autorUid: auth.currentUser?.uid || '' } })
-    const url = await getDownloadURL(ref)
-    await addDoc(collection(db, 'pedidos', _pedidoId, 'anexos'), {
-      nome: file.name,
-      tamanho: file.size,
-      tipo: file.type,
-      url,
-      storagePath,
-      autorId: sessao.usuario.id,
-      autorNome: sessao.usuario.nome || '',
-      criadoEm: serverTimestamp(),
-    })
-    addDoc(collection(db, 'pedidos', _pedidoId, 'historico'), {
-      tipo: 'anexo',
-      nomeArquivo: file.name,
-      autorId: sessao.usuario.id,
-      autorNome: sessao.usuario.nome || '',
-      criadoEm: serverTimestamp(),
-    }).catch(() => {})
+    const anexoRef = doc(collection(db, 'pedidos', _pedidoId, 'anexos'))
+    // As regras do Storage só deixam apagar o anexo quem o enviou (ou um gestor
+    // da empresa). O anexo e a entrada do histórico, com o mesmo ID, vão no
+    // mesmo lote
+    await _enviarEGravar(storageRef(storage, storagePath), file,
+      { customMetadata: { autorUid: auth.currentUser?.uid || '' } },
+      (lote, url) => {
+        lote.set(anexoRef, {
+          nome: file.name,
+          tamanho: file.size,
+          tipo: file.type,
+          url,
+          storagePath,
+          autorId: sessao.usuario.id,
+          autorNome: sessao.usuario.nome || '',
+          criadoEm: serverTimestamp(),
+        })
+        lote.set(doc(db, 'pedidos', _pedidoId, 'historico', anexoRef.id), {
+          tipo: 'anexo',
+          nomeArquivo: file.name,
+          autorId: sessao.usuario.id,
+          autorNome: sessao.usuario.nome || '',
+          criadoEm: serverTimestamp(),
+        })
+      })
     // Atualiza lista local
     const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'anexos'))
     _anexos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))

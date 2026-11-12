@@ -26,6 +26,8 @@ Firebase
 | **Roteamento por `?tela=`** | Simples, indexável, sem dependência de History API ou router externo. |
 | **Perfil e empresas no token ou no documento** | Com a function `setUserClaims` (plano Blaze), as regras usam as Custom Claims, sem leitura extra. Sem ela (plano gratuito), as regras do Firestore e do Storage leem `/usuarios/{uid}`: uma leitura a mais por avaliação, e mudar perfil ou empresas vale na hora. Usuário inativo fica sem perfil nos dois caminhos. |
 | **Pessoas novas entram por convite** | O perfil precisa ter o ID igual ao UID da conta de login, que só existe depois que a conta é criada. O gestor grava `/convites/{e-mail}`; no primeiro acesso, a própria pessoa cria `/usuarios/{uid}` copiando o convite, num lote que também apaga o convite, e as regras conferem campo a campo e o prazo. |
+| **Nada muda sem registro** | A edição do pedido, a cotação, o anexo e o comprovante gravam a entrada do histórico no mesmo lote, e as regras exigem que ela nasça junto (`exists()` antes, `existsAfter()` depois): a edição e o comprovante apontam para a entrada (`ultimaEdicaoId`, `comprovanteEventoId`); a cotação e o anexo usam o próprio ID nela. O arquivo vai antes ao Storage e é apagado se o lote falhar. |
+| **Arquivos isolados por empresa** | As regras do Storage leem no Firestore o pedido de cada arquivo (regra entre serviços) e só liberam para quem vê o pedido. O Storage lê no máximo dois documentos por avaliação: o pedido e, sem as claims, o perfil da pessoa. |
 | **`runTransaction` no claim e na aprovação** | Dois compradores (ou dois aprovadores) simultâneos: o primeiro vence, o segundo recebe erro amigável. |
 | **Dados desnormalizados** (`fornecedorNome`, `autorNome`) | Evita N+1 de leituras na renderização de listas. |
 | **Tokens CSS** (`css/tokens.css`) | Dark mode padrão + override `.light` no `<html>`; troca de tema sem re-render. |
@@ -44,12 +46,13 @@ Firebase
 /fornecedores/{id}    nome (normalizado), nomeExibicao, cnpj, usos
 /pedidos/{id}         titulo, empresaId, status, solicitanteId, compradorId,
                       valorEstimado, valorFinal, dataCompra, urgente, numeroPedido,
-                      reabertoDe (ref), reabertoPara (ref), ...
+                      reabertoDe (ref), reabertoPara (ref), ultimaEdicaoId, ...
   /cotacoes/{id}      fornecedorId, fornecedorNome, valor, prazo, arquivo, indicada
   /comentarios/{id}   texto, autorId, mencoes[]
-  /parcelas/{id}      numero, total, valor, vencimento, pago, comprovante
+  /parcelas/{id}      numero, total, valor, vencimento, pago, comprovante, comprovanteEventoId
   /historico/{id}     status | tipo('cotacao'|'comprovante'|'edicao'|'anexo'),
                       autorId, nota, campo, valorAnterior, valorNovo, criadoEm
+                      (cotação e anexo: o mesmo ID do documento)
   /anexos/{id}        nomeArquivo, storagePath, tamanho, contentType,
                       autorId, autorNome, criadoEm
 /_meta/contadores     totalPedidos (contador atômico via runTransaction)
@@ -71,7 +74,7 @@ Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empr
 | Camada | Onde | O que faz |
 |---|---|---|
 | Regras do Firestore | `firestore.rules` | Cada passo do pedido só pelo perfil dono, mudando só os campos daquele passo; empresas isoladas; ninguém muda o próprio perfil; datas validadas. Detalhes em [`permissoes.md`](permissoes.md). |
-| Regras do Storage | `storage.rules` | Arquivos só para quem tem perfil; anexo assinado com o UID de quem enviou. |
+| Regras do Storage | `storage.rules` | Arquivos só para quem vê o pedido, conferido no Firestore; cotação, comprovante e anexo pelo perfil de cada etapa, na empresa do pedido; anexo assinado com o UID de quem enviou. |
 | Testes das regras | `tests/regras.test.mjs` | Emulador, a cada envio (GitHub Actions, `.github/workflows/testes.yml`). |
 | Escape na tela | `js/utils.js` (`esc`, `formatDate`, `urlSegura`), `js/ui.js` | Todo texto gravado por usuários é escapado antes do `innerHTML`; links só `http(s)`; avisos e diálogos escapam por padrão. |
 | Cabeçalhos | `firebase.json` | CSP sem script inline (o primeiro script fica em `js/inicio.js`), `frame-ancestors 'none'`, `nosniff`, Referrer-Policy e Permissions-Policy. |
@@ -105,7 +108,7 @@ dão à conta demo o perfil `demo`, que só alcança os dados da demonstração.
 | **Paginação** | Slice client-side de 20 em 20 após `_filtrarPedidos()`; cursor não é necessário pois o listener já carrega tudo |
 | **Ações em massa** | `_selecionados` (`Set`); export gera CSV com BOM UTF-8; cancelamento em massa via `Promise.all` com `updateDoc` + historico |
 | **Visões salvas** | `_viewsSalvas` em `localStorage` (chave `praxis_views_{uid}`); max 8; salva 10 estados de filtro + modo |
-| **Anexos gerais** | Upload para `pedidos/{id}/anexos/`; doc em subcollection `anexos`; evento `{tipo:'anexo'}` no historico |
+| **Anexos gerais** | Upload para `pedidos/{id}/anexos/`; doc em subcollection `anexos` e evento `{tipo:'anexo'}` no historico, no mesmo lote e com o mesmo ID |
 | **Timeline SLA** | Deriva durações de `_historico` filtrando entradas com `h.status && (!h.tipo \|\| h.tipo === 'status')`; último segmento usa `Date.now()` se pedido não-terminal |
 | **Reabertura** | `runTransaction` clona campos principais → novo pedido com `reabertoDe`; original recebe `reabertoPara` |
 | **Command palette** | `window.__getPedidos()` getter evita import circular; pedidos filtrados em tempo real |

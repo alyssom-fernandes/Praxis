@@ -11,9 +11,9 @@ import { test, before, after, beforeEach } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing'
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, writeBatch,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, writeBatch, increment,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage'
+import { ref, uploadBytes, getBytes, deleteObject, listAll } from 'firebase/storage'
 
 const PROJETO = 'demo-praxis'
 let env
@@ -256,13 +256,28 @@ test('um pedido real não vira demo: marcar e depois apagar não passa', async (
   })
 })
 
+// Cotação nova, como o app grava: no mesmo lote, a entrada do histórico com o
+// mesmo ID da cotação
+const cotar = (quem, uid, { pedidoId = 'cotando', historico = true, tipo = 'cotacao' } = {}) => {
+  const f = db(quem)
+  const lote = writeBatch(f)
+  const cotacao = doc(collection(f, `pedidos/${pedidoId}/cotacoes`))
+  lote.set(cotacao, { valor: 10, fornecedorNome: 'Fornecedor', indicada: false, compradorId: uid })
+  if (historico) {
+    lote.set(doc(f, `pedidos/${pedidoId}/historico/${cotacao.id}`), {
+      tipo, fornecedorNome: 'Fornecedor', valor: 10, autorId: uid, criadoEm: new Date(),
+    })
+  }
+  return lote.commit()
+}
+
 test('cotação só pelo comprador responsável, da empresa do pedido', async () => {
-  await assertFails(addDoc(collection(db('compradorE2'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
-  await assertFails(addDoc(collection(db('solicitante'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
+  await assertFails(cotar('compradorE2', 'u-com2'))
+  await assertFails(cotar('solicitante', 'u-sol'))
   // Outro comprador da mesma empresa, que não assumiu o pedido, não cota
-  await assertFails(addDoc(collection(db('compradorB'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
-  await assertSucceeds(addDoc(collection(db('comprador'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
-  await assertSucceeds(addDoc(collection(db('gestor'), 'pedidos/cotando/cotacoes'), { valor: 12 }))
+  await assertFails(cotar('compradorB', 'u-com3'))
+  await assertSucceeds(cotar('comprador', 'u-com'))
+  await assertSucceeds(cotar('gestor', 'u-ges'))
 })
 
 test('comentário e histórico assinados por quem escreve', async () => {
@@ -283,6 +298,102 @@ test('comentário: só o texto muda, e só dentro da empresa do pedido', async (
   await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/p1/comentarios/c1'), { texto: 'meu agora' }))
   // O gestor da empresa apaga
   await assertSucceeds(deleteDoc(doc(db('gestor'), 'pedidos/p1/comentarios/c1')))
+})
+
+// ── Nada muda sem registro: o histórico no mesmo lote ──────────
+// Edição do pedido, cotação, anexo e comprovante só passam com a entrada do
+// histórico gravada no mesmo lote, do tipo certo e assinada por quem grava
+test('a edição do pedido só passa com o histórico no mesmo lote', async () => {
+  const editar = (quem, uid, { historico = true, tipo = 'edicao', entradaId } = {}) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    const entrada = entradaId ? doc(f, `pedidos/p1/historico/${entradaId}`) : doc(collection(f, 'pedidos/p1/historico'))
+    lote.update(doc(f, 'pedidos/p1'), { titulo: 'Notebook 16 GB', ultimaEdicaoId: entrada.id, atualizadoEm: new Date() })
+    if (historico) {
+      lote.set(entrada, {
+        tipo, campo: 'titulo', valorAnterior: 'Notebook', valorNovo: 'Notebook 16 GB', autorId: uid, criadoEm: new Date(),
+      })
+    }
+    return lote.commit()
+  }
+  // Sem a entrada ou com outro tipo: negado
+  await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/p1'), { titulo: 'Notebook 16 GB', atualizadoEm: new Date() }))
+  await assertFails(editar('solicitante', 'u-sol', { historico: false }))
+  await assertFails(editar('solicitante', 'u-sol', { tipo: 'cotacao' }))
+  // Apontar para uma entrada que já existia não vale: ela nasce no mesmo lote
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/p1/historico/antiga'), { tipo: 'edicao', autorId: 'u-sol', criadoEm: new Date() })
+  })
+  await assertFails(editar('solicitante', 'u-sol', { historico: false, entradaId: 'antiga' }))
+  // Com a entrada no lote, passa: quem pediu (em Solicitado) e o gestor
+  await assertSucceeds(editar('solicitante', 'u-sol'))
+  await assertSucceeds(editar('gestor', 'u-ges'))
+})
+
+test('a cotação nova só passa com o histórico de mesmo ID no mesmo lote', async () => {
+  await assertFails(addDoc(collection(db('comprador'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
+  await assertFails(cotar('comprador', 'u-com', { historico: false }))
+  await assertFails(cotar('comprador', 'u-com', { tipo: 'anexo' }))
+  await assertSucceeds(cotar('comprador', 'u-com'))
+})
+
+test('o anexo só passa com o histórico de mesmo ID; apaga quem anexou ou o gestor da empresa', async () => {
+  const anexar = (quem, uid, { historico = true, tipo = 'anexo' } = {}) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    const anexo = doc(collection(f, 'pedidos/p1/anexos'))
+    lote.set(anexo, { nome: 'nota.pdf', autorId: uid, criadoEm: new Date() })
+    if (historico) {
+      lote.set(doc(f, `pedidos/p1/historico/${anexo.id}`), { tipo, nomeArquivo: 'nota.pdf', autorId: uid, criadoEm: new Date() })
+    }
+    return lote.commit()
+  }
+  await assertFails(addDoc(collection(db('comprador'), 'pedidos/p1/anexos'), { nome: 'nota.pdf', autorId: 'u-com' }))
+  await assertFails(anexar('comprador', 'u-com', { historico: false }))
+  await assertFails(anexar('comprador', 'u-com', { tipo: 'cotacao' }))
+  await assertFails(anexar('compradorE2', 'u-com2'))
+  await assertSucceeds(anexar('comprador', 'u-com'))
+  await assertSucceeds(anexar('solicitante', 'u-sol'))
+  // Apagar: quem anexou ou um gestor da empresa do pedido, não o de outra.
+  // Quem anexou e depois perdeu o acesso ao pedido (u-com2, só da e2) não
+  // apaga mais
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/p1/anexos/a1'), { nome: 'nota.pdf', autorId: 'u-com', criadoEm: new Date() })
+    await setDoc(doc(f, 'pedidos/p1/anexos/a2'), { nome: 'nota.pdf', autorId: 'u-com', criadoEm: new Date() })
+    await setDoc(doc(f, 'pedidos/p1/anexos/a3'), { nome: 'nota.pdf', autorId: 'u-com2', criadoEm: new Date() })
+  })
+  await assertFails(deleteDoc(doc(db('gestorE2'), 'pedidos/p1/anexos/a1')))
+  await assertFails(deleteDoc(doc(db('solicitante'), 'pedidos/p1/anexos/a1')))
+  await assertSucceeds(deleteDoc(doc(db('gestor'), 'pedidos/p1/anexos/a1')))
+  await assertSucceeds(deleteDoc(doc(db('comprador'), 'pedidos/p1/anexos/a2')))
+  await assertFails(deleteDoc(doc(db('compradorE2'), 'pedidos/p1/anexos/a3')))
+})
+
+test('o comprovante só passa com o histórico no mesmo lote; o pagamento segue igual', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/entregue/parcelas/x1'), {
+      numero: 1, total: 1, valor: 100, vencimento: '2026-12-01', pago: false, pagoEm: null, comprovante: null,
+    })
+  })
+  const comprovar = (quem, uid, { historico = true, tipo = 'comprovante', apontar = true } = {}) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    const entrada = doc(collection(f, 'pedidos/entregue/historico'))
+    lote.update(doc(f, 'pedidos/entregue/parcelas/x1'), apontar
+      ? { comprovante: 'https://exemplo/recibo.pdf', comprovanteEventoId: entrada.id }
+      : { comprovante: 'https://exemplo/recibo.pdf' })
+    if (historico) lote.set(entrada, { tipo, parcelaNumero: '1/1', autorId: uid, criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(comprovar('financeiro', 'u-fin', { historico: false }))
+  await assertFails(comprovar('financeiro', 'u-fin', { apontar: false }))
+  await assertFails(comprovar('financeiro', 'u-fin', { tipo: 'anexo' }))
+  await assertFails(comprovar('comprador', 'u-com'))
+  await assertSucceeds(comprovar('financeiro', 'u-fin'))
+  // Registrar o pagamento continua sem entrada própria: só pago e pagoEm
+  await assertSucceeds(updateDoc(doc(db('financeiro'), 'pedidos/entregue/parcelas/x1'), { pago: true, pagoEm: new Date() }))
+  await assertFails(updateDoc(doc(db('financeiro'), 'pedidos/entregue/parcelas/x1'), { valor: 1 }))
 })
 
 // ── Conta demo: só a área da demonstração ──────────────────────
@@ -380,9 +491,9 @@ test('ninguém cria aviso falso para outra pessoa', async () => {
 })
 
 // ── Compra num lote só ─────────────────────────────────────────
-// A tela aceita até 60 parcelas; pedido, histórico e parcelas vão juntos, e
-// as regras precisam caber no limite de leituras de um lote
-test('a compra grava pedido, histórico e 60 parcelas num lote só', async () => {
+// A tela aceita até 60 parcelas; fornecedor, pedido, histórico e parcelas vão
+// juntos, e as regras precisam caber no limite de leituras de um lote
+test('a compra grava fornecedor, pedido, histórico e 60 parcelas num lote só', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     await setDoc(doc(ctx.firestore(), 'pedidos/aprov1'), pedido({ status: 'aprovado', compradorId: 'u-com' }))
     await setDoc(doc(ctx.firestore(), 'pedidos/aprov2'), pedido({ status: 'aprovado', compradorId: 'u-doc' }))
@@ -390,6 +501,7 @@ test('a compra grava pedido, histórico e 60 parcelas num lote só', async () =>
   const compra = (quem, uid, id, n) => {
     const f = db(quem)
     const lote = writeBatch(f)
+    lote.update(doc(f, 'fornecedores/f1'), { usos: increment(1) })
     lote.update(doc(f, `pedidos/${id}`), {
       status: 'comprado', fornecedorId: 'f1', fornecedorNome: 'Fornecedor', valorFinal: 1000,
       condicaoPagamento: 'parcelado', dataCompra: '2026-11-12', atualizadoEm: new Date(),
@@ -489,18 +601,65 @@ test('anexo: assinado por quem envia, apagado por ele ou por um gestor', async (
   await assertSucceeds(getBytes(ref(st('solicitante'), caminho)))
   await assertFails(deleteObject(ref(st('solicitante'), caminho)))
   await assertSucceeds(deleteObject(ref(st('gestor'), caminho)))
+  // Quem enviou apaga o próprio anexo enquanto vê o pedido; se perdeu o
+  // acesso a ele (u-com2, só da e2), não apaga mais
+  const meu = 'pedidos/p1/anexos/2_nota.pdf'
+  await assertSucceeds(uploadBytes(ref(st('comprador'), meu), pdf, { contentType: 'application/pdf', customMetadata: { autorUid: 'u-com' } }))
+  await assertSucceeds(deleteObject(ref(st('comprador'), meu)))
+  const antigo = 'pedidos/p1/anexos/3_antigo.pdf'
+  await env.withSecurityRulesDisabled(async ctx => {
+    await uploadBytes(ref(ctx.storage(), antigo), pdf, { contentType: 'application/pdf', customMetadata: { autorUid: 'u-com2' } })
+  })
+  await assertFails(deleteObject(ref(st('compradorE2'), antigo)))
 })
 
-test('cotação em arquivo só por quem compra', async () => {
-  const caminho = 'pedidos/p1/cotacoes/c1/proposta.pdf'
-  await assertFails(uploadBytes(ref(st('solicitante'), caminho), pdf, { contentType: 'application/pdf' }))
-  await assertSucceeds(uploadBytes(ref(st('comprador'), caminho), pdf, { contentType: 'application/pdf' }))
+test('cotação em arquivo só pelo comprador que assumiu o pedido ou por um gestor da empresa', async () => {
+  const caminho = 'pedidos/cotando/cotacoes/c1/proposta.pdf'
+  const meta = { contentType: 'application/pdf' }
+  await assertFails(uploadBytes(ref(st('solicitante'), caminho), pdf, meta))
+  await assertFails(uploadBytes(ref(st('compradorB'), caminho), pdf, meta))
+  await assertFails(uploadBytes(ref(st('compradorE2'), caminho), pdf, meta))
+  await assertFails(uploadBytes(ref(st('gestorE2'), caminho), pdf, meta))
+  await assertSucceeds(uploadBytes(ref(st('comprador'), caminho), pdf, meta))
+  await assertSucceeds(uploadBytes(ref(st('gestor'), 'pedidos/cotando/cotacoes/c2/proposta.pdf'), pdf, meta))
+  // E apaga o que enviou, como o app faz quando o lote do Firestore falha
+  await assertSucceeds(deleteObject(ref(st('comprador'), caminho)))
+})
+
+test('cada arquivo só para quem vê o pedido: outra empresa não lê, não lista nem envia', async () => {
+  const meta = uid => ({ contentType: 'application/pdf', customMetadata: { autorUid: uid } })
+  // p2 é da empresa e2
+  await assertSucceeds(uploadBytes(ref(st('compradorE2'), 'pedidos/p2/anexos/1_e2.pdf'), pdf, meta('u-com2')))
+  await assertSucceeds(getBytes(ref(st('gestorE2'), 'pedidos/p2/anexos/1_e2.pdf')))
+  await assertSucceeds(getBytes(ref(st('supremo'), 'pedidos/p2/anexos/1_e2.pdf')))
+  await assertSucceeds(listAll(ref(st('gestorE2'), 'pedidos/p2/anexos')))
+  await assertFails(getBytes(ref(st('comprador'), 'pedidos/p2/anexos/1_e2.pdf')))
+  await assertFails(listAll(ref(st('comprador'), 'pedidos/p2/anexos')))
+  await assertFails(deleteObject(ref(st('gestor'), 'pedidos/p2/anexos/1_e2.pdf')))
+  await assertFails(uploadBytes(ref(st('comprador'), 'pedidos/p2/anexos/2_intruso.pdf'), pdf, meta('u-com')))
+  // Comprovante: o financeiro da empresa do pedido, não de outra
+  await assertFails(uploadBytes(ref(st('financeiro'), 'pedidos/p2/comprovantes/x1/recibo.pdf'), pdf, { contentType: 'application/pdf' }))
+  await assertSucceeds(uploadBytes(ref(st('financeiro'), 'pedidos/p1/comprovantes/x1/recibo.pdf'), pdf, { contentType: 'application/pdf' }))
+  // Quem pediu vê os arquivos do próprio pedido, mesmo de outra empresa
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/p3'), pedido({ numeroPedido: 'PRX-0003', empresaId: 'e2', solicitanteId: 'u-sol' }))
+  })
+  await assertSucceeds(uploadBytes(ref(st('compradorE2'), 'pedidos/p3/anexos/1_p3.pdf'), pdf, meta('u-com2')))
+  await assertSucceeds(getBytes(ref(st('solicitante'), 'pedidos/p3/anexos/1_p3.pdf')))
+  // Pedido que não existe: nada feito
+  await assertFails(uploadBytes(ref(st('comprador'), 'pedidos/naoexiste/anexos/1.pdf'), pdf, meta('u-com')))
 })
 
 test('sem claims, os arquivos seguem o perfil do documento', async () => {
-  const caminho = 'pedidos/p1/cotacoes/c2/proposta.pdf'
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/cotDoc'), pedido({ status: 'ag_cotacao', compradorId: 'u-doc' }))
+  })
+  // Cada avaliação lê dois documentos do Firestore, o limite do Storage: o
+  // perfil (sem claims) e o pedido
+  const caminho = 'pedidos/cotDoc/cotacoes/c2/proposta.pdf'
   await assertSucceeds(uploadBytes(ref(st('semClaims'), caminho), pdf, { contentType: 'application/pdf' }))
-  await assertFails(uploadBytes(ref(st('semClaims'), 'pedidos/p1/comprovantes/x1/recibo.pdf'), pdf, { contentType: 'application/pdf' }))
+  await assertFails(uploadBytes(ref(st('semClaims'), 'pedidos/cotDoc/comprovantes/x1/recibo.pdf'), pdf, { contentType: 'application/pdf' }))
+  await assertFails(uploadBytes(ref(st('semClaims'), 'pedidos/p2/anexos/1_e2.pdf'), pdf, { contentType: 'application/pdf', customMetadata: { autorUid: 'u-doc' } }))
   await assertSucceeds(getBytes(ref(st('semClaims'), caminho)))
   await assertFails(getBytes(ref(st('inativo'), caminho)))
 })

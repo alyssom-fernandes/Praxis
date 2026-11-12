@@ -270,6 +270,21 @@ service cloud.firestore {
       }
       function oSolicitante() { return resource.data.get('solicitanteId', null) == eu(); }
 
+      // Entrada do histórico gravada no mesmo lote (ou transação) que a
+      // mudança: não existia antes e passa a existir, do tipo certo e assinada
+      // por quem grava. A edição do pedido e o comprovante da parcela apontam
+      // para ela (ultimaEdicaoId, comprovanteEventoId); a cotação e o anexo
+      // usam o próprio ID na entrada. Sem ela, a gravação é recusada.
+      function caminhoHistorico(id) {
+        return /databases/$(database)/documents/pedidos/$(pedidoId)/historico/$(id);
+      }
+      function registraNoHistorico(id, tipo) {
+        return id is string && id.size() > 0 &&
+          !exists(caminhoHistorico(id)) && existsAfter(caminhoHistorico(id)) &&
+          getAfter(caminhoHistorico(id)).data.get('tipo', '') == tipo &&
+          getAfter(caminhoHistorico(id)).data.get('autorId', '') == eu();
+      }
+
       // Marca de "visto" de quem abriu o pedido e data do último comentário
       function visto() {
         return mudouSo(['vistoPor']) &&
@@ -334,7 +349,8 @@ service cloud.firestore {
           (eGestor() && !(resource.data.status in ['pago', 'reprovado', 'cancelado']))
         ) &&
           mudouSo(['titulo', 'descricao', 'valorEstimado', 'dataNecessaria',
-                   'categoriaId', 'urgente', 'atualizadoEm']);
+                   'categoriaId', 'urgente', 'atualizadoEm', 'ultimaEdicaoId']) &&
+          registraNoHistorico(request.resource.data.get('ultimaEdicaoId', ''), 'edicao');
       }
       function reabrir() {
         return resource.data.status == 'reprovado' &&
@@ -407,12 +423,16 @@ service cloud.firestore {
       }
 
       // ── Cotações ─────────────────────────────────────────────
-      // Só o comprador que assumiu o pedido (ou um gestor) registra e indica
+      // Só o comprador que assumiu o pedido (ou um gestor) registra e indica;
+      // a cotação nova vem com a entrada do histórico de mesmo ID, no mesmo lote
       match /cotacoes/{cotacaoId} {
+        function cotaOPedido() {
+          return eSupremo() || (eComprador() && daEmpresa() && compradorDoPedido());
+        }
         allow read: if areaDemo() || (temPerfil() && veOPedido());
-        allow create, update: if areaDemo() || (temPerfil() && (
-          eSupremo() || (eComprador() && daEmpresa() && compradorDoPedido())
-        ));
+        allow create: if areaDemo() || (temPerfil() && cotaOPedido() &&
+          (eSupremo() || registraNoHistorico(cotacaoId, 'cotacao')));
+        allow update: if areaDemo() || (temPerfil() && cotaOPedido());
         allow delete: if areaDemo() || (temPerfil() && (eSupremo() || (eGestor() && daEmpresa())));
       }
 
@@ -430,11 +450,17 @@ service cloud.firestore {
       }
 
       // ── Parcelas ──────────────────────────────────────────────
+      // O financeiro registra o pagamento (pago, pagoEm) e anexa o comprovante;
+      // o comprovante vem com a entrada do histórico, no mesmo lote
       match /parcelas/{parcelaId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
         allow create: if areaDemo() || (temPerfil() && (eSupremo() || (eComprador() && daEmpresa())));
         allow update: if areaDemo() || (temPerfil() && (eSupremo() || (
-          eFinanceiro() && daEmpresa() && mudouSo(['pago', 'pagoEm', 'comprovante'])
+          eFinanceiro() && daEmpresa() && (
+            mudouSo(['pago', 'pagoEm']) ||
+            (mudouSo(['comprovante', 'comprovanteEventoId']) &&
+              registraNoHistorico(request.resource.data.get('comprovanteEventoId', ''), 'comprovante'))
+          )
         )));
         allow delete: if areaDemo(); // só a renovação da demo
       }
@@ -448,11 +474,16 @@ service cloud.firestore {
       }
 
       // ── Anexos gerais ─────────────────────────────────────────
+      // O anexo novo vem com a entrada do histórico de mesmo ID, no mesmo lote;
+      // apaga quem anexou ou um gestor da empresa do pedido
       match /anexos/{anexoId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
-        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
+        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu() &&
+          (eSupremo() || registraNoHistorico(anexoId, 'anexo')));
+        // Apaga um gestor da empresa ou quem anexou, enquanto ainda vê o pedido
         allow delete: if areaDemo() || (temPerfil() && (
-          request.auth.uid == resource.data.autorId || eGestor()
+          eSupremo() || (eGestor() && daEmpresa()) ||
+          (request.auth.uid == resource.data.autorId && veOPedido())
         ));
         allow update: if false;
       }

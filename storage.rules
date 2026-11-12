@@ -8,23 +8,27 @@ service firebase.storage {
     function eDemo() {
       return request.auth != null && request.auth.token.get('email', '') == 'demo@praxis.app';
     }
-    // Perfil de quem está logado: no token (custom claims, plano Blaze) ou,
-    // sem as claims, no documento da pessoa em /usuarios do Firestore (regra
-    // entre serviços, como em firestore.rules). Usuário inativo fica sem perfil.
+    function areaDemo(pedidoId) {
+      return eDemo() && pedidoId.matches('demo-.*');
+    }
+
+    // Perfil e empresas de quem está logado: no token (custom claims, plano
+    // Blaze) ou, sem as claims, no documento da pessoa em /usuarios do
+    // Firestore (regra entre serviços, como em firestore.rules). Usuário
+    // inativo fica sem perfil. Uma avaliação destas regras lê no máximo dois
+    // documentos do Firestore: este (só sem as claims) e o pedido do arquivo.
     function temClaims() {
       return request.auth.token.get('perfil', null) != null;
     }
     function meuDocumento() {
-      return firestore.exists(/databases/(default)/documents/usuarios/$(request.auth.uid))
-        ? firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data
-        : {};
+      return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data;
     }
     function perfil() {
       return eDemo() ? 'demo' : (temClaims() ? request.auth.token.perfil
         : (meuDocumento().get('ativo', true) == false ? null : meuDocumento().get('perfil', null)));
     }
-    function areaDemo(pedidoId) {
-      return eDemo() && pedidoId.matches('demo-.*');
+    function empresasDoUsuario() {
+      return temClaims() ? request.auth.token.get('empresas', []) : meuDocumento().get('empresas', []);
     }
 
     // Conta sem perfil (criada fora do app) não lê nem grava arquivo nenhum
@@ -33,41 +37,61 @@ service firebase.storage {
         perfil() in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'];
     }
 
+    // O pedido do arquivo, lido no Firestore. Os arquivos valem para quem vê
+    // o pedido, como em firestore.rules (o supremo, quem tem a empresa dele e
+    // quem o pediu), e cada tipo de arquivo, para quem cuida daquela etapa
+    function pedido(pedidoId) {
+      return firestore.get(/databases/(default)/documents/pedidos/$(pedidoId)).data;
+    }
+    function daEmpresa(pedidoId) {
+      return perfil() == 'supremo' || pedido(pedidoId).empresaId in empresasDoUsuario();
+    }
+    function veOPedido(pedidoId) {
+      return daEmpresa(pedidoId) || pedido(pedidoId).get('solicitanteId', null) == request.auth.uid;
+    }
+    // Cotação: o comprador que assumiu o pedido ou um gestor da empresa
+    function cotaOPedido(pedidoId) {
+      return perfil() == 'supremo' || (daEmpresa(pedidoId) && (perfil() == 'gestor' ||
+        (perfil() == 'comprador' && pedido(pedidoId).get('compradorId', null) == request.auth.uid)));
+    }
+    // Comprovante: o financeiro ou um gestor da empresa
+    function pagaOPedido(pedidoId) {
+      return perfil() == 'supremo' || (perfil() in ['gestor', 'financeiro'] && daEmpresa(pedidoId));
+    }
+
     function arquivoValido(tipos) {
       return request.resource.size < 10 * 1024 * 1024 &&  // 10 MB
         request.resource.contentType.matches(tipos);
     }
 
-    // Limitação conhecida: o Storage não confere a empresa do pedido (isso
-    // exigiria ler o Firestore a cada arquivo); a empresa é conferida no
-    // Firestore, que guarda os links dos arquivos
-
-    // Cotações — leitura por quem tem perfil, escrita apenas compradores
+    // Cotações
     match /pedidos/{pedidoId}/cotacoes/{cotacaoId}/{fileName} {
-      allow read: if temPerfil() || areaDemo(pedidoId);
-      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'comprador'])) &&
+      allow read: if areaDemo(pedidoId) || (temPerfil() && veOPedido(pedidoId));
+      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && cotaOPedido(pedidoId))) &&
         arquivoValido('application/pdf|image/.*');
-      allow delete: if areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'comprador']);
+      allow delete: if areaDemo(pedidoId) || (temPerfil() && cotaOPedido(pedidoId));
     }
 
-    // Comprovantes — leitura por quem tem perfil, escrita apenas financeiro/gestor
+    // Comprovantes de pagamento
     match /pedidos/{pedidoId}/comprovantes/{parcelaId}/{fileName} {
-      allow read: if temPerfil() || areaDemo(pedidoId);
-      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro'])) &&
+      allow read: if areaDemo(pedidoId) || (temPerfil() && veOPedido(pedidoId));
+      allow create, update: if (areaDemo(pedidoId) || (temPerfil() && pagaOPedido(pedidoId))) &&
         arquivoValido('application/pdf|image/.*');
-      allow delete: if areaDemo(pedidoId) || (temPerfil() && perfil() in ['supremo', 'gestor', 'financeiro']);
+      allow delete: if areaDemo(pedidoId) || (temPerfil() && pagaOPedido(pedidoId));
     }
 
-    // Anexos gerais — qualquer perfil anexa, assinando o arquivo com o próprio
-    // UID; apaga quem anexou ou um gestor
+    // Anexos gerais: quem vê o pedido anexa, assinando o arquivo com o próprio
+    // UID; apaga um gestor da empresa do pedido ou quem anexou, enquanto ainda
+    // vê o pedido
     match /pedidos/{pedidoId}/anexos/{fileName} {
-      allow read: if temPerfil() || areaDemo(pedidoId);
-      allow create: if (temPerfil() || areaDemo(pedidoId)) &&
+      allow read: if areaDemo(pedidoId) || (temPerfil() && veOPedido(pedidoId));
+      allow create: if (areaDemo(pedidoId) || (temPerfil() && veOPedido(pedidoId))) &&
         request.resource.metadata.autorUid == request.auth.uid &&
         arquivoValido('application/pdf|image/.*|application/vnd\\.openxmlformats.*|application/msword');
       allow update: if false;
       allow delete: if areaDemo(pedidoId) || (temPerfil() && (
-        perfil() in ['supremo', 'gestor'] || resource.metadata.autorUid == request.auth.uid
+        perfil() == 'supremo' || (perfil() == 'gestor' && daEmpresa(pedidoId)) ||
+        (resource.metadata.autorUid == request.auth.uid && veOPedido(pedidoId))
       ));
     }
 
