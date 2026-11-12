@@ -402,6 +402,7 @@ export const TRADUCOES = {
     tipoNaoPermitido:          'Tipo não permitido. Use PDF, imagem (JPG/PNG/WebP), DOCX ou XLSX.',
     arquivoMuitoGrande:        'excede o limite de 10 MB.',
     erroEnviarAnexo:           'Erro ao enviar: ',
+    arquivosIndisponiveis:     'O envio de arquivos está indisponível neste ambiente.',
     anexoRemovido:             'Anexo removido.',
     erroRemoverAnexo:          'Erro ao remover: ',
 
@@ -510,6 +511,8 @@ export const TRADUCOES = {
     dtAnexarComprovante:       'Anexar comprovante',
     dtAnexosVazio:             'Nenhum anexo',
     dtAnexosVazioTexto:        'Especificações, fotos de referência e documentos de apoio ficam aqui.',
+    dtArquivosDesligados:      'Na demonstração pública, o envio de arquivos fica desligado.',
+    dtCotacaoSemArquivo:       'Na demonstração pública, a proposta é registrada sem o arquivo.',
     dtTempoPorEtapa:           'Tempo por etapa',
     dtAteAgora:                'até agora',
     dtAgora:                   'agora',
@@ -1177,6 +1180,7 @@ export const TRADUCOES = {
     tipoNaoPermitido:          'File type not allowed. Use PDF, image (JPG/PNG/WebP), DOCX, or XLSX.',
     arquivoMuitoGrande:        'exceeds the 10 MB limit.',
     erroEnviarAnexo:           'Failed to upload: ',
+    arquivosIndisponiveis:     'File uploads are unavailable in this environment.',
     anexoRemovido:             'Attachment removed.',
     erroRemoverAnexo:          'Failed to remove: ',
 
@@ -1285,6 +1289,8 @@ export const TRADUCOES = {
     dtAnexarComprovante:       'Attach receipt',
     dtAnexosVazio:             'No attachments',
     dtAnexosVazioTexto:        'Specs, reference photos and supporting documents go here.',
+    dtArquivosDesligados:      'File uploads are turned off in the public demo.',
+    dtCotacaoSemArquivo:       'In the public demo, quotes are recorded without the file.',
     dtTempoPorEtapa:           'Time per stage',
     dtAteAgora:                'so far',
     dtAgora:                   'now',
@@ -1748,6 +1754,12 @@ export const KANBAN_COLUNAS = [
   STATUS.ENTREGUE,
   STATUS.PAGO,
 ]
+
+// Envio de arquivos (cotação, anexo e comprovante) pela conta da demo pública.
+// Fica desligado: desde 03/02/2026 o Cloud Storage do Firebase exige o plano
+// Blaze, e no plano gratuito, em que a demo roda, todo envio volta 402
+// (storage/quota-exceeded). Com o projeto no Blaze, troque para true.
+export const DEMO_ENVIA_ARQUIVOS = false
 
 export const STORAGE_PATHS = {
   cotacao:     (pedidoId, cotacaoId) => `pedidos/${pedidoId}/cotacoes/${cotacaoId}`,

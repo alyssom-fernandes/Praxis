@@ -8,7 +8,7 @@ import {
   formatCurrency, formatDate, gerarIniciais, normalizarTexto, parseMoeda, esc, formatCNPJ,
   formatFileSize, pluralizar, calcularSLA, maisXDiasISO, hojeISO, dataEhPassado, dataEhProximos,
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
-  dividirEmParcelas, vencimentosMensais,
+  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel,
 } from '../js/utils.js'
 import { TRADUCOES, tomDaCor, corCategoria, TONS_CATEGORIA } from '../js/constants.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
@@ -65,6 +65,15 @@ test('CNPJ, tamanho de arquivo e plural', () => {
   assert.equal(formatFileSize(3 * 1048576), '3.0 MB')
   assert.equal(pluralizar(1, 'pedido', 'pedidos'), '1 pedido')
   assert.equal(pluralizar(2, 'pedido', 'pedidos'), '2 pedidos')
+})
+
+test('o Storage fora do plano vira aviso; erro de permissão, não', () => {
+  // No plano gratuito do Firebase, o envio volta 402 com este código
+  assert.equal(arquivoIndisponivel({ code: 'storage/quota-exceeded', status: 402 }), true)
+  assert.equal(arquivoIndisponivel({ code: 'storage/unknown', status: 402 }), true)
+  assert.equal(arquivoIndisponivel({ code: 'storage/unauthorized', status: 403 }), false)
+  assert.equal(arquivoIndisponivel(new Error('rede')), false)
+  assert.equal(arquivoIndisponivel(undefined), false)
 })
 
 // ── Datas e prazos ─────────────────────────────────────────────

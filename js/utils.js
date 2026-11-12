@@ -189,6 +189,13 @@ export function formatFileSize(bytes) {
   return `${(bytes/1048576).toFixed(1)} MB`
 }
 
+// O Storage recusou o envio por plano ou cota, não por permissão: desde
+// 03/02/2026 o Cloud Storage do Firebase exige o plano Blaze, e no plano
+// gratuito todo envio volta 402 (storage/quota-exceeded)
+export function arquivoIndisponivel(err) {
+  return err?.code === 'storage/quota-exceeded' || err?.status === 402
+}
+
 export function pluralizar(n, singular, plural) {
   return `${n} ${n === 1 ? singular : plural}`
 }

@@ -3,7 +3,7 @@ import {
   doc, collection, where, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
   runTransaction, writeBatch, serverTimestamp, increment,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
-  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
+  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, eContaDemo,
 } from './firebase.js'
 import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao } from './ui.js'
@@ -11,12 +11,12 @@ import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL,
   PERFIS, PERFIS_LABEL, MOTIVOS_REPROVACAO, MOTIVOS_CANCELAMENTO,
-  CONDICAO_PAGAMENTO, STORAGE_PATHS, t,
+  CONDICAO_PAGAMENTO, STORAGE_PATHS, DEMO_ENVIA_ARQUIVOS, t,
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
-  dividirEmParcelas, vencimentosMensais,
+  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -225,6 +225,13 @@ async function _enviarEGravar(arquivoRef, arquivo, metadados, montarLote) {
     if (enviado) deleteObject(arquivoRef).catch(() => {})
     throw err
   }
+}
+
+// Na demo pública o envio de arquivos fica desligado (DEMO_ENVIA_ARQUIVOS, em
+// constants.js): a tela troca os campos de arquivo por um aviso, e a cotação é
+// registrada sem o arquivo
+function _enviaArquivos() {
+  return DEMO_ENVIA_ARQUIVOS || !eContaDemo()
 }
 
 // ── Ícones (traço 2, mesma família) ───────────────────────────
@@ -573,10 +580,11 @@ function _renderDetalhe() {
           <section class="dt-bloco ord-anexos" aria-labelledby="sec-anexos">
             <div class="dt-card-head">
               <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${_anexos.length ? `<span class="dt-contagem">${_anexos.length}</span>` : ''}</h2>
+              ${_enviaArquivos() ? `
               <label class="btn-ghost btn-sm dt-upload" tabindex="0">
                 ${ICO.clipe} ${t('dtAnexar')}
                 <input type="file" id="input-upload-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" multiple class="sr-only" tabindex="-1">
-              </label>
+              </label>` : ''}
             </div>
             <div id="anexos-list">${_renderAnexos()}</div>
           </section>
@@ -1242,7 +1250,8 @@ function _renderParcelasBloco() {
       <span class="parcelas-pct">${pct}%</span>
     </div>
     <div class="parcelas-barra" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${t('dtPercentualPago')}"><span style="width:${pct}%"></span></div>
-    <ol class="parcelas-lista" id="parcelas-list" style="--col-acoes:${_podePagarParcela() ? '112px' : (_parcelas.some(x => x.comprovante) ? '36px' : '0px')}">${_renderParcelas()}</ol>`
+    <ol class="parcelas-lista" id="parcelas-list" style="--col-acoes:${_podePagarParcela() ? '112px' : (_parcelas.some(x => x.comprovante) ? '36px' : '0px')}">${_renderParcelas()}</ol>
+    ${_podePagarParcela() && !_enviaArquivos() ? `<p class="form-hint">${t('dtArquivosDesligados')}</p>` : ''}`
 }
 
 function _renderParcelas() {
@@ -1262,7 +1271,7 @@ function _renderParcelas() {
     }
     const acoes = [
       parc.comprovante ? `<a href="${esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
-      podePagar && !parc.comprovante ? `
+      podePagar && !parc.comprovante && _enviaArquivos() ? `
         <label class="btn-icon" tabindex="0" aria-label="${t('dtAnexarComprovante')}" title="${t('dtAnexarComprovante')}">
           ${ICO.clipe}
           <input type="file" accept="image/*,.pdf" data-comprov="${esc(parc.id)}" class="sr-only" tabindex="-1">
@@ -2116,7 +2125,7 @@ async function _anexarComprovante(parcelaId, file) {
     await _refreshParcelas()
     prxToast(t('comprovanteAnexado'), 'success')
   } catch (err) {
-    prxToast(t('erroAnexarComprovante'), 'error')
+    prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroAnexarComprovante'), 'error')
   } finally {
     esconderSpinner()
   }
@@ -2145,6 +2154,7 @@ async function _mostrarModalCotacao() {
             <label for="cot-cond">Condições comerciais</label>
             <input type="text" id="cot-cond" placeholder="Frete, impostos, garantia">
           </div>
+          ${_enviaArquivos() ? `
           <div class="form-group col-span-2">
             <span class="form-label-falso">Arquivo da proposta</span>
             <label class="dropzone" for="cot-arquivo">
@@ -2152,7 +2162,8 @@ async function _mostrarModalCotacao() {
               <span id="cot-arquivo-nome">Selecionar PDF ou imagem</span>
               <input type="file" id="cot-arquivo" accept=".pdf,image/*" class="sr-only">
             </label>
-          </div>
+          </div>` : `
+          <div class="form-group col-span-2"><p class="form-hint">${t('dtCotacaoSemArquivo')}</p></div>`}
         </div>
       </div>
       <div class="modal-footer">
@@ -2214,7 +2225,7 @@ async function _mostrarModalCotacao() {
       await _refreshCotacoes()
       prxToast(t('cotacaoAdicionada'), 'success')
     } catch (err) {
-      prxToast(t('erroSalvarCotacao'), 'error')
+      prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroSalvarCotacao'), 'error')
       if (btnSalvar) btnSalvar.disabled = false
     } finally {
       esconderSpinner()
@@ -2670,7 +2681,7 @@ function _renderAnexos() {
   if (!_anexos.length) return `
     <div class="dt-vazio dt-vazio-compacto">
       <div class="dt-vazio-titulo">${t('dtAnexosVazio')}</div>
-      <div class="dt-vazio-texto">${t('dtAnexosVazioTexto')}</div>
+      <div class="dt-vazio-texto">${_enviaArquivos() ? t('dtAnexosVazioTexto') : t('dtArquivosDesligados')}</div>
     </div>
   `
   const uid    = sessao.usuario.id
@@ -2693,7 +2704,7 @@ function _renderAnexos() {
         </div>
       </li>
     `
-  }).join('')}</ul>`
+  }).join('')}</ul>${_enviaArquivos() ? '' : `<p class="form-hint">${t('dtArquivosDesligados')}</p>`}`
 }
 
 function _formatarTamanho(bytes) {
@@ -2753,7 +2764,7 @@ async function _uploadAnexo(file) {
     _renderDetalhe()
     prxToast(`${t('anexoAdicionado')} ${file.name}`, 'success')
   } catch (err) {
-    prxToast(t('erroEnviarAnexo') + (err.message || 'tente novamente'), 'error')
+    prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroEnviarAnexo') + file.name, 'error')
   } finally {
     esconderSpinner()
   }
