@@ -46,13 +46,15 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 | De | Para | Quem pode | Observações |
 |---|---|---|---|
 | Solicitado | Ag. cotação | Comprador, Gestor, Supremo | Claim via `runTransaction` — o primeiro vence |
-| Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada |
-| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova (o supremo pode) |
-| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto); quem abriu ou cotou o pedido não reprova (o supremo pode) |
-| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas; quem aprovou não registra a compra (o supremo pode) |
+| Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada: o pedido guarda a indicada em `cotacaoIndicadaId`, e as regras conferem que ela existe e saiu do lote marcada. Daí em diante as cotações não mudam |
+| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova |
+| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto), conferido pelas regras; quem abriu ou cotou o pedido não reprova |
+| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas; quem aprovou não registra a compra |
 | Comprado | Entregue | Comprador que assumiu, Solicitante, Gestor, Supremo | Data de entrega real |
-| Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão (o supremo pode) |
-| Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório |
+| Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão |
+| Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório, conferido pelas regras |
+
+O supremo segue estas mesmas transições e travas, como um gestor de todas as empresas: não pula etapas e não abre pedido já adiantado.
 
 ## Concorrência
 
@@ -91,7 +93,7 @@ Solicitante, Gestor e Supremo podem reabrir um pedido em estado **Reprovado** (d
 1. Cria um novo pedido com os mesmos campos (título, empresa, categoria, valor, etc.) e status **Solicitado**
 2. Grava `reabertoDe: pedidoOriginalId` no novo pedido
 3. Grava `reabertoPara: novoPedidoId` no original (impede segunda reabertura)
-4. Registra a justificativa no historico do novo pedido
+4. Registra a justificativa no novo pedido (`justificativaReabertura`, exigida pelas regras) e no histórico dele
 5. Exibe banners de vínculo em ambos os pedidos
 
 O novo pedido recebe numeração sequencial própria (PRX-XXXX) e segue o fluxo normalmente.

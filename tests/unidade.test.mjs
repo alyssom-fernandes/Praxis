@@ -76,9 +76,11 @@ test('separação de funções: quem abriu ou cotou não decide; quem aprovou n�
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'comprar'), 'aprovou')
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'pagar'), 'aprovou')
   assert.equal(impedimentoDeFuncao(ped, { id: 'u-fin', perfil: 'financeiro' }, 'pagar'), null)
-  // O comprador que cotou registra a compra; o supremo passa por cima de tudo
+  // O comprador que cotou registra a compra; o supremo segue as mesmas travas
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges'), 'comprar'), null)
-  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges', perfil: 'supremo' }, 'decidir'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges', perfil: 'supremo' }, 'decidir'), 'cotou')
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges2', perfil: 'supremo' }, 'pagar'), 'aprovou')
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-sup', perfil: 'supremo' }, 'decidir'), null)
   // Pedido ainda sem aprovação, comprador ou pessoa: nada a impedir
   assert.equal(impedimentoDeFuncao({ solicitanteId: 'u-sol', aprovadoPor: null }, gestor('u-x'), 'pagar'), null)
   assert.equal(impedimentoDeFuncao(ped, null, 'decidir'), null)

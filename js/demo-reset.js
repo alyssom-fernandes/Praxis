@@ -225,6 +225,10 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     if (como) Object.assign(dados, { reabertoPara: idDe(como), reabertaParaNum: numDe(como) })
     for (const campo of ['dataNecessaria', 'dataCompra', 'dataEntrega']) if (dados[campo]) dados[campo] = deslocar(dados[campo])
     const indicada = (cotacoes || []).find(c => c.indicada)
+    // As cotações ganham o ID antes, para o pedido apontar a indicada
+    // (cotacaoIndicadaId, que as regras exigem para ir a "Em aprovação")
+    const refsCotacao = (cotacoes || []).map(() => doc(collection(pedRef, 'cotacoes')))
+    const iIndicada = (cotacoes || []).findIndex(c => c.indicada)
     // Um horário por etapa, o mesmo no pedido e no histórico (ts() sorteia a hora)
     const tsHist = hist.map(h => ts(h.diasAtras))
     const quando = (st, padrao) => { const i = hist.findIndex(h => h.status === st); return i >= 0 ? tsHist[i] : ts(padrao) }
@@ -266,6 +270,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
       motivoReprovacao:         dados.motivoReprovacao || null,
       motivoReprovacaoOutros:   dados.motivoReprovacaoOutros || null,
       fornecedorId:       indicada ? (fornMap[_normalizar(indicada.fornecedorNome)] || null) : null,
+      cotacaoIndicadaId:  iIndicada >= 0 ? refsCotacao[iIndicada].id : null,
       numeroPedido,
       isDemo:             true,
       criadoEm:           hist.length ? tsHist[0] : agoraTs,
@@ -277,7 +282,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     ;(comentarios || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'comentarios')), {
       texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),
     }))
-    ;(cotacoes || []).forEach((c, _i) => lote.set(doc(collection(pedRef, 'cotacoes')), {
+    ;(cotacoes || []).forEach((c, i) => lote.set(refsCotacao[i], {
       fornecedorId: fornMap[_normalizar(c.fornecedorNome)] || null,
       fornecedorNome: c.fornecedorNome, valor: c.valor,
       prazoEntrega: c.prazoEntrega || null, condicoesComerciais: c.condicoesComerciais || null,

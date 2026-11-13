@@ -968,6 +968,7 @@ async function _submeterNovoPedido() {
         canceladoEm:     null,
         motivoCancelamento: null,
         motivoCancelamentoOutros: null,
+        cotacaoIndicadaId: null,
         fornecedorId:    null,
         valorFinal:      null,
         condicaoPagamento: null,

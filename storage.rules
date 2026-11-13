@@ -49,16 +49,20 @@ service firebase.storage {
     function veOPedido(pedidoId) {
       return daEmpresa(pedidoId) || pedido(pedidoId).get('solicitanteId', null) == request.auth.uid;
     }
-    // Cotação: o comprador que assumiu o pedido ou um gestor da empresa
+    // Como em firestore.rules, o supremo segue as etapas como um gestor de
+    // todas as empresas.
+    // Cotação: o comprador que assumiu o pedido ou um gestor da empresa, e só
+    // enquanto o pedido está em cotação
     function cotaOPedido(pedidoId) {
-      return perfil() == 'supremo' || (daEmpresa(pedidoId) && (perfil() == 'gestor' ||
-        (perfil() == 'comprador' && pedido(pedidoId).get('compradorId', null) == request.auth.uid)));
+      return daEmpresa(pedidoId) && pedido(pedidoId).get('status', null) == 'ag_cotacao' &&
+        (perfil() in ['supremo', 'gestor'] ||
+          (perfil() == 'comprador' && pedido(pedidoId).get('compradorId', null) == request.auth.uid));
     }
     // Comprovante: o financeiro ou um gestor da empresa, menos quem aprovou o
-    // pedido (separação de funções, como em firestore.rules)
+    // pedido (separação de funções)
     function pagaOPedido(pedidoId) {
-      return perfil() == 'supremo' || (perfil() in ['gestor', 'financeiro'] && daEmpresa(pedidoId) &&
-        pedido(pedidoId).get('aprovadoPor', null) != request.auth.uid);
+      return perfil() in ['supremo', 'gestor', 'financeiro'] && daEmpresa(pedidoId) &&
+        pedido(pedidoId).get('aprovadoPor', null) != request.auth.uid;
     }
 
     function arquivoValido(tipos) {

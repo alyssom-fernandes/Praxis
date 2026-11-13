@@ -320,6 +320,10 @@ async function main() {
     const numeroPedido = `PRX-${String(totalPedidos + 1).padStart(4, '0')}`
     // ID na área da demo ("demo-…"), que a conta demo alcança (firestore.rules)
     const pedRef = db.collection('pedidos').doc(`demo-${String(totalPedidos + 1).padStart(4, '0')}`)
+    // As cotações ganham o ID antes, para o pedido apontar a indicada
+    // (cotacaoIndicadaId, que as regras exigem para ir a "Em aprovação")
+    const refsCotacao = (cotacoes || []).map(() => pedRef.collection('cotacoes').doc())
+    const iIndicada   = (cotacoes || []).findIndex(c => c.indicada)
     await pedRef.set({
       ...pedData,
       empresaId,
@@ -347,6 +351,7 @@ async function main() {
       motivoReprovacao:         pedData.motivoReprovacao || null,
       motivoReprovacaoOutros:   pedData.motivoReprovacaoOutros || null,
       fornecedorId,
+      cotacaoIndicadaId:        iIndicada >= 0 ? refsCotacao[iIndicada].id : null,
       isDemo:       true,
       criadoEm:     primeiroTs,
       atualizadoEm: ultimoTs,
@@ -390,9 +395,9 @@ async function main() {
     // Cotações
     if (cotacoes?.length) {
       const batch = db.batch()
-      cotacoes.forEach(cot => {
+      cotacoes.forEach((cot, i) => {
         const fId = fornMap[normalizar(cot.fornecedorNome)] || null
-        batch.set(pedRef.collection('cotacoes').doc(), {
+        batch.set(refsCotacao[i], {
           fornecedorId:        fId,
           fornecedorNome:      cot.fornecedorNome,
           valor:               cot.valor,

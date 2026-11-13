@@ -32,6 +32,7 @@ const conta = {
   semPerfil:   ['u-x', {}],
   // Sem claims (plano gratuito): o perfil vem do documento em /usuarios
   semClaims:      ['u-doc', { email: 'doc@x.com' }],
+  gestorSemClaims: ['u-gdoc', { email: 'gdoc@x.com' }],
   inativo:        ['u-inat', { email: 'inat@x.com' }],
   // Convites: quem foi convidado, quem não foi e quem tem convite vencido
   convidado:      ['u-conv', { email: 'convidado@x.com' }],
@@ -205,14 +206,15 @@ test('separação de funções: quem cotou não decide; quem aprovou não compra
     await setDoc(doc(f, 'pedidos/entrGes/parcelas/x1'), {
       numero: 1, total: 1, valor: 100, vencimento: '2026-12-01', pago: false, pagoEm: null, comprovante: null,
     })
-    // O supremo assumiu este e decide mesmo assim
+    // O supremo assumiu este: a mesma trava vale para ele
     await setDoc(doc(f, 'pedidos/cotSup'), pedido({ status: 'em_aprovacao', compradorId: 'u-sup' }))
   })
   // Quem cotou não aprova nem reprova; outro aprovador, sim
   await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-ges' }))
   await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'reprovado', reprovadoPor: 'u-ges', motivoReprovacao: 'x' }))
   await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
-  await assertSucceeds(updateDoc(doc(db('supremo'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  await assertFails(updateDoc(doc(db('supremo'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
   // Quem aprovou não registra a compra; o comprador responsável, sim
   const compra = {
     status: 'comprado', fornecedorId: 'f1', fornecedorNome: 'Fornecedor', valorFinal: 100,
@@ -238,8 +240,31 @@ test('separação de funções: quem cotou não decide; quem aprovou não compra
 })
 
 test('o solicitante cancela o próprio pedido só antes da cotação', async () => {
-  await assertSucceeds(updateDoc(doc(db('solicitante'), 'pedidos/p1'), { status: 'cancelado', canceladoPor: 'u-sol' }))
-  await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/emAprov'), { status: 'cancelado', canceladoPor: 'u-sol' }))
+  const cancelar = { status: 'cancelado', canceladoPor: 'u-sol', motivoCancelamento: 'Pedido duplicado' }
+  await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/emAprov'), cancelar))
+  await assertSucceeds(updateDoc(doc(db('solicitante'), 'pedidos/p1'), cancelar))
+})
+
+test('reprovar e cancelar exigem o motivo e, em "Outros", também o texto', async () => {
+  const reprovar = extra => ({ status: 'reprovado', reprovadoPor: 'u-apr', ...extra })
+  const a = db('aprovador')
+  await assertFails(updateDoc(doc(a, 'pedidos/emAprov'), reprovar({})))
+  await assertFails(updateDoc(doc(a, 'pedidos/emAprov'), reprovar({ motivoReprovacao: '   ' })))
+  await assertFails(updateDoc(doc(a, 'pedidos/emAprov'), reprovar({ motivoReprovacao: 'Outros' })))
+  await assertFails(updateDoc(doc(a, 'pedidos/emAprov'), reprovar({ motivoReprovacao: 'Outros', motivoReprovacaoOutros: ' ' })))
+  await assertSucceeds(updateDoc(doc(a, 'pedidos/emAprov'), reprovar({ motivoReprovacao: 'Outros', motivoReprovacaoOutros: 'Fora do escopo do contrato' })))
+  const cancelar = extra => ({ status: 'cancelado', canceladoPor: 'u-ges', ...extra })
+  const g = db('gestor')
+  await assertFails(updateDoc(doc(g, 'pedidos/cotando'), cancelar({})))
+  await assertFails(updateDoc(doc(g, 'pedidos/cotando'), cancelar({ motivoCancelamento: 'Outros', motivoCancelamentoOutros: null })))
+  await assertSucceeds(updateDoc(doc(g, 'pedidos/cotando'), cancelar({ motivoCancelamento: 'Compra não necessária' })))
+})
+
+test('o pedido reaberto traz a justificativa', async () => {
+  const reaberto = extra => pedido({ reabertoDe: 'p9', reabertaDeNum: 'PRX-0009', ...extra })
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/reab1'), reaberto()))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/reab2'), reaberto({ justificativaReabertura: '  ' })))
+  await assertSucceeds(setDoc(doc(db('solicitante'), 'pedidos/reab3'), reaberto({ justificativaReabertura: 'Nova cotação com o valor revisto' })))
 })
 
 test('quem abre o pedido assina como solicitante', async () => {
@@ -255,10 +280,15 @@ test('a mudança de status e a entrada do histórico gravam juntas, num lote', a
   lote.update(doc(f, 'pedidos/p1'), { status: 'ag_cotacao', compradorId: 'u-com' })
   lote.set(doc(collection(f, 'pedidos/p1/historico')), { status: 'ag_cotacao', autorId: 'u-com' })
   await assertSucceeds(lote.commit())
-  // Se a entrada do histórico é recusada, o status também não muda
+  // Se a entrada do histórico é recusada, o status também não muda (o resto
+  // do lote, com a cotação indicada, estaria certo)
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/cotando/cotacoes/q1'), { valor: 10, fornecedorNome: 'Fornecedor', indicada: false })
+  })
   const f2 = db('comprador')
   const lote2 = writeBatch(f2)
-  lote2.update(doc(f2, 'pedidos/cotando'), { status: 'em_aprovacao' })
+  lote2.update(doc(f2, 'pedidos/cotando/cotacoes/q1'), { indicada: true })
+  lote2.update(doc(f2, 'pedidos/cotando'), { status: 'em_aprovacao', cotacaoIndicadaId: 'q1' })
   lote2.set(doc(collection(f2, 'pedidos/cotando/historico')), { status: 'em_aprovacao', autorId: 'u-outro' })
   await assertFails(lote2.commit())
   await env.withSecurityRulesDisabled(async ctx => {
@@ -320,6 +350,75 @@ test('cotação só pelo comprador responsável, da empresa do pedido', async ()
   await assertFails(cotar('compradorB', 'u-com3'))
   await assertSucceeds(cotar('comprador', 'u-com'))
   await assertSucceeds(cotar('gestor', 'u-ges'))
+})
+
+test('para ir a "Em aprovação", o pedido aponta a cotação indicada; depois, as propostas não mudam', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/cotando/cotacoes/q1'), { valor: 10, fornecedorNome: 'Fornecedor', indicada: false })
+    await setDoc(doc(f, 'pedidos/cotando/cotacoes/q2'), { valor: 12, fornecedorNome: 'Outro', indicada: false })
+  })
+  // Como o app grava: marca a cotação, aponta no pedido e registra no histórico
+  const indicar = ({ cotacaoId = 'q1', marcar = true, apontar = true } = {}) => {
+    const f = db('comprador')
+    const lote = writeBatch(f)
+    if (marcar) lote.update(doc(f, 'pedidos/cotando/cotacoes/q1'), { indicada: true })
+    lote.update(doc(f, 'pedidos/cotando'), apontar ? { status: 'em_aprovacao', cotacaoIndicadaId: cotacaoId } : { status: 'em_aprovacao' })
+    lote.set(doc(collection(f, 'pedidos/cotando/historico')), { status: 'em_aprovacao', autorId: 'u-com', criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(indicar({ apontar: false }))
+  await assertFails(indicar({ cotacaoId: 'nao-existe' }))
+  await assertFails(indicar({ marcar: false }))
+  // Na cotação, a indicação muda só a marca, e o gestor ainda apaga uma proposta
+  await assertFails(updateDoc(doc(db('comprador'), 'pedidos/cotando/cotacoes/q1'), { valor: 1 }))
+  await assertSucceeds(deleteDoc(doc(db('gestor'), 'pedidos/cotando/cotacoes/q2')))
+  await assertSucceeds(indicar())
+  // Em aprovação, nada muda nas propostas: nem a marca, nem uma nova, nem apagar
+  await assertFails(updateDoc(doc(db('comprador'), 'pedidos/cotando/cotacoes/q1'), { indicada: false }))
+  await assertFails(cotar('comprador', 'u-com'))
+  await assertFails(deleteDoc(doc(db('gestor'), 'pedidos/cotando/cotacoes/q1')))
+  // Nem o arquivo de uma proposta, no Storage
+  await assertFails(uploadBytes(ref(st('comprador'), 'pedidos/cotando/cotacoes/q3/proposta.pdf'),
+    new Uint8Array([37, 80, 68, 70]), { contentType: 'application/pdf' }))
+  // E a cotação indicada fica no pedido
+  await env.withSecurityRulesDisabled(async ctx => {
+    const snap = await getDoc(doc(ctx.firestore(), 'pedidos/cotando'))
+    if (snap.data().cotacaoIndicadaId !== 'q1') throw new Error('o pedido não guardou a cotação indicada')
+  })
+})
+
+test('o supremo segue as etapas e as travas, como um gestor de todas as empresas', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/supAbriu'), pedido({ status: 'em_aprovacao', compradorId: 'u-com', solicitanteId: 'u-sup' }))
+    await setDoc(doc(f, 'pedidos/supAprovou'), pedido({ status: 'entregue', compradorId: 'u-com', aprovadoPor: 'u-sup' }))
+    await setDoc(doc(f, 'pedidos/supAprovou/parcelas/x1'), {
+      numero: 1, total: 1, valor: 100, vencimento: '2026-12-01', pago: false, pagoEm: null, comprovante: null,
+    })
+  })
+  const s = db('supremo')
+  // Não pula etapas, não cria pedido já adiantado nem muda campos à vontade
+  await assertFails(updateDoc(doc(s, 'pedidos/p1'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  await assertFails(updateDoc(doc(s, 'pedidos/p1'), { valorFinal: 1 }))
+  await assertFails(setDoc(doc(s, 'pedidos/supNovo'), pedido({ status: 'aprovado', solicitanteId: 'u-sup' })))
+  // Abre pedido em qualquer empresa, em "Solicitado"
+  await assertSucceeds(setDoc(doc(s, 'pedidos/supNovo2'), pedido({ empresaId: 'e2', solicitanteId: 'u-sup' })))
+  // Não decide o que abriu; aprova o que não abriu nem cotou
+  await assertFails(updateDoc(doc(s, 'pedidos/supAbriu'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  await assertSucceeds(updateDoc(doc(s, 'pedidos/emAprov'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  // Não registra o pagamento do que aprovou, nem no Storage
+  await assertFails(updateDoc(doc(s, 'pedidos/supAprovou/parcelas/x1'), { pago: true, pagoEm: new Date() }))
+  await assertFails(updateDoc(doc(s, 'pedidos/supAprovou'), { status: 'pago' }))
+  await assertFails(uploadBytes(ref(st('supremo'), 'pedidos/supAprovou/comprovantes/x1/recibo.pdf'),
+    new Uint8Array([37, 80, 68, 70]), { contentType: 'application/pdf' }))
+  // Grava com a entrada do histórico e assina com o próprio UID
+  await assertFails(cotar('supremo', 'u-sup', { historico: false }))
+  await assertFails(addDoc(collection(s, 'pedidos/p1/historico'), { status: 'x', autorId: 'u-sol' }))
+  await assertFails(addDoc(collection(s, 'pedidos/p1/comentarios'), { texto: 'oi', autorId: 'u-sol' }))
+  await assertSucceeds(cotar('supremo', 'u-sup'))
+  // E continua administrando os cadastros
+  await assertSucceeds(updateDoc(doc(s, 'empresas/e2'), { nome: 'Empresa 2 Ltda.' }))
 })
 
 test('comentário e histórico assinados por quem escreve', async () => {
@@ -583,6 +682,43 @@ test('usuário inativo fica sem perfil, mesmo com o documento', async () => {
   await assertFails(getDoc(doc(db('inativo'), 'pedidos/p1')))
   await assertFails(getDoc(doc(db('inativo'), 'empresas/e1')))
   await assertFails(setDoc(doc(db('inativo'), 'usuarios/novo2'), { nome: 'N', perfil: 'comprador', empresas: ['e1'] }))
+})
+
+// Sem claims, cada consulta ao perfil lê o documento da pessoa, e as regras
+// do pedido testam os passos em ordem: os do fim da lista (pagar, cancelar,
+// editar, reabrir) precisam caber no limite de 1000 expressões por avaliação
+test('sem claims, cada passo do pedido cabe no limite das regras', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'usuarios/u-gdoc'), { nome: 'Gdoc', email: 'gdoc@x.com', perfil: 'gestor', empresas: ['e1'], ativo: true })
+    await setDoc(doc(f, 'pedidos/cotDoc'), pedido({ status: 'ag_cotacao', compradorId: 'u-doc' }))
+    await setDoc(doc(f, 'pedidos/cotDoc/cotacoes/q1'), { valor: 10, fornecedorNome: 'Fornecedor', indicada: false })
+    await setDoc(doc(f, 'pedidos/reprov'), pedido({ status: 'reprovado', compradorId: 'u-com', reprovadoPor: 'u-apr' }))
+  })
+  // Indicar a cotação (lote com a cotação, o pedido e o histórico)
+  const c = db('semClaims')
+  const lote = writeBatch(c)
+  lote.update(doc(c, 'pedidos/cotDoc/cotacoes/q1'), { indicada: true })
+  lote.update(doc(c, 'pedidos/cotDoc'), { status: 'em_aprovacao', cotacaoIndicadaId: 'q1' })
+  lote.set(doc(collection(c, 'pedidos/cotDoc/historico')), { status: 'em_aprovacao', autorId: 'u-doc', criadoEm: new Date() })
+  await assertSucceeds(lote.commit())
+  const g = db('gestorSemClaims')
+  // Aprovar, pagar e cancelar
+  await assertSucceeds(updateDoc(doc(g, 'pedidos/cotDoc'), { status: 'aprovado', aprovadoPor: 'u-gdoc' }))
+  await assertSucceeds(updateDoc(doc(g, 'pedidos/entregue'), { status: 'pago' }))
+  await assertSucceeds(updateDoc(doc(g, 'pedidos/cotando'), { status: 'cancelado', canceladoPor: 'u-gdoc', motivoCancelamento: 'Erro no pedido' }))
+  // Editar, com a entrada do histórico no mesmo lote
+  const ed = writeBatch(g)
+  const entrada = doc(collection(g, 'pedidos/p1/historico'))
+  ed.update(doc(g, 'pedidos/p1'), { titulo: 'Notebook 16 GB', ultimaEdicaoId: entrada.id, atualizadoEm: new Date() })
+  ed.set(entrada, { tipo: 'edicao', campo: 'titulo', autorId: 'u-gdoc', criadoEm: new Date() })
+  await assertSucceeds(ed.commit())
+  // Reabrir, como o app faz: o pedido novo, o reprovado ligado a ele e o contador
+  const re = writeBatch(g)
+  re.set(doc(g, 'pedidos/reaberto'), pedido({ reabertoDe: 'reprov', reabertaDeNum: 'PRX-0001', justificativaReabertura: 'Valor revisto' }))
+  re.update(doc(g, 'pedidos/reprov'), { reabertoPara: 'reaberto', reabertaParaNum: 'PRX-0006', atualizadoEm: new Date() })
+  re.set(doc(g, '_meta/contadores'), { totalPedidos: 6 })
+  await assertSucceeds(re.commit())
 })
 
 // ── Convites ───────────────────────────────────────────────────

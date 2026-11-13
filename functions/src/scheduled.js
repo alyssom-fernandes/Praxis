@@ -333,6 +333,10 @@ async function _aplicarSeed(seed) {
     // ID na área da demo ("demo-…"): só assim a conta demo alcança as
     // subcoleções do pedido (firestore.rules)
     const pedRef = db.collection('pedidos').doc(`demo-${db.collection('pedidos').doc().id}`)
+    // As cotações ganham o ID antes, para o pedido apontar a indicada
+    // (cotacaoIndicadaId, que as regras exigem para ir a "Em aprovação")
+    const refsCotacao = (cotacoes || []).map(() => pedRef.collection('cotacoes').doc())
+    const iIndicada   = (cotacoes || []).findIndex(c => c.indicada)
     await pedRef.set({
       ...pedData,
       empresaId,
@@ -359,6 +363,7 @@ async function _aplicarSeed(seed) {
       motivoReprovacao:         pedData.motivoReprovacao || null,
       motivoReprovacaoOutros:   pedData.motivoReprovacaoOutros || null,
       fornecedorId,
+      cotacaoIndicadaId:        iIndicada >= 0 ? refsCotacao[iIndicada].id : null,
       numeroPedido,
       isDemo:      true,
       criadoEm:    primeiroTs,
@@ -405,8 +410,8 @@ async function _aplicarSeed(seed) {
     // 5c. Cotações
     if (cotacoes?.length) {
       const cotBatch = db.batch()
-      cotacoes.forEach(cot => {
-        const ref = pedRef.collection('cotacoes').doc()
+      cotacoes.forEach((cot, i) => {
+        const ref = refsCotacao[i]
         const fId = fornMap[_normalizar(cot.fornecedorNome)] || null
         cotBatch.set(ref, {
           fornecedorId:        fId,

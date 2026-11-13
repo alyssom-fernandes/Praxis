@@ -832,7 +832,7 @@ function _renderDecisao(acoes) {
       texto = ind
         ? `${esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
         : t('dtAprovSemIndicada')
-      texto += ` ${_avisoDeFuncao('decidir', [PERFIS.APROVADOR, PERFIS.GESTOR])}`
+      texto += ` ${_avisoDeFuncao('decidir', [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO])}`
       if (ind) {
         fatos.push([t('dtPropostaIndicada'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
         if (p.valorEstimado) {
@@ -855,7 +855,7 @@ function _renderDecisao(acoes) {
       const em = p.aprovadoEm || h?.em
       titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
       texto = `${quem ? `Aprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
-        : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR]) || t('dtAprovadoTexto'))}`
+        : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
       if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
       fatoPrazo()
@@ -881,7 +881,7 @@ function _renderDecisao(acoes) {
         : (acoes.length ? t('dtEntregueTituloConcluir') : t('dtEntregueTitulo'))
       texto = `${p.dataEntrega ? `Recebido em ${formatDate(p.dataEntrega)}. ` : ''}${_parcelas.length
         ? `${pagas.length} de ${_parcelas.length} parcela${_parcelas.length > 1 ? 's' : ''} paga${pagas.length === 1 ? '' : 's'}.`
-        : t('dtSemParcelas')} ${_avisoDeFuncao('pagar', [PERFIS.FINANCEIRO, PERFIS.GESTOR])}`
+        : t('dtSemParcelas')} ${_avisoDeFuncao('pagar', [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO])}`
       if (_parcelas.length) fatos.push([t('dtPago'), dinheiro(pago), `de ${formatCurrency(total)}`])
       if (prox) {
         const d = _diasAte(prox.vencimento)
@@ -2061,7 +2061,8 @@ async function _indicarCotacao(cotacaoId) {
   mostrarSpinner()
   try {
     // Troca a indicação e, se ainda em cotação, avança para aprovação: tudo
-    // num lote só, com a entrada do histórico
+    // num lote só, com a entrada do histórico. O pedido guarda qual cotação
+    // foi indicada, e as regras só o deixam seguir com ela (firestore.rules)
     const lote = writeBatch(db)
     for (const c of _cotacoes) {
       if (c.indicada && c.id !== cotacaoId) lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
@@ -2070,6 +2071,7 @@ async function _indicarCotacao(cotacaoId) {
     if (_pedido.status === STATUS.AG_COTACAO) {
       lote.update(doc(db, 'pedidos', _pedidoId), {
         status: STATUS.EM_APROVACAO,
+        cotacaoIndicadaId: cotacaoId,
         atualizadoEm: serverTimestamp(),
       })
       _historicoJunto(lote, STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
@@ -2255,7 +2257,7 @@ function _podeAssumir() {
 }
 
 // Aprova ou reprova quem tem o perfil, menos quem abriu ou cotou o pedido (o
-// supremo pode), como nas regras do Firestore
+// supremo também), como nas regras do Firestore
 function _podeDecidir() {
   return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
          !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
@@ -2281,7 +2283,7 @@ function _podeIndicarCotacao() {
 }
 
 // Registra o pagamento (parcelas, comprovante e conclusão) o financeiro ou um
-// gestor, menos quem aprovou o pedido (o supremo pode)
+// gestor, menos quem aprovou o pedido (o supremo também)
 function _podePagarParcela() {
   return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
          !impedimentoDeFuncao(_pedido, sessao.usuario, 'pagar')

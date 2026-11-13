@@ -71,6 +71,11 @@ service cloud.firestore {
     function eComprador() { return perfil() in ['supremo', 'gestor', 'comprador']; }
     function eFinanceiro() { return perfil() in ['supremo', 'gestor', 'financeiro']; }
 
+    // O supremo alcança todas as empresas; os outros, as do próprio perfil
+    function alcancaEmpresa(empresaId) {
+      return eSupremo() || temAcessoEmpresa(empresaId);
+    }
+
     function eu() { return request.auth.uid; }
     function mudouSo(campos) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
@@ -261,7 +266,9 @@ service cloud.firestore {
     // ── Pedidos ────────────────────────────────────────────────
     match /pedidos/{pedidoId} {
       // Cada passo do caminho, com quem pode dá-lo e o que pode mudar
-      // (o mesmo que o app mostra em js/pedido-detalhe.js e js/pedidos.js)
+      // (o mesmo que o app mostra em js/pedido-detalhe.js e js/pedidos.js).
+      // Vale para todos os perfis, o supremo inclusive: ele age como um gestor
+      // de todas as empresas, sem pular etapas
       function de(st0, st1) {
         return resource.data.status == st0 && request.resource.data.status == st1;
       }
@@ -269,11 +276,36 @@ service cloud.firestore {
         return resource.data.get('compradorId', null) == eu() || eGestor();
       }
       function oSolicitante() { return resource.data.get('solicitanteId', null) == eu(); }
-      // Separação de funções (o supremo passa por cima, na regra de update):
-      // quem abriu ou cotou o pedido não decide sobre ele, e quem o aprovou não
-      // registra a compra nem o pagamento
+      // Separação de funções: quem abriu ou cotou o pedido não decide sobre
+      // ele, e quem o aprovou não registra a compra nem o pagamento
       function cotou()   { return resource.data.get('compradorId', null) == eu(); }
       function aprovou() { return resource.data.get('aprovadoPor', null) == eu(); }
+
+      // Reprovar e cancelar exigem o motivo da lista e, em "Outros", o texto
+      function motivoDado(campo, campoOutros) {
+        let motivo = request.resource.data.get(campo, null);
+        let outros = request.resource.data.get(campoOutros, null);
+        return motivo is string && motivo.trim().size() > 0 &&
+          (motivo != 'Outros' || (outros is string && outros.trim().size() > 0));
+      }
+
+      // Para ir a "Em aprovação", o pedido aponta a cotação indicada
+      // (cotacaoIndicadaId): ela já existia e sai do lote marcada como indicada
+      function caminhoCotacao(id) {
+        return /databases/$(database)/documents/pedidos/$(pedidoId)/cotacoes/$(id);
+      }
+      function cotacaoIndicadaValida() {
+        let id = request.resource.data.get('cotacaoIndicadaId', null);
+        return id is string && id.size() > 0 && exists(caminhoCotacao(id)) &&
+          getAfter(caminhoCotacao(id)).data.get('indicada', false) == true;
+      }
+
+      // O pedido reaberto traz a justificativa de quem o reabriu
+      function reaberturaJustificada() {
+        let justificativa = request.resource.data.get('justificativaReabertura', null);
+        return request.resource.data.get('reabertoDe', null) == null ||
+          (justificativa is string && justificativa.trim().size() > 0);
+      }
 
       // Entrada do histórico gravada no mesmo lote (ou transação) que a
       // mudança: não existia antes e passa a existir, do tipo certo e assinada
@@ -311,7 +343,8 @@ service cloud.firestore {
       }
       function indicarCotacao() {
         return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
-          mudouSo(['status', 'atualizadoEm']);
+          cotacaoIndicadaValida() &&
+          mudouSo(['status', 'cotacaoIndicadaId', 'atualizadoEm']);
       }
       // Quem abriu ou cotou o pedido não decide sobre ele
       function aprovar() {
@@ -322,6 +355,7 @@ service cloud.firestore {
       function reprovar() {
         return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() && !cotou() &&
           request.resource.data.reprovadoPor == eu() &&
+          motivoDado('motivoReprovacao', 'motivoReprovacaoOutros') &&
           mudouSo(['status', 'reprovadoPor', 'reprovadoPorNome', 'reprovadoEm',
                    'motivoReprovacao', 'motivoReprovacaoOutros', 'atualizadoEm']);
       }
@@ -345,6 +379,7 @@ service cloud.firestore {
           (oSolicitante() && resource.data.status == 'solicitado') ||
           (eGestor() && !(resource.data.status in ['entregue', 'pago', 'reprovado', 'cancelado']))
         ) &&
+          motivoDado('motivoCancelamento', 'motivoCancelamentoOutros') &&
           mudouSo(['status', 'canceladoPor', 'canceladoPorNome', 'canceladoEm',
                    'motivoCancelamento', 'motivoCancelamentoOutros', 'atualizadoEm']);
       }
@@ -381,27 +416,24 @@ service cloud.firestore {
         eSupremo() || resource.data.empresaId in empresasDoUsuario() ||
         resource.data.solicitanteId == eu()
       ));
+      // Todo pedido nasce em "Solicitado", aberto em nome próprio (o gestor e o
+      // supremo também abrem em nome de outra pessoa)
       allow create: if pedidoValido() && (
         (eDemo() && idDemo(pedidoId) && marcadoDemo(request.resource.data)) ||
-        (temPerfil() && !idDemo(pedidoId) && !marcadoDemo(request.resource.data) && (
-          eSupremo() || (
-            temAcessoEmpresa(request.resource.data.empresaId) &&
-            request.resource.data.status == 'solicitado' &&
-            (request.resource.data.solicitanteId == eu() || eGestor())
-          )
-        ))
+        (temPerfil() && !idDemo(pedidoId) && !marcadoDemo(request.resource.data) &&
+          alcancaEmpresa(request.resource.data.empresaId) &&
+          request.resource.data.status == 'solicitado' &&
+          (request.resource.data.solicitanteId == eu() || eGestor()) &&
+          reaberturaJustificada())
       );
       allow update: if pedidoValido() && mesmaMarcaDemo() && (
-        leDemo() || (temPerfil() && (
-          eSupremo() || (
-            temAcessoEmpresa(resource.data.empresaId) &&
-            request.resource.data.empresaId == resource.data.empresaId && (
-              visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
-              aprovar() || reprovar() || comprar() || receber() || pagar() ||
-              cancelar() || editar() || reabrir()
-            )
-          )
-        ))
+        leDemo() || (temPerfil() &&
+          alcancaEmpresa(resource.data.empresaId) &&
+          request.resource.data.empresaId == resource.data.empresaId && (
+            visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
+            aprovar() || reprovar() || comprar() || receber() || pagar() ||
+            cancelar() || editar() || reabrir()
+          ))
       );
       // Pedidos nunca são deletados (apenas cancelados), exceto os da demo na renovação
       allow delete: if leDemo();
@@ -416,11 +448,13 @@ service cloud.firestore {
       function veOPedido() {
         return eSupremo() || temAcessoEmpresa(pai().empresaId) || pai().solicitanteId == eu();
       }
+      // A empresa do pedido é da pessoa (o supremo alcança todas)
       function daEmpresa() {
-        return temAcessoEmpresa(pai().empresaId);
+        return eSupremo() || temAcessoEmpresa(pai().empresaId);
       }
+      // Quem grava assina com o próprio UID, o supremo também
       function autorSouEu() {
-        return eSupremo() || request.resource.data.autorId == eu();
+        return request.resource.data.autorId == eu();
       }
       // O comprador que assumiu o pedido (ou um gestor da empresa)
       function compradorDoPedido() {
@@ -428,17 +462,20 @@ service cloud.firestore {
       }
 
       // ── Cotações ─────────────────────────────────────────────
-      // Só o comprador que assumiu o pedido (ou um gestor) registra e indica;
-      // a cotação nova vem com a entrada do histórico de mesmo ID, no mesmo lote
+      // Só o comprador que assumiu o pedido (ou um gestor da empresa) registra e
+      // indica, e só enquanto o pedido está em cotação: depois, as propostas que
+      // foram para a aprovação não mudam. A cotação nova vem com a entrada do
+      // histórico de mesmo ID, no mesmo lote; a indicação muda só a marca
       match /cotacoes/{cotacaoId} {
+        function emCotacao() { return pai().status == 'ag_cotacao'; }
         function cotaOPedido() {
-          return eSupremo() || (eComprador() && daEmpresa() && compradorDoPedido());
+          return eComprador() && daEmpresa() && compradorDoPedido() && emCotacao();
         }
         allow read: if areaDemo() || (temPerfil() && veOPedido());
         allow create: if areaDemo() || (temPerfil() && cotaOPedido() &&
-          (eSupremo() || registraNoHistorico(cotacaoId, 'cotacao')));
-        allow update: if areaDemo() || (temPerfil() && cotaOPedido());
-        allow delete: if areaDemo() || (temPerfil() && (eSupremo() || (eGestor() && daEmpresa())));
+          registraNoHistorico(cotacaoId, 'cotacao'));
+        allow update: if areaDemo() || (temPerfil() && cotaOPedido() && mudouSo(['indicada']));
+        allow delete: if areaDemo() || (temPerfil() && eGestor() && daEmpresa() && emCotacao());
       }
 
       // ── Comentários ───────────────────────────────────────────
@@ -449,9 +486,9 @@ service cloud.firestore {
         allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
         allow update: if areaDemo() || (temPerfil() && veOPedido() &&
           mudouSo(['texto', 'editadoEm']) && (
-            request.auth.uid == resource.data.autorId || eSupremo() || (eGestor() && daEmpresa())
+            request.auth.uid == resource.data.autorId || (eGestor() && daEmpresa())
           ));
-        allow delete: if areaDemo() || (temPerfil() && (eSupremo() || (eGestor() && daEmpresa())));
+        allow delete: if areaDemo() || (temPerfil() && eGestor() && daEmpresa());
       }
 
       // ── Parcelas ──────────────────────────────────────────────
@@ -460,14 +497,13 @@ service cloud.firestore {
       // histórico, no mesmo lote
       match /parcelas/{parcelaId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
-        allow create: if areaDemo() || (temPerfil() && (eSupremo() || (eComprador() && daEmpresa())));
-        allow update: if areaDemo() || (temPerfil() && (eSupremo() || (
+        allow create: if areaDemo() || (temPerfil() && eComprador() && daEmpresa());
+        allow update: if areaDemo() || (temPerfil() &&
           eFinanceiro() && daEmpresa() && pai().get('aprovadoPor', null) != eu() && (
             mudouSo(['pago', 'pagoEm']) ||
             (mudouSo(['comprovante', 'comprovanteEventoId']) &&
               registraNoHistorico(request.resource.data.get('comprovanteEventoId', ''), 'comprovante'))
-          )
-        )));
+          ));
         allow delete: if areaDemo(); // só a renovação da demo
       }
 
@@ -485,10 +521,11 @@ service cloud.firestore {
       match /anexos/{anexoId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
         allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu() &&
-          (eSupremo() || registraNoHistorico(anexoId, 'anexo')));
-        // Apaga um gestor da empresa ou quem anexou, enquanto ainda vê o pedido
+          registraNoHistorico(anexoId, 'anexo'));
+        // Apaga um gestor da empresa (o supremo, de qualquer uma) ou quem
+        // anexou, enquanto ainda vê o pedido
         allow delete: if areaDemo() || (temPerfil() && (
-          eSupremo() || (eGestor() && daEmpresa()) ||
+          (eGestor() && daEmpresa()) ||
           (request.auth.uid == resource.data.autorId && veOPedido())
         ));
         allow update: if false;

@@ -1,5 +1,3 @@
-import { PERFIS } from './constants.js'
-
 export function formatCurrency(value) {
   if (value == null || isNaN(value)) return '—'
   return new Intl.NumberFormat('pt-BR', {
@@ -200,11 +198,11 @@ export function arquivoIndisponivel(err) {
 
 // Separação de funções, como nas regras do Firestore: quem abriu ou cotou o
 // pedido não decide sobre ele (aprovar ou reprovar), e quem o aprovou não
-// registra a compra nem o pagamento. O supremo passa por cima, como nas
-// demais etapas. Devolve o motivo ('abriu', 'cotou' ou 'aprovou') ou null.
+// registra a compra nem o pagamento. Vale para todos os perfis, o supremo
+// inclusive. Devolve o motivo ('abriu', 'cotou' ou 'aprovou') ou null.
 //   acao: 'decidir' | 'comprar' | 'pagar'
 export function impedimentoDeFuncao(pedido, usuario, acao) {
-  if (!pedido || !usuario?.id || usuario.perfil === PERFIS.SUPREMO) return null
+  if (!pedido || !usuario?.id) return null
   if (acao === 'decidir') {
     if (pedido.solicitanteId === usuario.id) return 'abriu'
     if (pedido.compradorId === usuario.id) return 'cotou'
