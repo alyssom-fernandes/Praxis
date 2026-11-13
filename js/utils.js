@@ -1,3 +1,5 @@
+import { PERFIS } from './constants.js'
+
 export function formatCurrency(value) {
   if (value == null || isNaN(value)) return '—'
   return new Intl.NumberFormat('pt-BR', {
@@ -194,6 +196,21 @@ export function formatFileSize(bytes) {
 // gratuito todo envio volta 402 (storage/quota-exceeded)
 export function arquivoIndisponivel(err) {
   return err?.code === 'storage/quota-exceeded' || err?.status === 402
+}
+
+// Separação de funções, como nas regras do Firestore: quem abriu ou cotou o
+// pedido não decide sobre ele (aprovar ou reprovar), e quem o aprovou não
+// registra a compra nem o pagamento. O supremo passa por cima, como nas
+// demais etapas. Devolve o motivo ('abriu', 'cotou' ou 'aprovou') ou null.
+//   acao: 'decidir' | 'comprar' | 'pagar'
+export function impedimentoDeFuncao(pedido, usuario, acao) {
+  if (!pedido || !usuario?.id || usuario.perfil === PERFIS.SUPREMO) return null
+  if (acao === 'decidir') {
+    if (pedido.solicitanteId === usuario.id) return 'abriu'
+    if (pedido.compradorId === usuario.id) return 'cotou'
+  }
+  if ((acao === 'comprar' || acao === 'pagar') && pedido.aprovadoPor === usuario.id) return 'aprovou'
+  return null
 }
 
 export function pluralizar(n, singular, plural) {

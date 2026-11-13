@@ -54,9 +54,11 @@ service firebase.storage {
       return perfil() == 'supremo' || (daEmpresa(pedidoId) && (perfil() == 'gestor' ||
         (perfil() == 'comprador' && pedido(pedidoId).get('compradorId', null) == request.auth.uid)));
     }
-    // Comprovante: o financeiro ou um gestor da empresa
+    // Comprovante: o financeiro ou um gestor da empresa, menos quem aprovou o
+    // pedido (separação de funções, como em firestore.rules)
     function pagaOPedido(pedidoId) {
-      return perfil() == 'supremo' || (perfil() in ['gestor', 'financeiro'] && daEmpresa(pedidoId));
+      return perfil() == 'supremo' || (perfil() in ['gestor', 'financeiro'] && daEmpresa(pedidoId) &&
+        pedido(pedidoId).get('aprovadoPor', null) != request.auth.uid);
     }
 
     function arquivoValido(tipos) {

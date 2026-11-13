@@ -47,11 +47,11 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 |---|---|---|---|
 | Solicitado | Ag. cotação | Comprador, Gestor, Supremo | Claim via `runTransaction` — o primeiro vence |
 | Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada |
-| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu o pedido não aprova (o supremo pode) |
-| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto); quem abriu o pedido não reprova (o supremo pode) |
-| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas |
+| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova (o supremo pode) |
+| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto); quem abriu ou cotou o pedido não reprova (o supremo pode) |
+| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas; quem aprovou não registra a compra (o supremo pode) |
 | Comprado | Entregue | Comprador que assumiu, Solicitante, Gestor, Supremo | Data de entrega real |
-| Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada |
+| Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão (o supremo pode) |
 | Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório |
 
 ## Concorrência

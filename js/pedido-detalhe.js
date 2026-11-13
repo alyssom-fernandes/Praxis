@@ -16,7 +16,7 @@ import {
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
-  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel,
+  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -729,7 +729,7 @@ function _acoesDoPedido() {
   }
 
   if (p.status === STATUS.APROVADO && [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
-      (p.compradorId === uid || gestorMais)) {
+      (p.compradorId === uid || gestorMais) && !impedimentoDeFuncao(p, sessao.usuario, 'comprar')) {
     painel.push(`<button class="btn-primary" id="btn-executar-compra">${ICO.carrinho}${t('btnExecutarCompra')}</button>`)
   }
 
@@ -739,7 +739,7 @@ function _acoesDoPedido() {
     painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${ICO.caixa}${t('btnConfirmarEntrega')}</button>`)
   }
 
-  if (p.status === STATUS.ENTREGUE && [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
+  if (p.status === STATUS.ENTREGUE && _podePagarParcela()) {
     const proxima = _proximaParcela()
     if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${esc(proxima.id)}">${ICO.moeda}${t('dtRegistrarPagamento')}</button>`)
     else painel.push(`<button class="btn-primary" id="btn-confirmar-pagamento">${ICO.check}${t('btnConfirmarPagamento')}</button>`)
@@ -832,6 +832,7 @@ function _renderDecisao(acoes) {
       texto = ind
         ? `${esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
         : t('dtAprovSemIndicada')
+      texto += ` ${_avisoDeFuncao('decidir', [PERFIS.APROVADOR, PERFIS.GESTOR])}`
       if (ind) {
         fatos.push([t('dtPropostaIndicada'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
         if (p.valorEstimado) {
@@ -853,7 +854,8 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
       const em = p.aprovadoEm || h?.em
       titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `Aprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode') : t('dtAprovadoTexto')}`
+      texto = `${quem ? `Aprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
+        : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR]) || t('dtAprovadoTexto'))}`
       if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
       fatoPrazo()
@@ -879,7 +881,7 @@ function _renderDecisao(acoes) {
         : (acoes.length ? t('dtEntregueTituloConcluir') : t('dtEntregueTitulo'))
       texto = `${p.dataEntrega ? `Recebido em ${formatDate(p.dataEntrega)}. ` : ''}${_parcelas.length
         ? `${pagas.length} de ${_parcelas.length} parcela${_parcelas.length > 1 ? 's' : ''} paga${pagas.length === 1 ? '' : 's'}.`
-        : t('dtSemParcelas')}`
+        : t('dtSemParcelas')} ${_avisoDeFuncao('pagar', [PERFIS.FINANCEIRO, PERFIS.GESTOR])}`
       if (_parcelas.length) fatos.push([t('dtPago'), dinheiro(pago), `de ${formatCurrency(total)}`])
       if (prox) {
         const d = _diasAte(prox.vencimento)
@@ -973,15 +975,29 @@ function _renderDecisao(acoes) {
     </section>`
 }
 
-// Quem decide a aprovação: os aprovadores do pedido ou da empresa
-function _respAprovadores() {
+// Quem pode decidir este pedido: os aprovadores do pedido ou da empresa, menos
+// quem o abriu ou cotou (separação de funções)
+function _aprovadoresDoPedido() {
   const p = _pedido
-  const lista = (p.aprovadorIds?.length
+  return (p.aprovadorIds?.length
     ? p.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
     : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && u.ativo !== false &&
         _normEmpresas(u.empresas).includes(p.empresaId)))
+    .filter(u => !impedimentoDeFuncao(p, u, 'decidir'))
+}
+
+// Quem pode decidir, quando não sobra ninguém na lista: a própria pessoa, se
+// for aprovadora e não estiver impedida
+function _souAprovadorLivre() {
+  return [PERFIS.APROVADOR, PERFIS.GESTOR].includes(sessao.usuario.perfil) &&
+    !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
+}
+
+// Quem decide a aprovação: os aprovadores do pedido ou da empresa
+function _respAprovadores() {
+  const lista = _aprovadoresDoPedido()
   if (!lista.length) {
-    const souAprov = [PERFIS.APROVADOR, PERFIS.GESTOR].includes(sessao.usuario.perfil)
+    const souAprov = _souAprovadorLivre()
     return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null, vazio: t('dtAprovadoresEmpresa') }
   }
   const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` e mais ${lista.length - 2}` : '')
@@ -1048,15 +1064,12 @@ function _renderPessoaAprovadores() {
     const em = p.reprovadoEm || h?.em
     return _linhaPessoa('Aprovador', nome, `Reprovou${em ? ` em ${_dataCurta(em)}` : ''}`, '', 'text-red')
   }
-  const lista = (_pedido.aprovadorIds?.length
-    ? _pedido.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
-    : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && u.ativo !== false &&
-        _normEmpresas(u.empresas).includes(p.empresaId)))
+  const lista = _aprovadoresDoPedido()
   const status = p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
     : [STATUS.SOLICITADO, STATUS.AG_COTACAO].includes(p.status) ? 'Entra após as cotações'
     : p.status === STATUS.CANCELADO ? 'Não chegou à aprovação' : ''
   if (!lista.length) {
-    const souAprov = [PERFIS.APROVADOR, PERFIS.GESTOR].includes(sessao.usuario.perfil)
+    const souAprov = _souAprovadorLivre()
     return _linhaPessoa(papel, souAprov ? sessao.usuario.nome : 'Aprovadores da empresa', status)
   }
   const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` e mais ${lista.length - 2}` : '')
@@ -2241,12 +2254,11 @@ function _podeAssumir() {
          [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
 }
 
-// Aprova ou reprova quem tem o perfil, menos quem abriu o pedido (o supremo
-// pode), como nas regras do Firestore
+// Aprova ou reprova quem tem o perfil, menos quem abriu ou cotou o pedido (o
+// supremo pode), como nas regras do Firestore
 function _podeDecidir() {
-  const perfil = sessao.usuario.perfil
-  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
-         (_pedido.solicitanteId !== sessao.usuario.id || perfil === PERFIS.SUPREMO)
+  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
+         !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
 }
 
 function _podeLiberar() {
@@ -2268,8 +2280,21 @@ function _podeIndicarCotacao() {
   return _podeAnexarCotacao() && _cotacoes.length > 0
 }
 
+// Registra o pagamento (parcelas, comprovante e conclusão) o financeiro ou um
+// gestor, menos quem aprovou o pedido (o supremo pode)
 function _podePagarParcela() {
-  return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil)
+  return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
+         !impedimentoDeFuncao(_pedido, sessao.usuario, 'pagar')
+}
+
+// Por que quem teria o perfil para o passo não pode dá-lo neste pedido (a
+// separação de funções), para o painel explicar em vez de só esconder a ação
+function _avisoDeFuncao(acao, perfisDoPasso) {
+  if (!perfisDoPasso.includes(sessao.usuario.perfil)) return ''
+  const motivo = impedimentoDeFuncao(_pedido, sessao.usuario, acao)
+  if (!motivo) return ''
+  if (acao === 'decidir') return motivo === 'abriu' ? t('dtNaoDecideAbriu') : t('dtNaoDecideCotou')
+  return acao === 'comprar' ? t('dtNaoCompraAprovou') : t('dtNaoPagaAprovou')
 }
 
 // ── Refresh parcial de subcoleções ────────────────────────────

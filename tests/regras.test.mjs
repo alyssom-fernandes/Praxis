@@ -195,6 +195,48 @@ test('só o financeiro (ou gestor) confirma o pagamento', async () => {
   await assertSucceeds(updateDoc(doc(db('financeiro'), 'pedidos/entregue'), { status: 'pago' }))
 })
 
+test('separação de funções: quem cotou não decide; quem aprovou não compra nem paga', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    // O gestor assumiu este como comprador e aprovou os outros dois
+    await setDoc(doc(f, 'pedidos/cotGes'), pedido({ status: 'em_aprovacao', compradorId: 'u-ges' }))
+    await setDoc(doc(f, 'pedidos/aprovGes'), pedido({ status: 'aprovado', compradorId: 'u-com', aprovadoPor: 'u-ges' }))
+    await setDoc(doc(f, 'pedidos/entrGes'), pedido({ status: 'entregue', compradorId: 'u-com', aprovadoPor: 'u-ges' }))
+    await setDoc(doc(f, 'pedidos/entrGes/parcelas/x1'), {
+      numero: 1, total: 1, valor: 100, vencimento: '2026-12-01', pago: false, pagoEm: null, comprovante: null,
+    })
+    // O supremo assumiu este e decide mesmo assim
+    await setDoc(doc(f, 'pedidos/cotSup'), pedido({ status: 'em_aprovacao', compradorId: 'u-sup' }))
+  })
+  // Quem cotou não aprova nem reprova; outro aprovador, sim
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-ges' }))
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'reprovado', reprovadoPor: 'u-ges', motivoReprovacao: 'x' }))
+  await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
+  await assertSucceeds(updateDoc(doc(db('supremo'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  // Quem aprovou não registra a compra; o comprador responsável, sim
+  const compra = {
+    status: 'comprado', fornecedorId: 'f1', fornecedorNome: 'Fornecedor', valorFinal: 100,
+    condicaoPagamento: 'avista', dataCompra: '2026-11-12',
+  }
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/aprovGes'), compra))
+  await assertSucceeds(updateDoc(doc(db('comprador'), 'pedidos/aprovGes'), compra))
+  // Nem o pagamento: a parcela, o comprovante (no Firestore e no Storage) e a conclusão
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/entrGes/parcelas/x1'), { pago: true, pagoEm: new Date() }))
+  const fg = db('gestor')
+  const lote = writeBatch(fg)
+  const entrada = doc(collection(fg, 'pedidos/entrGes/historico'))
+  lote.update(doc(fg, 'pedidos/entrGes/parcelas/x1'), { comprovante: 'https://exemplo/recibo.pdf', comprovanteEventoId: entrada.id })
+  lote.set(entrada, { tipo: 'comprovante', parcelaNumero: '1/1', autorId: 'u-ges', criadoEm: new Date() })
+  await assertFails(lote.commit())
+  const recibo = new Uint8Array([37, 80, 68, 70]) // "%PDF"
+  const caminho = 'pedidos/entrGes/comprovantes/x1/recibo.pdf'
+  await assertFails(uploadBytes(ref(st('gestor'), caminho), recibo, { contentType: 'application/pdf' }))
+  await assertSucceeds(uploadBytes(ref(st('financeiro'), caminho), recibo, { contentType: 'application/pdf' }))
+  await assertSucceeds(updateDoc(doc(db('financeiro'), 'pedidos/entrGes/parcelas/x1'), { pago: true, pagoEm: new Date() }))
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/entrGes'), { status: 'pago' }))
+  await assertSucceeds(updateDoc(doc(db('financeiro'), 'pedidos/entrGes'), { status: 'pago' }))
+})
+
 test('o solicitante cancela o próprio pedido só antes da cotação', async () => {
   await assertSucceeds(updateDoc(doc(db('solicitante'), 'pedidos/p1'), { status: 'cancelado', canceladoPor: 'u-sol' }))
   await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/emAprov'), { status: 'cancelado', canceladoPor: 'u-sol' }))

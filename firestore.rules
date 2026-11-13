@@ -269,6 +269,11 @@ service cloud.firestore {
         return resource.data.get('compradorId', null) == eu() || eGestor();
       }
       function oSolicitante() { return resource.data.get('solicitanteId', null) == eu(); }
+      // Separação de funções (o supremo passa por cima, na regra de update):
+      // quem abriu ou cotou o pedido não decide sobre ele, e quem o aprovou não
+      // registra a compra nem o pagamento
+      function cotou()   { return resource.data.get('compradorId', null) == eu(); }
+      function aprovou() { return resource.data.get('aprovadoPor', null) == eu(); }
 
       // Entrada do histórico gravada no mesmo lote (ou transação) que a
       // mudança: não existia antes e passa a existir, do tipo certo e assinada
@@ -308,21 +313,21 @@ service cloud.firestore {
         return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
           mudouSo(['status', 'atualizadoEm']);
       }
-      // Quem abriu o pedido não decide sobre ele (o supremo passa por cima,
-      // na regra de update)
+      // Quem abriu ou cotou o pedido não decide sobre ele
       function aprovar() {
-        return de('em_aprovacao', 'aprovado') && eAprovador() && !oSolicitante() &&
+        return de('em_aprovacao', 'aprovado') && eAprovador() && !oSolicitante() && !cotou() &&
           request.resource.data.aprovadoPor == eu() &&
           mudouSo(['status', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']);
       }
       function reprovar() {
-        return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() &&
+        return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() && !cotou() &&
           request.resource.data.reprovadoPor == eu() &&
           mudouSo(['status', 'reprovadoPor', 'reprovadoPorNome', 'reprovadoEm',
                    'motivoReprovacao', 'motivoReprovacaoOutros', 'atualizadoEm']);
       }
+      // Quem aprovou não registra a compra nem o pagamento
       function comprar() {
-        return de('aprovado', 'comprado') && eComprador() && oComprador() &&
+        return de('aprovado', 'comprado') && eComprador() && oComprador() && !aprovou() &&
           mudouSo(['status', 'fornecedorId', 'fornecedorNome', 'valorFinal',
                    'condicaoPagamento', 'dataCompra', 'atualizadoEm']);
       }
@@ -332,7 +337,7 @@ service cloud.firestore {
           mudouSo(['status', 'dataEntrega', 'atualizadoEm']);
       }
       function pagar() {
-        return de('entregue', 'pago') && eFinanceiro() &&
+        return de('entregue', 'pago') && eFinanceiro() && !aprovou() &&
           mudouSo(['status', 'atualizadoEm']);
       }
       function cancelar() {
@@ -450,13 +455,14 @@ service cloud.firestore {
       }
 
       // ── Parcelas ──────────────────────────────────────────────
-      // O financeiro registra o pagamento (pago, pagoEm) e anexa o comprovante;
-      // o comprovante vem com a entrada do histórico, no mesmo lote
+      // O financeiro registra o pagamento (pago, pagoEm) e anexa o comprovante,
+      // menos quem aprovou o pedido; o comprovante vem com a entrada do
+      // histórico, no mesmo lote
       match /parcelas/{parcelaId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
         allow create: if areaDemo() || (temPerfil() && (eSupremo() || (eComprador() && daEmpresa())));
         allow update: if areaDemo() || (temPerfil() && (eSupremo() || (
-          eFinanceiro() && daEmpresa() && (
+          eFinanceiro() && daEmpresa() && pai().get('aprovadoPor', null) != eu() && (
             mudouSo(['pago', 'pagoEm']) ||
             (mudouSo(['comprovante', 'comprovanteEventoId']) &&
               registraNoHistorico(request.resource.data.get('comprovanteEventoId', ''), 'comprovante'))

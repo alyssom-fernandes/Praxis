@@ -9,7 +9,7 @@ import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento } from './utils.js'
+import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -1099,14 +1099,19 @@ function _aplicarPill(lista, filtro) {
           return ts && (agora - ts.getTime()) > h48
         })
       }
-      if (perfil === PERFIS.APROVADOR) return lista.filter(p => p.status === STATUS.EM_APROVACAO)
+      // Na fila, só o que a pessoa pode decidir ou pagar (separação de funções)
+      if (perfil === PERFIS.APROVADOR) {
+        return lista.filter(p => p.status === STATUS.EM_APROVACAO && !impedimentoDeFuncao(p, sessao.usuario, 'decidir'))
+      }
       if (perfil === PERFIS.COMPRADOR) {
         return lista.filter(p =>
           (p.status === STATUS.SOLICITADO && !p.compradorId) ||
           (p.status === STATUS.AG_COTACAO && p.compradorId === uid)
         )
       }
-      if (perfil === PERFIS.FINANCEIRO) return lista.filter(p => p.status === STATUS.ENTREGUE)
+      if (perfil === PERFIS.FINANCEIRO) {
+        return lista.filter(p => p.status === STATUS.ENTREGUE && !impedimentoDeFuncao(p, sessao.usuario, 'pagar'))
+      }
       // solicitante: seus pedidos não encerrados
       return lista.filter(p => p.solicitanteId === uid && !_TERMINAIS.includes(p.status))
     }
@@ -1499,12 +1504,18 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
     prxToast(`Seu perfil não move pedidos de "${STATUS_LABEL[statusOrigem]}" para "${STATUS_LABEL[statusDestino]}". Use a tela do pedido.`, 'error')
     return
   }
-  // As mesmas travas das regras: quem abriu não aprova o próprio pedido, e o
-  // recebimento é do comprador responsável (ou de um gestor)
+  // As mesmas travas das regras: quem abriu ou cotou não aprova o pedido, quem
+  // aprovou não registra o pagamento, e o recebimento é do comprador
+  // responsável (ou de um gestor)
   const p = _pedidos.find(x => x.id === id)
   const uid = sessao.usuario.id
-  if (p && statusDestino === STATUS.APROVADO && p.solicitanteId === uid && perfil !== PERFIS.SUPREMO) {
-    prxToast(t('semDecidirProprio'), 'error')
+  const impedeDecidir = p && statusDestino === STATUS.APROVADO && impedimentoDeFuncao(p, sessao.usuario, 'decidir')
+  if (impedeDecidir) {
+    prxToast(impedeDecidir === 'abriu' ? t('semDecidirProprio') : t('semDecidirCotou'), 'error')
+    return
+  }
+  if (p && statusDestino === STATUS.PAGO && impedimentoDeFuncao(p, sessao.usuario, 'pagar')) {
+    prxToast(t('semPagarAprovou'), 'error')
     return
   }
   if (p && statusDestino === STATUS.ENTREGUE && perfil === PERFIS.COMPRADOR && p.compradorId !== uid && p.solicitanteId !== uid) {

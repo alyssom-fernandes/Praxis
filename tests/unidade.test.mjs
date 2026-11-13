@@ -8,7 +8,7 @@ import {
   formatCurrency, formatDate, gerarIniciais, normalizarTexto, parseMoeda, esc, formatCNPJ,
   formatFileSize, pluralizar, calcularSLA, maisXDiasISO, hojeISO, dataEhPassado, dataEhProximos,
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
-  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel,
+  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
 } from '../js/utils.js'
 import { TRADUCOES, tomDaCor, corCategoria, TONS_CATEGORIA } from '../js/constants.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
@@ -65,6 +65,23 @@ test('CNPJ, tamanho de arquivo e plural', () => {
   assert.equal(formatFileSize(3 * 1048576), '3.0 MB')
   assert.equal(pluralizar(1, 'pedido', 'pedidos'), '1 pedido')
   assert.equal(pluralizar(2, 'pedido', 'pedidos'), '2 pedidos')
+})
+
+test('separação de funções: quem abriu ou cotou não decide; quem aprovou não compra nem paga', () => {
+  const ped = { solicitanteId: 'u-sol', compradorId: 'u-ges', aprovadoPor: 'u-ges2' }
+  const gestor = id => ({ id, perfil: 'gestor' })
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-sol'), 'decidir'), 'abriu')
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-ges'), 'decidir'), 'cotou')
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'decidir'), null)
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'comprar'), 'aprovou')
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'pagar'), 'aprovou')
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-fin', perfil: 'financeiro' }, 'pagar'), null)
+  // O comprador que cotou registra a compra; o supremo passa por cima de tudo
+  assert.equal(impedimentoDeFuncao(ped, gestor('u-ges'), 'comprar'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges', perfil: 'supremo' }, 'decidir'), null)
+  // Pedido ainda sem aprovação, comprador ou pessoa: nada a impedir
+  assert.equal(impedimentoDeFuncao({ solicitanteId: 'u-sol', aprovadoPor: null }, gestor('u-x'), 'pagar'), null)
+  assert.equal(impedimentoDeFuncao(ped, null, 'decidir'), null)
 })
 
 test('o Storage fora do plano vira aviso; erro de permissão, não', () => {
