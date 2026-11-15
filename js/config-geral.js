@@ -1,8 +1,10 @@
 import { db, collection, getDocs, consulta } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { sessao } from './estado.js'
 import { abrirTour, definirTema, preferenciaTema } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { t } from './constants.js'
+import { empresasDoUsuario } from './utils.js'
 import { ICO, cabecalho, perfilHtml, iniciais, revelarItemLateral, completarContagensLateral, esc } from './config-comum.js'
 
 // Ajustes: quem é você no Praxis e as preferências deste navegador. Restaurar
@@ -98,8 +100,7 @@ async function _minhasEmpresas(u) {
   const el = document.getElementById('cfg-minhas-empresas')
   if (!el) return
   if (!todas) { el.innerHTML = '<span class="cfg-mudo">—</span>'; return }
-  const raw = u.empresas || []
-  const ids = Array.isArray(raw) ? raw : Object.keys(raw)
+  const ids = empresasDoUsuario(u)
   const minhas = todas.filter(e => ids.includes(e.id))
   const nomes = esc(minhas.map(e => e.nome).join(', '))
   if (!minhas.length) el.innerHTML = `<span class="cfg-mudo">${t('cfgNenhuma')}</span>`

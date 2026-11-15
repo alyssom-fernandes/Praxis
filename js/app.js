@@ -1,29 +1,11 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada } from './auth.js'
-import {
-  STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR,
-  PERFIS, PERFIS_LABEL, PERFIS_COLOR, t,
-} from './constants.js'
+import { PERFIS, PERFIS_LABEL, PERFIS_COLOR, t } from './constants.js'
 import { gerarIniciais, esc } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
-
-// Expõe constantes para ui.js (evita circular imports em renderizações)
-window.__praxisConst = { STATUS_LABEL, STATUS_COLOR, STATUS_DOT_COLOR, PERFIS_LABEL, PERFIS_COLOR }
-window.__praxisUtils = { gerarIniciais }
-
-// Estado global da sessão
-export const sessao = {
-  usuario:   null,  // documento do Firestore
-  fireUser:  null,  // FirebaseUser
-  isDemo:    false,
-  contaDemo: null,  // na demo: o perfil da conta de login (usuario é a pessoa escolhida)
-  // Barra lateral: contadores e nomes conhecidos (as telas vão preenchendo)
-  lateral:   { contagens: {}, filtroPedidos: 'todos' },
-}
-// Leitura do perfil pela paleta de comandos (ui.js não importa app.js)
-window.__praxisSessao = sessao
+import { sessao, registrarNavegacao, registrarTrocaDePessoa } from './estado.js'
 
 // ── Limpadores de listeners (2.13) ────────────────────────────
 const _limpadores = new Set()
@@ -173,7 +155,7 @@ export async function trocarPessoaDemo(id) {
     esconderSpinner()
   }
 }
-window.__praxisTrocarPessoa = trocarPessoaDemo
+registrarTrocaDePessoa(trocarPessoaDemo)
 
 // ── Roteamento ────────────────────────────────────────────────
 export function navegar(tela, params = {}, { substituir = false } = {}) {
@@ -745,8 +727,8 @@ export function renderFooter() {
   `
 }
 
-// Expõe navegar globalmente (ui.js chama sem importar, para evitar ciclo)
-window.__navegar = navegar
+// A paleta de comandos, o tour e a faixa da demo (ui.js) navegam pelo estado
+registrarNavegacao(navegar)
 
 // Links e botões com data-navegar="tela" (e data-id): navegam sem recarregar.
 // Substitui os onclick inline, que a política de segurança (CSP) bloqueia.
@@ -767,7 +749,6 @@ function _renderBottomNav() {
   const tela     = new URLSearchParams(window.location.search).get('tela') || 'pedidos'
   const isConfig = TELAS_CONFIG.includes(tela)
   const ativoPedidos = tela === 'pedidos' || tela === 'detalhe'
-  const { gerarIniciais: gi } = window.__praxisUtils
 
   let nav = document.getElementById('bottom-nav')
   if (!nav) {
@@ -791,7 +772,7 @@ function _renderBottomNav() {
     </button>
     ${pode.config ? item('config-usuarios', isConfig, ICO.engren(20), t('navAjustes')) : ''}
     <button type="button" class="bottom-nav-item" id="bnav-conta" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
-      <span class="bnav-avatar" aria-hidden="true">${esc(gi(usuario.nome))}</span><span>${t('navConta')}</span>
+      <span class="bnav-avatar" aria-hidden="true">${esc(gerarIniciais(usuario.nome))}</span><span>${t('navConta')}</span>
     </button>
   `
 

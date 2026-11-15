@@ -1,5 +1,6 @@
-import { t, PERFIS_LABEL } from './constants.js'
+import { t, PERFIS_LABEL, STATUS_LABEL, STATUS_DOT_COLOR } from './constants.js'
 import { esc } from './utils.js'
+import { sessao, navegar, podeNavegar, pedidosCarregados, trocarPessoa } from './estado.js'
 
 // ── Command Palette (4.2) ─────────────────────────────────────
 // Busca de comandos e pedidos (botão "Buscar" da topbar, item da barra
@@ -7,6 +8,7 @@ import { esc } from './utils.js'
 let _cmdPaletaEl  = null
 let _cmdActiveIdx = 0
 let _cmdGatilho   = null
+let _cmdIniciada  = false
 
 const _ehMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '')
 
@@ -16,11 +18,11 @@ function _normalizar(s) {
 }
 
 export function initCommandPalette() {
-  if (globalThis.__praxisCmdInited) return
-  globalThis.__praxisCmdInited = true
+  if (_cmdIniciada) return
+  _cmdIniciada = true
   document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
-      if (!window.__praxisSessao?.usuario) return // só dentro do app
+      if (!sessao.usuario) return // só dentro do app
       e.preventDefault()
       if (_cmdPaletaEl?.classList.contains('visible')) {
         _fecharPaleta()
@@ -32,7 +34,7 @@ export function initCommandPalette() {
 }
 
 export function abrirCommandPalette() {
-  if (!window.__navegar) return
+  if (!podeNavegar()) return
   _criarPaletaDOM()
   if (!_cmdPaletaEl.classList.contains('visible')) _cmdGatilho = document.activeElement
   _cmdPaletaEl.classList.add('visible')
@@ -55,20 +57,20 @@ function _criarPaletaDOM() {
   el.id = 'cmd-palette'
   el.className = 'cmd-palette-overlay'
   el.innerHTML = `
-    <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="Buscar">
+    <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="${t('navBuscar')}">
       <div class="cmd-palette-header">
         <svg class="cmd-search-icon" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input id="cmd-input" type="text" class="cmd-input" placeholder="Buscar pedido ou comando" autocomplete="off" spellcheck="false"
-          role="combobox" aria-expanded="true" aria-controls="cmd-results" aria-autocomplete="list" aria-label="Buscar pedido ou comando">
-        <button type="button" class="cmd-esc" id="cmd-fechar" aria-label="Fechar busca"><kbd>Esc</kbd><svg class="cmd-esc-x" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <input id="cmd-input" type="text" class="cmd-input" placeholder="${t('palPlaceholder')}" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="true" aria-controls="cmd-results" aria-autocomplete="list" aria-label="${t('palPlaceholder')}">
+        <button type="button" class="cmd-esc" id="cmd-fechar" aria-label="${t('palFechar')}"><kbd>Esc</kbd><svg class="cmd-esc-x" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div id="cmd-results" class="cmd-results" role="listbox" aria-label="Resultados"></div>
+      <div id="cmd-results" class="cmd-results" role="listbox" aria-label="${t('palResultados')}"></div>
       <div class="cmd-palette-footer" aria-hidden="true">
-        <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
-        <span><kbd>↵</kbd> abrir</span>
-        <span class="cmd-footer-atalho"><kbd>${_ehMac ? '⌘' : 'Ctrl'}</kbd><kbd>K</kbd> abrir ou fechar</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> ${t('palNavegar')}</span>
+        <span><kbd>↵</kbd> ${t('palAbrir')}</span>
+        <span class="cmd-footer-atalho"><kbd>${_ehMac ? '⌘' : 'Ctrl'}</kbd><kbd>K</kbd> ${t('palAbrirFechar')}</span>
       </div>
     </div>
   `
@@ -134,8 +136,7 @@ function _cmdRenderResultados(query) {
   const acoes = _cmdGetAcoes()
   const acoesMatch = !q ? acoes : acoes.filter(a => _normalizar(a.label + ' ' + (a.termos || '')).includes(q))
 
-  const pedidos = window.__getPedidos?.() || []
-  const { STATUS_LABEL, STATUS_DOT_COLOR } = window.__praxisConst || {}
+  const pedidos = pedidosCarregados()
   const pedidosMatch = !q
     ? [...pedidos].sort((a, b) => _tsMs(b.atualizadoEm || b.criadoEm) - _tsMs(a.atualizadoEm || a.criadoEm)).slice(0, 4)
     : pedidos.filter(p => _normalizar(p.numeroPedido).includes(q) || _normalizar(p.titulo).includes(q)).slice(0, 7)
@@ -145,8 +146,8 @@ function _cmdRenderResultados(query) {
     results.innerHTML = `
       <div class="cmd-empty" role="status">
         <span class="cmd-empty-n numeral" aria-hidden="true">0</span>
-        <strong>Nada encontrado para “${esc(query.trim())}”</strong>
-        <span>Tente o número do pedido (PRX-0012) ou uma palavra do título.</span>
+        <strong>${t('nenhumResultadoPara')} “${esc(query.trim())}”</strong>
+        <span>${t('palDica')}</span>
       </div>`
     document.getElementById('cmd-input')?.removeAttribute('aria-activedescendant')
     return
@@ -159,16 +160,16 @@ function _cmdRenderResultados(query) {
     return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-pedido-id="${esc(p.id)}" role="option" aria-selected="${i === _cmdActiveIdx}">
       <span class="cmd-item-icon" aria-hidden="true">${_ICONE_PEDIDO}</span>
       <span class="cmd-item-num">${esc(p.numeroPedido || '—')}</span>
-      <span class="cmd-item-label">${esc(p.titulo || 'Sem título')}</span>
-      ${p.urgente ? `<span class="cmd-item-urg">Urgente</span>` : ''}
-      ${p.status ? `<span class="cmd-item-meta"><span class="dot ${STATUS_DOT_COLOR?.[p.status] || 'dot-gray'}" aria-hidden="true"></span>${esc(STATUS_LABEL?.[p.status] ?? p.status)}</span>` : ''}
+      <span class="cmd-item-label">${esc(p.titulo || t('semTitulo'))}</span>
+      ${p.urgente ? `<span class="cmd-item-urg">${t('urgente')}</span>` : ''}
+      ${p.status ? `<span class="cmd-item-meta"><span class="dot ${STATUS_DOT_COLOR[p.status] || 'dot-gray'}" aria-hidden="true"></span>${esc(STATUS_LABEL[p.status] ?? p.status)}</span>` : ''}
     </button>`
   }
 
   const blocoPedidos = () => !pedidosMatch.length ? '' :
-    `<div class="cmd-group-label" role="presentation">${q ? 'Pedidos' : 'Atualizados recentemente'}</div>` + pedidosMatch.map(linhaPedido).join('')
+    `<div class="cmd-group-label" role="presentation">${q ? t('navPedidos') : t('palRecentes')}</div>` + pedidosMatch.map(linhaPedido).join('')
   const blocoAcoes = () => !acoesMatch.length ? '' :
-    `<div class="cmd-group-label" role="presentation">Comandos</div>` + acoesMatch.map(a => {
+    `<div class="cmd-group-label" role="presentation">${t('palComandos')}</div>` + acoesMatch.map(a => {
       const i = idx++
       return `<button type="button" class="cmd-item${i === _cmdActiveIdx ? ' active' : ''}" id="cmd-op-${i}" data-idx="${i}" data-action-id="${a.id}" role="option" aria-selected="${i === _cmdActiveIdx}">
         <span class="cmd-item-icon" aria-hidden="true">${a.icon}</span>
@@ -202,11 +203,11 @@ function _cmdExecutarItem(btn, acoes) {
     return
   }
   const pedidoId = btn.dataset.pedidoId
-  if (pedidoId) window.__navegar('detalhe', { id: pedidoId })
+  if (pedidoId) navegar('detalhe', { id: pedidoId })
 }
 
 function _cmdGetAcoes() {
-  const perfil = window.__praxisSessao?.usuario?.perfil
+  const perfil = sessao.usuario?.perfil
   const podeRelatorios = ['supremo', 'gestor', 'aprovador', 'financeiro'].includes(perfil)
   const podeConfig     = ['supremo', 'gestor'].includes(perfil)
   const tela = new URLSearchParams(location.search).get('tela') || 'pedidos'
@@ -215,40 +216,40 @@ function _cmdGetAcoes() {
 
   const acoes = [
     {
-      id: 'novo-pedido', label: 'Novo pedido', termos: 'criar solicitar compra',
+      id: 'novo-pedido', label: t('novoPedido'), termos: 'criar solicitar compra',
       icon: ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
       fn: () => {
-        window.__navegar('pedidos')
+        navegar('pedidos')
         setTimeout(() => document.getElementById('btn-novo-pedido')?.click(), 150)
       },
     },
     tela !== 'pedidos' && {
-      id: 'ir-pedidos', label: 'Ir para Pedidos', termos: 'kanban quadro lista',
+      id: 'ir-pedidos', label: t('palIrPedidos'), termos: 'kanban quadro lista',
       icon: ico('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
-      fn: () => window.__navegar('pedidos'),
+      fn: () => navegar('pedidos'),
     },
     podeRelatorios && tela !== 'relatorios' && {
-      id: 'ir-relatorios', label: 'Ir para Relatórios', termos: 'graficos indicadores exportar pdf excel',
+      id: 'ir-relatorios', label: t('palIrRelatorios'), termos: 'graficos indicadores exportar pdf excel',
       icon: ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'),
-      fn: () => window.__navegar('relatorios'),
+      fn: () => navegar('relatorios'),
     },
     podeConfig && {
-      id: 'ir-usuarios', label: 'Configurações: Usuários', termos: 'pessoas perfis acesso',
+      id: 'ir-usuarios', label: t('palCfgUsuarios'), termos: 'pessoas perfis acesso',
       icon: ico('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'),
-      fn: () => window.__navegar('config-usuarios'),
+      fn: () => navegar('config-usuarios'),
     },
     podeConfig && {
-      id: 'ir-cadastros', label: 'Configurações: Cadastros', termos: 'empresas categorias fornecedores',
+      id: 'ir-cadastros', label: t('palCfgCadastros'), termos: 'empresas categorias fornecedores',
       icon: ico('<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>'),
-      fn: () => window.__navegar('config-cadastros'),
+      fn: () => navegar('config-cadastros'),
     },
     podeConfig && {
-      id: 'ir-geral', label: 'Configurações: Geral', termos: 'idioma sla prazos tour',
+      id: 'ir-geral', label: t('palCfgGeral'), termos: 'idioma sla prazos tour',
       icon: ico('<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'),
-      fn: () => window.__navegar('config-geral'),
+      fn: () => navegar('config-geral'),
     },
     {
-      id: 'alternar-tema', label: claro ? 'Usar tema escuro' : 'Usar tema claro', termos: 'tema aparencia claro escuro modo',
+      id: 'alternar-tema', label: claro ? t('menuTemaEscuro') : t('menuTemaClaro'), termos: 'tema aparencia claro escuro modo',
       icon: claro
         ? ico('<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>')
         : ico('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>'),
@@ -427,7 +428,7 @@ export function prxToast(mensagem, tipo = 'info', duracao) {
   toast.innerHTML = `
     <span class="toast-ico" aria-hidden="true">${cfg.icone()}</span>
     <span class="toast-msg">${esc(mensagem)}</span>
-    <button type="button" class="toast-fechar" aria-label="Fechar aviso">
+    <button type="button" class="toast-fechar" aria-label="${t('fecharAviso')}">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   `
@@ -493,7 +494,7 @@ export function prxAlert(titulo, mensagem = '') {
   })
 }
 
-export function prxConfirm(titulo, mensagem = '', labelOk = 'Confirmar', labelCancel = 'Cancelar', danger = false) {
+export function prxConfirm(titulo, mensagem = '', labelOk = t('confirmar'), labelCancel = t('btnCancelar'), danger = false) {
   return new Promise(resolve => {
     const overlay = _montarDialogo({
       titulo, mensagem, perigo: !!danger,
@@ -586,28 +587,6 @@ export function initModal(id) {
   overlay.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => fecharModal(id))
   })
-}
-
-// ── Avatar ────────────────────────────────────────────────────
-export function renderAvatar(nome, tamanho = 'md') {
-  const { gerarIniciais } = window.__praxisUtils || {}
-  const iniciais = gerarIniciais ? gerarIniciais(nome) : (nome?.[0] ?? '?').toUpperCase()
-  return `<div class="avatar avatar-${tamanho}" aria-label="${nome}">${iniciais}</div>`
-}
-
-// ── Badge de status ───────────────────────────────────────────
-export function renderBadgeStatus(status) {
-  const { STATUS_LABEL, STATUS_COLOR } = window.__praxisConst || {}
-  const label = STATUS_LABEL?.[status] ?? status
-  const color = STATUS_COLOR?.[status] ?? 'neutral'
-  return `<span class="badge badge-${color}">${label}</span>`
-}
-
-export function renderBadgePerfil(perfil) {
-  const { PERFIS_LABEL, PERFIS_COLOR } = window.__praxisConst || {}
-  const label = PERFIS_LABEL?.[perfil] ?? perfil
-  const color = PERFIS_COLOR?.[perfil] ?? 'neutral'
-  return `<span class="badge badge-${color}">${label}</span>`
 }
 
 // ── Helpers DOM ───────────────────────────────────────────────
@@ -709,10 +688,9 @@ async function _restaurarDadosDemo(btn) {
   mostrarSpinner(t('demoPreparando'))
   try {
     const { renovarDemo } = await import('./demo-reset.js')
-    const s = window.__praxisSessao
-    await renovarDemo(s.contaDemo || s.usuario, { forcar: true, aoProgresso: progressoDemo })
+    await renovarDemo(sessao.contaDemo || sessao.usuario, { forcar: true, aoProgresso: progressoDemo })
     prxToast(t('demoResetadoMsg'), 'success', 4000)
-    window.__navegar?.('pedidos', {}, { substituir: true })
+    navegar('pedidos', {}, { substituir: true })
   } catch (err) {
     console.error(err)
     prxToast(t('demoErroReset'), 'error')
@@ -724,7 +702,7 @@ async function _restaurarDadosDemo(btn) {
 
 // Diz com quem a pessoa está na demo (a escolhida na entrada) e deixa trocar
 function _textoFaixaDemo() {
-  const u = window.__praxisSessao?.usuario
+  const u = sessao.usuario
   const quem = u ? `<b>${esc(u.nome)}</b> (${esc(PERFIS_LABEL[u.perfil] || u.perfil)})` : ''
   return `<strong class="demo-faixa-longo">${t('demoFaixaTitulo')}</strong><strong class="demo-faixa-curto"><span class="demo-faixa-selo">${t('demoSelo')}</span>${u ? esc(u.nome) : t('demoFaixaTitulo')}</strong>`
     + `<span class="demo-faixa-detalhe">: ${quem ? `${t('demoFaixaComo')} ${quem}. ` : ''}${t('demoFaixaDetalhe')}</span>`
@@ -757,7 +735,7 @@ export function mostrarDemoBanner(isDemo) {
     const { abrirEscolhaPessoa } = await import('./demo-pessoas.js')
     abrirEscolhaPessoa({
       modo: 'trocar',
-      aoEscolher: id => window.__praxisTrocarPessoa?.(id),
+      aoEscolher: id => trocarPessoa(id),
       aoFechar: () => btn.focus(),
     })
   })
@@ -812,9 +790,10 @@ function _mostrarOfflineBanner() {
   document.body.classList.add('com-offline')
 }
 
+let _offlineIniciado = false
 export function initOfflineWatcher() {
-  if (globalThis.__praxisOfflineWatcher) return
-  globalThis.__praxisOfflineWatcher = true
+  if (_offlineIniciado) return
+  _offlineIniciado = true
 
   window.addEventListener('offline', _mostrarOfflineBanner)
   window.addEventListener('online', () => {
@@ -885,8 +864,8 @@ function _tourVisivel(el) {
 // primeira impressão, e no celular tomava metade da tela
 export function abrirTour() {
   // O tour começa no quadro de pedidos; de outra tela, vai até lá primeiro
-  if (!document.getElementById('pedidos-view') && window.__navegar) {
-    window.__navegar('pedidos')
+  if (!document.getElementById('pedidos-view') && podeNavegar()) {
+    navegar('pedidos')
     setTimeout(_tourIniciar, 900)
     return
   }

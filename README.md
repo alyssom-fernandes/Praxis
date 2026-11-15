@@ -58,7 +58,7 @@ Captured from the demo.
 - **Traceable approval.** Approve, or reject with a reason; a rejected order can be reopened with a justification, creating a new order linked to the original.
 - **Purchase, delivery and installments.** The purchase records supplier, final amount and installments; each installment is paid with an attached receipt; the last one closes the order.
 - **The next step is always visible.** Each order says who needs to act and what is missing, with the time spent in each stage and the bottleneck highlighted.
-- **Comments with @mentions, attachments and a full history** in a single timeline.
+- **Comments with @mentions (the author can edit their own), attachments and a full history** in a single timeline.
 - **Reports.** Spend, orders, savings from quotes and installments due, compared with the previous period; charts by month, status, category and company; PDF and Excel export plus a print layout. Approvers see operational data only.
 - **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by the Firestore and Storage rules: each stage of an order can only be moved by the role that owns it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
 - **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
@@ -122,6 +122,12 @@ To run the security rules tests (they start and stop their own emulators):
 npm run testar-regras
 ```
 
+The unit tests, including the interface text check (every key in both languages, no text outside the dictionary), need no emulator:
+
+```bash
+npm run testar-unidade
+```
+
 On `localhost` the app connects to the emulators by itself. Use **Acessar modo demo**, or sign in as
 `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` or `solicitante@praxis.app`, all with the
 password `demo1234`, to see the system through each role.
@@ -143,7 +149,9 @@ password `demo1234`, to see the system through each role.
 index.html            single entry point; loads js/app.js as a module
 css/                  tokens → base → components → views → themes
 js/
-  app.js              session, routes (?tela=), sidebar, navigation
+  app.js              sign-in flow, routes (?tela=), sidebar, navigation
+  estado.js           the session and the hooks modules share, with no window globals
+  constants.js        stages, roles and the interface text (Portuguese and English)
   pedidos.js          board and list, filters, saved views, bulk actions
   pedido-detalhe.js   order flow, quotes, installments, comments, attachments, PDF
   relatorios.js       dashboard, charts and exports
@@ -151,7 +159,7 @@ js/
   demo-*.js           demo people and the daily rebuild
 functions/            triggers, scheduled jobs and the demo seed
 scripts/              emulator seed (npm run seed)
-tests/                Firestore and Storage rules tests (emulator)
+tests/                rules tests (emulator), unit tests and the interface text check
 docs/                 architecture, order flow and permissions (in Portuguese)
 ```
 

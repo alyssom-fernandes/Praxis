@@ -57,7 +57,7 @@ Capturadas do modo demonstração.
 - **Aprovação rastreável.** Aprovar ou reprovar com motivo; pedido reprovado pode ser reaberto com justificativa, gerando um novo pedido vinculado ao original.
 - **Compra, entrega e parcelas.** Execução da compra com fornecedor, valor final e parcelas; pagamento parcela a parcela com comprovante; a última parcela fecha o pedido.
 - **Próximo passo sempre à vista.** Cada pedido diz quem precisa agir e o que falta, com o tempo gasto em cada etapa e o gargalo destacado.
-- **Comentários com @menção, anexos e histórico completo** em uma linha do tempo única.
+- **Comentários com @menção (o autor edita o próprio), anexos e histórico completo** em uma linha do tempo única.
 - **Relatórios.** Gasto, pedidos, economia nas cotações e parcelas a vencer, com comparação ao período anterior; gráficos por mês, status, categoria e empresa; exportação em PDF e Excel e versão para impressão. O aprovador vê só os dados operacionais.
 - **Seis perfis** (supremo, gestor, aprovador, comprador, financeiro e solicitante), com as permissões validadas no servidor pelas regras do Firestore e do Storage: cada etapa do pedido só anda pelas mãos do perfil responsável. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
 - **Várias empresas.** Cada usuário trabalha só com os pedidos das empresas às quais pertence, e o gestor só vê e edita pessoas e empresas das dele; o supremo vê todas.
@@ -121,6 +121,12 @@ Para rodar os testes das regras de segurança (eles sobem e derrubam os próprio
 npm run testar-regras
 ```
 
+Os testes de unidade, com a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário), não precisam de emulador:
+
+```bash
+npm run testar-unidade
+```
+
 Em `localhost` o app se conecta sozinho aos emuladores. Na entrada, use **Acessar modo demo**
 ou entre com `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` ou `solicitante@praxis.app`,
 todos com a senha `demo1234`, para ver o sistema por cada perfil.
@@ -142,7 +148,9 @@ todos com a senha `demo1234`, para ver o sistema por cada perfil.
 index.html            entrada única; carrega js/app.js como módulo
 css/                  tokens → base → componentes → telas → temas
 js/
-  app.js              sessão, rotas (?tela=), barra lateral, navegação
+  app.js              entrada e saída, rotas (?tela=), barra lateral, navegação
+  estado.js           a sessão e os ganchos que os módulos compartilham, sem globais na janela
+  constants.js        etapas, perfis e os textos da interface (português e inglês)
   pedidos.js          quadro e lista, filtros, visões salvas, ações em massa
   pedido-detalhe.js   fluxo do pedido, cotações, parcelas, comentários, anexos, PDF
   relatorios.js       painel, gráficos e exportações
@@ -150,7 +158,7 @@ js/
   demo-*.js           pessoas da demonstração e a recriação diária
 functions/            gatilhos, rotinas agendadas e o seed da demonstração
 scripts/              seed dos emuladores (npm run seed)
-tests/                testes das regras do Firestore e do Storage (emulador)
+tests/                testes das regras (emulador), de unidade e dos textos da interface
 docs/                 arquitetura, fluxo de pedidos e permissões
 ```
 

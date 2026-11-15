@@ -84,7 +84,7 @@ export function renderLogin() {
             <form class="login-form" id="form-login" novalidate>
               <div class="form-group">
                 <label for="input-email">${t('emailLabel')}</label>
-                <input type="email" id="input-email" placeholder="voce@empresa.com" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
+                <input type="email" id="input-email" placeholder="${t('emailPlaceholder')}" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
               </div>
               <div class="form-group">
                 <div class="login-label-linha">
@@ -92,14 +92,14 @@ export function renderLogin() {
                   <button type="button" class="login-link" id="link-forgot">${t('esqueci')}</button>
                 </div>
                 <div class="login-senha">
-                  <input type="password" id="input-senha" placeholder="Sua senha" autocomplete="current-password" required>
+                  <input type="password" id="input-senha" placeholder="${t('senhaPlaceholder')}" autocomplete="current-password" required>
                   <button type="button" class="login-olho" id="btn-olho" aria-pressed="false" aria-controls="input-senha" aria-label="${t('mostrarSenha')}" title="${t('mostrarSenha')}">${ICO.olho}</button>
                 </div>
               </div>
               <div class="login-erro" id="login-erro" role="alert" hidden></div>
               <button type="submit" class="btn-primary login-botao" id="btn-entrar">${t('btnEntrar')}</button>
             </form>
-            <div class="login-sep"><span>ou</span></div>
+            <div class="login-sep"><span>${t('loginOu')}</span></div>
             <button type="button" class="btn-secondary login-botao" id="btn-demo">${t('btnDemo')}</button>
             <p class="login-demo-dica">${t('demoDica')}</p>
             ${_blocoMarcaAfn()}
@@ -113,7 +113,7 @@ export function renderLogin() {
             <form class="login-form" id="form-forgot" novalidate>
               <div class="form-group">
                 <label for="input-forgot-email">${t('emailLabel')}</label>
-                <input type="email" id="input-forgot-email" placeholder="voce@empresa.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
+                <input type="email" id="input-forgot-email" placeholder="${t('emailPlaceholder')}" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required>
               </div>
               <div class="login-erro" id="forgot-erro" role="alert" hidden></div>
               <button type="submit" class="btn-primary login-botao" id="btn-enviar-link">${t('enviarLink')}</button>
@@ -306,9 +306,9 @@ async function _enviarResetSenha(email) {
       // Não revela se a conta existe: a resposta é a mesma de um envio bem-sucedido
       _mostrarEnviado(email)
     } else if (err.code === 'auth/invalid-email' || err.code === 'auth/missing-email') {
-      _mostrarErro('forgot-erro', 'E-mail inválido.')
+      _mostrarErro('forgot-erro', t('emailInvalido'))
     } else if (err.code === 'auth/network-request-failed') {
-      _mostrarErro('forgot-erro', 'Erro de conexão. Verifique sua internet.')
+      _mostrarErro('forgot-erro', t('erroConexao'))
     } else {
       _mostrarErro('forgot-erro', t('erroEnviarEmail'))
     }
@@ -358,7 +358,7 @@ export async function carregarUsuario(uid) {
     // Primeiro acesso de quem foi convidado: o perfil nasce do convite
     const convidado = await _aceitarConvite(uid)
     if (convidado) return convidado
-    throw _erroEntrada('praxis/sem-perfil', 'Usuário não encontrado no sistema.')
+    throw _erroEntrada('praxis/sem-perfil')
   }
   return { id: snap.id, ...snap.data() }
 }
@@ -381,7 +381,7 @@ async function _aceitarConvite(uid) {
   if (!snap.exists()) return null
   const c = snap.data()
   if (!c.expiraEm?.toMillis || c.expiraEm.toMillis() <= Date.now()) {
-    throw _erroEntrada('praxis/convite-expirado', 'Convite expirado.')
+    throw _erroEntrada('praxis/convite-expirado')
   }
   const perfil = {
     nome: c.nome, email: c.email, perfil: c.perfil, empresas: c.empresas,
@@ -394,8 +394,9 @@ async function _aceitarConvite(uid) {
   return { id: uid, ...perfil }
 }
 
-function _erroEntrada(codigo, mensagem) {
-  const erro = new Error(mensagem)
+// O código vai para o console; a tela mostra o aviso traduzido (app.js)
+function _erroEntrada(codigo) {
+  const erro = new Error(codigo)
   erro.code = codigo
   return erro
 }
@@ -403,13 +404,13 @@ function _erroEntrada(codigo, mensagem) {
 // ── Tradução de erros Firebase Auth ──────────────────────────
 function _traduzirErroAuth(code) {
   const map = {
-    'auth/invalid-email':          'E-mail inválido.',
-    'auth/user-not-found':         'E-mail ou senha incorretos.',
-    'auth/wrong-password':         'E-mail ou senha incorretos.',
-    'auth/invalid-credential':     'E-mail ou senha incorretos.',
-    'auth/too-many-requests':      'Muitas tentativas. Aguarde alguns minutos e tente de novo.',
-    'auth/user-disabled':          'Esta conta está desativada. Fale com o administrador.',
-    'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.',
+    'auth/invalid-email':          'emailInvalido',
+    'auth/user-not-found':         'loginErroCredenciais',
+    'auth/wrong-password':         'loginErroCredenciais',
+    'auth/invalid-credential':     'loginErroCredenciais',
+    'auth/too-many-requests':      'loginErroTentativas',
+    'auth/user-disabled':          'loginErroDesativada',
+    'auth/network-request-failed': 'erroConexao',
   }
-  return map[code] ?? 'Não foi possível entrar. Tente novamente.'
+  return t(map[code] ?? 'loginErroGenerico')
 }

@@ -1,5 +1,6 @@
 import { db, collection, query, where, orderBy, limit, onSnapshot, updateDoc, doc, getDocs, writeBatch } from './firebase.js'
-import { sessao, registrarLimpador } from './app.js'
+import { registrarLimpador } from './app.js'
+import { sessao } from './estado.js'
 import { prxToast } from './ui.js'
 import { EVENTOS, t } from './constants.js'
 import { formatTimestamp, esc } from './utils.js'

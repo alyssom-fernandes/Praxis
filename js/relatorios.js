@@ -1,108 +1,15 @@
 import { db, collection, where, getDocs, consulta } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
+import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
+import { sessao } from './estado.js'
+import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
 import { prxToast, marcaPraxis } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, PERFIS, t, tomDaCor } from './constants.js'
-import { formatCurrency, formatDate, esc } from './utils.js'
+import { formatCurrency, formatDate, esc, empresasDoUsuario } from './utils.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
-// ── Textos da tela (PT e EN) ──────────────────────────────────
-const TXT = {
-  pt: {
-    per30d: '30 dias', perMes: 'Mês', perTri: 'Trimestre', perAno: 'Ano', perLivre: 'Livre',
-    nome30d: 'Últimos 30 dias', nomeLivre: 'Período livre', triN: 'º trimestre de',
-    vs30d: 'vs. 30 dias anteriores', vsMes: 'vs. mês anterior', vsTri: 'vs. trimestre anterior',
-    vsAno: 'vs. ano anterior', vsLivre: 'vs. período anterior', semBase: 'Sem base anterior',
-    ate: 'até', a: 'a', dataIni: 'Data inicial', dataFim: 'Data final', periodo: 'Período', empresa: 'Empresa',
-    imprimir: 'Imprimir', exportar: 'Exportar', expXlsx: 'Excel', expPdf: 'PDF',
-    expXlsxDesc: 'Pedidos, parcelas e resumo em abas', expPdfDesc: 'Relatório pronto para enviar', imprimirDesc: 'Esta página, em papel',
-    kGasto: 'Gasto', kPedidos: 'Pedidos', kAprov: 'Em aprovação', kEconomia: 'Economia', kVencer: 'A vencer em 7 dias',
-    kAprovados: 'Aprovados', kReprovados: 'Reprovados',
-    urgente1: 'urgente', urgenteN: 'urgentes', semUrgentes: 'Nenhum urgente',
-    economiaSub: 'Frente à maior cotação', economiaSubN: 'Em {n}, frente à maior cotação', compra1: 'compra', compraN: 'compras',
-    parcela1: 'parcela', parcelaN: 'parcelas', vencida1: 'vencida', vencidaN: 'vencidas',
-    taxaAprov: 'do total decidido', reprovSub: 'No período', agoraSub: 'Agora, em todas as datas',
-    tMensal: 'Gasto mensal', tMensalQtd: 'Pedidos por mês', seisMeses: 'Últimos 6 meses',
-    tDinheiro: 'Para onde vai o dinheiro', tDinheiroQtd: 'De onde vêm os pedidos',
-    porCategoria: 'Por categoria', porEmpresa: 'Por empresa', porFornecedor: 'Por fornecedor',
-    tCategoria: 'Gasto por categoria', tEmpresa: 'Gasto por empresa', tFornecedor: 'Gasto por fornecedor',
-    tParcelas: 'Parcelas a vencer', tMaiores: 'Maiores compras', tFila: 'Aguardando aprovação',
-    tEtapas: 'Etapas dos pedidos', etapasMeta1: '1 pedido criado no período', etapasMetaN: '{n} pedidos criados no período',
-    parcelasAbertas: 'Parcelas em aberto', parcial: 'em andamento', semFornecedor: 'Fornecedor não informado',
-    fornecedor1: 'fornecedor', fornecedorN: 'fornecedores', empresa1: 'empresa', empresaN: 'empresas',
-    proximos30: 'Vencidas e próximos 30 dias', noPeriodo: 'No período', compradasPeriodo: 'Compras fechadas no período',
-    grafico: 'Gráfico', tabela: 'Tabela', mes: 'Mês', variacao: 'Variação', pedidos: 'pedidos', pedido: 'pedido',
-    outras: 'Outras', semCategoria: 'Sem categoria', total: 'Total', media: 'média',
-    mediaMensal: 'Média mensal', maiorMes: 'Maior mês', esteMes: 'Este mês', daMedia: 'da média', semGasto: 'sem gasto',
-    hoje: 'Hoje', amanha: 'Amanhã', vencida: 'Vencida', venceHoje: 'Vence hoje', venceAmanha: 'Vence amanhã',
-    vencidaHa1: 'Vencida há 1 dia', vencidaHaN: 'Vencida há {n} dias', emDias: 'Em {n} dias',
-    haDias: 'há {n} dias', haDia: 'há 1 dia', hojeCurto: 'hoje',
-    vazioTit: 'Nenhum pedido neste período', vazioTxt: 'Não há pedidos criados entre {ini} e {fim}. Experimente um período maior ou outra empresa.',
-    verAno: 'Ver o ano todo',
-    vazioCompras: 'Nenhuma compra com valor final no período.', vazioMensal: 'Sem compras nos últimos 6 meses.',
-    semComprasTit: 'Nenhuma compra fechada neste período', semComprasTxt1: 'O pedido do período ainda não tem valor final.', semComprasTxtN: 'Os {n} pedidos do período ainda não têm valor final.', semComprasTxt: 'Categorias e empresas aparecem aqui quando a compra é registrada.',
-    ver30: 'Ver últimos 30 dias', vsMesmo: 'vs. mesmo período de {a}',
-    vazioParcelasTit: 'Nenhuma parcela em aberto', vazioParcelasTxt: 'Não há parcelas vencidas nem a vencer nos próximos 30 dias.',
-    vazioFilaTit: 'Fila vazia', vazioFilaTxt: 'Nenhum pedido aguarda aprovação agora.',
-    erroTit: 'Não foi possível carregar os relatórios', erroTxt: 'Verifique a conexão e tente de novo.', tentar: 'Tentar de novo',
-    totalParcelas: '{n} em aberto', semPermissao: 'Sem permissão para exportar dados financeiros.',
-    erroExport: 'Não foi possível gerar o arquivo. Verifique a conexão.',
-    relatorioCompras: 'Relatório de compras', geradoEm: 'Gerado em', todas: 'Todas as empresas',
-    colNum: 'Nº', colTitulo: 'Título', colEmpresa: 'Empresa', colCategoria: 'Categoria', colStatus: 'Status',
-    colUrgente: 'Urgente', colCriado: 'Criado em', colEstimado: 'Valor estimado', colFinal: 'Valor final',
-    colVenc: 'Vencimento', colParcela: 'Parcela', colValor: 'Valor', colSituacao: 'Situação', colQtd: 'Pedidos', colPct: '%',
-    sim: 'Sim', nao: 'Não', aberta: 'Em aberto', indicador: 'Indicador', pagina: 'Página', de: 'de',
-    resumo: 'Resumo', abaPedidos: 'Pedidos', abaParcelas: 'Parcelas', pedidosPeriodo: 'Pedidos do período',
-    graficoMensalAria: 'Gráfico de colunas: {t} nos últimos 6 meses', etapasAria: 'Pedidos do período por etapa',
-  },
-  en: {
-    per30d: '30 days', perMes: 'Month', perTri: 'Quarter', perAno: 'Year', perLivre: 'Custom',
-    nome30d: 'Last 30 days', nomeLivre: 'Custom range', triN: ' quarter of',
-    vs30d: 'vs. previous 30 days', vsMes: 'vs. previous month', vsTri: 'vs. previous quarter',
-    vsAno: 'vs. previous year', vsLivre: 'vs. previous period', semBase: 'No prior data',
-    ate: 'to', a: 'to', dataIni: 'Start date', dataFim: 'End date', periodo: 'Period', empresa: 'Company',
-    imprimir: 'Print', exportar: 'Export', expXlsx: 'Excel', expPdf: 'PDF',
-    expXlsxDesc: 'Orders, installments and summary', expPdfDesc: 'Report ready to share', imprimirDesc: 'This page, on paper',
-    kGasto: 'Spend', kPedidos: 'Orders', kAprov: 'Pending approval', kEconomia: 'Savings', kVencer: 'Due in 7 days',
-    kAprovados: 'Approved', kReprovados: 'Rejected',
-    urgente1: 'urgent', urgenteN: 'urgent', semUrgentes: 'No urgent orders',
-    economiaSub: 'Against the highest quote', economiaSubN: 'Across {n}, against the highest quote', compra1: 'purchase', compraN: 'purchases',
-    parcela1: 'installment', parcelaN: 'installments', vencida1: 'overdue', vencidaN: 'overdue',
-    taxaAprov: 'of decided orders', reprovSub: 'In period', agoraSub: 'Right now, any date',
-    tMensal: 'Monthly spend', tMensalQtd: 'Orders per month', seisMeses: 'Last 6 months',
-    tDinheiro: 'Where the money goes', tDinheiroQtd: 'Where orders come from',
-    porCategoria: 'By category', porEmpresa: 'By company', porFornecedor: 'By supplier',
-    tCategoria: 'Spend by category', tEmpresa: 'Spend by company', tFornecedor: 'Spend by supplier',
-    tParcelas: 'Upcoming installments', tMaiores: 'Largest purchases', tFila: 'Awaiting approval',
-    tEtapas: 'Order stages', etapasMeta1: '1 order created in the period', etapasMetaN: '{n} orders created in the period',
-    parcelasAbertas: 'Open installments', parcial: 'in progress', semFornecedor: 'Supplier not set',
-    fornecedor1: 'supplier', fornecedorN: 'suppliers', empresa1: 'company', empresaN: 'companies',
-    proximos30: 'Overdue and next 30 days', noPeriodo: 'In period', compradasPeriodo: 'Purchases closed in period',
-    grafico: 'Chart', tabela: 'Table', mes: 'Month', variacao: 'Change', pedidos: 'orders', pedido: 'order',
-    outras: 'Others', semCategoria: 'Uncategorized', total: 'Total', media: 'average',
-    mediaMensal: 'Monthly average', maiorMes: 'Biggest month', esteMes: 'This month', daMedia: 'of average', semGasto: 'no spend',
-    hoje: 'Today', amanha: 'Tomorrow', vencida: 'Overdue', venceHoje: 'Due today', venceAmanha: 'Due tomorrow',
-    vencidaHa1: 'Overdue by 1 day', vencidaHaN: 'Overdue by {n} days', emDias: 'In {n} days',
-    haDias: '{n} days ago', haDia: '1 day ago', hojeCurto: 'today',
-    vazioTit: 'No orders in this period', vazioTxt: 'No orders were created between {ini} and {fim}. Try a longer period or another company.',
-    verAno: 'View the whole year',
-    vazioCompras: 'No purchases with a final amount in this period.', vazioMensal: 'No purchases in the last 6 months.',
-    semComprasTit: 'No closed purchases in this period', semComprasTxt1: 'The order in this period has no final amount yet.', semComprasTxtN: 'The {n} orders in this period have no final amount yet.', semComprasTxt: 'Categories and companies show up here once the purchase is recorded.',
-    ver30: 'View last 30 days', vsMesmo: 'vs. same period of {a}',
-    vazioParcelasTit: 'No open installments', vazioParcelasTxt: 'Nothing overdue or due in the next 30 days.',
-    vazioFilaTit: 'Queue is empty', vazioFilaTxt: 'No orders are awaiting approval right now.',
-    erroTit: 'Could not load reports', erroTxt: 'Check your connection and try again.', tentar: 'Try again',
-    totalParcelas: '{n} open', semPermissao: 'You are not allowed to export financial data.',
-    erroExport: 'Could not generate the file. Check your connection.',
-    relatorioCompras: 'Purchasing report', geradoEm: 'Generated on', todas: 'All companies',
-    colNum: 'No.', colTitulo: 'Title', colEmpresa: 'Company', colCategoria: 'Category', colStatus: 'Status',
-    colUrgente: 'Urgent', colCriado: 'Created', colEstimado: 'Estimated', colFinal: 'Final amount',
-    colVenc: 'Due date', colParcela: 'Installment', colValor: 'Amount', colSituacao: 'State', colQtd: 'Orders', colPct: '%',
-    sim: 'Yes', nao: 'No', aberta: 'Open', indicador: 'Metric', pagina: 'Page', de: 'of',
-    resumo: 'Summary', abaPedidos: 'Orders', abaParcelas: 'Installments', pedidosPeriodo: 'Orders in period',
-    graficoMensalAria: 'Column chart: {t} over the last 6 months', etapasAria: 'Orders in the period by stage',
-  },
-}
+// ── Textos da tela (PT e EN): js/textos-relatorios.js ─────────
+const TXT = TEXTOS_RELATORIOS
 function _lang() { try { return sessionStorage.getItem('praxis_lang') || 'pt' } catch { return 'pt' } }
 function tr(chave, vars) {
   let s = (TXT[_lang()] || TXT.pt)[chave] ?? TXT.pt[chave] ?? t(chave)
@@ -475,8 +382,7 @@ function _definirPeriodo(per) {
 
 async function _carregarDados() {
   const perfil = sessao.usuario.perfil
-  const raw    = sessao.usuario.empresas
-  const ids    = Array.isArray(raw) ? raw : Object.keys(raw || {})
+  const ids    = empresasDoUsuario(sessao.usuario)
   const fin    = _podeVerFinanceiro()
 
   const [empSnap, catSnap, pedSnap] = await Promise.all([
@@ -509,8 +415,7 @@ function _preencherEmpresas() {
   const sel = document.getElementById('filtro-empresa')
   if (!sel || sel.options.length > 1) return
   const perfil = sessao.usuario.perfil
-  const raw    = sessao.usuario.empresas
-  const ids    = Array.isArray(raw) ? raw : Object.keys(raw || {})
+  const ids    = empresasDoUsuario(sessao.usuario)
   _empresas
     .filter(e => perfil === PERFIS.SUPREMO || ids.includes(e.id))
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
@@ -1252,7 +1157,7 @@ async function _exportarPDF() {
     doc.setProperties({ title: `Praxis · ${tr('relatorioCompras')}`, subject: _nomeArquivo('pdf'), author: 'Praxis', creator: 'Praxis' })
     const W = 297, H = 210, M = 14, LARG = W - 2 * M
     const TOPO_CONT = M + 14                  // início do conteúdo nas páginas seguintes
-    // eslint-disable-next-line no-control-regex -- a fonte padrão do PDF só aceita Latin-1: o intervalo  -� é o alvo
+    // eslint-disable-next-line no-control-regex -- a fonte padrão do PDF só aceita Latin-1: o intervalo \x00-\xFF é o alvo
     const limpo = s => String(s ?? '').replace(/[  ]/g, ' ').replace(/[–—−]/g, '-').replace(/[^\x00-\xFF]/g, '')
     const brl = v => limpo(_brl(v))
     const compacto = v => limpo(_brlCompacto(v))

@@ -2,11 +2,12 @@ import {
   db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, where,
   consulta, consultaUsuarios, marcaDemo,
 } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { sessao } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { CATEGORIAS_PADRAO, TONS_CATEGORIA, CORES_CATEGORIA, corCategoria, tomDaCor, PERFIS, STATUS, t } from './constants.js'
-import { formatCNPJ, debounce, normalizarTexto } from './utils.js'
+import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario } from './utils.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
   doisDigitos, moedaCurta, moeda,
@@ -254,8 +255,7 @@ async function _carregar() {
 async function _contar() {
   try {
     const perfil = sessao.usuario?.perfil
-    const raw    = sessao.usuario?.empresas
-    const ids    = Array.isArray(raw) ? raw : Object.keys(raw || {})
+    const ids    = empresasDoUsuario(sessao.usuario)
     const [pedSnap, usrSnap] = await Promise.all([
       perfil === PERFIS.SUPREMO
         ? getDocs(consulta(collection(db, 'pedidos')))
@@ -282,8 +282,7 @@ async function _contar() {
       usrSnap.docs.forEach(d => {
         const u = d.data()
         if (u.ativo === false) return
-        const emps = Array.isArray(u.empresas) ? u.empresas : Object.keys(u.empresas || {})
-        emps.forEach(id => soma(c.usuariosEmpresa, id))
+        empresasDoUsuario(u).forEach(id => soma(c.usuariosEmpresa, id))
       })
     }
     return c

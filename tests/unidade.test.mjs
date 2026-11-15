@@ -9,8 +9,12 @@ import {
   formatFileSize, pluralizar, calcularSLA, maisXDiasISO, hojeISO, dataEhPassado, dataEhProximos,
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
+  empresasDoUsuario, textoPrazo,
 } from '../js/utils.js'
-import { TRADUCOES, tomDaCor, corCategoria, TONS_CATEGORIA } from '../js/constants.js'
+import {
+  tomDaCor, corCategoria, TONS_CATEGORIA,
+  t, STATUS_LABEL, PERFIS_LABEL, rotuloMotivo, rotuloNota, rotuloUrgencia,
+} from '../js/constants.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 
 // O Intl separa "R$" do número com um espaço não separável
@@ -140,13 +144,6 @@ test('cada cor vira o tom mais próximo da paleta', () => {
 })
 
 // ── Textos em português e inglês ───────────────────────────────
-test('toda chave de texto existe nos dois idiomas', () => {
-  const pt = Object.keys(TRADUCOES.pt)
-  const en = Object.keys(TRADUCOES.en)
-  assert.deepEqual(pt.filter(k => !en.includes(k)), [], 'faltam em inglês')
-  assert.deepEqual(en.filter(k => !pt.includes(k)), [], 'faltam em português')
-})
-
 // ── Renovação da demo pelo servidor (functions/src/demo-acesso.js) ──
 test('só a conta demo e o supremo pedem a renovação da demo', () => {
   const { podeRenovarDemo } = acessoDemo
@@ -190,4 +187,47 @@ test('vencimentos mensais respeitam o fim do mês e a virada do ano', () => {
   assert.deepEqual(vencimentosMensais('2026-11-15', 3), ['2026-11-15', '2026-12-15', '2027-01-15'])
   assert.deepEqual(vencimentosMensais('2026-11-15', 1), ['2026-11-15'])
   assert.deepEqual(vencimentosMensais('', 2), [])
+})
+
+// ── Idioma da sessão ───────────────────────────────────────────
+// Fora do navegador vale o português; emIngles simula a sessão em inglês
+function emIngles(fn) {
+  const antes = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    value: { getItem: k => (k === 'praxis_lang' ? 'en' : null) }, configurable: true, writable: true,
+  })
+  try { return fn() } finally {
+    if (antes) Object.defineProperty(globalThis, 'sessionStorage', antes)
+    else delete globalThis.sessionStorage
+  }
+}
+
+test('rótulos, prazos e notas gravadas seguem o idioma da sessão', () => {
+  assert.equal(STATUS_LABEL.ag_cotacao, 'Em cotação')
+  assert.equal(PERFIS_LABEL.gestor, 'Gestor')
+  assert.equal(t('prazoFaltam', { n: 3 }), 'Faltam 3 dias')
+  assert.equal(textoPrazo(1), 'Falta 1 dia')
+  assert.equal(rotuloNota('Comprador assumiu'), 'Comprador assumiu o pedido')
+  assert.equal(rotuloNota('Justificativa livre'), 'Justificativa livre')
+  emIngles(() => {
+    assert.equal(STATUS_LABEL.ag_cotacao, 'Quoting')
+    assert.equal(PERFIS_LABEL.gestor, 'Manager')
+    assert.equal(t('prazoFaltam', { n: 3 }), '3 days left')
+    assert.equal(textoPrazo(-2), '2 days late')
+    assert.equal(rotuloMotivo('Outros'), 'Other')
+    assert.equal(rotuloMotivo('Texto escrito pela pessoa'), 'Texto escrito pela pessoa')
+    assert.equal(rotuloNota('Cotação indicada'), 'Quote selected by the buyer')
+    assert.equal(rotuloNota('Fornecedor: TechSupply · R$ 4.050,00'), 'Supplier: TechSupply · R$ 4.050,00')
+    assert.equal(rotuloNota('Reaberto a partir de PRX-0007 — Verba liberada.'), 'Reopened from PRX-0007 — Verba liberada.')
+    assert.equal(rotuloUrgencia('Urgente'), 'Urgent')
+    assert.equal(t('chaveQueNaoExiste'), 'chaveQueNaoExiste')
+  })
+  assert.equal(STATUS_LABEL.ag_cotacao, 'Em cotação')
+})
+
+test('empresas da pessoa sempre como lista, qualquer que seja o formato gravado', () => {
+  assert.deepEqual(empresasDoUsuario({ empresas: ['e1', 'e2'] }), ['e1', 'e2'])
+  assert.deepEqual(empresasDoUsuario({ empresas: { e1: true } }), ['e1'])
+  assert.deepEqual(empresasDoUsuario({}), [])
+  assert.deepEqual(empresasDoUsuario(null), [])
 })

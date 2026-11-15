@@ -35,6 +35,9 @@ Firebase
 | **Dados desnormalizados** (`fornecedorNome`, `autorNome`) | Evita N+1 de leituras na renderização de listas. |
 | **Tokens CSS** (`css/tokens.css`) | Dark mode padrão + override `.light` no `<html>`; troca de tema sem re-render. |
 | **Constantes centralizadas** (`js/constants.js`) | Nenhuma string mágica de status/perfil no código; tudo importado. |
+| **Estado compartilhado em `js/estado.js`** | A sessão e os ganchos que um módulo registra para outro (a navegação, a lista do quadro, a troca de pessoa da demo) ficam num módulo que não importa nenhum outro. Assim `ui.js` e as telas não formam ciclo com `app.js`, e nada passa por globais na janela. |
+| **Todo texto de tela no dicionário** | A tela escreve por `t()` (`js/constants.js`; a de relatórios, também por `js/textos-relatorios.js`), e os rótulos de etapa, perfil, condição e motivo seguem o idioma da sessão. A nota que o sistema grava no histórico vai pela chave do dicionário; a antiga, gravada como texto, é traduzida na hora de mostrar. `tests/textos.test.mjs` confere a paridade pt/en (chaves e marcadores), se toda chave pedida existe e se algum módulo escreve texto fora do dicionário. |
+| **Empresas da pessoa sempre como lista** | `empresasDoUsuario()` (`js/utils.js`) é o único leitor: o app grava a lista, que as consultas (`array-contains-any`) e as Functions esperam. |
 | **IDs sempre string** | IDs do Firestore nunca passam por coerção numérica. |
 | **Datas internas `YYYY-MM-DD`** | Comparação lexicográfica funciona; formatação só na borda da UI. |
 
@@ -114,7 +117,7 @@ dão à conta demo o perfil `demo`, que só alcança os dados da demonstração.
 | **Anexos gerais** | Upload para `pedidos/{id}/anexos/`; doc em subcollection `anexos` e evento `{tipo:'anexo'}` no historico, no mesmo lote e com o mesmo ID |
 | **Timeline SLA** | Deriva durações de `_historico` filtrando entradas com `h.status && (!h.tipo \|\| h.tipo === 'status')`; último segmento usa `Date.now()` se pedido não-terminal |
 | **Reabertura** | `runTransaction` clona campos principais → novo pedido com `reabertoDe`; original recebe `reabertoPara` |
-| **Command palette** | `window.__getPedidos()` getter evita import circular; pedidos filtrados em tempo real |
+| **Command palette** | Lê a lista do quadro por `pedidosCarregados()` (`js/estado.js`), sem import circular; pedidos filtrados em tempo real |
 | **Tour guiado** | `box-shadow` 9999px como spotlight; abre só pelo botão "Fazer o tour" (faixa da demo e Configurações › Geral) |
 
 ## Modo demo

@@ -1,4 +1,5 @@
 import { FIREBASE_CONFIG } from './config.js'
+import { empresasDoUsuario } from './utils.js'
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js'
 import {
   getAuth,
@@ -85,8 +86,7 @@ function consulta(ref, ...restricoes) {
 function consultaUsuarios(usuario) {
   const ref = collection(db, 'usuarios')
   if (eContaDemo() || usuario?.perfil === 'supremo') return consulta(ref)
-  const raw = usuario?.empresas
-  const empresas = Array.isArray(raw) ? raw : Object.keys(raw || {})
+  const empresas = empresasDoUsuario(usuario)
   return empresas.length ? query(ref, where('empresas', 'array-contains-any', empresas.slice(0, 30))) : ref
 }
 

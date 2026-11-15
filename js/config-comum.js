@@ -2,7 +2,8 @@
 // ícones no mesmo traço, cabeçalho de tela, perfil com ponto de cor, numerais,
 // estado vazio, validação inline e máscara de CNPJ.
 import { db, collection, getDocs, consulta, consultaUsuarios } from './firebase.js'
-import { sessao, atualizarLateral } from './app.js'
+import { atualizarLateral } from './app.js'
+import { sessao } from './estado.js'
 import { t, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais } from './utils.js'
 

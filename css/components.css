@@ -986,6 +986,33 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
 .comment-text { font-size: 0.92rem; color: var(--text); line-height: 1.6; overflow-wrap: anywhere; }
 .comment-text .mention { color: var(--gold); font-weight: 600; }
 
+/* Comentário enviado: marca de editado e as ações (o autor edita; o gestor
+   apaga), discretas como links, à direita do cabeçalho */
+.feed-item-comment .feed-header { flex-wrap: wrap; row-gap: 2px; }
+.feed-editado { font-size: 0.76rem; color: var(--text3); }
+.coment-acoes { margin-left: auto; display: inline-flex; gap: 12px; }
+.coment-acao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  border-radius: 2px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+  cursor: pointer;
+}
+.coment-acao:hover { color: var(--gold); text-decoration-color: currentColor; }
+.coment-acao-perigo:hover { color: var(--red); }
+.coment-acao:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.coment-edicao textarea { display: block; width: 100%; min-height: 72px; resize: vertical; }
+.coment-edicao-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
 /* Campo de comentário no topo da atividade */
 .comentario-composer { display: flex; gap: 14px; }
 .comentario-composer > .avatar { width: 29px; height: 29px; font-size: 0.7rem; margin-top: 8px; }

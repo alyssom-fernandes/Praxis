@@ -437,7 +437,8 @@ test('comentário: só o texto muda, e só dentro da empresa do pedido', async (
   await assertSucceeds(updateDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1'), { texto: 'oi, corrigido', editadoEm: new Date() }))
   // Quem não é autor nem gestor não edita
   await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/p1/comentarios/c1'), { texto: 'meu agora' }))
-  // O gestor da empresa apaga
+  // O autor só edita: apagar fica com o gestor da empresa e o supremo
+  await assertFails(deleteDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1')))
   await assertSucceeds(deleteDoc(doc(db('gestor'), 'pedidos/p1/comentarios/c1')))
 })
 

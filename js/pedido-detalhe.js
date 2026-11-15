@@ -5,18 +5,20 @@ import {
   storageRef, uploadBytes, getDownloadURL, deleteObject,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, eContaDemo,
 } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
+import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
+import { sessao } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL,
-  PERFIS, PERFIS_LABEL, MOTIVOS_REPROVACAO, MOTIVOS_CANCELAMENTO,
+  PERFIS, PERFIS_LABEL, MOTIVOS_REPROVACAO, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo, rotuloNota, rotuloUrgencia,
   CONDICAO_PAGAMENTO, STORAGE_PATHS, DEMO_ENVIA_ARQUIVOS, t,
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
+  empresasDoUsuario, textoPrazo,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -32,6 +34,7 @@ let _avancouDe    = null
 let _avancouEm    = 0
 let _cotacoes    = []
 let _comentarios = []
+let _comentEditando = null  // { id, rascunho }: o comentário aberto para edição
 let _historico   = []
 let _parcelas    = []
 let _anexos      = []
@@ -44,6 +47,7 @@ let _fornecedores = []
 export async function renderDetalhe(pedidoId) {
   if (!pedidoId) { navegar('pedidos'); return }
   _pedidoId = pedidoId
+  _comentEditando = null
   _posAnterior = null
   _avancouDe = null
 
@@ -112,7 +116,7 @@ function _renderErroDetalhe(titulo, msg) {
     <div class="detalhe-erro" role="alert">
       <h1 class="detalhe-erro-titulo">${titulo}</h1>
       <p class="detalhe-erro-texto">${msg}</p>
-      <button class="btn-secondary" data-navegar="pedidos">Voltar para pedidos</button>
+      <button class="btn-secondary" data-navegar="pedidos">${t('dtVoltarPedidos')}</button>
     </div>
   `
 }
@@ -333,13 +337,10 @@ function _modalShell(id, titulo, corpo, rodape, largura = 520) {
 // ── Caminho do pedido ─────────────────────────────────────────
 // As sete etapas, com os mesmos nomes e numerais do quadro de pedidos
 const _ETAPAS = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
-const _NOME_ETAPA = {
-  [STATUS.SOLICITADO]: 'Solicitado', [STATUS.AG_COTACAO]: 'Em cotação', [STATUS.EM_APROVACAO]: 'Em aprovação',
-  [STATUS.APROVADO]: 'Aprovado', [STATUS.COMPRADO]: 'Comprado', [STATUS.ENTREGUE]: 'Entregue', [STATUS.PAGO]: 'Pago',
-  [STATUS.REPROVADO]: 'Reprovado', [STATUS.CANCELADO]: 'Cancelado',
-}
 const _dois = n => String(n).padStart(2, '0')
-const _dias = n => `${n} dia${n === 1 ? '' : 's'}`
+// Vencimento de uma parcela em palavras (dias que faltam; negativo: atraso)
+const _textoVencimento = d => d < 0 ? (d === -1 ? t('parcVencida1') : t('parcVencida', { n: -d }))
+  : d === 0 ? t('prazoVenceHoje') : d === 1 ? t('parcVenceEm1') : t('parcVenceEm', { n: d })
 const _pct = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`
 
 // Mudanças de status registradas no histórico, da mais antiga para a mais nova
@@ -383,9 +384,7 @@ function _estadoPrazo() {
   const data = formatDate(p.dataNecessaria)
   if (_TERMINAIS.includes(p.status) || p.status === STATUS.ENTREGUE) return { data, texto: '', cls: '' }
   const d = _diasAte(p.dataNecessaria)
-  if (d < 0) return { data, texto: `Atrasado ${_dias(-d)}`, cls: 'atrasado' }
-  if (d === 0) return { data, texto: 'Vence hoje', cls: 'atrasado' }
-  return { data, texto: `${d === 1 ? 'Falta' : 'Faltam'} ${_dias(d)}`, cls: d <= 3 ? 'perto' : '' }
+  return { data, texto: textoPrazo(d), cls: d <= 0 ? 'atrasado' : d <= 3 ? 'perto' : '' }
 }
 
 function _renderCaminho() {
@@ -396,26 +395,26 @@ function _renderCaminho() {
     : parou === STATUS.CANCELADO ? (p.canceladoEm || _quemFez(STATUS.CANCELADO)?.em) : null
   const etapas = _ETAPAS.map((st, i) => {
     let cls, sub = '', leitor = ''
-    if (i < atual) { cls = 'feita'; sub = _diaMes(ent[st]); leitor = 'concluída' }
+    if (i < atual) { cls = 'feita'; sub = _diaMes(ent[st]); leitor = t('dtEtapaConcluida') }
     else if (i === atual && parou) {
       cls = 'parou'
-      sub = `${parou === STATUS.REPROVADO ? 'Reprovado' : 'Cancelado'}${fim ? ` em ${_diaMes(fim)}` : ''}`
+      sub = fim ? t(parou === STATUS.REPROVADO ? 'prazoReprovadoEm' : 'prazoCanceladoEm', { d: _diaMes(fim) }) : STATUS_LABEL[parou]
     } else if (i === atual) {
       cls = p.status === STATUS.PAGO ? 'atual fim' : 'atual'
-      sub = p.status === STATUS.PAGO ? `Em ${_diaMes(ent[st]) || '—'}` : (ent[st] ? formatarDataRelativa(ent[st]).label : 'Agora')
-      leitor = 'etapa atual'
+      sub = p.status === STATUS.PAGO ? t('dtEmData', { d: _diaMes(ent[st]) || '—' }) : (ent[st] ? formatarDataRelativa(ent[st]).label : t('dtAgora'))
+      leitor = t('dtEtapaAtual')
     } else { cls = parou ? 'cortada' : 'futura' }
     if (_avancouDe != null && i > _avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
     return `
       <li class="caminho-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
         <span class="caminho-num" aria-hidden="true">${_dois(i + 1)}</span>
-        <span class="caminho-nome">${_NOME_ETAPA[st]}${leitor ? `<span class="sr-only">, ${leitor}</span>` : ''}</span>
+        <span class="caminho-nome">${STATUS_LABEL[st]}${leitor ? `<span class="sr-only">, ${leitor}</span>` : ''}</span>
         <span class="caminho-sub">${sub || '&nbsp;'}</span>
       </li>`
   }).join('')
   return `
     <div class="caminho-wrap">
-      <ol class="caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="Caminho do pedido">${etapas}</ol>
+      <ol class="caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="${t('dtCaminhoAria')}">${etapas}</ol>
     </div>`
 }
 
@@ -429,7 +428,7 @@ function _renderCabecalho(menu) {
   const meta = []
   if (empresa?.nome) meta.push(`<span>${esc(empresa.nome)}</span>`)
   if (solicNome || criado) {
-    meta.push(`<span>${solicNome ? `Aberto por ${esc(solicNome)}` : 'Aberto'}${criado ? ` <span title="${criado.title}">${criado.label.toLowerCase()}</span>` : ''}</span>`)
+    meta.push(`<span>${solicNome ? t('dtAbertoPor', { nome: esc(solicNome) }) : t('dtAberto')}${criado ? ` <span title="${criado.title}">${criado.label.toLowerCase()}</span>` : ''}</span>`)
   }
   if (prazo) {
     meta.push(`<span>${t('dtPrazo')} <span class="detalhe-meta-data">${prazo.data}</span>${prazo.texto
@@ -442,7 +441,7 @@ function _renderCabecalho(menu) {
   return `
     <header class="detalhe-head">
       <div class="detalhe-head-linha">
-        <nav class="detalhe-trilha" aria-label="Navegação">
+        <nav class="detalhe-trilha" aria-label="${t('dtTrilhaAria')}">
           <a href="?tela=pedidos" data-navegar="pedidos">${t('titulo')}</a>
           <span class="detalhe-trilha-sep" aria-hidden="true">/</span>
           <span class="detalhe-num" aria-current="page">${esc(p.numeroPedido || '—')}</span>
@@ -603,7 +602,7 @@ function _renderDetalhe() {
         <label for="reprov-motivo">${t('motivoLabel')} *</label>
         <select id="reprov-motivo">
           <option value="">${t('selecionar')}</option>
-          ${MOTIVOS_REPROVACAO.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
+          ${MOTIVOS_REPROVACAO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" id="reprov-outros-wrap" style="display:none;margin-top:1rem">
@@ -619,7 +618,7 @@ function _renderDetalhe() {
         <label for="cancel-motivo">${t('motivoLabel')} *</label>
         <select id="cancel-motivo">
           <option value="">${t('selecionar')}</option>
-          ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
+          ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
       <div class="form-group" id="cancel-outros-wrap" style="display:none;margin-top:1rem">
@@ -663,7 +662,7 @@ function _resumoCotacao(c, rotulo) {
     <div class="modal-resumo">
       <span class="meta-label">${rotulo}</span>
       <div class="modal-resumo-linha"><strong>${esc(c.fornecedorNome)}</strong><span class="dt-numeral">${formatCurrency(c.valor)}</span></div>
-      ${c.prazoEntrega || c.condicoesComerciais ? `<div class="modal-resumo-sub">${esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · '))}</div>` : ''}
+      ${c.prazoEntrega || c.condicoesComerciais ? `<div class="modal-resumo-sub">${esc([c.prazoEntrega ? t('dtPrazoEntregaCurto', { prazo: c.prazoEntrega }) : '', c.condicoesComerciais].filter(Boolean).join(' · '))}</div>` : ''}
     </div>`
 }
 
@@ -797,7 +796,7 @@ function _renderDecisao(acoes) {
   const n = _cotacoes.length
   const fatos = []     // [rótulo, valor, detalhe, classe]
   let rotulo = t('dtProximoPasso'), tom = 'neutro', titulo, texto, resp = null
-  const ultimaNota = st => [..._historico].reverse().find(h => h.status === st && h.nota)?.nota
+  const ultimaNota = st => _textoNota([..._historico].reverse().find(h => h.status === st && (h.nota || h.notaChave)) || {})
   const dinheiro = v => `<span class="dt-numeral">${formatCurrency(v)}</span>`
   const prazo = _estadoPrazo()
   const fatoPrazo = () => prazo && fatos.push([t('dtPrazo'), `<span class="dt-numeral">${prazo.data}</span>`, prazo.texto, prazo.cls ? `prazo-${prazo.cls}` : ''])
@@ -815,10 +814,10 @@ function _renderDecisao(acoes) {
     case STATUS.AG_COTACAO: {
       const pode = _podeAnexarCotacao()
       titulo = n === 0 ? (pode ? t('dtCotTituloVazio') : t('dtCotTituloAndamento'))
-        : n < 3 ? `${n} de 3 cotações registradas` : (pode ? t('dtCotTituloIndicar') : `${n} cotações registradas`)
+        : n < 3 ? t('dtCotRegistradasDe3', { n }) : (pode ? t('dtCotTituloIndicar') : t('dtCotRegistradas', { n }))
       texto = !pode ? t('dtCotTextoOutros')
         : n === 0 ? t('dtCotTextoVazio') : n < 3 ? t('dtCotTextoPoucas') : t('dtCotTextoIndicar')
-      fatos.push([t('secaoCotacoes'), `<span class="dt-numeral">${n}</span><span class="dt-de"> de 3</span>`])
+      fatos.push([t('secaoCotacoes'), `<span class="dt-numeral">${n}</span><span class="dt-de"> ${t('dtDe3')}</span>`])
       if (n) fatos.push([t('dtMenorValor'), dinheiro(Math.min(..._cotacoes.map(c => c.valor)))])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
       fatoPrazo()
@@ -838,7 +837,7 @@ function _renderDecisao(acoes) {
         if (p.valorEstimado) {
           const dif = ind.valor - p.valorEstimado
           fatos.push([t('dtFrenteEstimado'), `<span class="dt-numeral">${_pct(dif / p.valorEstimado * 100)}</span>`,
-            `${dif > 0 ? 'acima de' : dif < 0 ? 'abaixo de' : 'igual a'} ${formatCurrency(p.valorEstimado)}`, dif > 0 ? 'acima' : 'abaixo'])
+            t(dif > 0 ? 'dtAcimaDe' : dif < 0 ? 'dtAbaixoDe' : 'dtIgualA', { valor: formatCurrency(p.valorEstimado) }), dif > 0 ? 'acima' : 'abaixo'])
         }
         if (n > 1) {
           const maior = Math.max(..._cotacoes.map(c => c.valor))
@@ -854,7 +853,7 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
       const em = p.aprovadoEm || h?.em
       titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `Aprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
+      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' })} ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
         : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
       if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
@@ -865,7 +864,7 @@ function _renderDecisao(acoes) {
 
     case STATUS.COMPRADO:
       titulo = acoes.length ? t('dtCompradoTituloPode') : t('dtCompradoTitulo')
-      texto = `${p.fornecedorNome ? `Compra feita com ${esc(p.fornecedorNome)}${p.dataCompra ? ` em ${formatDate(p.dataCompra)}` : ''}. ` : ''}${t('dtCompradoTexto')}`
+      texto = `${p.fornecedorNome ? `${t(p.dataCompra ? 'dtCompraComEm' : 'dtCompraCom', { fornecedor: esc(p.fornecedorNome), d: p.dataCompra ? formatDate(p.dataCompra) : '' })} ` : ''}${t('dtCompradoTexto')}`
       if (p.valorFinal) fatos.push([t('metaValorFinal'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
       fatoPrazo()
       resp = { papel: t('dtRecebimento'), nome: comprador() || _nomePorId(p.solicitanteId) || p.solicitanteNome || null }
@@ -877,15 +876,15 @@ function _renderDecisao(acoes) {
       const pago = pagas.reduce((s, x) => s + (x.valor || 0), 0)
       const prox = _proximaParcela()
       titulo = prox
-        ? (acoes.length ? `Registre o pagamento da parcela ${prox.numero}/${prox.total}` : t('dtEntregueTitulo'))
+        ? (acoes.length ? t('dtRegistrePagamentoParcela', { parcela: `${prox.numero}/${prox.total}` }) : t('dtEntregueTitulo'))
         : (acoes.length ? t('dtEntregueTituloConcluir') : t('dtEntregueTitulo'))
-      texto = `${p.dataEntrega ? `Recebido em ${formatDate(p.dataEntrega)}. ` : ''}${_parcelas.length
-        ? `${pagas.length} de ${_parcelas.length} parcela${_parcelas.length > 1 ? 's' : ''} paga${pagas.length === 1 ? '' : 's'}.`
+      texto = `${p.dataEntrega ? `${t('dtRecebidoEm', { d: formatDate(p.dataEntrega) })} ` : ''}${_parcelas.length
+        ? t('dtParcelasPagas', { pagas: pagas.length, total: _parcelas.length })
         : t('dtSemParcelas')} ${_avisoDeFuncao('pagar', [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO])}`
-      if (_parcelas.length) fatos.push([t('dtPago'), dinheiro(pago), `de ${formatCurrency(total)}`])
+      if (_parcelas.length) fatos.push([t('dtPago'), dinheiro(pago), t('dtDeValor', { valor: formatCurrency(total) })])
       if (prox) {
         const d = _diasAte(prox.vencimento)
-        const est = d === null ? '' : d < 0 ? `Vencida há ${_dias(-d)}` : d === 0 ? 'Vence hoje' : `Vence em ${_dias(d)}`
+        const est = d === null ? '' : _textoVencimento(d)
         fatos.push([`${t('dtParcela')} ${prox.numero}/${prox.total}`, dinheiro(prox.valor), `${formatDate(prox.vencimento)}${est ? ` · ${est}` : ''}`, d !== null && d < 0 ? 'prazo-atrasado' : ''])
       }
       resp = _respFinanceiro()
@@ -896,24 +895,26 @@ function _renderDecisao(acoes) {
       rotulo = t('dtConcluido'); tom = 'ok'
       const ent = _entradas()
       titulo = t('dtPagoTitulo')
-      texto = `${p.valorFinal ? `${formatCurrency(p.valorFinal)} pagos` : 'Pago integralmente'}${p.fornecedorNome ? ` a ${esc(p.fornecedorNome)}` : ''}.`
+      texto = p.valorFinal
+        ? t(p.fornecedorNome ? 'dtPagosValorA' : 'dtPagosValor', { valor: formatCurrency(p.valorFinal), fornecedor: esc(p.fornecedorNome || '') })
+        : t(p.fornecedorNome ? 'dtPagoIntegralA' : 'dtPagoIntegral', { fornecedor: esc(p.fornecedorNome || '') })
       if (p.valorFinal) fatos.push([t('dtValorPago'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
       if (ent[STATUS.PAGO]) fatos.push([t('dtConcluidoEm'), `<span class="dt-numeral">${_dataCurta(ent[STATUS.PAGO])}</span>`])
       if (p.criadoEm && ent[STATUS.PAGO]) {
         const d = Math.max(1, Math.round((_tsMs(ent[STATUS.PAGO]) - _tsMs(p.criadoEm)) / 86400000))
-        fatos.push([t('dtDoPedidoAoPagamento'), `<span class="dt-numeral">${d}</span><span class="dt-de"> ${d === 1 ? 'dia' : 'dias'}</span>`])
+        fatos.push([t('dtDoPedidoAoPagamento'), `<span class="dt-numeral">${d}</span><span class="dt-de"> ${t(d === 1 ? 'dtDia' : 'dtDias')}</span>`])
       }
       break
     }
 
     case STATUS.REPROVADO: {
       rotulo = t('dtReprovado'); tom = 'erro'
-      const motivo = p.motivoReprovacao === 'Outros' ? p.motivoReprovacaoOutros : (p.motivoReprovacao || ultimaNota(STATUS.REPROVADO))
+      const motivo = p.motivoReprovacao === MOTIVO_OUTROS ? p.motivoReprovacaoOutros : (rotuloMotivo(p.motivoReprovacao) || ultimaNota(STATUS.REPROVADO))
       const h = _quemFez(STATUS.REPROVADO)
       const quem = _nomePorId(p.reprovadoPor) || p.reprovadoPorNome || h?.nome
       const em = p.reprovadoEm || h?.em
       titulo = motivo ? esc(motivo) : t('dtReprovadoTitulo')
-      texto = `${quem ? `Reprovado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}.` : ''}`
+      texto = quem ? t(em ? 'dtReprovadoPorEm' : 'dtReprovadoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' }) : ''
       if (p.reabertoPara) texto += ` ${t('dtJaReaberto')} ${esc(p.reabertaParaNum || '')}.`
       else if ([PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) texto += ` ${t('dtDicaReabrir')}`
       break
@@ -921,12 +922,12 @@ function _renderDecisao(acoes) {
 
     case STATUS.CANCELADO: {
       rotulo = t('dtCancelado'); tom = 'erro'
-      const motivo = p.motivoCancelamento === 'Outros' ? p.motivoCancelamentoOutros : (p.motivoCancelamento || ultimaNota(STATUS.CANCELADO))
+      const motivo = p.motivoCancelamento === MOTIVO_OUTROS ? p.motivoCancelamentoOutros : (rotuloMotivo(p.motivoCancelamento) || ultimaNota(STATUS.CANCELADO))
       const h = _quemFez(STATUS.CANCELADO)
       const quem = _nomePorId(p.canceladoPor) || p.canceladoPorNome || h?.nome
       const em = p.canceladoEm || h?.em
       titulo = motivo ? esc(motivo) : t('dtCanceladoTitulo')
-      texto = `${quem ? `Cancelado por ${esc(quem)}${em ? ` em ${_dataCurta(em)}` : ''}. ` : ''}${t('dtCanceladoTexto')}`
+      texto = `${quem ? `${t(em ? 'dtCanceladoPorEm' : 'dtCanceladoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' })} ` : ''}${t('dtCanceladoTexto')}`
       break
     }
 
@@ -982,7 +983,7 @@ function _aprovadoresDoPedido() {
   return (p.aprovadorIds?.length
     ? p.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
     : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && u.ativo !== false &&
-        _normEmpresas(u.empresas).includes(p.empresaId)))
+        empresasDoUsuario(u).includes(p.empresaId)))
     .filter(u => !impedimentoDeFuncao(p, u, 'decidir'))
 }
 
@@ -1000,29 +1001,30 @@ function _respAprovadores() {
     const souAprov = _souAprovadorLivre()
     return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null, vazio: t('dtAprovadoresEmpresa') }
   }
-  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` e mais ${lista.length - 2}` : '')
+  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` ${t('dtEMais', { n: lista.length - 2 })}` : '')
   return { papel: t('aprovadoresLabel'), nome: nomes, pessoas: lista.slice(0, 2) }
 }
 
 function _respFinanceiro() {
   const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO && u.ativo !== false &&
-    _normEmpresas(u.empresas).includes(_pedido.empresaId))
+    empresasDoUsuario(u).includes(_pedido.empresaId))
   const nome = fins[0]?.nome || (sessao.usuario.perfil === PERFIS.FINANCEIRO ? sessao.usuario.nome : null)
-  return { papel: 'Financeiro', nome, vazio: t('dtEquipeFinanceira') }
+  return { papel: PERFIS_LABEL[PERFIS.FINANCEIRO], nome, vazio: t('dtEquipeFinanceira') }
 }
 
 // ── Pessoas ───────────────────────────────────────────────────
-// Rótulos usados quando o nome real não pode ser lido pelo perfil atual
-const _NOMES_GENERICOS = new Set(['Aprovadores da empresa', 'Equipe financeira', 'Comprador designado', 'Aprovador'])
+// Rótulos usados quando o nome real não pode ser lido pelo perfil atual (no
+// idioma da sessão, por isso a lista é montada na hora)
+const _nomeGenerico = nome => [t('dtAprovadoresEmpresa'), t('dtEquipeFinanceira'), t('dtCompradorDesignado'), PERFIS_LABEL[PERFIS.APROVADOR]].includes(nome)
 
 function _linhaPessoa(papel, nome, status, extra = '', statusCls = '') {
-  const real = nome && !_NOMES_GENERICOS.has(nome)
+  const real = nome && !_nomeGenerico(nome)
   return `
     <div class="pessoa-linha">
       <div class="avatar avatar-sm ${real ? '' : 'avatar-vazio'}" aria-hidden="true">${real ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 13)}</div>
       <div class="pessoa-corpo">
         <div class="pessoa-role">${papel}</div>
-        <div class="pessoa-name">${nome ? esc(nome) : `<span class="pessoa-indef">${status || 'Não definido'}</span>`}</div>
+        <div class="pessoa-name">${nome ? esc(nome) : `<span class="pessoa-indef">${status || t('dtNaoDefinido')}</span>`}</div>
         ${status && nome ? `<div class="pessoa-status ${statusCls}">${status}</div>` : ''}
         ${extra}
       </div>
@@ -1030,7 +1032,7 @@ function _linhaPessoa(papel, nome, status, extra = '', statusCls = '') {
 }
 
 function _renderPessoa(papel, nome, statusTxt) {
-  return nome ? _linhaPessoa(papel, nome, statusTxt) : _linhaPessoa(papel, null, 'Nome não disponível')
+  return nome ? _linhaPessoa(papel, nome, statusTxt) : _linhaPessoa(papel, null, t('dtNomeIndisponivel'))
 }
 
 function _renderPessoaComprador() {
@@ -1039,11 +1041,11 @@ function _renderPessoaComprador() {
   // fila (um pedido devolvido à fila volta a "Aguardando comprador")
   const passouDaFila = [STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) ||
     ([STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status) && !!_quemFez(STATUS.AG_COTACAO))
-  const nome = p.compradorId ? (_nomePorId(p.compradorId) || 'Comprador designado')
-    : (passouDaFila ? (_quemFez(STATUS.AG_COTACAO)?.nome || 'Comprador designado') : null)
-  if (!nome) return _linhaPessoa(t('compradorLabel'), null, _TERMINAIS.includes(p.status) ? 'Não chegou à cotação' : t('aguardandoComprador'))
+  const nome = p.compradorId ? (_nomePorId(p.compradorId) || t('dtCompradorDesignado'))
+    : (passouDaFila ? (_quemFez(STATUS.AG_COTACAO)?.nome || t('dtCompradorDesignado')) : null)
+  if (!nome) return _linhaPessoa(t('compradorLabel'), null, _TERMINAIS.includes(p.status) ? t('dtNaoChegouCotacao') : t('aguardandoComprador'))
   const st = _cotacoes.length
-    ? `${_cotacoes.length} cotaç${_cotacoes.length === 1 ? 'ão registrada' : 'ões registradas'}`
+    ? (_cotacoes.length === 1 ? t('dtCotRegistrada1') : t('dtCotRegistradas', { n: _cotacoes.length }))
     : t('semCotacoes')
   return _linhaPessoa(t('compradorLabel'), nome, st)
 }
@@ -1054,25 +1056,25 @@ function _renderPessoaAprovadores() {
   const aprovou = [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) || p.aprovadoPor
   if (aprovou) {
     const h = _quemFez(STATUS.APROVADO)
-    const nome = _nomePorId(p.aprovadoPor) || h?.nome || 'Aprovador'
+    const nome = _nomePorId(p.aprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
     const em = p.aprovadoEm || h?.em
-    return _linhaPessoa('Aprovador', nome, `${ICO.check} ${t('aprovadoStatus')}${em ? ` em ${_dataCurta(em)}` : ''}`, '', 'text-green')
+    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, `${ICO.check} ${em ? t('dtAprovadoEm', { d: _dataCurta(em) }) : t('aprovadoStatus')}`, '', 'text-green')
   }
   if (p.status === STATUS.REPROVADO || p.reprovadoPor) {
     const h = _quemFez(STATUS.REPROVADO)
-    const nome = _nomePorId(p.reprovadoPor) || h?.nome || 'Aprovador'
+    const nome = _nomePorId(p.reprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
     const em = p.reprovadoEm || h?.em
-    return _linhaPessoa('Aprovador', nome, `Reprovou${em ? ` em ${_dataCurta(em)}` : ''}`, '', 'text-red')
+    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, em ? t('dtReprovouEm', { d: _dataCurta(em) }) : t('dtReprovou'), '', 'text-red')
   }
   const lista = _aprovadoresDoPedido()
   const status = p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
-    : [STATUS.SOLICITADO, STATUS.AG_COTACAO].includes(p.status) ? 'Entra após as cotações'
-    : p.status === STATUS.CANCELADO ? 'Não chegou à aprovação' : ''
+    : [STATUS.SOLICITADO, STATUS.AG_COTACAO].includes(p.status) ? t('dtEntraAposCotacoes')
+    : p.status === STATUS.CANCELADO ? t('dtNaoChegouAprovacao') : ''
   if (!lista.length) {
     const souAprov = _souAprovadorLivre()
-    return _linhaPessoa(papel, souAprov ? sessao.usuario.nome : 'Aprovadores da empresa', status)
+    return _linhaPessoa(papel, souAprov ? sessao.usuario.nome : t('dtAprovadoresEmpresa'), status)
   }
-  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` e mais ${lista.length - 2}` : '')
+  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` ${t('dtEMais', { n: lista.length - 2 })}` : '')
   return `
     <div class="pessoa-linha">
       <div class="avatar-pilha" aria-hidden="true">
@@ -1088,12 +1090,12 @@ function _renderPessoaAprovadores() {
 
 function _renderPessoaFinanceiro() {
   const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO && u.ativo !== false &&
-    _normEmpresas(u.empresas).includes(_pedido.empresaId))
+    empresasDoUsuario(u).includes(_pedido.empresaId))
   const nome = fins[0]?.nome || (sessao.usuario.perfil === PERFIS.FINANCEIRO ? sessao.usuario.nome : null)
   const totalPago = _parcelas.filter(p => p.pago).length
   const totalParc = _parcelas.length
-  const st = totalParc ? `${totalPago} de ${totalParc} parcela${totalParc > 1 ? 's' : ''} paga${totalPago === 1 ? '' : 's'}` : 'Sem parcelas'
-  return _linhaPessoa('Financeiro', nome || 'Equipe financeira', st)
+  const st = totalParc ? t('dtPagasDe', { pagas: totalPago, total: totalParc }) : t('dtSemParcelasCurto')
+  return _linhaPessoa(PERFIS_LABEL[PERFIS.FINANCEIRO], nome || t('dtEquipeFinanceira'), st)
 }
 
 // ── Cotações ──────────────────────────────────────────────────
@@ -1147,7 +1149,7 @@ function _renderCotacoes() {
       <li class="cotacao-item${c.indicada ? ' indicada' : ''}">
         <div class="cotacao-info">
           <div class="cotacao-fornecedor">${esc(c.fornecedorNome)}${marcas ? `<span class="cotacao-marcas">${marcas}</span>` : ''}</div>
-          <div class="cotacao-sub">${esc([c.prazoEntrega ? `Prazo ${c.prazoEntrega}` : '', c.condicoesComerciais].filter(Boolean).join(' · ') || t('dtSemCondicoes'))}</div>
+          <div class="cotacao-sub">${esc([c.prazoEntrega ? t('dtPrazoEntregaCurto', { prazo: c.prazoEntrega }) : '', c.condicoesComerciais].filter(Boolean).join(' · ') || t('dtSemCondicoes'))}</div>
         </div>
         <div class="cotacao-lado">
           <span class="cotacao-valor">${formatCurrency(c.valor)}</span>
@@ -1199,49 +1201,75 @@ function _renderActivityFeed() {
       const marca = negativo
         ? `<span class="feed-marca feed-marca-neg">${_svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 12)}</span>`
         : `<span class="feed-marca feed-marca-num">${i >= 0 ? _dois(i + 1) : '·'}</span>`
-      const st = `<span class="feed-status">${_NOME_ETAPA[item.status] || esc(item.status)}</span>`
-      const frase = item.status === STATUS.SOLICITADO && !item.nota
-        ? (quem ? `${quem} abriu o pedido` : 'Pedido aberto')
+      const st = `<span class="feed-status">${STATUS_LABEL[item.status] || esc(item.status)}</span>`
+      const nota = _textoNota(item)
+      const reprovou = item.status === STATUS.REPROVADO
+      const frase = item.status === STATUS.SOLICITADO && !nota
+        ? (quem ? t('feedAbriu', { quem }) : t('feedPedidoAberto'))
         : negativo
-          ? (quem ? `${quem} ${item.status === STATUS.REPROVADO ? 'reprovou' : 'cancelou'} o pedido` : (item.status === STATUS.REPROVADO ? 'Pedido reprovado' : 'Pedido cancelado'))
-          : (quem ? `${quem} moveu para ${st}` : `Movido para ${st}`)
-      return evento(marca, `${frase}${item.nota ? `<div class="feed-nota">${esc(item.nota)}</div>` : ''}`, ts, negativo ? 'feed-item-neg' : 'feed-item-etapa')
+          ? (quem ? t(reprovou ? 'feedReprovou' : 'feedCancelou', { quem }) : t(reprovou ? 'feedPedidoReprovado' : 'feedPedidoCancelado'))
+          : (quem ? t('feedMoveu', { quem, etapa: st }) : t('feedMovido', { etapa: st }))
+      return evento(marca, `${frase}${nota ? `<div class="feed-nota">${esc(nota)}</div>` : ''}`, ts, negativo ? 'feed-item-neg' : 'feed-item-etapa')
     }
 
     if (item._feedTipo === 'comentario') {
       const texto = esc(item.texto || '').replace(/@([\wÀ-ÿ]+)/g, '<span class="mention">@$1</span>')
+      const salvo = !String(item.id).startsWith('temp-')
+      const meu = salvo && item.autorId === sessao.usuario.id
+      const apaga = salvo && _podeApagarComentario()
+      const editando = _comentEditando?.id === item.id
+      const id = esc(item.id)
+      const acao = (tipo, rotulo, cls = '') =>
+        `<button type="button" class="coment-acao ${cls}" data-coment-acao="${tipo}" data-coment-id="${id}" aria-label="${rotulo}">${t(tipo === 'editar' ? 'comentEditar' : 'comentApagar')}</button>`
+      const editado = item.editadoEm
+        ? `<span class="feed-editado" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</span>` : ''
+      const corpo = editando ? `
+            <div class="coment-edicao">
+              <label class="sr-only" for="coment-edit-${id}">${t('comentEditarAria')}</label>
+              <textarea id="coment-edit-${id}" rows="3" data-coment-rascunho="${id}">${esc(_comentEditando.rascunho)}</textarea>
+              <div class="coment-edicao-acoes">
+                <button type="button" class="btn-ghost btn-sm" data-coment-acao="cancelar" data-coment-id="${id}">${t('btnCancelar')}</button>
+                <button type="button" class="btn-secondary btn-sm" data-coment-acao="salvar" data-coment-id="${id}">${t('salvar')}</button>
+              </div>
+            </div>`
+        : `<div class="comentario-bolha"><div class="comment-text">${texto}</div></div>`
       return `
         <li class="feed-item feed-item-comment">
           <div class="feed-left"><div class="avatar avatar-sm ${nome ? '' : 'avatar-vazio'}" aria-hidden="true">${nome ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 12)}</div></div>
           <div class="feed-body">
             <div class="feed-header">
-              <span class="feed-author">${esc(nome || 'Participante')}</span>
+              <span class="feed-author">${esc(nome || t('feedParticipante'))}</span>
               <span class="feed-time" title="${ts.title}">${ts.label}</span>
+              ${editado}
+              ${(meu || apaga) && !editando ? `<span class="coment-acoes">
+                ${meu ? acao('editar', t('comentEditarAria')) : ''}
+                ${apaga ? acao('apagar', t('comentApagarAria'), 'coment-acao-perigo') : ''}
+              </span>` : ''}
             </div>
-            <div class="comentario-bolha"><div class="comment-text">${texto}</div></div>
+            ${corpo}
           </div>
         </li>`
     }
 
     if (item._feedTipo === 'cotacao') {
       return evento(icone('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
-        `${quem || 'Alguém'} registrou a cotação de <strong>${esc(item.fornecedorNome || '—')}</strong>${item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
+        `${t('feedCotacao', { quem: quem || t('feedAlguem'), fornecedor: `<strong>${esc(item.fornecedorNome || '—')}</strong>` })}${item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
     }
 
     if (item._feedTipo === 'comprovante') {
       return evento(icone('<polyline points="20 6 9 17 4 12"/>'),
-        `${quem || 'Alguém'} anexou o comprovante da parcela <strong class="num">${esc(item.parcelaNumero || '')}</strong>`, ts)
+        t('feedComprovante', { quem: quem || t('feedAlguem'), parcela: `<strong class="num">${esc(item.parcelaNumero || '')}</strong>` }), ts)
     }
 
     if (item._feedTipo === 'edicao') {
       return evento(icone('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
-        `${quem || 'Alguém'} alterou <strong>${esc(item.campoLabel || item.campo || '')}</strong>
-         <div class="feed-nota"><span class="feed-antes">${esc(item.valorAnterior || '—')}</span> → ${esc(item.valorNovo || '—')}</div>`, ts)
+        `${t('feedAlterou', { quem: quem || t('feedAlguem'), campo: `<strong>${esc(_rotuloCampo(item))}</strong>` })}
+         <div class="feed-nota"><span class="feed-antes">${esc(_valorEdicao(item, item.valorAnterior))}</span> → ${esc(_valorEdicao(item, item.valorNovo))}</div>`, ts)
     }
 
     if (item._feedTipo === 'anexo') {
       return evento(icone('<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>'),
-        `${quem || 'Alguém'} anexou <strong>${esc(item.nomeArquivo || '—')}</strong>`, ts)
+        t('feedAnexou', { quem: quem || t('feedAlguem'), arquivo: `<strong>${esc(item.nomeArquivo || '—')}</strong>` }), ts)
     }
 
     return ''
@@ -1258,7 +1286,7 @@ function _renderParcelasBloco() {
     <div class="parcelas-resumo">
       <div class="parcelas-resumo-txt">
         <span class="parcelas-pago">${formatCurrency(pago)}</span>
-        <span class="parcelas-de">${t('dtPagosDe')} ${formatCurrency(total)} · ${pagas} de ${_parcelas.length} ${_parcelas.length === 1 ? 'parcela' : 'parcelas'}</span>
+        <span class="parcelas-de">${t('dtPagosDe')} ${formatCurrency(total)} · ${t(_parcelas.length === 1 ? 'dtParcelasDe1' : 'dtParcelasDe', { pagas, total: _parcelas.length })}</span>
       </div>
       <span class="parcelas-pct">${pct}%</span>
     </div>
@@ -1272,15 +1300,15 @@ function _renderParcelas() {
   return _parcelas.map(parc => {
     let estado, cls = ''
     if (parc.pago) {
-      estado = parc.pagoEm ? `Paga em ${_dataCurta(parc.pagoEm)}` : 'Paga'
+      estado = parc.pagoEm ? t('parcPagaEm', { d: _dataCurta(parc.pagoEm) }) : t('parcPaga')
       cls = 'paga'
     } else {
       const d = _diasAte(parc.vencimento)
-      if (d === null) estado = 'Sem vencimento'
-      else if (d < 0) { estado = `Vencida há ${_dias(-d)}`; cls = 'vencida' }
-      else if (d === 0) { estado = 'Vence hoje'; cls = 'vencendo' }
-      else if (d <= 3) { estado = `Vence em ${_dias(d)}`; cls = 'vencendo' }
-      else estado = `Vence em ${_dias(d)}`
+      if (d === null) estado = t('parcSemVencimento')
+      else {
+        estado = _textoVencimento(d)
+        cls = d < 0 ? 'vencida' : d <= 3 ? 'vencendo' : ''
+      }
     }
     const acoes = [
       parc.comprovante ? `<a href="${esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
@@ -1362,14 +1390,14 @@ function _atualizarResumoParcelasCompra() {
   const valor = parseMoeda(document.getElementById('mc-valor')?.value || '')
   const n = parseInt(document.getElementById('mc-parcelas')?.value) || 1
   if (!(valor > 0)) { el.textContent = ''; return }
-  if (n <= 1) { el.textContent = `Pagamento único de ${formatCurrency(valor)}`; return }
+  if (n <= 1) { el.textContent = t('mcPagamentoUnico', { valor: formatCurrency(valor) }); return }
   // Os mesmos valores que serão gravados: a última parcela leva a diferença dos centavos
   const parcelas = dividirEmParcelas(valor, n)
   const primeira = parcelas[0]
   const ultima = parcelas[parcelas.length - 1]
   el.textContent = ultima === primeira
-    ? `${n} parcelas mensais de ${formatCurrency(primeira)}`
-    : `${n} parcelas mensais de ${formatCurrency(primeira)}, a última de ${formatCurrency(ultima)}`
+    ? t('mcParcelasIguais', { n, valor: formatCurrency(primeira) })
+    : t('mcParcelasUltima', { n, valor: formatCurrency(primeira), ultima: formatCurrency(ultima) })
 }
 
 function _bindDetalheEvents() {
@@ -1391,7 +1419,7 @@ function _bindDetalheEvents() {
 
   document.getElementById('reprov-motivo')?.addEventListener('change', e => {
     const wrap = document.getElementById('reprov-outros-wrap')
-    if (wrap) wrap.style.display = e.target.value === 'Outros' ? 'block' : 'none'
+    if (wrap) wrap.style.display = e.target.value === MOTIVO_OUTROS ? 'block' : 'none'
   })
   document.getElementById('btn-confirmar-reprovar')?.addEventListener('click', _reprovarPedido)
 
@@ -1408,7 +1436,7 @@ function _bindDetalheEvents() {
   document.getElementById('btn-cancelar')?.addEventListener('click', () => abrirModal('modal-cancelar'))
   document.getElementById('cancel-motivo')?.addEventListener('change', e => {
     const wrap = document.getElementById('cancel-outros-wrap')
-    if (wrap) wrap.style.display = e.target.value === 'Outros' ? 'block' : 'none'
+    if (wrap) wrap.style.display = e.target.value === MOTIVO_OUTROS ? 'block' : 'none'
   })
   document.getElementById('btn-confirmar-cancelar')?.addEventListener('click', _cancelarPedido)
 
@@ -1421,6 +1449,27 @@ function _bindDetalheEvents() {
   })
   document.getElementById('input-comentario')?.addEventListener('input', _handleMentionInput)
   document.getElementById('input-comentario')?.addEventListener('blur', () => setTimeout(_fecharMentionDropdown, 150))
+
+  // Comentário já enviado: o autor edita; o gestor da empresa e o supremo apagam
+  const feed = document.getElementById('activity-feed')
+  feed?.addEventListener('click', e => {
+    const b = e.target.closest('[data-coment-acao]')
+    if (!b) return
+    const id = b.dataset.comentId
+    if (b.dataset.comentAcao === 'editar') _abrirEdicaoComentario(id)
+    else if (b.dataset.comentAcao === 'apagar') _apagarComentario(id)
+    else if (b.dataset.comentAcao === 'salvar') _salvarComentario(id)
+    else if (b.dataset.comentAcao === 'cancelar') _fecharEdicaoComentario(id)
+  })
+  feed?.addEventListener('input', e => {
+    if (_comentEditando && e.target.dataset.comentRascunho === _comentEditando.id) _comentEditando.rascunho = e.target.value
+  })
+  feed?.addEventListener('keydown', e => {
+    const id = e.target.dataset?.comentRascunho
+    if (!id) return
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _fecharEdicaoComentario(id) }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _salvarComentario(id) }
+  })
 
   document.querySelectorAll('[data-indicar]').forEach(btn => {
     btn.addEventListener('click', () => _indicarCotacao(btn.dataset.indicar))
@@ -1460,7 +1509,7 @@ function _bindDetalheEvents() {
 
 // ── Ações de workflow ─────────────────────────────────────────
 async function _assumirPedido() {
-  const ok = await prxConfirm('Assumir este pedido?', 'Você passa a ser o comprador responsável e o pedido segue para cotação.', 'Assumir', 'Cancelar')
+  const ok = await prxConfirm(t('dlgAssumirTitulo'), t('dlgAssumirTexto'), t('dlgAssumirOk'), t('btnCancelar'))
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1476,7 +1525,7 @@ async function _assumirPedido() {
         status: STATUS.AG_COTACAO,
         atualizadoEm: serverTimestamp(),
       })
-      _historicoJunto(tx, STATUS.AG_COTACAO, 'Comprador assumiu o pedido')
+      _historicoJunto(tx, STATUS.AG_COTACAO, { chave: 'notaAssumiu' })
     })
     prxToast(t('pedidoAssumido'), 'success')
   } catch (err) {
@@ -1487,7 +1536,7 @@ async function _assumirPedido() {
 }
 
 async function _liberarClaim() {
-  const ok = await prxConfirm('Liberar este pedido?', 'O comprador atual deixa de ser responsável e o pedido volta para a fila.', 'Liberar', 'Cancelar', true)
+  const ok = await prxConfirm(t('dlgLiberarTitulo'), t('dlgLiberarTexto'), t('dlgLiberarOk'), t('btnCancelar'), true)
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1505,7 +1554,7 @@ async function _liberarClaim() {
         status: STATUS.SOLICITADO,
         atualizadoEm: serverTimestamp(),
       })
-      _historicoJunto(tx, STATUS.SOLICITADO, 'Claim liberado pelo gestor')
+      _historicoJunto(tx, STATUS.SOLICITADO, { chave: 'notaLiberado' })
     })
     prxToast(t('pedidoLiberado'), 'success')
   } catch (err) {
@@ -1517,9 +1566,9 @@ async function _liberarClaim() {
 
 async function _aprovarPedido() {
   const ind = _cotacoes.find(c => c.indicada)
-  const ok = await prxConfirm('Aprovar este pedido?',
-    ind ? `Proposta indicada: ${ind.fornecedorNome}, ${formatCurrency(ind.valor)}. Em seguida o comprador registra a compra.` : 'Em seguida o comprador registra a compra.',
-    'Aprovar', 'Cancelar')
+  const ok = await prxConfirm(t('dlgAprovarTitulo'),
+    ind ? t('dlgAprovarTextoInd', { fornecedor: ind.fornecedorNome, valor: formatCurrency(ind.valor) }) : t('dlgAprovarTexto'),
+    t('btnAprovar'), t('btnCancelar'))
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1548,7 +1597,7 @@ async function _aprovarPedido() {
 async function _reprovarPedido() {
   const motivo = document.getElementById('reprov-motivo')?.value
   const outros = document.getElementById('reprov-outros')?.value.trim()
-  if (!motivo || (motivo === 'Outros' && !outros)) {
+  if (!motivo || (motivo === MOTIVO_OUTROS && !outros)) {
     prxToast(t('selecionarMotivoSimples'), 'error')
     return
   }
@@ -1565,10 +1614,10 @@ async function _reprovarPedido() {
         reprovadoPorNome: sessao.usuario.nome || null,
         reprovadoEm: serverTimestamp(),
         motivoReprovacao: motivo,
-        motivoReprovacaoOutros: motivo === 'Outros' ? outros : null,
+        motivoReprovacaoOutros: motivo === MOTIVO_OUTROS ? outros : null,
         atualizadoEm: serverTimestamp(),
       })
-      _historicoJunto(tx, STATUS.REPROVADO, motivo === 'Outros' ? outros : motivo)
+      _historicoJunto(tx, STATUS.REPROVADO, motivo === MOTIVO_OUTROS ? outros : motivo)
     })
     fecharModal('modal-reprovar')
     prxToast(t('pedidoReprovado'), 'info')
@@ -1608,7 +1657,7 @@ async function _executarCompra() {
       dataCompra,
       atualizadoEm: serverTimestamp(),
     })
-    _historicoJunto(lote, STATUS.COMPRADO, `Fornecedor: ${fornecedor} · ${formatCurrency(valorFinal)}`)
+    _historicoJunto(lote, STATUS.COMPRADO, { chave: 'notaCompra', dados: { fornecedor, valor: formatCurrency(valorFinal) } })
     // Parcelas em centavos (a última leva a diferença), com vencimentos que
     // respeitam o fim do mês
     const valores = dividirEmParcelas(valorFinal, numParc)
@@ -1634,7 +1683,7 @@ async function _executarCompra() {
 }
 
 async function _confirmarEntrega() {
-  const ok = await prxConfirm('Confirmar recebimento?', 'Confira se o produto ou serviço foi entregue conforme o pedido. O financeiro passa a acompanhar o pagamento.', 'Confirmar', 'Cancelar')
+  const ok = await prxConfirm(t('dlgEntregaTitulo'), t('dlgEntregaTexto'), t('confirmar'), t('btnCancelar'))
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1656,9 +1705,11 @@ async function _confirmarEntrega() {
 }
 
 async function _confirmarPagamento() {
-  const ok = await prxConfirm('Confirmar pagamento total?',
-    `${_pedido.valorFinal ? formatCurrency(_pedido.valorFinal) + ' pagos' : 'Pagamento registrado'}${_pedido.fornecedorNome ? ' a ' + _pedido.fornecedorNome : ''}. O pedido será concluído.`,
-    'Confirmar', 'Cancelar')
+  const forn = _pedido.fornecedorNome || ''
+  const resumo = _pedido.valorFinal
+    ? t(forn ? 'dtPagosValorA' : 'dtPagosValor', { valor: formatCurrency(_pedido.valorFinal), fornecedor: forn })
+    : t(forn ? 'dlgPagamentoRegistradoA' : 'dlgPagamentoRegistrado', { fornecedor: forn })
+  const ok = await prxConfirm(t('dlgPagamentoTitulo'), `${resumo} ${t('dlgPagamentoConclui')}`, t('confirmar'), t('btnCancelar'))
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1681,7 +1732,7 @@ async function _confirmarPagamento() {
 async function _cancelarPedido() {
   const motivo = document.getElementById('cancel-motivo')?.value
   const outros = document.getElementById('cancel-outros')?.value.trim()
-  if (!motivo || (motivo === 'Outros' && !outros)) {
+  if (!motivo || (motivo === MOTIVO_OUTROS && !outros)) {
     prxToast(t('selecionarMotivoSimples'), 'error')
     return
   }
@@ -1695,10 +1746,10 @@ async function _cancelarPedido() {
       canceladoPorNome: sessao.usuario.nome || null,
       canceladoEm: serverTimestamp(),
       motivoCancelamento: motivo,
-      motivoCancelamentoOutros: motivo === 'Outros' ? outros : null,
+      motivoCancelamentoOutros: motivo === MOTIVO_OUTROS ? outros : null,
       atualizadoEm: serverTimestamp(),
     })
-    _historicoJunto(lote, STATUS.CANCELADO, motivo === 'Outros' ? outros : motivo)
+    _historicoJunto(lote, STATUS.CANCELADO, motivo === MOTIVO_OUTROS ? outros : motivo)
     await lote.commit()
     fecharModal('modal-cancelar')
     prxToast(t('pedidoCanceladoMsg'), 'info')
@@ -1746,9 +1797,9 @@ function _compararCotacoes() {
                 </div>
                 <div class="cotacao-compare-fornecedor">${esc(c.fornecedorNome)}</div>
                 <div class="cotacao-compare-valor">${formatCurrency(c.valor)}</div>
-                <div class="cotacao-compare-dif num">${eMenor ? 'Menor proposta' : `+${formatCurrency(dif)} · ${_pct(dif / menorValor * 100)}`}</div>
-                <div class="cotacao-compare-row"><span class="meta-label">Prazo de entrega</span><span>${esc(c.prazoEntrega || '—')}</span></div>
-                <div class="cotacao-compare-row"><span class="meta-label">Condições</span><span>${esc(c.condicoesComerciais || '—')}</span></div>
+                <div class="cotacao-compare-dif num">${eMenor ? t('cmpMenorProposta') : `+${formatCurrency(dif)} · ${_pct(dif / menorValor * 100)}`}</div>
+                <div class="cotacao-compare-row"><span class="meta-label">${t('cotPrazoEntrega')}</span><span>${esc(c.prazoEntrega || '—')}</span></div>
+                <div class="cotacao-compare-row"><span class="meta-label">${t('cmpCondicoes')}</span><span>${esc(c.condicoesComerciais || '—')}</span></div>
                 ${c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
               </div>`
           }).join('')}
@@ -1759,10 +1810,14 @@ function _compararCotacoes() {
 }
 
 // ── Editar campos do pedido + auditoria campo-a-campo (3.7) ──
-const _CAMPO_LABEL = {
-  titulo: 'Título', descricao: 'Descrição', valorEstimado: 'Valor estimado',
-  dataNecessaria: 'Data necessária', urgente: 'Urgência', categoriaId: 'Categoria',
+const _CAMPO_CHAVE = {
+  titulo: 'npTitulo', descricao: 'dtDescricao', valorEstimado: 'npValor',
+  dataNecessaria: 'campoDataNecessaria', urgente: 'campoUrgencia', categoriaId: 'npCategoria',
 }
+// Nome do campo de uma edição no idioma de quem lê (o rótulo gravado fica para
+// campos que o app não conhece mais)
+const _rotuloCampo = h => _CAMPO_CHAVE[h.campo] ? t(_CAMPO_CHAVE[h.campo]) : (h.campoLabel || h.campo || '')
+const _valorEdicao = (h, v) => h.campo === 'urgente' ? rotuloUrgencia(v) : (v || '—')
 
 function _editarPedido() {
   const p = _pedido
@@ -1770,42 +1825,42 @@ function _editarPedido() {
     <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="modal-editar-titulo">
       ${_cabModal('modal-editar-titulo', t('btnEditarPedido'), 'data-fechar')}
       <div class="modal-body">
-        <p class="modal-intro">Cada alteração fica registrada na atividade do pedido, com o valor anterior.</p>
+        <p class="modal-intro">${t('editIntro')}</p>
         <div class="form-grid form-grid-2">
           <div class="form-group col-span-2">
-            <label for="edit-titulo">Título *</label>
+            <label for="edit-titulo">${t('npTitulo')} *</label>
             <input type="text" id="edit-titulo" value="${esc(p.titulo || '')}" maxlength="120">
           </div>
           <div class="form-group col-span-2">
-            <label for="edit-descricao">Descrição</label>
+            <label for="edit-descricao">${t('dtDescricao')}</label>
             <textarea id="edit-descricao" rows="3" style="resize:vertical">${esc(p.descricao || '')}</textarea>
           </div>
           <div class="form-group">
-            <label for="edit-valor">Valor estimado</label>
+            <label for="edit-valor">${t('npValor')}</label>
             <input type="text" id="edit-valor" inputmode="decimal" placeholder="R$ 0,00" value="${p.valorEstimado ? formatCurrency(p.valorEstimado) : ''}">
           </div>
           <div class="form-group">
-            <label for="edit-data">Necessário até</label>
+            <label for="edit-data">${t('npData')}</label>
             <input type="date" id="edit-data" value="${esc(p.dataNecessaria || '')}">
           </div>
           <div class="form-group">
-            <label for="edit-categoria">Categoria</label>
+            <label for="edit-categoria">${t('npCategoria')}</label>
             <select id="edit-categoria">
               ${_categorias.map(c => `<option value="${esc(c.id)}" ${p.categoriaId === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <span class="form-label-falso">Prioridade</span>
+            <span class="form-label-falso">${t('editPrioridade')}</span>
             <div class="toggle-wrap edit-urgente-wrap">
-              <span class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-label="Urgente"></span>
-              <span class="toggle-label">Urgente</span>
+              <span class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-label="${t('urgente')}"></span>
+              <span class="toggle-label">${t('urgente')}</span>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" data-fechar>Cancelar</button>
-        <button class="btn-primary" id="salvar-edicao">Salvar alterações</button>
+        <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
+        <button class="btn-primary" id="salvar-edicao">${t('editSalvar')}</button>
       </div>
     </div>
   `)
@@ -1824,7 +1879,7 @@ async function _salvarEdicaoPedido(fechar) {
   const categoriaId = document.getElementById('edit-categoria')?.value
   const urgente     = document.getElementById('edit-urgente-toggle')?.classList.contains('on')
 
-  if (!titulo) { prxToast('Título é obrigatório.', 'error'); return }
+  if (!titulo) { prxToast(t('editTituloObrigatorio'), 'error'); return }
 
   const valorEstimado = valorStr ? parseMoeda(valorStr) : null
   const p = _pedido
@@ -1833,7 +1888,7 @@ async function _salvarEdicaoPedido(fechar) {
   const formatar = (campo, val) => {
     if (campo === 'valorEstimado')  return val ? formatCurrency(val) : '—'
     if (campo === 'dataNecessaria') return val ? formatDate(val) : '—'
-    if (campo === 'urgente')        return val ? 'Urgente' : 'Normal'
+    if (campo === 'urgente')        return val ? t('urgente') : t('campoNormal')
     if (campo === 'categoriaId')    return _categorias.find(c => c.id === val)?.nome || val
     return String(val ?? '—')
   }
@@ -1844,7 +1899,7 @@ async function _salvarEdicaoPedido(fechar) {
     return String(antes) !== String(depois)
   })
 
-  if (!alteracoes.length) { prxToast('Nenhuma alteração detectada.', 'info'); fechar(); return }
+  if (!alteracoes.length) { prxToast(t('editSemAlteracao'), 'info'); fechar(); return }
 
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -1859,7 +1914,7 @@ async function _salvarEdicaoPedido(fechar) {
     alteracoes.forEach((campo, i) => lote.set(entradas[i], {
       tipo:          'edicao',
       campo,
-      campoLabel:    _CAMPO_LABEL[campo] || campo,
+      campoLabel:    _rotuloCampo({ campo }),
       valorAnterior: formatar(campo, p[campo]),
       valorNovo:     formatar(campo, novos[campo]),
       autorId:       sessao.usuario.id,
@@ -1948,8 +2003,7 @@ function _handleMentionInput(e) {
   let base = _usuarios.filter(u => {
     if (u.ativo === false) return false
     if (u.perfil === PERFIS.SUPREMO || !empresaId) return true
-    const emp = Array.isArray(u.empresas) ? u.empresas : Object.keys(u.empresas || {})
-    return emp.includes(empresaId)
+    return empresasDoUsuario(u).includes(empresaId)
   })
   if (!base.length) {
     const vistos = new Map()
@@ -1963,7 +2017,7 @@ function _handleMentionInput(e) {
   if (!sugestoes.length) { _fecharMentionDropdown(); return }
 
   _mentionIndex = 0
-  dd.innerHTML = `<div class="mention-titulo">Mencionar</div>` + sugestoes.map(u => `
+  dd.innerHTML = `<div class="mention-titulo">${t('mencionar')}</div>` + sugestoes.map(u => `
     <div class="mention-item" role="option" data-nome="${esc(u.nome.split(' ')[0])}">
       <div class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(u.nome)}</div>
       <span class="mention-nome">${esc(u.nome)}</span>
@@ -2028,8 +2082,8 @@ async function _enviarComentario() {
       if (user && user.id !== sessao.usuario.id) {
         addDoc(collection(db, 'notificacoes', user.id, 'items'), {
           evento:   'mencao_comentario',
-          titulo:   'Você foi mencionado',
-          corpo:    `${sessao.usuario.nome} mencionou você em "${_pedido.titulo}".`,
+          titulo:   t('notifMencaoTitulo'),
+          corpo:    t('notifMencaoCorpo', { nome: sessao.usuario.nome, titulo: _pedido.titulo }),
           pedidoId: _pedidoId,
           lida:     false,
           criadaEm: serverTimestamp(),
@@ -2046,6 +2100,84 @@ async function _enviarComentario() {
     prxToast(t('erroEnviarComentario'), 'error')
   } finally {
     if (btn) btn.disabled = false
+  }
+}
+
+// ── Comentário: o autor edita o próprio; o gestor e o supremo apagam ──
+// As regras deixam o autor trocar só o texto (com editadoEm) e o gestor da
+// empresa do pedido (o supremo, de qualquer uma) apagar. A edição não avisa de
+// novo quem foi mencionado.
+function _podeApagarComentario() {
+  const u = sessao.usuario
+  return u.perfil === PERFIS.SUPREMO || (u.perfil === PERFIS.GESTOR && empresasDoUsuario(u).includes(_pedido.empresaId))
+}
+
+function _redesenharAtividade() {
+  const el = document.getElementById('activity-feed')
+  if (el) el.innerHTML = _renderActivityFeed()
+}
+
+function _focarComentario(id, seletor) {
+  const el = document.querySelector(`#activity-feed [data-coment-id="${CSS.escape(id)}"]${seletor}`)
+  el?.focus()
+  return el
+}
+
+function _abrirEdicaoComentario(id) {
+  const c = _comentarios.find(x => x.id === id)
+  if (!c) return
+  _comentEditando = { id, rascunho: c.texto || '' }
+  _redesenharAtividade()
+  const ta = document.getElementById(`coment-edit-${id}`)
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
+}
+
+function _fecharEdicaoComentario(id) {
+  _comentEditando = null
+  _redesenharAtividade()
+  _focarComentario(id, '[data-coment-acao="editar"]')
+}
+
+async function _salvarComentario(id) {
+  const c = _comentarios.find(x => x.id === id)
+  const texto = (_comentEditando?.id === id ? _comentEditando.rascunho : '').trim()
+  if (!c) return
+  if (!texto) {
+    prxToast(t('comentVazio'), 'error')
+    document.getElementById(`coment-edit-${id}`)?.focus()
+    return
+  }
+  if (texto === c.texto) { _fecharEdicaoComentario(id); return }
+  if (!exigirConexao()) return
+  const botoes = [...document.querySelectorAll(`#activity-feed .coment-edicao button`)]
+  botoes.forEach(b => { b.disabled = true })
+  try {
+    await updateDoc(doc(db, 'pedidos', _pedidoId, 'comentarios', id), { texto, editadoEm: serverTimestamp() })
+    _comentEditando = null
+    await _refreshComentarios()
+    _focarComentario(id, '[data-coment-acao="editar"]')
+    prxToast(t('comentAtualizado'), 'success')
+  } catch (err) {
+    console.warn('Editar comentário:', err)
+    botoes.forEach(b => { b.disabled = false })
+    prxToast(t('erroEditarComentario'), 'error')
+  }
+}
+
+async function _apagarComentario(id) {
+  const ok = await prxConfirm(t('comentApagarTitulo'), t('acaoIrreversivel'), t('comentApagar'), t('btnCancelar'), true)
+  if (!ok) return
+  if (!exigirConexao()) return
+  mostrarSpinner()
+  try {
+    await deleteDoc(doc(db, 'pedidos', _pedidoId, 'comentarios', id))
+    await _refreshComentarios()
+    prxToast(t('comentApagado'), 'success')
+  } catch (err) {
+    console.warn('Apagar comentário:', err)
+    prxToast(t('erroApagarComentario'), 'error')
+  } finally {
+    esconderSpinner()
   }
 }
 
@@ -2074,7 +2206,7 @@ async function _indicarCotacao(cotacaoId) {
         cotacaoIndicadaId: cotacaoId,
         atualizadoEm: serverTimestamp(),
       })
-      _historicoJunto(lote, STATUS.EM_APROVACAO, 'Cotação indicada pelo comprador')
+      _historicoJunto(lote, STATUS.EM_APROVACAO, { chave: 'notaIndicada' })
     }
     await lote.commit()
     prxToast(t('cotacaoIndicada'), 'success')
@@ -2087,9 +2219,9 @@ async function _indicarCotacao(cotacaoId) {
 
 async function _pagarParcela(parcelaId) {
   const par = _parcelas.find(x => x.id === parcelaId)
-  const ok = await prxConfirm('Registrar pagamento?',
-    par ? `Parcela ${par.numero}/${par.total} de ${formatCurrency(par.valor)}, com vencimento em ${formatDate(par.vencimento)}.` : '',
-    'Registrar', 'Cancelar')
+  const ok = await prxConfirm(t('dlgParcelaTitulo'),
+    par ? t('dlgParcelaTexto', { parcela: `${par.numero}/${par.total}`, valor: formatCurrency(par.valor), d: formatDate(par.vencimento) }) : '',
+    t('dlgParcelaOk'), t('btnCancelar'))
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -2104,7 +2236,7 @@ async function _pagarParcela(parcelaId) {
     })
     if (conclui) {
       lote.update(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
-      _historicoJunto(lote, STATUS.PAGO, 'Última parcela paga')
+      _historicoJunto(lote, STATUS.PAGO, { chave: 'notaUltimaParcela' })
     }
     await lote.commit()
     if (!conclui) await _refreshParcelas()
@@ -2153,28 +2285,28 @@ async function _mostrarModalCotacao() {
       <div class="modal-body">
         <div class="form-grid form-grid-2">
           <div class="form-group col-span-2">
-            <label for="cot-forn">Fornecedor *</label>
-            <input type="text" id="cot-forn" placeholder="Comece a digitar para buscar" list="cot-forn-datalist" autocomplete="off">
+            <label for="cot-forn">${t('fornecedorLabel')} *</label>
+            <input type="text" id="cot-forn" placeholder="${t('cotFornecedorBusca')}" list="cot-forn-datalist" autocomplete="off">
             <datalist id="cot-forn-datalist">${_fornecedorDatalistOptions()}</datalist>
           </div>
           <div class="form-group">
-            <label for="cot-valor">Valor *</label>
+            <label for="cot-valor">${t('colValor')} *</label>
             <input type="text" id="cot-valor" inputmode="decimal" placeholder="R$ 0,00">
           </div>
           <div class="form-group">
-            <label for="cot-prazo">Prazo de entrega</label>
-            <input type="text" id="cot-prazo" placeholder="Ex.: 5 dias úteis">
+            <label for="cot-prazo">${t('cotPrazoEntrega')}</label>
+            <input type="text" id="cot-prazo" placeholder="${t('cotPrazoExemplo')}">
           </div>
           <div class="form-group col-span-2">
-            <label for="cot-cond">Condições comerciais</label>
-            <input type="text" id="cot-cond" placeholder="Frete, impostos, garantia">
+            <label for="cot-cond">${t('cotCondicoes')}</label>
+            <input type="text" id="cot-cond" placeholder="${t('cotCondicoesExemplo')}">
           </div>
           ${_enviaArquivos() ? `
           <div class="form-group col-span-2">
-            <span class="form-label-falso">Arquivo da proposta</span>
+            <span class="form-label-falso">${t('cotArquivo')}</span>
             <label class="dropzone" for="cot-arquivo">
               ${ICO.clipe}
-              <span id="cot-arquivo-nome">Selecionar PDF ou imagem</span>
+              <span id="cot-arquivo-nome">${t('cotSelecionarArquivo')}</span>
               <input type="file" id="cot-arquivo" accept=".pdf,image/*" class="sr-only">
             </label>
           </div>` : `
@@ -2182,15 +2314,15 @@ async function _mostrarModalCotacao() {
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" data-fechar>Cancelar</button>
-        <button class="btn-primary" id="salvar-cotacao">Salvar cotação</button>
+        <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
+        <button class="btn-primary" id="salvar-cotacao">${t('cotSalvar')}</button>
       </div>
     </div>
   `)
   document.getElementById('cot-arquivo')?.addEventListener('change', e => {
     const f = e.target.files?.[0]
     const el = document.getElementById('cot-arquivo-nome')
-    if (el) el.textContent = f ? f.name : 'Selecionar PDF ou imagem'
+    if (el) el.textContent = f ? f.name : t('cotSelecionarArquivo')
   })
 
   document.getElementById('salvar-cotacao')?.addEventListener('click', async () => {
@@ -2404,7 +2536,7 @@ async function _exportarPedidoPDF() {
     fonte(12.5, 'bold'); cor(COR.tinta)
     textoEspacado(pdf, numero, M + LARG, y + 4, 0.55, true)
     fonte(8.5, 'normal'); cor(COR.texto3)
-    pdf.text(`Pedido de compra · emitido em ${emitido}`, M + LARG, y + 9, { align: 'right' })
+    pdf.text(t('pdfEmitido', { d: emitido }), M + LARG, y + 9, { align: 'right' })
     y += 13
     fio(y)
     y += 11
@@ -2430,44 +2562,43 @@ async function _exportarPedidoPDF() {
       const uW = larguraEspacada(pdf, 'URGENTE', 0.25) + 4
       pdf.setFillColor(...COR.terracota)
       pdf.rect(xs, y - 3.6, uW, 5.4, 'F')
-      cor(COR.branco); textoEspacado(pdf, 'URGENTE', xs + 2, y - 0.1, 0.25)
+      cor(COR.branco); textoEspacado(pdf, t('urgente').toUpperCase(), xs + 2, y - 0.1, 0.25)
       xs += uW + 3
     }
     fonte(8, 'normal'); cor(COR.texto3)
-    pdf.text(`Aberto em ${tsStr(p.criadoEm)}`, xs + 1, y)
+    pdf.text(t('pdfAbertoEm', { d: tsStr(p.criadoEm) }), xs + 1, y)
     y += 4
 
     // ── Dados em grade (3 colunas)
-    secao('Dados do pedido')
+    secao(t('dtDadosPedido'))
     const solicNome = _nomePorId(p.solicitanteId) || p.solicitanteNome || '—'
     const dados = [
-      ['Empresa', empresa?.nome || '—'],
-      ['Categoria', categoria?.nome || '—'],
-      ['Centro de custo', p.centroCusto || '—'],
-      ['Quantidade', `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()],
-      ['Necessário até', p.dataNecessaria ? formatDate(p.dataNecessaria) : '—'],
-      ['Valor estimado', p.valorEstimado ? formatCurrency(p.valorEstimado) : '—'],
-      ['Solicitante', solicNome],
-      ['Comprador', p.compradorId ? (_nomePorId(p.compradorId) || '—') : (_quemFez(STATUS.AG_COTACAO)?.nome || 'Não atribuído')],
-      ['Aprovação', (() => {
+      [t('colEmpresa'), empresa?.nome || '—'],
+      [t('npCategoria'), categoria?.nome || '—'],
+      [t('npCC'), p.centroCusto || '—'],
+      [t('npQuantidade'), `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()],
+      [t('npData'), p.dataNecessaria ? formatDate(p.dataNecessaria) : '—'],
+      [t('npValor'), p.valorEstimado ? formatCurrency(p.valorEstimado) : '—'],
+      [t('colSolicitante'), solicNome],
+      [t('colComprador'), p.compradorId ? (_nomePorId(p.compradorId) || '—') : (_quemFez(STATUS.AG_COTACAO)?.nome || t('pdfNaoAtribuido'))],
+      [t('etapaCurtaAprovacao'), (() => {
         const ap = _quemFez(STATUS.APROVADO), rp = _quemFez(STATUS.REPROVADO)
-        if (p.aprovadoPor || ap) return `${_nomePorId(p.aprovadoPor) || ap?.nome || 'Aprovado'}, ${tsStr(p.aprovadoEm || ap?.em).slice(0, 10)}`
-        if (p.reprovadoPor || rp) return `Reprovado por ${_nomePorId(p.reprovadoPor) || rp?.nome || '—'}`
-        return p.status === STATUS.CANCELADO ? 'Não se aplica' : 'Pendente'
+        if (p.aprovadoPor || ap) return `${_nomePorId(p.aprovadoPor) || ap?.nome || t('aprovadoStatus')}, ${tsStr(p.aprovadoEm || ap?.em).slice(0, 10)}`
+        if (p.reprovadoPor || rp) return t('pdfReprovadoPor', { nome: _nomePorId(p.reprovadoPor) || rp?.nome || '—' })
+        return p.status === STATUS.CANCELADO ? t('pdfNaoSeAplica') : t('pdfPendente')
       })()],
     ]
-    if (p.fornecedorNome) dados.push(['Fornecedor', p.fornecedorNome])
-    if (p.valorFinal) dados.push(['Valor final', formatCurrency(p.valorFinal)])
-    if (p.condicaoPagamento) dados.push(['Condição de pagamento', CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento])
-    if (p.dataCompra) dados.push(['Data da compra', formatDate(p.dataCompra)])
-    if (p.dataEntrega) dados.push(['Data da entrega', formatDate(p.dataEntrega)])
+    if (p.fornecedorNome) dados.push([t('fornecedorLabel'), p.fornecedorNome])
+    if (p.valorFinal) dados.push([t('metaValorFinal'), formatCurrency(p.valorFinal), true])
+    if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento])
+    if (p.dataCompra) dados.push([t('metaDataCompra'), formatDate(p.dataCompra)])
+    if (p.dataEntrega) dados.push([t('metaDataEntrega'), formatDate(p.dataEntrega)])
     const colW = LARG / 3
     for (let i = 0; i < dados.length; i += 3) {
       garantir(11)
-      dados.slice(i, i + 3).forEach(([k, v], j) => {
+      dados.slice(i, i + 3).forEach(([k, v, destaque], j) => {
         const x = M + j * colW
         rotulo(k, x, y)
-        const destaque = k === 'Valor final'
         fonte(9.5, destaque ? 'bold' : 'normal'); cor(destaque ? COR.terracotaTxt : COR.tinta)
         pdf.text(pdf.splitTextToSize(String(v), colW - 4)[0], x, y + 4.6)
       })
@@ -2476,18 +2607,18 @@ async function _exportarPedidoPDF() {
 
     if (p.descricao) {
       garantir(14)
-      rotulo('Descrição', M, y)
+      rotulo(t('dtDescricao'), M, y)
       y += 4.4
       fonte(9.5, 'normal'); cor(COR.texto2)
       const linhasDesc = pdf.splitTextToSize(p.descricao, LARG)
       linhasDesc.forEach(l => { garantir(5); pdf.text(l, M, y); y += 4.6 })
     }
 
-    const motivoRep = p.motivoReprovacao === 'Outros' ? p.motivoReprovacaoOutros : p.motivoReprovacao
-    const motivoCan = p.motivoCancelamento === 'Outros' ? p.motivoCancelamentoOutros : p.motivoCancelamento
+    const motivoRep = p.motivoReprovacao === MOTIVO_OUTROS ? p.motivoReprovacaoOutros : rotuloMotivo(p.motivoReprovacao)
+    const motivoCan = p.motivoCancelamento === MOTIVO_OUTROS ? p.motivoCancelamentoOutros : rotuloMotivo(p.motivoCancelamento)
     if ((p.status === STATUS.REPROVADO && motivoRep) || (p.status === STATUS.CANCELADO && motivoCan)) {
       garantir(12); y += 2
-      rotulo(p.status === STATUS.REPROVADO ? 'Motivo da reprovação' : 'Motivo do cancelamento', M, y, COR.vermelho)
+      rotulo(t(p.status === STATUS.REPROVADO ? 'pdfMotivoReprovacao' : 'pdfMotivoCancelamento'), M, y, COR.vermelho)
       y += 4.4
       fonte(9.5, 'normal'); cor(COR.texto2)
       pdf.splitTextToSize(p.status === STATUS.REPROVADO ? motivoRep : motivoCan, LARG).forEach(l => { pdf.text(l, M, y); y += 4.6 })
@@ -2495,17 +2626,17 @@ async function _exportarPedidoPDF() {
 
     // ── Cotações
     if (_cotacoes.length) {
-      secao(`Cotações (${_cotacoes.length})`)
+      secao(`${t('secaoCotacoes')} (${_cotacoes.length})`)
       const menor = Math.min(..._cotacoes.map(c => c.valor))
       tabela([
-        { titulo: 'Fornecedor', w: 48 },
-        { titulo: 'Prazo', w: 24 },
-        { titulo: 'Condições', w: 50 },
-        { titulo: 'Valor', w: 29, alinhar: 'right', negrito: true },
-        { titulo: 'Situação', w: LARG - 151 },
+        { titulo: t('fornecedorLabel'), w: 48 },
+        { titulo: t('pdfColPrazo'), w: 24 },
+        { titulo: t('cmpCondicoes'), w: 50 },
+        { titulo: t('colValor'), w: 29, alinhar: 'right', negrito: true },
+        { titulo: t('pdfColSituacao'), w: LARG - 151 },
       ], [..._cotacoes].sort((a, b) => a.valor - b.valor).map(c => ({
         celulas: [c.fornecedorNome || '—', c.prazoEntrega || '—', c.condicoesComerciais || '—', formatCurrency(c.valor),
-          [c.indicada ? 'Indicada' : '', c.valor === menor && _cotacoes.length > 1 ? 'Menor valor' : ''].filter(Boolean).join(', ') || '—'],
+          [c.indicada ? t('dtIndicada') : '', c.valor === menor && _cotacoes.length > 1 ? t('dtMenorValor') : ''].filter(Boolean).join(', ') || '—'],
         destaque: !!c.indicada,
         cores: { 4: c.indicada ? COR.terracotaTxt : COR.texto3 },
       })))
@@ -2515,46 +2646,48 @@ async function _exportarPedidoPDF() {
     if (_parcelas.length) {
       const total = _parcelas.reduce((s, x) => s + (x.valor || 0), 0)
       const pago  = _parcelas.filter(x => x.pago).reduce((s, x) => s + (x.valor || 0), 0)
-      secao(`Parcelas (${_parcelas.length})`)
+      secao(`${t('secaoParcelas')} (${_parcelas.length})`)
       tabela([
-        { titulo: 'Parcela', w: 24 },
-        { titulo: 'Vencimento', w: 34 },
-        { titulo: 'Valor', w: 36, alinhar: 'right', negrito: true },
-        { titulo: 'Situação', w: 40 },
-        { titulo: 'Pago em', w: LARG - 134 },
+        { titulo: t('dtParcela'), w: 24 },
+        { titulo: t('pdfColVencimento'), w: 34 },
+        { titulo: t('colValor'), w: 36, alinhar: 'right', negrito: true },
+        { titulo: t('pdfColSituacao'), w: 40 },
+        { titulo: t('pdfColPagoEm'), w: LARG - 134 },
       ], _parcelas.map(par => {
         const vencida = !par.pago && par.vencimento && par.vencimento < hojeISO()
         return {
           celulas: [`${par.numero}/${par.total}`, formatDate(par.vencimento), formatCurrency(par.valor),
-            par.pago ? 'Paga' : (vencida ? 'Vencida' : 'Em aberto'), par.pago ? tsStr(par.pagoEm).slice(0, 10) : '—'],
+            par.pago ? t('parcPaga') : (vencida ? t('pdfVencida') : t('pdfEmAberto')), par.pago ? tsStr(par.pagoEm).slice(0, 10) : '—'],
           cores: { 3: par.pago ? COR.verde : (vencida ? COR.vermelho : COR.texto2) },
         }
       }))
       garantir(8)
       fonte(9, 'bold'); cor(COR.tinta)
-      const totTxt = `${formatCurrency(pago)} de ${formatCurrency(total)}`
+      const totTxt = `${formatCurrency(pago)} ${t('dtDeValor', { valor: formatCurrency(total) })}`
       const totW = pdf.getTextWidth(totTxt)
       pdf.text(totTxt, M + LARG - 2.2, y + 3, { align: 'right' })
       fonte(8.5, 'normal'); cor(COR.texto3)
-      pdf.text('Total pago', M + LARG - 2.2 - totW - 3, y + 3, { align: 'right' })
+      pdf.text(t('pdfTotalPago'), M + LARG - 2.2 - totW - 3, y + 3, { align: 'right' })
       y += 6
     }
 
     // ── Histórico
     if (_historico.length) {
-      secao('Histórico')
+      secao(t('pdfHistorico'))
       tabela([
-        { titulo: 'Data', w: 30 },
-        { titulo: 'Evento', w: 62 },
-        { titulo: 'Por', w: 36 },
-        { titulo: 'Observação', w: LARG - 128 },
+        { titulo: t('colData'), w: 30 },
+        { titulo: t('pdfColEvento'), w: 62 },
+        { titulo: t('pdfColPor'), w: 36 },
+        { titulo: t('pdfColObservacao'), w: LARG - 128 },
       ], _historico.map(h => {
-        const evento = h.tipo === 'cotacao'     ? `Cotação: ${h.fornecedorNome || '—'}${h.valor ? ' (' + formatCurrency(h.valor) + ')' : ''}`
-                     : h.tipo === 'comprovante' ? `Comprovante da parcela ${h.parcelaNumero || ''}`
-                     : h.tipo === 'edicao'      ? `${h.campoLabel || h.campo} alterado`
-                     : h.tipo === 'anexo'       ? `Anexo: ${h.nomeArquivo || '—'}`
-                     : `Status: ${STATUS_LABEL[h.status] || h.status || '—'}`
-        const obs = h.tipo === 'edicao' ? `De "${h.valorAnterior ?? '—'}" para "${h.valorNovo ?? '—'}"` : (h.nota || '—')
+        const evento = h.tipo === 'cotacao'     ? `${t('pdfEvCotacao', { fornecedor: h.fornecedorNome || '—' })}${h.valor ? ' (' + formatCurrency(h.valor) + ')' : ''}`
+                     : h.tipo === 'comprovante' ? t('pdfEvComprovante', { parcela: h.parcelaNumero || '' })
+                     : h.tipo === 'edicao'      ? t('pdfEvEdicao', { campo: _rotuloCampo(h) })
+                     : h.tipo === 'anexo'       ? t('pdfEvAnexo', { arquivo: h.nomeArquivo || '—' })
+                     : t('pdfEvStatus', { etapa: STATUS_LABEL[h.status] || h.status || '—' })
+        const obs = h.tipo === 'edicao'
+          ? t('pdfDePara', { de: _valorEdicao(h, h.valorAnterior), para: _valorEdicao(h, h.valorNovo) })
+          : (_textoNota(h) || '—')
         return { celulas: [tsStr(h.criadoEm), evento, h.autorNome || _nomePorId(h.autorId) || '—', obs] }
       }))
     }
@@ -2580,7 +2713,7 @@ async function _exportarPedidoPDF() {
       fx += larguraEspacada(pdf, 'SYSTEMS', 0.4) + 3
       fonte(7.2, 'normal'); pdf.text('|  Praxis', fx, yr)
       cor(COR.texto3)
-      pdf.text(`Página ${i} de ${total}`, M + LARG, yr, { align: 'right' })
+      pdf.text(t('pdfPagina', { i, total }), M + LARG, yr, { align: 'right' })
     }
 
     pdf.save(`praxis-pedido-${numero.replace('#', '')}.pdf`)
@@ -2671,7 +2804,9 @@ async function _reabrirPedido() {
       status:    STATUS.SOLICITADO,
       autorId:   sessao.usuario.id,
       autorNome: sessao.usuario.nome,
-      nota:      `Reaberto a partir de ${p.numeroPedido || p.id} — ${justificativa}`,
+      nota:      null,
+      notaChave: 'notaReaberto',
+      notaDados: { numero: p.numeroPedido || p.id, justificativa },
       criadoEm:  serverTimestamp(),
     })
 
@@ -2682,20 +2817,26 @@ async function _reabrirPedido() {
 }
 
 // Entrada do histórico gravada na mesma transação ou no mesmo lote da
-// mudança de status: o pedido nunca muda de etapa sem deixar o registro
+// mudança de status: o pedido nunca muda de etapa sem deixar o registro.
+// A nota é um texto (motivo, justificativa) ou { chave, dados }: a do sistema
+// fica gravada pela chave do dicionário e aparece no idioma de quem lê.
 function _historicoJunto(escrita, status, nota = null) {
+  const doSistema = nota !== null && typeof nota === 'object'
   escrita.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
     status,
     autorId: sessao.usuario.id,
     autorNome: sessao.usuario.nome || null,
-    nota,
+    nota: doSistema ? null : nota,
+    ...(doSistema ? { notaChave: nota.chave, notaDados: nota.dados || null } : {}),
     criadoEm: serverTimestamp(),
   })
 }
 
-function _normEmpresas(val) {
-  if (!val) return []
-  return Array.isArray(val) ? val : Object.keys(val)
+// Texto da nota de uma entrada do histórico: a do sistema pela chave; a
+// gravada como texto passa por rotuloNota (js/constants.js)
+function _textoNota(h) {
+  if (h.notaChave) return t(h.notaChave, h.notaDados || undefined)
+  return h.nota ? rotuloNota(h.nota) : ''
 }
 
 function _tsMs(ts) {
@@ -2726,8 +2867,8 @@ function _renderAnexos() {
           <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${esc(autor)} · <span title="${ts.title}">${ts.label.toLowerCase()}</span></div>
         </div>
         <div class="anexo-acoes">
-          <a href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="Baixar ${esc(a.nome)}" title="Baixar">${ICO.baixar}</a>
-          ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${esc(a.id)}" data-storage-path="${esc(a.storagePath || '')}" aria-label="Remover ${esc(a.nome)}" title="Remover">${ICO.lixeira}</button>` : ''}
+          <a href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('anexoBaixarAria', { nome: esc(a.nome) })}" title="${t('anexoBaixar')}">${ICO.baixar}</a>
+          ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${esc(a.id)}" data-storage-path="${esc(a.storagePath || '')}" aria-label="${t('anexoRemoverAria', { nome: esc(a.nome) })}" title="${t('remover')}">${ICO.lixeira}</button>` : ''}
         </div>
       </li>
     `
@@ -2798,7 +2939,7 @@ async function _uploadAnexo(file) {
 }
 
 async function _removerAnexo(anexoId, storagePath) {
-  const ok = await prxConfirm('Remover este anexo?', 'Esta ação não pode ser desfeita.', 'Remover', 'Cancelar', true)
+  const ok = await prxConfirm(t('anexoRemoverTitulo'), t('acaoIrreversivel'), t('remover'), t('btnCancelar'), true)
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -2853,7 +2994,7 @@ function _renderSLATimeline() {
     return `
       <li class="tempo-item ${cls}">
         <span class="tempo-num" aria-hidden="true">${i >= 0 ? _dois(i + 1) : '·'}</span>
-        <span class="tempo-nome">${_NOME_ETAPA[seg.status] || esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
+        <span class="tempo-nome">${STATUS_LABEL[seg.status] || esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
         <span class="tempo-dur">${_formatDuracao(seg.durMs)}</span>
         <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
       </li>`

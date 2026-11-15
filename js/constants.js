@@ -10,17 +10,16 @@ export const STATUS = {
   CANCELADO:    'cancelado',
 }
 
-export const STATUS_LABEL = {
-  solicitado:   'Solicitado',
-  ag_cotacao:   'Em cotação',
-  em_aprovacao: 'Em aprovação',
-  aprovado:     'Aprovado',
-  comprado:     'Comprado',
-  entregue:     'Entregue',
-  pago:         'Pago',
-  reprovado:    'Reprovado',
-  cancelado:    'Cancelado',
+// Rótulos que mudam com o idioma: cada leitura passa por t(), então
+// STATUS_LABEL[status] já vem no idioma da sessão (chaves status_*, perfil_*
+// e condicao_* do dicionário)
+function _rotulos(valores, prefixo) {
+  const rotulos = {}
+  for (const v of valores) Object.defineProperty(rotulos, v, { get: () => t(prefixo + v), enumerable: true })
+  return Object.freeze(rotulos)
 }
+
+export const STATUS_LABEL = _rotulos(Object.values(STATUS), 'status_')
 
 export const STATUS_COLOR = {
   solicitado:   'neutral',
@@ -55,14 +54,7 @@ export const PERFIS = {
   SOLICITANTE: 'solicitante',
 }
 
-export const PERFIS_LABEL = {
-  supremo:     'Supremo',
-  gestor:      'Gestor',
-  aprovador:   'Aprovador',
-  comprador:   'Comprador',
-  financeiro:  'Financeiro',
-  solicitante: 'Solicitante',
-}
+export const PERFIS_LABEL = _rotulos(Object.values(PERFIS), 'perfil_')
 
 export const PERFIS_COLOR = {
   supremo:     'gold',
@@ -73,12 +65,17 @@ export const PERFIS_COLOR = {
   solicitante: 'neutral',
 }
 
+// Motivos de reprovação e de cancelamento. O valor gravado no pedido é o texto
+// em português (as regras do Firestore conferem o 'Outros'); a tela mostra o
+// rótulo do idioma da sessão com rotuloMotivo()
+export const MOTIVO_OUTROS = 'Outros'
+
 export const MOTIVOS_REPROVACAO = [
   'Valor acima do orçamento',
   'Cotações insuficientes',
   'Justificativa inadequada',
   'Fornecedor não aprovado',
-  'Outros',
+  MOTIVO_OUTROS,
 ]
 
 export const MOTIVOS_CANCELAMENTO = [
@@ -86,8 +83,51 @@ export const MOTIVOS_CANCELAMENTO = [
   'Fornecedor indisponível',
   'Erro no pedido',
   'Pedido duplicado',
-  'Outros',
+  MOTIVO_OUTROS,
 ]
+
+const _CHAVE_MOTIVO = {
+  'Valor acima do orçamento': 'motivoValorAcima',
+  'Cotações insuficientes':   'motivoCotacoesInsuf',
+  'Justificativa inadequada': 'motivoJustificativa',
+  'Fornecedor não aprovado':  'motivoFornecedorNaoAprov',
+  'Compra não necessária':    'motivoCompraDesnecessaria',
+  'Fornecedor indisponível':  'motivoFornecedorIndisp',
+  'Erro no pedido':           'motivoErroPedido',
+  'Pedido duplicado':         'motivoDuplicado',
+  [MOTIVO_OUTROS]:            'motivoOutrosRotulo',
+}
+export function rotuloMotivo(valor) {
+  return _CHAVE_MOTIVO[valor] ? t(_CHAVE_MOTIVO[valor]) : valor
+}
+
+// Nota do histórico gravada como texto (antes de o app gravar a chave, e na
+// semente da demo): a do sistema aparece no idioma da sessão, e o motivo de
+// lista também; o resto (justificativas, observações) fica como foi escrito
+const _NOTA_TEXTO = {
+  'Comprador assumiu':               'notaAssumiu',
+  'Comprador assumiu o pedido':      'notaAssumiu',
+  'Claim liberado pelo gestor':      'notaLiberado',
+  'Cotação indicada':                'notaIndicada',
+  'Cotação indicada pelo comprador': 'notaIndicada',
+  'Última parcela paga':             'notaUltimaParcela',
+}
+export function rotuloNota(texto) {
+  if (_NOTA_TEXTO[texto]) return t(_NOTA_TEXTO[texto])
+  const compra = /^Fornecedor: (.+) · (R\$\s?[\d.,]+)$/.exec(texto || '')
+  if (compra) return t('notaCompra', { fornecedor: compra[1], valor: compra[2] })
+  const reaberto = /^Reaberto a partir de (\S+) — ([\s\S]+)$/.exec(texto || '')
+  if (reaberto) return t('notaReaberto', { numero: reaberto[1], justificativa: reaberto[2] })
+  return rotuloMotivo(texto)
+}
+
+// Urgência gravada no histórico de edições ('Urgente' ou 'Normal'; 'Urgent' se
+// quem editou usava o inglês), no idioma da sessão
+export function rotuloUrgencia(valor) {
+  if (valor === 'Urgente' || valor === 'Urgent') return t('urgente')
+  if (valor === 'Normal') return t('campoNormal')
+  return valor || '—'
+}
 
 // Paleta das categorias: os tons quentes de cerâmica e afresco que os relatórios
 // usam (variáveis --rel-* em views.css). O que fica gravado é o hex canônico do
@@ -176,10 +216,7 @@ export const UNIDADES = [
   'hora', 'mês', 'pessoa', 'licença', 'serviço',
 ]
 
-export const CONDICAO_PAGAMENTO = {
-  antecipado:         'Antecipado',
-  apos_recebimento:   'Após recebimento',
-}
+export const CONDICAO_PAGAMENTO = _rotulos(['antecipado', 'apos_recebimento'], 'condicao_')
 
 // ── Traduções ────────────────────────────────────────────────
 export const TRADUCOES = {
@@ -965,6 +1002,260 @@ export const TRADUCOES = {
     visoesVazio:           'Guarde a combinação de filtros atual para voltar a ela com um toque.',
     carregandoPedidos:     'Carregando pedidos',
     paginacao:             'Paginação',
+
+    // Rótulos de etapa, perfil, condição de pagamento e motivo (STATUS_LABEL, PERFIS_LABEL, CONDICAO_PAGAMENTO, rotuloMotivo)
+    status_solicitado:         'Solicitado',
+    status_ag_cotacao:         'Em cotação',
+    status_em_aprovacao:       'Em aprovação',
+    status_aprovado:           'Aprovado',
+    status_comprado:           'Comprado',
+    status_entregue:           'Entregue',
+    status_pago:               'Pago',
+    status_reprovado:          'Reprovado',
+    status_cancelado:          'Cancelado',
+    perfil_supremo:            'Supremo',
+    perfil_gestor:             'Gestor',
+    perfil_aprovador:          'Aprovador',
+    perfil_comprador:          'Comprador',
+    perfil_financeiro:         'Financeiro',
+    perfil_solicitante:        'Solicitante',
+    condicao_antecipado:       'Antecipado',
+    condicao_apos_recebimento: 'Após recebimento',
+    motivoValorAcima:          'Valor acima do orçamento',
+    motivoCotacoesInsuf:       'Cotações insuficientes',
+    motivoJustificativa:       'Justificativa inadequada',
+    motivoFornecedorNaoAprov:  'Fornecedor não aprovado',
+    motivoCompraDesnecessaria: 'Compra não necessária',
+    motivoFornecedorIndisp:    'Fornecedor indisponível',
+    motivoErroPedido:          'Erro no pedido',
+    motivoDuplicado:           'Pedido duplicado',
+    motivoOutrosRotulo:        'Outros',
+
+    // Datas relativas (formatarDataRelativa, em utils.js)
+    relAgora:   'Agora',
+    relMinutos: 'Há {n} min',
+    relHoras:   'Há {n}h',
+    relOntem:   'Ontem',
+    relDias:    'Há {n} dias',
+    relMes1:    'Há 1 mês',
+    relMeses:   'Há {n} meses',
+
+    // Paleta de comandos e avisos (ui.js)
+    palPlaceholder:  'Buscar pedido ou comando',
+    palFechar:       'Fechar busca',
+    palResultados:   'Resultados',
+    palNavegar:      'navegar',
+    palAbrir:        'abrir',
+    palAbrirFechar:  'abrir ou fechar',
+    palDica:         'Tente o número do pedido (PRX-0012) ou uma palavra do título.',
+    palRecentes:     'Atualizados recentemente',
+    palComandos:     'Comandos',
+    palIrPedidos:    'Ir para Pedidos',
+    palIrRelatorios: 'Ir para Relatórios',
+    palCfgUsuarios:  'Configurações: Usuários',
+    palCfgCadastros: 'Configurações: Cadastros',
+    palCfgGeral:     'Configurações: Geral',
+    semTitulo:       'Sem título',
+    fecharAviso:     'Fechar aviso',
+
+    // Entrada e recuperação de senha (auth.js)
+    emailPlaceholder:     'voce@empresa.com',
+    senhaPlaceholder:     'Sua senha',
+    loginOu:              'ou',
+    erroConexao:          'Erro de conexão. Verifique sua internet.',
+    loginErroCredenciais: 'E-mail ou senha incorretos.',
+    loginErroTentativas:  'Muitas tentativas. Aguarde alguns minutos e tente de novo.',
+    loginErroDesativada:  'Esta conta está desativada. Fale com o administrador.',
+    loginErroGenerico:    'Não foi possível entrar. Tente novamente.',
+
+    // Quadro de pedidos: mover, visões salvas e exportação CSV (pedidos.js)
+    quadroNaoMove:      'Seu perfil não move pedidos de "{de}" para "{para}". Use a tela do pedido.',
+    quadroMovido:       'Pedido movido para "{etapa}".',
+    quadroErroMover:    'Não foi possível mover o pedido. Tente novamente.',
+    visoesLimite:       'Limite de {n} visões atingido. Remova uma para salvar outra.',
+    visaoRemoverTitulo: 'Remover a visão "{nome}"?',
+    csvNumero:          'Número',
+    csvValorEstimado:   'Valor estimado (R$)',
+    csvValorFinal:      'Valor final (R$)',
+    sim:                'Sim',
+    nao:                'Não',
+
+    // Configurações › Usuários (config-usuarios.js)
+    cfgEmailPlaceholder: 'nome@empresa.com.br',
+
+    // Tela do pedido: caminho, cabeçalho e próximo passo (pedido-detalhe.js)
+    dtVoltarPedidos:            'Voltar para pedidos',
+    parcVencida1:               'Vencida há 1 dia',
+    parcVencida:                'Vencida há {n} dias',
+    parcVenceEm1:               'Vence em 1 dia',
+    parcVenceEm:                'Vence em {n} dias',
+    dtEtapaConcluida:           'concluída',
+    dtEtapaAtual:               'etapa atual',
+    dtEmData:                   'Em {d}',
+    dtCaminhoAria:              'Caminho do pedido',
+    dtAbertoPor:                'Aberto por {nome}',
+    dtAberto:                   'Aberto',
+    dtTrilhaAria:               'Navegação',
+    dtPrazoEntregaCurto:        'Prazo {prazo}',
+    dtCotRegistradasDe3:        '{n} de 3 cotações registradas',
+    dtCotRegistradas:           '{n} cotações registradas',
+    dtDe3:                      'de 3',
+    dtAcimaDe:                  'acima de {valor}',
+    dtAbaixoDe:                 'abaixo de {valor}',
+    dtIgualA:                   'igual a {valor}',
+    dtAprovadoPor:              'Aprovado por {nome}.',
+    dtAprovadoPorEm:            'Aprovado por {nome} em {d}.',
+    dtCompraCom:                'Compra feita com {fornecedor}.',
+    dtCompraComEm:              'Compra feita com {fornecedor} em {d}.',
+    dtRegistrePagamentoParcela: 'Registre o pagamento da parcela {parcela}',
+    dtRecebidoEm:               'Recebido em {d}.',
+    dtParcelasPagas:            'Parcelas pagas: {pagas} de {total}.',
+    dtDeValor:                  'de {valor}',
+    dtPagosValorA:              '{valor} pagos a {fornecedor}.',
+    dtPagosValor:               '{valor} pagos.',
+    dtPagoIntegralA:            'Pago integralmente a {fornecedor}.',
+    dtPagoIntegral:             'Pago integralmente.',
+    dtDia:                      'dia',
+    dtDias:                     'dias',
+    dtReprovadoPor:             'Reprovado por {nome}.',
+    dtReprovadoPorEm:           'Reprovado por {nome} em {d}.',
+    dtCanceladoPor:             'Cancelado por {nome}.',
+    dtCanceladoPorEm:           'Cancelado por {nome} em {d}.',
+
+    // Tela do pedido: pessoas envolvidas (pedido-detalhe.js)
+    dtEMais:              'e mais {n}',
+    dtNaoDefinido:        'Não definido',
+    dtNomeIndisponivel:   'Nome não disponível',
+    dtNaoChegouCotacao:   'Não chegou à cotação',
+    dtCotRegistrada1:     '1 cotação registrada',
+    dtAprovadoEm:         'Aprovado em {d}',
+    dtReprovou:           'Reprovou',
+    dtReprovouEm:         'Reprovou em {d}',
+    dtEntraAposCotacoes:  'Entra após as cotações',
+    dtNaoChegouAprovacao: 'Não chegou à aprovação',
+    dtPagasDe:            '{pagas} de {total} pagas',
+    dtSemParcelasCurto:   'Sem parcelas',
+
+    // Tela do pedido: atividade, notas do histórico e parcelas (pedido-detalhe.js)
+    feedAbriu:           '{quem} abriu o pedido',
+    feedPedidoAberto:    'Pedido aberto',
+    feedReprovou:        '{quem} reprovou o pedido',
+    feedCancelou:        '{quem} cancelou o pedido',
+    feedPedidoReprovado: 'Pedido reprovado',
+    feedPedidoCancelado: 'Pedido cancelado',
+    feedMoveu:           '{quem} moveu para {etapa}',
+    feedMovido:          'Movido para {etapa}',
+    feedParticipante:    'Participante',
+    feedAlguem:          'Alguém',
+    feedCotacao:         '{quem} registrou a cotação de {fornecedor}',
+    feedComprovante:     '{quem} anexou o comprovante da parcela {parcela}',
+    feedAlterou:         '{quem} alterou {campo}',
+    feedAnexou:          '{quem} anexou {arquivo}',
+    notaAssumiu:         'Comprador assumiu o pedido',
+    notaLiberado:        'Pedido devolvido à fila pelo gestor',
+    notaCompra:          'Fornecedor: {fornecedor} · {valor}',
+    notaIndicada:        'Cotação indicada pelo comprador',
+    notaUltimaParcela:   'Última parcela paga',
+    notaReaberto:        'Reaberto a partir de {numero} — {justificativa}',
+    dtParcelasDe1:       '{pagas} de 1 parcela',
+    dtParcelasDe:        '{pagas} de {total} parcelas',
+    parcPagaEm:          'Paga em {d}',
+    parcPaga:            'Paga',
+    parcSemVencimento:   'Sem vencimento',
+    campoDataNecessaria: 'Data necessária',
+    campoUrgencia:       'Urgência',
+    campoNormal:         'Normal',
+
+    // Tela do pedido: confirmações das etapas e resumo das parcelas (pedido-detalhe.js)
+    mcPagamentoUnico:        'Pagamento único de {valor}',
+    mcParcelasIguais:        '{n} parcelas mensais de {valor}',
+    mcParcelasUltima:        '{n} parcelas mensais de {valor}, a última de {ultima}',
+    dlgAssumirTitulo:        'Assumir este pedido?',
+    dlgAssumirTexto:         'Você passa a ser o comprador responsável e o pedido segue para cotação.',
+    dlgAssumirOk:            'Assumir',
+    dlgLiberarTitulo:        'Liberar este pedido?',
+    dlgLiberarTexto:         'O comprador atual deixa de ser responsável e o pedido volta para a fila.',
+    dlgLiberarOk:            'Liberar',
+    dlgAprovarTitulo:        'Aprovar este pedido?',
+    dlgAprovarTextoInd:      'Proposta indicada: {fornecedor}, {valor}. Em seguida o comprador registra a compra.',
+    dlgAprovarTexto:         'Em seguida o comprador registra a compra.',
+    dlgEntregaTitulo:        'Confirmar recebimento?',
+    dlgEntregaTexto:         'Confira se o produto ou serviço foi entregue conforme o pedido. O financeiro passa a acompanhar o pagamento.',
+    dlgPagamentoTitulo:      'Confirmar pagamento total?',
+    dlgPagamentoRegistradoA: 'Pagamento registrado a {fornecedor}.',
+    dlgPagamentoRegistrado:  'Pagamento registrado.',
+    dlgPagamentoConclui:     'O pedido será concluído.',
+
+    // Tela do pedido: comparação, edição, menções, pagamento de parcela e cotação (pedido-detalhe.js)
+    cmpMenorProposta:      'Menor proposta',
+    cmpCondicoes:          'Condições',
+    editIntro:             'Cada alteração fica registrada na atividade do pedido, com o valor anterior.',
+    editPrioridade:        'Prioridade',
+    editSalvar:            'Salvar alterações',
+    editTituloObrigatorio: 'Título é obrigatório.',
+    editSemAlteracao:      'Nenhuma alteração detectada.',
+    mencionar:             'Mencionar',
+    notifMencaoTitulo:     'Você foi mencionado',
+    notifMencaoCorpo:      '{nome} mencionou você em "{titulo}".',
+    dlgParcelaTitulo:      'Registrar pagamento?',
+    dlgParcelaTexto:       'Parcela {parcela} de {valor}, com vencimento em {d}.',
+    dlgParcelaOk:          'Registrar',
+    cotFornecedorBusca:    'Comece a digitar para buscar',
+    cotPrazoEntrega:       'Prazo de entrega',
+    cotPrazoExemplo:       'Ex.: 5 dias úteis',
+    cotCondicoes:          'Condições comerciais',
+    cotCondicoesExemplo:   'Frete, impostos, garantia',
+    cotArquivo:            'Arquivo da proposta',
+    cotSelecionarArquivo:  'Selecionar PDF ou imagem',
+    cotSalvar:             'Salvar cotação',
+
+    // PDF do pedido (pedido-detalhe.js)
+    pdfEmitido:            'Pedido de compra · emitido em {d}',
+    pdfAbertoEm:           'Aberto em {d}',
+    pdfNaoAtribuido:       'Não atribuído',
+    pdfReprovadoPor:       'Reprovado por {nome}',
+    pdfNaoSeAplica:        'Não se aplica',
+    pdfPendente:           'Pendente',
+    pdfMotivoReprovacao:   'Motivo da reprovação',
+    pdfMotivoCancelamento: 'Motivo do cancelamento',
+    pdfColPrazo:           'Prazo',
+    pdfColSituacao:        'Situação',
+    pdfColVencimento:      'Vencimento',
+    pdfColPagoEm:          'Pago em',
+    pdfVencida:            'Vencida',
+    pdfEmAberto:           'Em aberto',
+    pdfTotalPago:          'Total pago',
+    pdfHistorico:          'Histórico',
+    pdfColEvento:          'Evento',
+    pdfColPor:             'Por',
+    pdfColObservacao:      'Observação',
+    pdfEvCotacao:          'Cotação: {fornecedor}',
+    pdfEvComprovante:      'Comprovante da parcela {parcela}',
+    pdfEvEdicao:           '{campo} alterado',
+    pdfEvAnexo:            'Anexo: {arquivo}',
+    pdfEvStatus:           'Status: {etapa}',
+    pdfDePara:             'De "{de}" para "{para}"',
+    pdfPagina:             'Página {i} de {total}',
+
+    // Tela do pedido: anexos (pedido-detalhe.js)
+    anexoBaixar:        'Baixar',
+    anexoBaixarAria:    'Baixar {nome}',
+    anexoRemoverAria:   'Remover {nome}',
+    anexoRemoverTitulo: 'Remover este anexo?',
+    acaoIrreversivel:   'Esta ação não pode ser desfeita.',
+
+    // Tela do pedido: editar e apagar comentário (pedido-detalhe.js)
+    comentEditar:         'Editar',
+    comentEditarAria:     'Editar o comentário',
+    comentApagar:         'Apagar',
+    comentApagarAria:     'Apagar o comentário',
+    comentApagarTitulo:   'Apagar este comentário?',
+    comentEditado:        'editado',
+    comentVazio:          'O comentário não pode ficar vazio.',
+    comentAtualizado:     'Comentário atualizado.',
+    comentApagado:        'Comentário apagado.',
+    erroEditarComentario: 'Não foi possível salvar a edição. Tente de novo.',
+    erroApagarComentario: 'Não foi possível apagar o comentário. Tente de novo.',
   },
 
   en: {
@@ -1749,12 +2040,274 @@ export const TRADUCOES = {
     visoesVazio:           'Save the current filter combination to come back to it in one tap.',
     carregandoPedidos:     'Loading orders',
     paginacao:             'Pagination',
+
+    // Rótulos de etapa, perfil, condição de pagamento e motivo (STATUS_LABEL, PERFIS_LABEL, CONDICAO_PAGAMENTO, rotuloMotivo)
+    status_solicitado:         'Requested',
+    status_ag_cotacao:         'Quoting',
+    status_em_aprovacao:       'Awaiting approval',
+    status_aprovado:           'Approved',
+    status_comprado:           'Purchased',
+    status_entregue:           'Delivered',
+    status_pago:               'Paid',
+    status_reprovado:          'Rejected',
+    status_cancelado:          'Cancelled',
+    perfil_supremo:            'Supreme',
+    perfil_gestor:             'Manager',
+    perfil_aprovador:          'Approver',
+    perfil_comprador:          'Buyer',
+    perfil_financeiro:         'Finance',
+    perfil_solicitante:        'Requester',
+    condicao_antecipado:       'Upfront',
+    condicao_apos_recebimento: 'After receipt',
+    motivoValorAcima:          'Over budget',
+    motivoCotacoesInsuf:       'Not enough quotes',
+    motivoJustificativa:       'Weak justification',
+    motivoFornecedorNaoAprov:  'Supplier not approved',
+    motivoCompraDesnecessaria: 'Purchase no longer needed',
+    motivoFornecedorIndisp:    'Supplier unavailable',
+    motivoErroPedido:          'Mistake in the order',
+    motivoDuplicado:           'Duplicate order',
+    motivoOutrosRotulo:        'Other',
+
+    // Datas relativas (formatarDataRelativa, em utils.js)
+    relAgora:   'Just now',
+    relMinutos: '{n} min ago',
+    relHoras:   '{n}h ago',
+    relOntem:   'Yesterday',
+    relDias:    '{n} days ago',
+    relMes1:    '1 month ago',
+    relMeses:   '{n} months ago',
+
+    // Paleta de comandos e avisos (ui.js)
+    palPlaceholder:  'Search for an order or command',
+    palFechar:       'Close search',
+    palResultados:   'Results',
+    palNavegar:      'navigate',
+    palAbrir:        'open',
+    palAbrirFechar:  'open or close',
+    palDica:         'Try the order number (PRX-0012) or a word from the title.',
+    palRecentes:     'Recently updated',
+    palComandos:     'Commands',
+    palIrPedidos:    'Go to Orders',
+    palIrRelatorios: 'Go to Reports',
+    palCfgUsuarios:  'Settings: Users',
+    palCfgCadastros: 'Settings: Records',
+    palCfgGeral:     'Settings: General',
+    semTitulo:       'Untitled',
+    fecharAviso:     'Close notice',
+
+    // Entrada e recuperação de senha (auth.js)
+    emailPlaceholder:     'you@company.com',
+    senhaPlaceholder:     'Your password',
+    loginOu:              'or',
+    erroConexao:          'Connection error. Check your internet.',
+    loginErroCredenciais: 'Incorrect email or password.',
+    loginErroTentativas:  'Too many attempts. Wait a few minutes and try again.',
+    loginErroDesativada:  'This account is disabled. Contact the administrator.',
+    loginErroGenerico:    'Could not sign in. Please try again.',
+
+    // Quadro de pedidos: mover, visões salvas e exportação CSV (pedidos.js)
+    quadroNaoMove:      'Your role does not move orders from "{de}" to "{para}". Use the order page.',
+    quadroMovido:       'Order moved to "{etapa}".',
+    quadroErroMover:    'Could not move the order. Please try again.',
+    visoesLimite:       'You reached the limit of {n} views. Remove one to save another.',
+    visaoRemoverTitulo: 'Remove the view "{nome}"?',
+    csvNumero:          'Number',
+    csvValorEstimado:   'Estimated amount (R$)',
+    csvValorFinal:      'Final amount (R$)',
+    sim:                'Yes',
+    nao:                'No',
+
+    // Configurações › Usuários (config-usuarios.js)
+    cfgEmailPlaceholder: 'name@company.com',
+
+    // Tela do pedido: caminho, cabeçalho e próximo passo (pedido-detalhe.js)
+    dtVoltarPedidos:            'Back to orders',
+    parcVencida1:               'Overdue by 1 day',
+    parcVencida:                'Overdue by {n} days',
+    parcVenceEm1:               'Due in 1 day',
+    parcVenceEm:                'Due in {n} days',
+    dtEtapaConcluida:           'completed',
+    dtEtapaAtual:               'current stage',
+    dtEmData:                   'On {d}',
+    dtCaminhoAria:              'Order path',
+    dtAbertoPor:                'Opened by {nome}',
+    dtAberto:                   'Opened',
+    dtTrilhaAria:               'Breadcrumb',
+    dtPrazoEntregaCurto:        'Lead time {prazo}',
+    dtCotRegistradasDe3:        '{n} of 3 quotes recorded',
+    dtCotRegistradas:           '{n} quotes recorded',
+    dtDe3:                      'of 3',
+    dtAcimaDe:                  'above {valor}',
+    dtAbaixoDe:                 'below {valor}',
+    dtIgualA:                   'equal to {valor}',
+    dtAprovadoPor:              'Approved by {nome}.',
+    dtAprovadoPorEm:            'Approved by {nome} on {d}.',
+    dtCompraCom:                'Purchased from {fornecedor}.',
+    dtCompraComEm:              'Purchased from {fornecedor} on {d}.',
+    dtRegistrePagamentoParcela: 'Record the payment of installment {parcela}',
+    dtRecebidoEm:               'Received on {d}.',
+    dtParcelasPagas:            'Installments paid: {pagas} of {total}.',
+    dtDeValor:                  'of {valor}',
+    dtPagosValorA:              '{valor} paid to {fornecedor}.',
+    dtPagosValor:               '{valor} paid.',
+    dtPagoIntegralA:            'Paid in full to {fornecedor}.',
+    dtPagoIntegral:             'Paid in full.',
+    dtDia:                      'day',
+    dtDias:                     'days',
+    dtReprovadoPor:             'Rejected by {nome}.',
+    dtReprovadoPorEm:           'Rejected by {nome} on {d}.',
+    dtCanceladoPor:             'Cancelled by {nome}.',
+    dtCanceladoPorEm:           'Cancelled by {nome} on {d}.',
+
+    // Tela do pedido: pessoas envolvidas (pedido-detalhe.js)
+    dtEMais:              'and {n} more',
+    dtNaoDefinido:        'Not set',
+    dtNomeIndisponivel:   'Name not available',
+    dtNaoChegouCotacao:   'Did not reach quoting',
+    dtCotRegistrada1:     '1 quote recorded',
+    dtAprovadoEm:         'Approved on {d}',
+    dtReprovou:           'Rejected',
+    dtReprovouEm:         'Rejected on {d}',
+    dtEntraAposCotacoes:  'Steps in after the quotes',
+    dtNaoChegouAprovacao: 'Did not reach approval',
+    dtPagasDe:            '{pagas} of {total} paid',
+    dtSemParcelasCurto:   'No installments',
+
+    // Tela do pedido: atividade, notas do histórico e parcelas (pedido-detalhe.js)
+    feedAbriu:           '{quem} opened the order',
+    feedPedidoAberto:    'Order opened',
+    feedReprovou:        '{quem} rejected the order',
+    feedCancelou:        '{quem} cancelled the order',
+    feedPedidoReprovado: 'Order rejected',
+    feedPedidoCancelado: 'Order cancelled',
+    feedMoveu:           '{quem} moved it to {etapa}',
+    feedMovido:          'Moved to {etapa}',
+    feedParticipante:    'Participant',
+    feedAlguem:          'Someone',
+    feedCotacao:         '{quem} recorded a quote from {fornecedor}',
+    feedComprovante:     '{quem} attached the receipt for installment {parcela}',
+    feedAlterou:         '{quem} changed {campo}',
+    feedAnexou:          '{quem} attached {arquivo}',
+    notaAssumiu:         'The buyer claimed the order',
+    notaLiberado:        'Returned to the queue by a manager',
+    notaCompra:          'Supplier: {fornecedor} · {valor}',
+    notaIndicada:        'Quote selected by the buyer',
+    notaUltimaParcela:   'Last installment paid',
+    notaReaberto:        'Reopened from {numero} — {justificativa}',
+    dtParcelasDe1:       '{pagas} of 1 installment',
+    dtParcelasDe:        '{pagas} of {total} installments',
+    parcPagaEm:          'Paid on {d}',
+    parcPaga:            'Paid',
+    parcSemVencimento:   'No due date',
+    campoDataNecessaria: 'Needed by',
+    campoUrgencia:       'Urgency',
+    campoNormal:         'Normal',
+
+    // Tela do pedido: confirmações das etapas e resumo das parcelas (pedido-detalhe.js)
+    mcPagamentoUnico:        'Single payment of {valor}',
+    mcParcelasIguais:        '{n} monthly installments of {valor}',
+    mcParcelasUltima:        '{n} monthly installments of {valor}, the last one {ultima}',
+    dlgAssumirTitulo:        'Claim this order?',
+    dlgAssumirTexto:         'You become the assigned buyer and the order moves on to quoting.',
+    dlgAssumirOk:            'Claim',
+    dlgLiberarTitulo:        'Release this order?',
+    dlgLiberarTexto:         'The current buyer is no longer assigned and the order goes back to the queue.',
+    dlgLiberarOk:            'Release',
+    dlgAprovarTitulo:        'Approve this order?',
+    dlgAprovarTextoInd:      'Selected quote: {fornecedor}, {valor}. The buyer then records the purchase.',
+    dlgAprovarTexto:         'The buyer then records the purchase.',
+    dlgEntregaTitulo:        'Confirm receipt?',
+    dlgEntregaTexto:         'Check that the product or service was delivered as ordered. Finance then follows the payment.',
+    dlgPagamentoTitulo:      'Confirm full payment?',
+    dlgPagamentoRegistradoA: 'Payment recorded to {fornecedor}.',
+    dlgPagamentoRegistrado:  'Payment recorded.',
+    dlgPagamentoConclui:     'The order will be completed.',
+
+    // Tela do pedido: comparação, edição, menções, pagamento de parcela e cotação (pedido-detalhe.js)
+    cmpMenorProposta:      'Lowest quote',
+    cmpCondicoes:          'Terms',
+    editIntro:             'Every change is logged in the order activity, with the previous value.',
+    editPrioridade:        'Priority',
+    editSalvar:            'Save changes',
+    editTituloObrigatorio: 'Title is required.',
+    editSemAlteracao:      'No changes detected.',
+    mencionar:             'Mention',
+    notifMencaoTitulo:     'You were mentioned',
+    notifMencaoCorpo:      '{nome} mentioned you in "{titulo}".',
+    dlgParcelaTitulo:      'Record payment?',
+    dlgParcelaTexto:       'Installment {parcela} of {valor}, due on {d}.',
+    dlgParcelaOk:          'Record',
+    cotFornecedorBusca:    'Start typing to search',
+    cotPrazoEntrega:       'Lead time',
+    cotPrazoExemplo:       'E.g. 5 business days',
+    cotCondicoes:          'Commercial terms',
+    cotCondicoesExemplo:   'Shipping, taxes, warranty',
+    cotArquivo:            'Quote file',
+    cotSelecionarArquivo:  'Select a PDF or image',
+    cotSalvar:             'Save quote',
+
+    // PDF do pedido (pedido-detalhe.js)
+    pdfEmitido:            'Purchase order · issued on {d}',
+    pdfAbertoEm:           'Opened on {d}',
+    pdfNaoAtribuido:       'Not assigned',
+    pdfReprovadoPor:       'Rejected by {nome}',
+    pdfNaoSeAplica:        'Not applicable',
+    pdfPendente:           'Pending',
+    pdfMotivoReprovacao:   'Rejection reason',
+    pdfMotivoCancelamento: 'Cancellation reason',
+    pdfColPrazo:           'Lead time',
+    pdfColSituacao:        'Status',
+    pdfColVencimento:      'Due date',
+    pdfColPagoEm:          'Paid on',
+    pdfVencida:            'Overdue',
+    pdfEmAberto:           'Open',
+    pdfTotalPago:          'Total paid',
+    pdfHistorico:          'History',
+    pdfColEvento:          'Event',
+    pdfColPor:             'By',
+    pdfColObservacao:      'Note',
+    pdfEvCotacao:          'Quote: {fornecedor}',
+    pdfEvComprovante:      'Receipt for installment {parcela}',
+    pdfEvEdicao:           '{campo} changed',
+    pdfEvAnexo:            'Attachment: {arquivo}',
+    pdfEvStatus:           'Status: {etapa}',
+    pdfDePara:             'From "{de}" to "{para}"',
+    pdfPagina:             'Page {i} of {total}',
+
+    // Tela do pedido: anexos (pedido-detalhe.js)
+    anexoBaixar:        'Download',
+    anexoBaixarAria:    'Download {nome}',
+    anexoRemoverAria:   'Remove {nome}',
+    anexoRemoverTitulo: 'Remove this attachment?',
+    acaoIrreversivel:   'This cannot be undone.',
+
+    // Tela do pedido: editar e apagar comentário (pedido-detalhe.js)
+    comentEditar:         'Edit',
+    comentEditarAria:     'Edit the comment',
+    comentApagar:         'Delete',
+    comentApagarAria:     'Delete the comment',
+    comentApagarTitulo:   'Delete this comment?',
+    comentEditado:        'edited',
+    comentVazio:          'The comment cannot be empty.',
+    comentAtualizado:     'Comment updated.',
+    comentApagado:        'Comment deleted.',
+    erroEditarComentario: 'Could not save the edit. Please try again.',
+    erroApagarComentario: 'Could not delete the comment. Please try again.',
   },
 }
 
-export function t(chave, lang) {
-  const idioma = lang || sessionStorage.getItem('praxis_lang') || 'pt'
-  return TRADUCOES[idioma]?.[chave] ?? chave
+// Idioma da sessão: 'en' ou 'pt' (o padrão, também fora do navegador)
+export function idioma() {
+  try { return globalThis.sessionStorage?.getItem('praxis_lang') === 'en' ? 'en' : 'pt' } catch { return 'pt' }
+}
+
+// Texto da chave no idioma da sessão; sem tradução, cai no português. Cada
+// {nome} do texto é trocado por vars.nome: t('prazoFaltam', { n: 3 })
+export function t(chave, vars) {
+  let s = TRADUCOES[idioma()][chave] ?? TRADUCOES.pt[chave] ?? chave
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v)
+  return s
 }
 
 export const KANBAN_COLUNAS = [

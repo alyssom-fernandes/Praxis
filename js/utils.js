@@ -1,3 +1,5 @@
+import { t, idioma } from './constants.js'
+
 export function formatCurrency(value) {
   if (value == null || isNaN(value)) return '—'
   return new Intl.NumberFormat('pt-BR', {
@@ -15,19 +17,6 @@ export function formatDate(dateStr) {
   return `${m[3]}/${m[2]}/${m[1]}`
 }
 
-export function formatDateRelative(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.round((date - today) / 86400000)
-  if (diff === 0)  return 'Hoje'
-  if (diff === 1)  return 'Amanhã'
-  if (diff === -1) return 'Ontem'
-  if (diff > 1)    return `Em ${diff} dias`
-  return `${Math.abs(diff)} dias atrás`
-}
-
 export function formatTimestamp(ts) {
   if (!ts) return ''
   return formatarDataRelativa(ts).label
@@ -43,17 +32,18 @@ export function formatarDataRelativa(ts) {
   const diffD   = Math.floor(diffMs / 86400000)
   const diffM   = Math.floor(diffD / 30)
 
+  const local = idioma() === 'en' ? 'en-US' : 'pt-BR'
   let label
-  if (diffMin < 1)    label = 'Agora'
-  else if (diffMin < 60)  label = `Há ${diffMin} min`
-  else if (diffH < 24)    label = `Há ${diffH}h`
-  else if (diffD === 1)   label = 'Ontem'
-  else if (diffD < 30)    label = `Há ${diffD} dias`
-  else if (diffM === 1)   label = 'Há 1 mês'
-  else if (diffM < 12)    label = `Há ${diffM} meses`
-  else label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (diffMin < 1)    label = t('relAgora')
+  else if (diffMin < 60)  label = t('relMinutos', { n: diffMin })
+  else if (diffH < 24)    label = t('relHoras', { n: diffH })
+  else if (diffD === 1)   label = t('relOntem')
+  else if (diffD < 30)    label = t('relDias', { n: diffD })
+  else if (diffM === 1)   label = t('relMes1')
+  else if (diffM < 12)    label = t('relMeses', { n: diffM })
+  else label = date.toLocaleDateString(local, { day: '2-digit', month: 'short', year: 'numeric' })
 
-  const title = date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  const title = date.toLocaleString(local, { dateStyle: 'short', timeStyle: 'short' })
   return { label, title }
 }
 
@@ -211,6 +201,15 @@ export function impedimentoDeFuncao(pedido, usuario, acao) {
   return null
 }
 
+// Empresas da pessoa, sempre como lista de IDs: é o formato que o app grava e
+// que as consultas (array-contains-any) e as Functions esperam. Um objeto
+// { id: true } ainda é lido, mas só aqui; o resto do código vê a lista.
+export function empresasDoUsuario(usuario) {
+  const r = usuario?.empresas
+  if (Array.isArray(r)) return r
+  return r && typeof r === 'object' ? Object.keys(r) : []
+}
+
 export function pluralizar(n, singular, plural) {
   return `${n} ${n === 1 ? singular : plural}`
 }
@@ -240,17 +239,18 @@ export function animarNumero(elemento, valorFinal, duracaoMs = 900, formatador =
 }
 
 // ── SLA badge ─────────────────────────────────────────────────
+// Prazo em palavras a partir dos dias que faltam (negativo: atraso)
+export function textoPrazo(dias) {
+  if (dias < 0) return dias === -1 ? t('prazoAtrasado1') : t('prazoAtrasado', { n: -dias })
+  if (dias === 0) return t('prazoVenceHoje')
+  return dias === 1 ? t('prazoFalta1') : t('prazoFaltam', { n: dias })
+}
+
 export function calcularSLA(dataNecessaria) {
   if (!dataNecessaria) return null
-  const hoje = hojeISO()
-  if (dataNecessaria < hoje) {
-    const dias = Math.round((new Date(hoje) - new Date(dataNecessaria)) / 86400000)
-    return { label: `Atrasado ${dias} dia${dias !== 1 ? 's' : ''}`, classe: 'sla-danger' }
-  }
-  const diff = Math.round((new Date(dataNecessaria) - new Date(hoje)) / 86400000)
-  if (diff === 0) return { label: 'Vence hoje', classe: 'sla-danger' }
-  if (diff <= 3)  return { label: `Faltam ${diff} dia${diff !== 1 ? 's' : ''}`, classe: 'sla-warn' }
-  return { label: `Faltam ${diff} dias`, classe: 'sla-ok' }
+  const dias = Math.round((new Date(dataNecessaria) - new Date(hojeISO())) / 86400000)
+  const classe = dias <= 0 ? 'sla-danger' : dias <= 3 ? 'sla-warn' : 'sla-ok'
+  return { label: textoPrazo(dias), classe }
 }
 
 // ── Validação de formulários ──────────────────────────────────

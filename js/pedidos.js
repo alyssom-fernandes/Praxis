@@ -2,21 +2,25 @@ import {
   db, collection, where, orderBy, getDocs, onSnapshot, doc, runTransaction, serverTimestamp, writeBatch,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
+import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
+import { sessao, registrarPedidos } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
-  PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, corCategoria, t,
+  PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
+  corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao } from './utils.js'
+import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
 
 let _unsubPedidos = null
+let _resizeLigado = false  // um só ouvinte de resize para as setas do quadro
 let _pedidos = []
-window.__getPedidos = () => _pedidos
+// A paleta de comandos (ui.js) busca nesta lista, pelo estado
+registrarPedidos(() => _pedidos)
 let _categorias = []
 let _empresas = []        // ativas — usadas nos seletores
 let _empresasTodas = []   // todas — usadas para exibir o nome (pedidos antigos de empresa inativa)
@@ -463,7 +467,7 @@ function _initPullToRefresh() {
       setTimeout(() => {
         indicator.classList.remove('visible', 'refreshing')
         indicator.style.transform = ''
-        window.__navegar('pedidos')
+        navegar('pedidos')
       }, 550)
     } else {
       indicator.classList.remove('visible')
@@ -821,7 +825,7 @@ function _bindEvents() {
   })
   document.getElementById('bulk-motivo')?.addEventListener('change', e => {
     const wrap = document.getElementById('bulk-motivo-outros-wrap')
-    if (wrap) wrap.hidden = e.target.value !== 'Outros'
+    if (wrap) wrap.hidden = e.target.value !== MOTIVO_OUTROS
     _limparErroCampo('bulk-motivo')
   })
   document.getElementById('bulk-motivo-outros')?.addEventListener('input', () => _limparErroCampo('bulk-motivo-outros'))
@@ -1014,8 +1018,7 @@ function _iniciarListenerPedidos() {
     )
   } else {
     // Demais perfis veem todos os pedidos das empresas que têm acesso
-    const raw = sessao.usuario.empresas
-    const empresas = Array.isArray(raw) ? raw : Object.keys(raw || {})
+    const empresas = empresasDoUsuario(sessao.usuario)
     if (!empresas.length) {
       _pedidos = []
       _renderView()
@@ -1387,8 +1390,8 @@ function _bindBoardScroll(container, scrollInicial = 0) {
   wrap.querySelector('[data-board-ant]')?.addEventListener('click', () => board.scrollBy({ left: -passo(), behavior: 'smooth' }))
   wrap.querySelector('[data-board-prox]')?.addEventListener('click', () => board.scrollBy({ left: passo(), behavior: 'smooth' }))
   atualizar()
-  if (!window.__pedidosResizeBound) {
-    window.__pedidosResizeBound = true
+  if (!_resizeLigado) {
+    _resizeLigado = true
     const onResize = debounce(() => {
       const w = document.querySelector('#pedidos-view .kanban-wrap')
       const b = w?.querySelector('.kanban-board')
@@ -1398,7 +1401,7 @@ function _bindBoardScroll(container, scrollInicial = 0) {
       w.classList.toggle('tem-dir', b.scrollLeft < max - 4)
     }, 120)
     window.addEventListener('resize', onResize)
-    registrarLimpador(() => { window.removeEventListener('resize', onResize); window.__pedidosResizeBound = false })
+    registrarLimpador(() => { window.removeEventListener('resize', onResize); _resizeLigado = false })
   }
 }
 
@@ -1502,7 +1505,7 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
 
   if (statusOrigem === statusDestino) return
   if (!destinos.includes(statusDestino)) {
-    prxToast(`Seu perfil não move pedidos de "${STATUS_LABEL[statusOrigem]}" para "${STATUS_LABEL[statusDestino]}". Use a tela do pedido.`, 'error')
+    prxToast(t('quadroNaoMove', { de: STATUS_LABEL[statusOrigem], para: STATUS_LABEL[statusDestino] }), 'error')
     return
   }
   // As mesmas travas das regras: quem abriu ou cotou não aprova o pedido, quem
@@ -1547,9 +1550,10 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
       criadoEm:  serverTimestamp(),
     })
     await lote.commit()
-    prxToast(`Pedido movido para "${STATUS_LABEL[statusDestino]}".`, 'success')
+    prxToast(t('quadroMovido', { etapa: STATUS_LABEL[statusDestino] }), 'success')
   } catch (err) {
-    prxToast('Não foi possível mover o pedido: ' + (err.message || 'tente novamente'), 'error')
+    console.warn('Mover pelo quadro:', err)
+    prxToast(t('quadroErroMover'), 'error')
   } finally {
     esconderSpinner()
   }
@@ -2012,9 +2016,8 @@ async function _carregarDadosAuxiliares() {
   }
 }
 
-function _empresasDoUsuario(lista) {
-  const raw = sessao.usuario.empresas
-  const empIds = Array.isArray(raw) ? raw : Object.keys(raw || {})
+function _empresasAcessiveis(lista) {
+  const empIds = empresasDoUsuario(sessao.usuario)
   return sessao.usuario.perfil === PERFIS.SUPREMO ? lista : lista.filter(e => empIds.includes(e.id))
 }
 
@@ -2028,7 +2031,7 @@ function _preencherFiltros() {
   const selEmp = document.getElementById('fl-empresa-global')
   if (selEmp) {
     // No filtro entram também as inativas: há pedidos antigos delas no quadro
-    const disponiveis = _empresasDoUsuario(_empresasTodas)
+    const disponiveis = _empresasAcessiveis(_empresasTodas)
       .slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
     if (disponiveis.length >= 2) {
       disponiveis.forEach(e => add(selEmp, e.id, e.ativa === false ? `${e.nome} (${t('inativa')})` : e.nome))
@@ -2056,7 +2059,7 @@ function _preencherModalNovoPedido() {
   // Empresas — só as ativas às quais o usuário tem acesso
   const empSel = document.getElementById('np-empresa')
   if (empSel) {
-    _empresasDoUsuario(_empresas).forEach(e => {
+    _empresasAcessiveis(_empresas).forEach(e => {
       const opt = document.createElement('option')
       opt.value = e.id; opt.textContent = e.nome
       empSel.appendChild(opt)
@@ -2243,7 +2246,7 @@ function _confirmarSalvarVisao() {
     return
   }
   if (_viewsSalvas.length >= _VIEWS_MAX) {
-    prxToast(`Limite de ${_VIEWS_MAX} visões atingido. Remova uma para salvar outra.`, 'error')
+    prxToast(t('visoesLimite', { n: _VIEWS_MAX }), 'error')
     return
   }
   const nova = { id: Date.now().toString(), nome, estado: _capturarEstadoFiltros() }
@@ -2289,7 +2292,7 @@ function _renomearView(viewId) {
 function _removerView(viewId) {
   const view = _viewsSalvas.find(v => v.id === viewId)
   if (!view) return
-  prxConfirm(`Remover a visão "${view.nome}"?`, t('visaoRemoverMsg'), t('remover'), t('cancelar'), true).then(ok => {
+  prxConfirm(t('visaoRemoverTitulo', { nome: view.nome }), t('visaoRemoverMsg'), t('remover'), t('cancelar'), true).then(ok => {
     if (!ok) return
     _viewsSalvas = _viewsSalvas.filter(v => v.id !== viewId)
     if (_visaoAtiva === viewId) _visaoAtiva = null
@@ -2341,10 +2344,10 @@ function _exportarCSV() {
     })
   if (!lista.length) return
   const cabecalho = [
-    'Número', 'Título', 'Empresa', 'Categoria', 'Solicitante', 'Status', 'Urgente',
-    'Quantidade', 'Unidade', 'Valor estimado (R$)', 'Valor final (R$)',
-    'Necessário até', 'Criado em', 'Centro de custo',
-  ]
+    'csvNumero', 'npTitulo', 'colEmpresa', 'npCategoria', 'colSolicitante', 'cfgColStatus', 'urgente',
+    'npQuantidade', 'npUnidade', 'csvValorEstimado', 'csvValorFinal',
+    'npData', 'colCriadoEm', 'npCC',
+  ].map(chave => t(chave))
   const linhas = lista.map(p => [
     p.numeroPedido || '',
     p.titulo || '',
@@ -2352,7 +2355,7 @@ function _exportarCSV() {
     _categorias.find(c => c.id === p.categoriaId)?.nome || '',
     _nomeSolicitante(p),
     STATUS_LABEL[p.status] || p.status || '',
-    p.urgente ? 'Sim' : 'Não',
+    p.urgente ? t('sim') : t('nao'),
     p.quantidade ?? '',
     p.unidade || '',
     _csvNumero(p.valorEstimado),
@@ -2413,7 +2416,7 @@ function _abrirModalBulkCancel() {
     sel.innerHTML = `<option value="">${t('motivoPlaceholder')}</option>`
     MOTIVOS_CANCELAMENTO.forEach(m => {
       const opt = document.createElement('option')
-      opt.value = m; opt.textContent = m
+      opt.value = m; opt.textContent = rotuloMotivo(m)
       sel.appendChild(opt)
     })
   }
@@ -2430,7 +2433,7 @@ async function _confirmarBulkCancel() {
   const motivo = document.getElementById('bulk-motivo')?.value
   const motivoOutros = document.getElementById('bulk-motivo-outros')?.value.trim()
   if (!motivo) { _marcarErroCampo('bulk-motivo', t('selecionarMotivo')); return }
-  if (motivo === 'Outros' && !motivoOutros) { _marcarErroCampo('bulk-motivo-outros', t('descreverMotivo')); return }
+  if (motivo === MOTIVO_OUTROS && !motivoOutros) { _marcarErroCampo('bulk-motivo-outros', t('descreverMotivo')); return }
 
   const uid = sessao.usuario.id
   const candidatos = _candidatosCancelamento()
@@ -2449,14 +2452,14 @@ async function _confirmarBulkCancel() {
         canceladoPor: uid,
         canceladoEm: serverTimestamp(),
         motivoCancelamento: motivo,
-        motivoCancelamentoOutros: motivo === 'Outros' ? motivoOutros : null,
+        motivoCancelamentoOutros: motivo === MOTIVO_OUTROS ? motivoOutros : null,
         atualizadoEm: serverTimestamp(),
       })
       lote.set(doc(collection(db, 'pedidos', p.id, 'historico')), {
         status: STATUS.CANCELADO,
         autorId: uid,
         autorNome: sessao.usuario.nome || '',
-        nota: motivo === 'Outros' ? motivoOutros : motivo,
+        nota: motivo === MOTIVO_OUTROS ? motivoOutros : motivo,
         criadoEm: serverTimestamp(),
       })
       await lote.commit()

@@ -2,11 +2,12 @@ import {
   db, collection, getDocs, setDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, Timestamp,
   consulta, consultaUsuarios,
 } from './firebase.js'
-import { sessao, renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
+import { sessao } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
-import { debounce, validarEmail, normalizarTexto, formatCNPJ } from './utils.js'
+import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario } from './utils.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, corPerfil, dataAcesso, iniciais,
@@ -30,7 +31,6 @@ const PRAZO_CONVITE_DIAS = 30
 const _souSupremo = () => sessao.usuario?.perfil === PERFIS.SUPREMO
 const _meuId      = () => sessao.usuario?.id || sessao.fireUser?.uid
 const _ativo      = u => u.ativo !== false
-const _empIds     = u => { const r = u.empresas || []; return Array.isArray(r) ? r : Object.keys(r) }
 const _emailNorm  = e => String(e || '').trim().toLowerCase()
 const _vencido    = c => !c.expiraEm?.toMillis || c.expiraEm.toMillis() <= Date.now()
 const _dataCurta  = ts => ts?.toDate
@@ -106,7 +106,7 @@ export async function renderConfigUsuarios() {
             </div>
             <div class="form-group col-span-2" data-campo="usr-email">
               <label for="usr-email">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
-              <input type="email" id="usr-email" placeholder="nome@empresa.com.br" autocomplete="off">
+              <input type="email" id="usr-email" placeholder="${t('cfgEmailPlaceholder')}" autocomplete="off">
               <span class="form-hint" id="usr-email-dica" hidden></span>
             </div>
             <div class="form-group" data-campo="usr-perfil">
@@ -152,7 +152,7 @@ export async function renderConfigUsuarios() {
 async function _carregarConvites() {
   if (sessao.isDemo) return []
   const ref = collection(db, 'convites')
-  const empresas = _empIds(sessao.usuario || {})
+  const empresas = empresasDoUsuario(sessao.usuario || {})
   if (!_souSupremo() && !empresas.length) return []
   const consultaConvites = _souSupremo()
     ? ref
@@ -235,7 +235,7 @@ function _atualizarContagens() {
 
 // Empresas do usuário em texto: "Todas as empresas", "Nexara Tecnologia" ou "Nexara Tecnologia +1"
 function _celEmpresas(u) {
-  const ids = _empIds(u)
+  const ids = empresasDoUsuario(u)
   if (!ids.length) return `<span class="cfg-mudo">${t('cfgNenhuma')}</span>`
   const todas = _empresas.map(e => e.id)
   if (todas.length > 1 && todas.every(id => ids.includes(id))) {
@@ -440,7 +440,7 @@ function _abrirModalEdicao(u) {
   email.disabled = true
   _opcoesPerfil(u.perfil || '')
   _definirAtivo(_ativo(u))
-  const ids = _empIds(u)
+  const ids = empresasDoUsuario(u)
   document.querySelectorAll('.emp-check').forEach(c => { c.checked = ids.includes(c.value) })
   _travarFormulario(u.perfil === PERFIS.SUPREMO && !_souSupremo())
   _atualizarBotaoTodas()
@@ -459,7 +459,7 @@ function _abrirModalConvite(c) {
   email.disabled = true
   _opcoesPerfil(c.perfil || '')
   _definirAtivo(true)
-  const ids = _empIds(c)
+  const ids = empresasDoUsuario(c)
   document.querySelectorAll('.emp-check').forEach(ch => { ch.checked = ids.includes(ch.value) })
   _travarFormulario(false)
   _atualizarBotaoTodas()
