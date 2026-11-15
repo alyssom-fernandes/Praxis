@@ -16,6 +16,8 @@ import {
   t, STATUS_LABEL, PERFIS_LABEL, rotuloMotivo, rotuloNota, rotuloUrgencia,
 } from '../js/constants.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 
 // O Intl separa "R$" do número com um espaço não separável
 const semNbsp = s => s.replace(/\u00a0/g, ' ')
@@ -230,4 +232,38 @@ test('empresas da pessoa sempre como lista, qualquer que seja o formato gravado'
   assert.deepEqual(empresasDoUsuario({ empresas: { e1: true } }), ['e1'])
   assert.deepEqual(empresasDoUsuario({}), [])
   assert.deepEqual(empresasDoUsuario(null), [])
+})
+
+// ── Dependências do site ───────────────────────────────────────
+const _ler = caminho => readFileSync(new URL(`../${caminho}`, import.meta.url))
+
+test('o SDK do Firebase do site é o mesmo dos testes, conferido pelo integrity', () => {
+  const versao = JSON.parse(_ler('node_modules/firebase/package.json')).version
+  const html = _ler('index.html').toString()
+  const preloads = [...html.matchAll(/<link rel="modulepreload" href="https:\/\/www\.gstatic\.com\/firebasejs\/([^/]+)\/(firebase-[a-z]+\.js)"([^>]*)>/g)]
+  assert.equal(preloads.length, 4)
+  for (const [, v, arquivo, resto] of preloads) {
+    assert.equal(v, versao, `${arquivo}: versão do site igual à dos testes`)
+    const hash = 'sha384-' + createHash('sha384').update(_ler(`node_modules/firebase/${arquivo}`)).digest('base64')
+    assert.ok(resto.includes(`integrity="${hash}"`), `${arquivo}: integrity igual ao do pacote do npm`)
+  }
+  // Todo import do SDK no app usa a mesma versão, e nenhum script vem do cdnjs
+  for (const nome of readdirSync(new URL('../js/', import.meta.url)).filter(n => n.endsWith('.js'))) {
+    const codigo = _ler(`js/${nome}`).toString()
+    for (const [, v] of codigo.matchAll(/gstatic\.com\/firebasejs\/([^/]+)\//g)) assert.equal(v, versao, `js/${nome}`)
+    assert.ok(!codigo.includes('cdnjs.cloudflare.com'), `js/${nome} sem cdnjs`)
+  }
+  const csp = JSON.parse(_ler('firebase.json')).hosting.headers
+    .flatMap(h => h.headers).find(h => h.key === 'Content-Security-Policy').value
+  assert.ok(!csp.includes('cdnjs'), 'a CSP não libera o cdnjs')
+})
+
+test('jsPDF e ExcelJS servidos pelo próprio site, com a licença junto', () => {
+  const ui = _ler('js/ui.js').toString()
+  for (const [, caminho] of ui.matchAll(/src: '\/(vendor\/[^']+)'/g)) {
+    assert.ok(existsSync(new URL(`../${caminho}`, import.meta.url)), caminho)
+    assert.ok(existsSync(new URL(`../${caminho.replace(/[^/]+$/, 'LICENSE')}`, import.meta.url)), `licença de ${caminho}`)
+  }
+  assert.match(ui, /vendor\/jspdf-2\.5\.1\/jspdf\.umd\.min\.js/)
+  assert.match(ui, /vendor\/exceljs-4\.4\.0\/exceljs\.min\.js/)
 })

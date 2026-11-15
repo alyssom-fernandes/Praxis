@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Bibliotecas de terceiros: os bytes ficam iguais aos publicados no npm
+vendor/** -text

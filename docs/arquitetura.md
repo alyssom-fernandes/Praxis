@@ -85,6 +85,8 @@ Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empr
 | Escape na tela | `js/utils.js` (`esc`, `formatDate`, `urlSegura`), `js/ui.js` | Todo texto gravado por usuários é escapado antes do `innerHTML`; links só `http(s)`; avisos e diálogos escapam por padrão. |
 | Cabeçalhos | `firebase.json` | CSP sem script inline (o primeiro script fica em `js/inicio.js`), `frame-ancestors 'none'`, `nosniff`, Referrer-Policy e Permissions-Policy. |
 | Fontes locais | `assets/fonts/`, `css/fontes.css` | Nenhuma requisição ao Google Fonts (nem repasse do IP do visitante). |
+| Bibliotecas no próprio site | `vendor/`, `carregarBiblioteca()` em `js/ui.js` | jsPDF 2.5.1 e ExcelJS 4.4.0 copiados do npm sem alteração (os bytes batem com os do cdnjs), com a licença ao lado, e carregados só na primeira exportação. A CSP não libera o cdnjs. Depois do primeiro uso, o service worker guarda os arquivos, e a exportação funciona sem internet. |
+| SDK do Firebase conferido | `index.html` (`modulepreload` com `integrity`) | O SDK vem do gstatic, na mesma versão do pacote `firebase` usado nos testes; o `integrity` de cada módulo é o hash do arquivo publicado no npm, e o navegador recusa um arquivo diferente. `tests/unidade.test.mjs` confere versão e hashes, então atualizar o SDK exige atualizar os dois. |
 
 ## Cloud Functions
 
@@ -131,7 +133,7 @@ dão à conta demo o perfil `demo`, que só alcança os dados da demonstração.
 
 | Funcionalidade | Implementação |
 |---|---|
-| **PWA** | `manifest.json` + `service-worker.js` (rede primeiro para os arquivos do site e as CDNs, cache só sem internet; Firestore/Auth sem interceptação) |
+| **PWA** | `manifest.json` + `service-worker.js` (rede primeiro para os arquivos do site, as bibliotecas de `vendor/` e o SDK do gstatic, cache só sem internet; Firestore/Auth sem interceptação) |
 | **Paginação** | Slice client-side de 20 em 20 após `_filtrarPedidos()`; cursor não é necessário pois o listener já carrega tudo |
 | **Ações em massa** | `_selecionados` (`Set`); export gera CSV com BOM UTF-8; cancelamento em massa via `Promise.all` com `updateDoc` + historico |
 | **Visões salvas** | `_viewsSalvas` em `localStorage` (chave `praxis_views_{uid}`); max 8; salva 10 estados de filtro + modo |

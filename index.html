@@ -39,11 +39,13 @@
 
   <!-- Módulos da entrada, pedidos em paralelo: sem isto o navegador só descobre
        o SDK do Firebase depois de ler app.js e firebase.js (três idas e voltas).
-       Prioridade baixa: no celular lento o CSS, que segura a pintura, vem antes -->
-  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js" crossorigin fetchpriority="low">
-  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js" crossorigin fetchpriority="low">
-  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js" crossorigin fetchpriority="low">
-  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js" crossorigin fetchpriority="low">
+       Prioridade baixa: no celular lento o CSS, que segura a pintura, vem antes.
+       O integrity confere o SDK do gstatic com o publicado no npm (o mesmo dos
+       testes, ver tests/unidade.test.mjs): o import usa o módulo já conferido -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js" integrity="sha384-twNz1SBe4vUETf7QVLsdTbzLlnTKTP3DOQJvdJ1iF6j7qe1ZeQRXlozqQwrO8h3F" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js" integrity="sha384-7La0dbfFypzUcQG3/NhsgdYj8yqzF9h2FBa6SwHS7Jl4pRaS31o08/SBE0PjfGq3" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js" integrity="sha384-bTfxIlR78a9XkXePxT0Bd2tkGu2uDzQjTYLa94fo/+g8ZMuOdiPCZOE+QvPC2jmy" crossorigin fetchpriority="low">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js" integrity="sha384-T3JztCbKkAun9CPRP2o8/CItmoU9e6E3eMtg47b58Y0qnF5SUgzna6Vj1T2juCxB" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="/js/firebase.js" fetchpriority="low">
   <link rel="modulepreload" href="/js/constants.js" fetchpriority="low">
   <link rel="modulepreload" href="/js/ui.js" fetchpriority="low">

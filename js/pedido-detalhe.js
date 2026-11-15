@@ -7,7 +7,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao } from './ui.js'
+import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL,
@@ -2432,19 +2432,12 @@ function _avisoDeFuncao(acao, perfisDoPasso) {
 }
 
 // ── Refresh parcial de subcoleções ────────────────────────────
+// Gera o PDF com os dados já carregados: sem internet, funciona se o jsPDF já
+// foi baixado uma vez (o service worker guarda o arquivo)
 async function _exportarPedidoPDF() {
-  if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    if (!window.jspdf) {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script')
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-        s.onload = res; s.onerror = rej
-        document.head.appendChild(s)
-      })
-    }
-    const { jsPDF } = window.jspdf
+    const { jsPDF } = await carregarBiblioteca('jspdf')
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
     const p   = _pedido
 
@@ -2720,7 +2713,7 @@ async function _exportarPedidoPDF() {
     prxToast(t('pdfExportado'), 'success')
   } catch (err) {
     console.error(err)
-    prxToast(t('erroExportarPDF'), 'error')
+    prxToast(estaOnline() ? t('erroExportarPDF') : t('semConexaoAcao'), 'error')
   } finally {
     esconderSpinner()
   }

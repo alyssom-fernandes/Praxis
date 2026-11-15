@@ -757,6 +757,32 @@ export function estaOnline() {
 }
 
 // Verifica conexão antes de uma escrita; se offline, avisa e retorna false
+// ── Bibliotecas de exportação ─────────────────────────────────
+// jsPDF e ExcelJS ficam no próprio site (vendor/), copiados do npm sem
+// alteração: nenhum script vem de CDN de terceiros (a CSP só libera o SDK do
+// Firebase). Carregam na primeira exportação; depois o service worker guarda
+// os arquivos, e a exportação funciona também sem internet.
+const _BIBLIOTECAS = {
+  jspdf:   { src: '/vendor/jspdf-2.5.1/jspdf.umd.min.js', global: 'jspdf' },
+  exceljs: { src: '/vendor/exceljs-4.4.0/exceljs.min.js', global: 'ExcelJS' },
+}
+const _carregando = {}
+
+export function carregarBiblioteca(nome) {
+  const b = _BIBLIOTECAS[nome]
+  if (window[b.global]) return Promise.resolve(window[b.global])
+  _carregando[nome] ||= new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = b.src
+    s.async = true
+    const falhou = () => { s.remove(); delete _carregando[nome]; reject(new Error(b.src)) }
+    s.onload = () => window[b.global] ? resolve(window[b.global]) : falhou()
+    s.onerror = falhou
+    document.head.appendChild(s)
+  })
+  return _carregando[nome]
+}
+
 export function exigirConexao() {
   if (estaOnline()) return true
   prxToast(t('semConexaoAcao'), 'error')

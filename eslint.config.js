@@ -4,7 +4,7 @@ const js = require('@eslint/js')
 const globals = require('globals')
 
 module.exports = [
-  { ignores: ['node_modules/', 'functions/', '_build/', '.firebase/', 'dist/', 'js/config.js'] },
+  { ignores: ['node_modules/', 'functions/', '_build/', '.firebase/', 'dist/', 'vendor/', 'js/config.js'] },
   js.configs.recommended,
   {
     // front: módulos ES no navegador

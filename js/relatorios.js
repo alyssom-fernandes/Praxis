@@ -2,7 +2,7 @@ import { db, collection, where, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
 import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
-import { prxToast, marcaPraxis } from './ui.js'
+import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, PERFIS, t, tomDaCor } from './constants.js'
 import { formatCurrency, formatDate, esc, empresasDoUsuario } from './utils.js'
@@ -923,17 +923,6 @@ function _esconderDica() {
 // ── Exportações ───────────────────────────────────────────────
 const _hex = rgb => 'FF' + rgb.map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase()
 
-function _carregarScript(src, global) {
-  if (window[global]) return Promise.resolve(window[global])
-  return new Promise((res, rej) => {
-    const s = document.createElement('script')
-    s.src = src; s.async = true
-    s.onload = () => window[global] ? res(window[global]) : rej(new Error('Biblioteca indisponível'))
-    s.onerror = () => { s.remove(); rej(new Error('Falha ao carregar ' + src)) }
-    document.head.appendChild(s)
-  })
-}
-
 function _baixar(blob, nome) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -971,14 +960,14 @@ async function _comBotao(fn) {
   if (btn) { btn.disabled = true; btn.classList.add('loading') }
   try { await fn() } catch (err) {
     console.warn('Relatórios: falha na exportação', err)
-    prxToast(tr('erroExport'), 'error')
+    prxToast(estaOnline() ? tr('erroExport') : t('semConexaoAcao'), 'error')
   } finally { if (btn) { btn.disabled = false; btn.classList.remove('loading') } }
 }
 
 async function _exportarExcel() {
   if (!_podeVerFinanceiro()) { prxToast(tr('semPermissao'), 'warning'); return }
   await _comBotao(async () => {
-    const ExcelJS = await _carregarScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js', 'ExcelJS')
+    const ExcelJS = await carregarBiblioteca('exceljs')
     const D = _calcular()
     const wb = new ExcelJS.Workbook()
     wb.creator = 'Praxis'; wb.created = new Date()
@@ -1150,7 +1139,7 @@ async function _exportarExcel() {
 async function _exportarPDF() {
   if (!_podeVerFinanceiro()) { prxToast(tr('semPermissao'), 'warning'); return }
   await _comBotao(async () => {
-    const lib = await _carregarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf')
+    const lib = await carregarBiblioteca('jspdf')
     const { jsPDF } = lib
     const D = _calcular()
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
