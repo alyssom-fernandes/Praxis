@@ -50,7 +50,9 @@ jobs:
 
   e2e:
     name: Ponta a ponta (navegador e emuladores)
-    runs-on: ubuntu-latest
+    # Versão fixa: o instalador de dependências do Playwright conhece cada
+    # versão do Ubuntu, e o ubuntu-latest passou a apontar para o 26
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
