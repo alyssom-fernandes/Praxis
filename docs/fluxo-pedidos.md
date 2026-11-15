@@ -61,13 +61,13 @@ O supremo segue estas mesmas transições e travas, como um gestor de todas as e
 Duas operações usam `runTransaction` obrigatoriamente:
 
 1. **Claim do comprador** — a transação relê `compradorId`; se já estiver preenchido, lança erro tratado como *"Este pedido já foi assumido por outro usuário."*
-2. **Aprovação** — a transação relê `status`; se não estiver mais `em_aprovacao`, lança erro tratado como *"Este pedido já foi aprovado por outro usuário."* Os demais aprovadores recebem notificação de que o pedido já foi processado.
+2. **Aprovação** — a transação relê `status`; se não estiver mais `em_aprovacao`, lança erro tratado como *"Este pedido já foi aprovado por outro usuário."*
 
 A liberação do claim pelo gestor também usa `runTransaction` (só devolve à fila um pedido que ainda está em cotação). Em toda mudança de status, a entrada do histórico vai na mesma transação ou no mesmo lote (`writeBatch`): se uma das duas gravações é recusada, nenhuma acontece.
 
 ## SLA de claim
 
-- Pedido comum sem comprador há **48h** → notifica gestores (function `checkClaimTimeout`, roda a cada hora).
+- Pedido comum sem comprador há **48h** → avisa a gestão (function `checkClaimTimeout`, roda a cada hora; o aviso sai uma vez por pedido e prazo).
 - Pedido **urgente** sem comprador há **4h** → idem.
 - Gestor/Supremo podem usar **"Liberar pedido"** no detalhe para remover o claim e devolver o pedido à fila.
 

@@ -121,7 +121,7 @@ Para rodar os testes das regras de segurança (eles sobem e derrubam os próprio
 npm run testar-regras
 ```
 
-Os testes de unidade, com a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário), não precisam de emulador:
+Os testes de unidade não precisam de emulador. Eles cobrem a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário) e as regras dos avisos das Cloud Functions (quem recebe cada aviso, um aviso por evento, datas no horário de São Paulo):
 
 ```bash
 npm run testar-unidade
@@ -158,7 +158,7 @@ js/
   demo-*.js           pessoas da demonstração e a recriação diária
 functions/            gatilhos, rotinas agendadas e o seed da demonstração
 scripts/              seed dos emuladores (npm run seed)
-tests/                testes das regras (emulador), de unidade e dos textos da interface
+tests/                testes das regras (emulador), de unidade, dos textos da interface e dos avisos das Functions
 docs/                 arquitetura, fluxo de pedidos e permissões
 ```
 

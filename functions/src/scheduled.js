@@ -1,120 +1,68 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { getAuth } = require('firebase-admin/auth')
 const { getFirestore, Timestamp } = require('firebase-admin/firestore')
-const { criarNotificacao, buscarUsuariosPorPerfil } = require('./utils')
-const { enviarEmail } = require('./email')
+const { entregarAvisos } = require('./utils')
+const { avisoParado, avisoParcela, DIAS_ANTES_DO_VENCIMENTO } = require('./avisos')
+const { diaSP, somarDias, diasEntre, momentoSP } = require('./datas')
 
 const db = getFirestore()
 
+// As rotinas rodam de novo a cada hora ou a cada dia; cada aviso tem uma chave
+// (src/avisos.js) e sai uma vez só (src/utils.js, entregarAvisos)
+
 // ── checkClaimTimeout ──────────────────────────────────────────
-// Roda a cada hora — verifica pedidos sem comprador há muito tempo
+// Roda a cada hora: pedido sem comprador há 4h (urgente) ou 48h avisa os gestores
 exports.checkClaimTimeout = onSchedule(
   { schedule: 'every 1 hours', region: 'southamerica-east1', timeZone: 'America/Sao_Paulo' },
   async () => {
-    const agora    = new Date()
-    const h48      = new Date(agora.getTime() - 48 * 3600 * 1000)
-    const h4       = new Date(agora.getTime() - 4  * 3600 * 1000)
-
+    const agora = new Date()
     const snap = await db.collection('pedidos')
       .where('status', '==', 'solicitado')
       .where('compradorId', '==', null)
       .get()
 
     for (const doc of snap.docs) {
-      const pedido   = { id: doc.id, ...doc.data() }
-      const criadoTs = pedido.criadoEm?.toDate?.() || new Date(0)
-      const isUrgente = pedido.urgente
-      const limite   = isUrgente ? h4 : h48
-
-      if (criadoTs <= limite) {
-        const gestores = await buscarUsuariosPorPerfil(['gestor', 'supremo'], pedido.empresaId)
-        const label    = isUrgente ? '4h' : '48h'
-        await Promise.all(gestores.map(u =>
-          criarNotificacao(u.id, {
-            evento:   'pedido_parado',
-            titulo:   `Pedido parado ha ${label} sem comprador`,
-            corpo:    `"${pedido.titulo}" ainda nao foi assumido por nenhum comprador.`,
-            pedidoId: pedido.id,
-          })
-        ))
-        await Promise.all(gestores.map(u =>
-          enviarEmail({ to: u.email, evento: 'pedido_parado', pedido, usuario: u })
-        ))
-      }
+      const pedido = { id: doc.id, ...doc.data() }
+      const aviso  = avisoParado(pedido, pedido.criadoEm?.toDate?.(), agora)
+      if (aviso) await entregarAvisos(aviso.chave, [aviso], pedido)
     }
   }
 )
 
-// ── checkParcelasVencendo ──────────────────────────────────────
-// Roda as 8h — verifica parcelas com vencimento em 3 dias
+// ── Parcelas a vencer e vencidas ──────────────────────────────
+// Rodam às 8h de Brasília. "Hoje" é o dia em São Paulo, não o do servidor (UTC)
+async function _avisarParcelas(consulta) {
+  const hoje = diaSP()
+  const snap = await consulta(hoje)
+  const pedidos = new Map()
+  for (const doc of snap.docs) {
+    const parcela  = { id: doc.id, ...doc.data() }
+    const pedidoId = doc.ref.parent.parent.id
+    if (!pedidos.has(pedidoId)) {
+      const pedSnap = await db.collection('pedidos').doc(pedidoId).get()
+      pedidos.set(pedidoId, pedSnap.exists ? { id: pedidoId, ...pedSnap.data() } : null)
+    }
+    const pedido = pedidos.get(pedidoId)
+    const aviso  = avisoParcela(parcela, pedido, hoje)
+    if (aviso) await entregarAvisos(aviso.chave, [aviso], { ...pedido, parcela })
+  }
+}
+
 exports.checkParcelasVencendo = onSchedule(
   { schedule: 'every day 08:00', region: 'southamerica-east1', timeZone: 'America/Sao_Paulo' },
-  async () => {
-    const hoje  = _isoHoje()
-    const em3   = _isoMaisDias(3)
-
-    const snap = await db.collectionGroup('parcelas')
-      .where('pago', '==', false)
-      .where('vencimento', '>=', hoje)
-      .where('vencimento', '<=', em3)
-      .get()
-
-    for (const doc of snap.docs) {
-      const parcela  = { id: doc.id, ...doc.data() }
-      const pedidoId = doc.ref.parent.parent.id
-      const pedSnap  = await db.collection('pedidos').doc(pedidoId).get()
-      if (!pedSnap.exists) continue
-      const pedido   = { id: pedidoId, ...pedSnap.data() }
-
-      const destinatarios = await buscarUsuariosPorPerfil(['financeiro', 'gestor', 'supremo'], pedido.empresaId)
-      await Promise.all(destinatarios.map(u =>
-        criarNotificacao(u.id, {
-          evento:   'parcela_vencendo',
-          titulo:   'Parcela vencendo em breve',
-          corpo:    `Parcela ${parcela.numero}/${parcela.total} de "${pedido.titulo}" vence em ${_formatarData(parcela.vencimento)}.`,
-          pedidoId: pedidoId,
-        })
-      ))
-      await Promise.all(destinatarios.map(u =>
-        enviarEmail({ to: u.email, evento: 'parcela_vencendo', pedido: { ...pedido, parcela }, usuario: u })
-      ))
-    }
-  }
+  () => _avisarParcelas(hoje => db.collectionGroup('parcelas')
+    .where('pago', '==', false)
+    .where('vencimento', '>=', hoje)
+    .where('vencimento', '<=', somarDias(hoje, DIAS_ANTES_DO_VENCIMENTO))
+    .get())
 )
 
-// ── checkParcelasVencidas ──────────────────────────────────────
-// Roda as 8h — verifica parcelas ja vencidas
 exports.checkParcelasVencidas = onSchedule(
   { schedule: 'every day 08:00', region: 'southamerica-east1', timeZone: 'America/Sao_Paulo' },
-  async () => {
-    const hoje = _isoHoje()
-
-    const snap = await db.collectionGroup('parcelas')
-      .where('pago', '==', false)
-      .where('vencimento', '<', hoje)
-      .get()
-
-    for (const doc of snap.docs) {
-      const parcela  = { id: doc.id, ...doc.data() }
-      const pedidoId = doc.ref.parent.parent.id
-      const pedSnap  = await db.collection('pedidos').doc(pedidoId).get()
-      if (!pedSnap.exists) continue
-      const pedido   = { id: pedidoId, ...pedSnap.data() }
-
-      const destinatarios = await buscarUsuariosPorPerfil(['financeiro', 'gestor', 'supremo'], pedido.empresaId)
-      await Promise.all(destinatarios.map(u =>
-        criarNotificacao(u.id, {
-          evento:   'parcela_vencida',
-          titulo:   'Parcela vencida!',
-          corpo:    `Parcela ${parcela.numero}/${parcela.total} de "${pedido.titulo}" venceu em ${_formatarData(parcela.vencimento)}.`,
-          pedidoId: pedidoId,
-        })
-      ))
-      await Promise.all(destinatarios.map(u =>
-        enviarEmail({ to: u.email, evento: 'parcela_vencida', pedido: { ...pedido, parcela }, usuario: u })
-      ))
-    }
-  }
+  () => _avisarParcelas(hoje => db.collectionGroup('parcelas')
+    .where('pago', '==', false)
+    .where('vencimento', '<', hoje)
+    .get())
 )
 
 // ── Logica central do reset demo (reutilizavel por triggerDemoSeed) ─────────
@@ -125,11 +73,10 @@ async function _executarDemoReset() {
 
   for (const col of colecoes) {
     const snap = await db.collection(col).where('isDemo', '==', true).get()
+    // As subcoleções saem antes do pedido, e a rotina espera todas
+    if (col === 'pedidos') await Promise.all(snap.docs.map(doc => _deletarSubcolecoes(doc.id)))
     const batch = db.batch()
-    snap.docs.forEach(doc => {
-      if (col === 'pedidos') _deletarSubcolecoes(doc.id)
-      batch.delete(doc.ref)
-    })
+    snap.docs.forEach(doc => batch.delete(doc.ref))
     await batch.commit()
     console.log(`Deletados ${snap.size} documentos demo em /${col}`)
   }
@@ -183,15 +130,14 @@ function _normalizar(s) {
 
 async function _aplicarSeed(seed) {
   const agora = new Date()
+  const hoje  = diaSP(agora)
 
-  // Converte diasAtras em Timestamp real
+  // Converte diasAtras em Timestamp real, com hora aleatória entre 8h e 18h de
+  // Brasília para parecer natural (nunca no futuro)
   function _ts(diasAtras) {
     if (diasAtras == null) return Timestamp.now()
-    const d = new Date(agora)
-    d.setDate(d.getDate() - diasAtras)
-    // Hora aleatória entre 8h e 18h para parecer natural
-    d.setHours(8 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0)
-    return Timestamp.fromDate(d)
+    const d = momentoSP(somarDias(hoje, -diasAtras), 8 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60))
+    return Timestamp.fromDate(d > agora ? agora : d)
   }
 
   const agoraTs = Timestamp.now()
@@ -199,14 +145,10 @@ async function _aplicarSeed(seed) {
   // As datas fixas do seed (necessidade, compra, entrega, vencimento) foram
   // escritas para seed._dataReferencia; todas andam a mesma distância até hoje,
   // para o demo não envelhecer entre um reset e outro
-  const _refSeed  = seed._dataReferencia ? new Date(seed._dataReferencia + 'T12:00:00') : null
-  const _hojeMeio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 12)
-  const _desloc   = _refSeed ? Math.round((_hojeMeio - _refSeed) / 864e5) : 0
+  const _desloc = seed._dataReferencia ? diasEntre(seed._dataReferencia, hoje) : 0
   function _deslocar(iso) {
     if (!iso || !_desloc) return iso
-    const d = new Date(iso + 'T12:00:00')
-    d.setDate(d.getDate() + _desloc)
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    return somarDias(iso, _desloc)
   }
 
   // 1. Cria fornecedores demo e mapeia nome normalizado => id
@@ -289,9 +231,10 @@ async function _aplicarSeed(seed) {
       empresas: todasEmpresasIds,
       atualizadoEm: agoraTs,
     })
+    // O perfil da conta demo é sempre 'demo' (as regras ignoram as claims dela)
     try {
       await getAuth().setCustomUserClaims(demoUser.id, {
-        perfil:   demoUser.perfil || 'supremo',
+        perfil:   'demo',
         empresas: todasEmpresasIds,
       })
     } catch (e) {
@@ -435,7 +378,7 @@ async function _aplicarSeed(seed) {
         // vencimentoDias (relativo a hoje) tem prioridade sobre vencimento fixo,
         // para o dashboard demo sempre ter parcelas a vencer/vencidas após cada reset.
         const vencimento = p.vencimentoDias != null
-          ? _isoMaisDias(p.vencimentoDias)
+          ? somarDias(hoje, p.vencimentoDias)
           : _deslocar(p.vencimento)
         parBatch.set(ref, {
           numero:     p.numero,
@@ -453,21 +396,4 @@ async function _aplicarSeed(seed) {
   // Contador próprio da demo, para os pedidos abertos na demo continuarem a sequência
   await db.collection('_meta').doc('contadoresDemo').set({ totalPedidos: pedidoCount }, { merge: true })
   console.log(`${pedidoCount} pedidos demo criados com subcoleções. Contador: PRX-${String(pedidoCount).padStart(4,'0')}`)
-}
-
-function _isoHoje() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-function _isoMaisDias(n) {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-function _formatarData(iso) {
-  if (!iso) return ''
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
 }

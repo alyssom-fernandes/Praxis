@@ -6,9 +6,7 @@ const TRAVA_MS = 3 * 60 * 1000
 
 // Dia de hoje em São Paulo (a renovação vira à meia-noite de Brasília), como
 // em js/demo-reset.js
-function hojeSP(agora = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora)
-}
+const { diaSP: hojeSP } = require('./datas')
 
 // Só a conta demo e o supremo renovam a demo
 function podeRenovarDemo(token) {

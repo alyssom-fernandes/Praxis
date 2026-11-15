@@ -34,6 +34,7 @@ const ICONE_POR_EVENTO = {
   [EVENTOS.PARCELA_VENCENDO]: ICO.relogio,
   [EVENTOS.PARCELA_VENCIDA]:  ICO.relogio,
   comprador_assumiu:          ICO.pessoa,
+  pedido_liberado:            ICO.pessoa,
   cotacoes_prontas:           ICO.doc,
   pedido_cancelado:           ICO.x,
   pedido_comprado:            ICO.caixa,

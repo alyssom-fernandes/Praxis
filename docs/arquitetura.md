@@ -91,12 +91,33 @@ Multiempresa: todo pedido tem `empresaId`; as consultas filtram por `where('empr
 | Função | Tipo | Papel |
 |---|---|---|
 | `setUserClaims` | trigger (write em `/usuarios`) | Sincroniza Custom Claims com o documento; limpa as de quem foi apagado ou desativado. Sem ela, as regras leem o documento. |
-| `onPedidoStatusChange` | trigger (update em `/pedidos`) | Despacha notificações in-app/e-mail por transição de status. |
-| `checkClaimTimeout` | agendada (1h) | Pedido sem comprador há 48h (ou urgente há 4h) → notifica gestores. |
-| `checkParcelasVencendo` | agendada (8h) | Parcelas vencendo em ≤3 dias → notifica financeiro/gestor. |
-| `checkParcelasVencidas` | agendada (8h) | Parcelas vencidas → notifica financeiro/gestor. |
+| `onPedidoCriado` | trigger (create em `/pedidos`) | Pedido aberto → avisa a fila de compra da empresa (comprador, gestor e supremo), menos quem abriu; o urgente também por e-mail. |
+| `onPedidoAtualizado` | trigger (update em `/pedidos`) | Comprador assumiu ou devolveu o pedido (pela troca de `compradorId`, que muda junto com a etapa), urgência marcada depois de aberto e mudanças de etapa. |
+| `checkClaimTimeout` | agendada (1h) | Pedido sem comprador há 48h (ou urgente há 4h) → avisa a gestão, uma vez por pedido e prazo. |
+| `checkParcelasVencendo` | agendada (8h) | Parcela a vencer em até 3 dias → avisa financeiro e gestão, uma vez por parcela e vencimento. |
+| `checkParcelasVencidas` | agendada (8h) | Parcela vencida → avisa financeiro e gestão, uma vez por parcela e vencimento. |
 | `demoReset` | agendada (domingo 3h) | Versão antiga da renovação da demo, pelo servidor (exige o plano Blaze). |
 | `triggerDemoSeed` | onCall | Renovação da demo sob demanda, pelo servidor (exige o plano Blaze). Só a conta demo ou um supremo, no máximo uma vez por dia. |
+
+Os avisos seguem três regras, todas em funções puras testadas em
+`tests/functions.test.mjs`, sem emulador:
+
+- **Quem recebe e o texto** ficam em `functions/src/avisos.js`. O destinatário
+  precisa alcançar a empresa do pedido e estar ativo; quem fez a ação não é
+  avisado, e quem abriu ou cotou o pedido não é chamado para decidir (a mesma
+  separação de funções das regras). Pedidos da demo não avisam ninguém.
+  `aprovadorIds` fica reservado para a alçada por valor e hoje vem vazio.
+- **Cada aviso sai uma vez só.** A chave é o ID do evento nos gatilhos e
+  pedido + parcela + vencimento nas rotinas. A marca em `_avisos/{chave}`
+  impede repetir o aviso na rodada seguinte; o ID da notificação,
+  `{chave}__{uid}`, impede repetir para a mesma pessoa se a entrega for
+  interrompida. O e-mail só sai junto com uma notificação nova. A marca leva
+  `expiraEm`, para uma política de TTL do Firestore apagá-la depois.
+- **As datas são as de São Paulo** (`functions/src/datas.js`): o servidor das
+  Functions roda em UTC, e sem isso "hoje" virava o dia seguinte às 21h de
+  Brasília.
+
+O título e os motivos entram escapados no HTML do e-mail.
 
 A demo publicada roda no plano gratuito e não depende dessas duas funções: a
 renovação é feita pelo próprio app em `js/demo-reset.js`. No primeiro acesso do

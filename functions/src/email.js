@@ -1,3 +1,6 @@
+const { motivoDe } = require('./avisos')
+const { dataBR } = require('./datas')
+
 const APP_URL    = process.env.APP_URL   || 'https://praxis-af618.web.app'
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Praxis <onboarding@resend.dev>'
 
@@ -6,7 +9,7 @@ async function enviarEmail({ to, evento, pedido, usuario }) {
   const resendKey = process.env.RESEND_API_KEY || ''
   if (!to || !resendKey) return // E-mails desativados até a key ser configurada
 
-  const template = _getTemplate(evento, pedido, usuario)
+  const template = modeloDoEmail(evento, pedido, usuario)
   if (!template) return
 
   try {
@@ -24,50 +27,65 @@ async function enviarEmail({ to, evento, pedido, usuario }) {
 }
 
 // ── Templates por evento ──────────────────────────────────────
-function _getTemplate(evento, pedido, usuario) {
-  const titulo = pedido?.titulo || '(pedido)'
-  const nome   = usuario?.nome  || 'usuário'
+// Título, nome e motivo vêm do que as pessoas digitaram: no HTML, sempre
+// escapados. O assunto é texto puro e vai sem escape.
+function _esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+}
+
+function modeloDoEmail(evento, pedido, usuario) {
+  const tituloTxt = [pedido?.numeroPedido, pedido?.titulo || '(pedido)'].filter(Boolean).join(' · ')
+  const titulo = _esc(tituloTxt)
+  const nome   = _esc(usuario?.nome || 'usuário')
+  const destaque = `<p style="font-size:1.1rem;font-weight:700">${titulo}</p>`
+  const parcela  = pedido?.parcela
+    ? `Parcela ${_esc(pedido.parcela.numero)}/${_esc(pedido.parcela.total)}`
+    : ''
+  const motivo = campo => {
+    const m = pedido ? motivoDe(pedido, campo) : null
+    return m ? `<p>Motivo: ${_esc(m)}</p>` : ''
+  }
 
   const templates = {
     pedido_urgente: {
-      subject: `🔴 Pedido urgente: ${titulo}`,
-      body:    `<p>Olá,</p><p>Um pedido <strong>urgente</strong> foi aberto e precisa de atenção imediata:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p><p>Por favor, acesse o Praxis para verificar e tomar as ações necessárias.</p>`,
+      subject: `🔴 Pedido urgente: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>Um pedido <strong>urgente</strong> precisa de atenção imediata:</p>${destaque}<p>Por favor, acesse o Praxis para verificar e tomar as ações necessárias.</p>`,
     },
     cotacoes_prontas: {
-      subject: `Pedido aguarda aprovação: ${titulo}`,
-      body:    `<p>Olá,</p><p>O pedido abaixo tem cotações prontas e aguarda sua aprovação:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>`,
+      subject: `Pedido aguarda aprovação: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>O pedido abaixo tem cotações prontas e aguarda sua aprovação:</p>${destaque}`,
     },
     pedido_aprovado: {
-      subject: `✅ Pedido aprovado: ${titulo}`,
-      body:    `<p>Olá,</p><p>Boa notícia! O pedido foi aprovado:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>`,
+      subject: `✅ Pedido aprovado: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>Boa notícia! O pedido foi aprovado:</p>${destaque}`,
     },
     pedido_reprovado: {
-      subject: `❌ Pedido reprovado: ${titulo}`,
-      body:    `<p>Olá,</p><p>O pedido abaixo foi reprovado:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>${pedido?.motivoReprovacao ? `<p>Motivo: ${pedido.motivoReprovacao}</p>` : ''}`,
+      subject: `❌ Pedido reprovado: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>O pedido abaixo foi reprovado:</p>${destaque}${motivo('motivoReprovacao')}`,
     },
     pedido_cancelado: {
-      subject: `Pedido cancelado: ${titulo}`,
-      body:    `<p>Olá,</p><p>O pedido abaixo foi cancelado:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>`,
+      subject: `Pedido cancelado: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>O pedido abaixo foi cancelado:</p>${destaque}${motivo('motivoCancelamento')}`,
     },
     pedido_comprado: {
-      subject: `Pedido comprado: ${titulo}`,
-      body:    `<p>Olá,</p><p>O pedido abaixo foi comprado e aguarda entrega:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>`,
+      subject: `Pedido comprado: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>O pedido abaixo foi comprado e aguarda entrega:</p>${destaque}`,
     },
     parcela_vencendo: {
-      subject: `⏰ Parcela vencendo: ${titulo}`,
-      body:    `<p>Olá,</p><p>Uma parcela do pedido abaixo está próxima do vencimento:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>${pedido?.parcela ? `<p>Parcela ${pedido.parcela.numero}/${pedido.parcela.total} — Vencimento: ${pedido.parcela.vencimento}</p>` : ''}`,
+      subject: `⏰ Parcela a vencer: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>Uma parcela do pedido abaixo está próxima do vencimento:</p>${destaque}${parcela ? `<p>${parcela} — Vencimento: ${dataBR(pedido.parcela.vencimento)}</p>` : ''}`,
     },
     parcela_vencida: {
-      subject: `🔴 Parcela vencida: ${titulo}`,
-      body:    `<p>Olá,</p><p>Uma parcela do pedido abaixo está <strong>vencida</strong>:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>${pedido?.parcela ? `<p>Parcela ${pedido.parcela.numero}/${pedido.parcela.total} — Venceu em: ${pedido.parcela.vencimento}</p>` : ''}`,
+      subject: `🔴 Parcela vencida: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>Uma parcela do pedido abaixo está <strong>vencida</strong>:</p>${destaque}${parcela ? `<p>${parcela} — Venceu em: ${dataBR(pedido.parcela.vencimento)}</p>` : ''}`,
     },
     pedido_parado: {
-      subject: `⚠️ Pedido sem comprador: ${titulo}`,
-      body:    `<p>Olá,</p><p>O pedido abaixo está parado sem comprador designado:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p><p>Por favor, verifique e atribua um comprador.</p>`,
+      subject: `⚠️ Pedido sem comprador: ${tituloTxt}`,
+      body:    `<p>Olá,</p><p>O pedido abaixo está parado sem comprador designado:</p>${destaque}<p>Por favor, verifique e atribua um comprador.</p>`,
     },
     mencao_comentario: {
       subject: `Você foi mencionado em um comentário`,
-      body:    `<p>Olá ${nome},</p><p>Você foi mencionado em um comentário no pedido:</p><p style="font-size:1.1rem;font-weight:700">${titulo}</p>`,
+      body:    `<p>Olá ${nome},</p><p>Você foi mencionado em um comentário no pedido:</p>${destaque}`,
     },
   }
 
@@ -76,7 +94,7 @@ function _getTemplate(evento, pedido, usuario) {
 
 // ── Layout HTML base ──────────────────────────────────────────
 function _wrapLayout(titulo, corpo, pedidoId) {
-  const ctaUrl = pedidoId ? `${APP_URL}?tela=detalhe&id=${pedidoId}` : APP_URL
+  const ctaUrl = pedidoId ? `${APP_URL}?tela=detalhe&id=${encodeURIComponent(pedidoId)}` : APP_URL
 
   return `
 <!DOCTYPE html>
@@ -84,7 +102,7 @@ function _wrapLayout(titulo, corpo, pedidoId) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${titulo}</title>
+  <title>${_esc(titulo)}</title>
   <style>
     body { margin:0; padding:0; background:#f5f5f5; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
     .wrapper { max-width:560px; margin:32px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,0.08); }
@@ -118,4 +136,4 @@ function _wrapLayout(titulo, corpo, pedidoId) {
   `.trim()
 }
 
-module.exports = { enviarEmail }
+module.exports = { enviarEmail, modeloDoEmail }
