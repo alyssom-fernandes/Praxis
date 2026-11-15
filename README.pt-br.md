@@ -127,6 +127,16 @@ Os testes de unidade não precisam de emulador. Eles cobrem a conferência dos t
 npm run testar-unidade
 ```
 
+O teste de ponta a ponta abre o app num navegador sem janela (Playwright), contra os emuladores com os dados do seed, e leva um pedido da abertura à aprovação, cada passo com o seu perfil (solicitante, comprador e aprovador). Na primeira vez, baixe o navegador:
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm run testar-e2e
+```
+
 Em `localhost` o app se conecta sozinho aos emuladores. Na entrada, use **Acessar modo demo**
 ou entre com `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` ou `solicitante@praxis.app`,
 todos com a senha `demo1234`, para ver o sistema por cada perfil.
@@ -158,7 +168,7 @@ js/
   demo-*.js           pessoas da demonstração e a recriação diária
 functions/            gatilhos, rotinas agendadas e o seed da demonstração
 scripts/              seed dos emuladores (npm run seed)
-tests/                testes das regras (emulador), de unidade, dos textos da interface e dos avisos das Functions
+tests/                testes das regras (emulador), de unidade, dos textos, dos avisos das Functions e de ponta a ponta
 docs/                 arquitetura, fluxo de pedidos e permissões
 ```
 

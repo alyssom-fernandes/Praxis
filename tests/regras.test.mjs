@@ -156,6 +156,65 @@ test('o gestor só edita as empresas a que tem acesso', async () => {
   await assertSucceeds(updateDoc(doc(db('supremo'), 'empresas/e2'), { nome: 'Empresa 2 S.A.' }))
 })
 
+// ── Cadastros: empresas, categorias e fornecedores ─────────────
+// Todo perfil lê os cadastros; cada um grava só o que o perfil permite
+const PERFIS_COMUNS = ['gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante']
+
+test('todo perfil lê empresas, categorias e fornecedores; sem perfil, não', async () => {
+  for (const quem of [...PERFIS_COMUNS, 'supremo']) {
+    for (const caminho of ['empresas/e1', 'categorias/cat1', 'fornecedores/f1']) {
+      await assertSucceeds(getDoc(doc(db(quem), caminho)))
+    }
+  }
+  await assertFails(getDoc(doc(db('semPerfil'), 'categorias/cat1')))
+  await assertFails(getDoc(doc(db('semPerfil'), 'fornecedores/f1')))
+})
+
+test('empresas: o gestor cria, edita as dele, e só o supremo apaga', async () => {
+  await assertSucceeds(setDoc(doc(db('gestor'), 'empresas/nova-ges'), { nome: 'Nova do gestor' }))
+  await assertSucceeds(setDoc(doc(db('supremo'), 'empresas/nova-sup'), { nome: 'Nova do supremo' }))
+  for (const quem of ['aprovador', 'comprador', 'financeiro', 'solicitante']) {
+    await assertFails(setDoc(doc(db(quem), `empresas/nova-${quem}`), { nome: 'Não pode' }))
+    await assertFails(updateDoc(doc(db(quem), 'empresas/e1'), { nome: 'Não pode' }))
+  }
+  await assertFails(deleteDoc(doc(db('gestor'), 'empresas/e1')))
+  await assertSucceeds(deleteDoc(doc(db('supremo'), 'empresas/e2')))
+})
+
+test('categorias: o gestor cria e edita, e só o supremo apaga', async () => {
+  await assertSucceeds(setDoc(doc(db('gestor'), 'categorias/nova'), { nome: 'Limpeza', cor: '#93AE7C' }))
+  await assertSucceeds(updateDoc(doc(db('gestor'), 'categorias/cat1'), { nome: 'Categoria renomeada' }))
+  await assertSucceeds(updateDoc(doc(db('supremo'), 'categorias/cat1'), { cor: '#8CA6C2' }))
+  for (const quem of ['aprovador', 'comprador', 'financeiro', 'solicitante']) {
+    await assertFails(setDoc(doc(db(quem), `categorias/nova-${quem}`), { nome: 'Não pode' }))
+    await assertFails(updateDoc(doc(db(quem), 'categorias/cat1'), { nome: 'Não pode' }))
+  }
+  await assertFails(deleteDoc(doc(db('gestor'), 'categorias/cat1')))
+  await assertSucceeds(deleteDoc(doc(db('supremo'), 'categorias/cat1')))
+})
+
+test('fornecedores: quem compra cadastra e edita, e só a gestão apaga', async () => {
+  await assertSucceeds(setDoc(doc(db('comprador'), 'fornecedores/novo-com'), { nome: 'papelaria central' }))
+  await assertSucceeds(setDoc(doc(db('gestor'), 'fornecedores/novo-ges'), { nome: 'eletrica sul' }))
+  await assertSucceeds(updateDoc(doc(db('comprador'), 'fornecedores/f1'), { telefone: '(11) 4000-0000' }))
+  await assertSucceeds(updateDoc(doc(db('gestor'), 'fornecedores/f1'), { ativo: false }))
+  for (const quem of ['aprovador', 'financeiro', 'solicitante']) {
+    await assertFails(setDoc(doc(db(quem), `fornecedores/novo-${quem}`), { nome: 'não pode' }))
+    await assertFails(updateDoc(doc(db(quem), 'fornecedores/f1'), { nome: 'não pode' }))
+  }
+  await assertFails(deleteDoc(doc(db('comprador'), 'fornecedores/f1')))
+  await assertSucceeds(deleteDoc(doc(db('gestor'), 'fornecedores/f1')))
+})
+
+test('cadastros sem claims seguem o perfil do documento', async () => {
+  // u-doc é comprador pelo documento: cadastra fornecedor, não mexe em categoria
+  await assertSucceeds(setDoc(doc(db('semClaims'), 'fornecedores/novo-doc'), { nome: 'fornecedor do doc' }))
+  await assertFails(setDoc(doc(db('semClaims'), 'categorias/nova-doc'), { nome: 'Não pode' }))
+  // Inativo não lê nem grava cadastro
+  await assertFails(getDoc(doc(db('inativo'), 'fornecedores/f1')))
+  await assertFails(setDoc(doc(db('inativo'), 'categorias/nova-inat'), { nome: 'Não pode' }))
+})
+
 // ── Pedidos: cada passo com o seu perfil ───────────────────────
 test('só quem aprova aprova, e sem mexer em outros campos', async () => {
   const aprovar = quem => ({ status: 'aprovado', aprovadoPor: conta[quem][0], aprovadoEm: new Date() })

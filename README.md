@@ -128,6 +128,16 @@ The unit tests need no emulator. They cover the interface text check (every key 
 npm run testar-unidade
 ```
 
+The end-to-end test opens the app in a headless browser (Playwright) against the emulators with the seed data, and takes one request from opening to approval, each step signed in with its own role (requester, buyer, approver). The first time, download the browser:
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm run testar-e2e
+```
+
 On `localhost` the app connects to the emulators by itself. Use **Acessar modo demo**, or sign in as
 `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` or `solicitante@praxis.app`, all with the
 password `demo1234`, to see the system through each role.
@@ -159,7 +169,7 @@ js/
   demo-*.js           demo people and the daily rebuild
 functions/            triggers, scheduled jobs and the demo seed
 scripts/              emulator seed (npm run seed)
-tests/                rules tests (emulator), unit tests, the interface text check and the Functions' notices
+tests/                rules (emulator), unit, interface text, Functions notices and end-to-end tests
 docs/                 architecture, order flow and permissions (in Portuguese)
 ```
 
