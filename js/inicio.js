@@ -11,7 +11,7 @@
     if (claro) {
       document.documentElement.classList.add('light');
       var m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.setAttribute('content', '#EFE6D7');
+      if (m) m.setAttribute('content', '#F5F3EE');
     }
   } catch (e) {}
 })();

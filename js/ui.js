@@ -354,7 +354,7 @@ export function toggleTheme() {
 function aplicarTema(tema) {
   document.documentElement.classList.toggle('light', tema === 'light')
   // Barra do navegador no celular acompanha o tema (mesmas cores de --bg)
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'light' ? '#EFE6D7' : '#13100D')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'light' ? '#F5F3EE' : '#141311')
 }
 
 // ── Fundo das telas de entrada ────────────────────────────────

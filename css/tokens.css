@@ -1,30 +1,34 @@
 /* ══════════════════════════════════════════════════════════════
-   Praxis — "Inscrição em terracota"
-   Escuro: preto quente de cerâmica de figura negra, texto em osso, acento
-   terracota. Claro: argila. Cantos retos, linhas finas, hierarquia pela
-   tipografia: GFS Neohellenic nos títulos e numerais, GFS Didot nos
-   momentos de marca, Hanken Grotesk na interface.
-   Os nomes --gold* ficaram por compatibilidade: hoje são o acento terracota.
+   Praxis — "Mármore e bronze" (16/11/2026; antes, "Inscrição em terracota")
+   Escuro: grafite de pedra, texto em osso, acento bronze. Claro: mármore.
+   Cantos retos, linhas finas, hierarquia pela tipografia: GFS Neohellenic
+   nos títulos e numerais, GFS Didot nos momentos de marca, Hanken Grotesk
+   na interface. Os nomes --gold* ficaram por compatibilidade: hoje são o
+   acento bronze, e a urgência tem cor própria (--urgente).
    ══════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: dark;
 
-  /* Acento — terracota */
-  --gold: #D2693F;                       /* texto e ícones em destaque */
-  --gold-fill: #D2693F;                  /* fundo do botão primário */
-  --gold-fill-hover: #DD7A51;
-  --on-gold: #1A0E08;                    /* texto sobre a terracota */
-  --gold-dim: rgba(210, 105, 63, 0.12);
-  --gold-border: rgba(210, 105, 63, 0.40);
-  --gold-glow: rgba(210, 105, 63, 0.24);
+  /* Acento — bronze (ação principal, item ou aba ativa, "com você") */
+  --gold: #C9A15C;                       /* texto e ícones em destaque */
+  --gold-fill: #C29A55;                  /* fundo do botão primário */
+  --gold-fill-hover: #CFA963;
+  --on-gold: #17120A;                    /* texto sobre a terracota */
+  --gold-dim: rgba(201, 161, 92, 0.12);
+  --gold-border: rgba(201, 161, 92, 0.40);
+  --gold-glow: rgba(201, 161, 92, 0.24);
+
+  /* Urgência: vermelho tijolo, para não disputar com a ação (bronze) */
+  --urgente: #B4473A;
+  --on-urgente: #FFFFFF;
 
   /* Superfícies */
-  --bg: #13100D;
-  --card: #1A1612;                       /* superfície 1: painéis, modais */
-  --card2: #211C17;                      /* superfície 2: cartões do quadro, campos, itens aninhados */
-  --card3: #2A231C;                      /* superfície 3: hover, trilhos */
-  --overlay: rgba(8, 6, 4, 0.74);
-  --lateral: #100D0B;                    /* barra lateral, um tom abaixo do fundo */
+  --bg: #141311;
+  --card: #1B1A17;                       /* superfície 1: painéis, modais */
+  --card2: #22201C;                      /* superfície 2: cartões do quadro, campos, itens aninhados */
+  --card3: #2B2924;                      /* superfície 3: hover, trilhos */
+  --overlay: rgba(8, 7, 6, 0.74);
+  --lateral: #11100E;                    /* barra lateral, um tom abaixo do fundo */
 
   /* Aliases usados em partes antigas do código */
   --surface2: var(--card2);
@@ -32,21 +36,21 @@
   --text1: var(--text);
 
   /* Bordas e fios */
-  --border: #2B241D;
-  --border-strong: #3A3128;
-  --line: #2B241D;
-  --tinta: #EFE5D6;                      /* fio grosso das inscrições (topo das colunas, frisos) */
-  --grade: rgba(239, 229, 214, 0.035);   /* grade sutil do fundo */
-  --borda-campo: #7A6D5E;                /* borda que identifica o campo: 3:1 sobre as superfícies (WCAG 1.4.11) */
+  --border: #2E2B26;
+  --border-strong: #3D3933;
+  --line: #2E2B26;
+  --tinta: #EEE9DF;                      /* fio grosso das inscrições (topo das colunas, frisos) */
+  --grade: rgba(238, 233, 223, 0.035);   /* grade sutil do fundo */
+  --borda-campo: #7A7264;                /* borda que identifica o campo: 3:1 sobre as superfícies (WCAG 1.4.11) */
 
   /* Foco: o anel de teclado usa a tinta (osso no escuro, preto no claro) e
      nada mais usa esta cor de foco. A terracota fica para a ação */
   --foco: var(--tinta);
 
   /* Texto */
-  --text: #EFE5D6;
-  --text2: #B9AC99;
-  --text3: #908474;
+  --text: #EEE9DF;
+  --text2: #B8B0A2;
+  --text3: #938B7D;
 
   /* Semânticas (afinadas com a paleta quente; urgência usa o próprio acento) */
   --green: #8FB07A;
@@ -58,10 +62,10 @@
   --blue: #7FA3C9;
   --blue-dim: rgba(127, 163, 201, 0.12);
   --blue-border: rgba(127, 163, 201, 0.30);
-  --amber: #D9A54A;
-  --amber-dim: rgba(217, 165, 74, 0.12);
-  --amber-border: rgba(217, 165, 74, 0.32);
-  --neutral-dim: rgba(239, 229, 214, 0.05);
+  --amber: #E38B45;
+  --amber-dim: rgba(227, 139, 69, 0.12);
+  --amber-border: rgba(227, 139, 69, 0.32);
+  --neutral-dim: rgba(238, 233, 223, 0.05);
 
   /* Acentos sem significado: categorias de compra e séries de gráfico.
      Matizes da cerâmica; a cor cadastrada na categoria escolhe o matiz
@@ -145,31 +149,33 @@
 .light {
   color-scheme: light;
 
-  --gold: #A4462A;
-  --gold-fill: #B5502E;
-  --gold-fill-hover: #A4462A;
-  --on-gold: #FFF7EE;
-  --gold-dim: rgba(181, 80, 46, 0.10);
-  --gold-border: rgba(164, 70, 42, 0.36);
-  --gold-glow: rgba(181, 80, 46, 0.18);
+  --gold: #7A5B21;
+  --gold-fill: #86652A;
+  --gold-fill-hover: #7A5B21;
+  --on-gold: #FFFFFF;
+  --gold-dim: rgba(134, 101, 42, 0.10);
+  --gold-border: rgba(122, 91, 33, 0.36);
+  --gold-glow: rgba(134, 101, 42, 0.18);
 
-  --bg: #EFE6D7;
-  --card: #FBF6EE;
-  --card2: #F6EEE2;
-  --card3: #EADFCD;
-  --overlay: rgba(40, 28, 16, 0.36);
-  --lateral: #EAE0CF;
+  --urgente: #A63D31;
 
-  --border: #DED0BA;
-  --border-strong: #CDBBA0;
-  --line: #E2D5C1;
-  --tinta: #1A1510;
-  --grade: rgba(26, 21, 16, 0.045);
-  --borda-campo: #8E7C64;
+  --bg: #F5F3EE;
+  --card: #FFFFFF;
+  --card2: #FAF8F4;
+  --card3: #EDE9E1;
+  --overlay: rgba(30, 26, 18, 0.36);
+  --lateral: #EFECE6;
 
-  --text: #1A1510;
-  --text2: #57493A;
-  --text3: #6B5B47;
+  --border: #DDD7CC;
+  --border-strong: #C8C0B2;
+  --line: #E3DED4;
+  --tinta: #1B1915;
+  --grade: rgba(27, 25, 21, 0.045);
+  --borda-campo: #8E8676;
+
+  --text: #1B1915;
+  --text2: #4F493F;
+  --text3: #6B6457;
 
   --green: #456B32;
   --green-dim: rgba(69, 107, 50, 0.10);
@@ -180,10 +186,10 @@
   --blue: #3A6690;
   --blue-dim: rgba(58, 102, 144, 0.09);
   --blue-border: rgba(58, 102, 144, 0.28);
-  --amber: #835A10;
-  --amber-dim: rgba(131, 90, 16, 0.09);
-  --amber-border: rgba(131, 90, 16, 0.28);
-  --neutral-dim: rgba(26, 21, 16, 0.045);
+  --amber: #9C5410;
+  --amber-dim: rgba(156, 84, 16, 0.09);
+  --amber-border: rgba(156, 84, 16, 0.28);
+  --neutral-dim: rgba(27, 25, 21, 0.045);
 
   --acento-ocre: #9A6A14;
   --acento-areia: #8C7346;

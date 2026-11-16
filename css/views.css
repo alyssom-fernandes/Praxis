@@ -1599,13 +1599,13 @@
 @media print {
   @page { size: A4 landscape; margin: 12mm; }
   html:has(.rel-page) {
-    --bg: #fff; --card: #fff; --card2: #FBF6EE; --card3: #EFE6D7;
-    --border: #DED0BA; --border-strong: #CDBBA0; --line: #E2D5C1; --tinta: #1A1510;
-    --text: #1A1510; --text2: #57493A; --text3: #74644F;
-    --gold: #A4462A; --gold-fill: #B5502E; --gold-fill-hover: #B5502E;
-    --gold-dim: rgba(181, 80, 46, 0.10); --gold-border: rgba(164, 70, 42, 0.36);
+    --bg: #fff; --card: #fff; --card2: #FAF8F4; --card3: #EDE9E1;
+    --border: #DDD7CC; --border-strong: #C8C0B2; --line: #E3DED4; --tinta: #1B1915;
+    --text: #1B1915; --text2: #4F493F; --text3: #6B6457;
+    --gold: #7A5B21; --gold-fill: #86652A; --gold-fill-hover: #86652A;
+    --gold-dim: rgba(134, 101, 42, 0.10); --gold-border: rgba(122, 91, 33, 0.36);
     --green: #456B32; --green-dim: rgba(69, 107, 50, 0.10); --red: #B3261E; --red-dim: rgba(179, 38, 30, 0.08);
-    --blue: #3A6690; --amber: #835A10; --neutral-dim: rgba(26, 21, 16, 0.045);
+    --blue: #3A6690; --amber: #9C5410; --neutral-dim: rgba(27, 25, 21, 0.045);
     --shadow-sm: none; --shadow-md: none;
     --afn: #6b1f2a; --afn-stroke: rgba(107, 31, 42, 0.4); --afn-sys: #505050;
     color-scheme: light;
@@ -1712,8 +1712,8 @@
   align-items: center;
   padding: 2px 7px 1px;
   border-radius: var(--radius-tag);
-  background: var(--gold-fill);
-  color: var(--on-gold);
+  background: var(--urgente);
+  color: var(--on-urgente);
   font-size: var(--t-pequeno);
   font-weight: 700;
   line-height: 1.45;

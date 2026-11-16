@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Praxis: gestão de compras corporativas. Solicitações, cotações, aprovações e pagamentos num fluxo só, com prazo, responsável e histórico em cada etapa.">
   <meta name="author" content="Alyssom Fernandes · AFN Systems">
-  <meta name="theme-color" content="#13100D">
+  <meta name="theme-color" content="#141311">
   <meta name="color-scheme" content="dark light">
 
   <!-- Tema salvo (antes de qualquer pintura), registro de erros e saída do
@@ -60,12 +60,12 @@
   <link rel="apple-touch-icon" href="/assets/logo/praxis-apple-touch.png">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="/css/fontes.css?v=26">
-  <link rel="stylesheet" href="/css/tokens.css?v=26">
-  <link rel="stylesheet" href="/css/base.css?v=26">
-  <link rel="stylesheet" href="/css/components.css?v=26">
-  <link rel="stylesheet" href="/css/views.css?v=26">
-  <link rel="stylesheet" href="/css/themes.css?v=26">
+  <link rel="stylesheet" href="/css/fontes.css?v=27">
+  <link rel="stylesheet" href="/css/tokens.css?v=27">
+  <link rel="stylesheet" href="/css/base.css?v=27">
+  <link rel="stylesheet" href="/css/components.css?v=27">
+  <link rel="stylesheet" href="/css/views.css?v=27">
+  <link rel="stylesheet" href="/css/themes.css?v=27">
 
   <style>
     /* Splash de carregamento inicial — usa os tokens, então segue o tema salvo.
@@ -74,7 +74,7 @@
       position: fixed;
       inset: 0;
       z-index: 99999;
-      background: var(--bg, #13100D);
+      background: var(--bg, #141311);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -83,20 +83,20 @@
       transition: opacity 0.35s ease;
     }
     #splash.hide { opacity: 0; pointer-events: none; }
-    .splash-simbolo { width: 44px; height: 44px; color: var(--text, #EFE5D6); }
+    .splash-simbolo { width: 44px; height: 44px; color: var(--text, #EEE9DF); }
     .splash-barra {
       position: relative;
       width: 72px;
       height: 2px;
       overflow: hidden;
-      background: var(--line, #2B241D);
+      background: var(--line, #2E2B26);
     }
     .splash-barra::after {
       content: '';
       position: absolute;
       top: 0; bottom: 0;
       width: 40%;
-      background: var(--gold, #D2693F);
+      background: var(--gold, #C9A15C);
       animation: splashCorre 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     }
     @keyframes splashCorre { from { left: -40%; } to { left: 100%; } }

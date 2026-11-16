@@ -650,8 +650,8 @@
   flex-shrink: 0;
   padding: 1px 5px 0;
   border-radius: var(--radius-tag);
-  background: var(--gold-fill);
-  color: var(--on-gold);
+  background: var(--urgente);
+  color: var(--on-urgente);
   font-family: var(--font);
   font-size: var(--t-pequeno);
   font-weight: 700;
@@ -2002,8 +2002,8 @@ button:active:not(:disabled) { transform: scale(0.98); }
   flex-shrink: 0;
   padding: 2px 6px 1px;
   border-radius: var(--radius-tag);
-  background: var(--gold-fill);
-  color: var(--on-gold);
+  background: var(--urgente);
+  color: var(--on-urgente);
   font-size: var(--t-pequeno);
   font-weight: 700;
 }

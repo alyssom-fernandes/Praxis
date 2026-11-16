@@ -4,10 +4,11 @@
 // GFS Didot; o símbolo vai como vetor e o nome em Helvetica.
 
 export const PAPEL = {
-  tinta: [26, 21, 16], texto2: [87, 73, 58], texto3: [116, 100, 79],
-  terracota: [181, 80, 46], terracotaTxt: [164, 70, 42], apagada: [222, 200, 182],
-  argila: [239, 230, 215], argilaClara: [250, 245, 237], linha: [226, 213, 193], linhaForte: [205, 187, 160],
-  neutra: [150, 135, 117], branco: [255, 255, 255], afn: [107, 31, 42], cinzaAfn: [80, 80, 80],
+  // terracota e argila são os nomes antigos: hoje valem o bronze e o mármore
+  tinta: [27, 25, 21], texto2: [79, 73, 63], texto3: [107, 100, 87],
+  terracota: [134, 101, 42], terracotaTxt: [122, 91, 33], apagada: [222, 211, 190],
+  argila: [237, 233, 225], argilaClara: [250, 248, 244], linha: [227, 222, 212], linhaForte: [200, 192, 178],
+  neutra: [150, 142, 130], branco: [255, 255, 255], afn: [107, 31, 42], cinzaAfn: [80, 80, 80],
   verde: [69, 107, 50], vermelho: [179, 38, 30],
 }
 

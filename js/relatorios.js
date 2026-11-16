@@ -591,7 +591,7 @@ function _kpi({ rotulo, valor, sub, destaque = false }) {
 }
 
 function _kpisFinanceiro(D) {
-  const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--gold)') : `<span>${tr('semUrgentes')}</span>`
+  const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--red)') : `<span>${tr('semUrgentes')}</span>`
   const totalV7 = D.vencer7.reduce((s, p) => s + (Number(p.valor) || 0), 0)
   const venc = `<span>${_plural(D.vencer7.length, tr('parcela1'), tr('parcelaN'))}</span>${D.vencidas.length ? _alerta(_plural(D.vencidas.length, tr('vencida1'), tr('vencidaN')), 'var(--red)') : ''}`
   const econ = `<span>${D.nEconomia ? tr('economiaSubN', { n: _plural(D.nEconomia, tr('compra1'), tr('compraN')) }) : tr('economiaSub')}</span>`
@@ -606,7 +606,7 @@ function _kpisFinanceiro(D) {
 
 // Sem dados financeiros: o número que pede ação é a fila de aprovação
 function _kpisAprovador(D) {
-  const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--gold)') : `<span>${tr('semUrgentes')}</span>`
+  const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--red)') : `<span>${tr('semUrgentes')}</span>`
   const taxa = D.decididos ? `${_pct(D.aprovados, D.decididos)}% ${tr('taxaAprov')}` : tr('noPeriodo')
   return [
     _kpi({ rotulo: tr('kAprov'), valor: D.emAprov.length, sub: urg, destaque: true }),
@@ -849,7 +849,7 @@ function _blocoFila(D) {
       </span>
       <span class="rel-linha-fim">
         <span class="rel-quando">${_capital(ha)}</span>
-        ${p.urgente ? `<span class="rel-estado forte" style="--cor:var(--gold)">${t('urgente')}</span>` : ''}
+        ${p.urgente ? `<span class="rel-estado forte" style="--cor:var(--red)">${t('urgente')}</span>` : ''}
       </span>
     </button></li>`
   }).join('')

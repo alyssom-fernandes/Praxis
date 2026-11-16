@@ -24,7 +24,8 @@ const ICONE = {
 
 // Tokens mostrados (o valor vem do CSS calculado, no tema da vez)
 const CORES = [
-  ['--gold-fill', 'Marca: botão primário, fio do item ativo, selo Urgente, "com você"'],
+  ['--gold-fill', 'Marca (bronze): botão primário, fio do item ativo, "com você"'],
+  ['--urgente', 'Só o selo Urgente'],
   ['--gold', 'Marca em texto: link, aba ativa'],
   ['--foco', 'Só o anel de foco'],
   ['--borda-campo', 'Borda que identifica campo e botão secundário (3:1)'],
@@ -100,7 +101,7 @@ export function renderSistema() {
           </div>
         </header>
 
-        ${_secao('cores', 'Cores', 'A terracota tem quatro papéis: ação primária, item ou aba ativa, urgência e "com você". Contagem e valor são dado, na cor do texto. Etapa tem cor por categoria; perfil não tem cor.', `
+        ${_secao('cores', 'Cores', 'O bronze tem três papéis: ação primária, item ou aba ativa e "com você"; a urgência tem cor própria (--urgente). Contagem e valor são dado, na cor do texto. Etapa tem cor por categoria; perfil não tem cor.', `
           <ul class="sis-cores">${CORES.map(([tk, uso]) => `
             <li><span class="sis-amostra" style="background:var(${tk})"></span><code>${tk}</code><span class="sis-valor" data-token="${tk}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
           </ul>
@@ -137,7 +138,7 @@ export function renderSistema() {
         ${_secao('etapas', 'Etapas', 'Mesmo nome em toda parte (docs/glossario.md). A etiqueta (lozenge) tem a cor da categoria e o nome da etapa; na paleta e nos relatórios, um ponto na mesma cor.', `
           <ul class="sis-etapas">${etapas}</ul>`)}
 
-        ${_secao('selos', 'Selo e contagem', 'Selo só para Urgente e "com você". Contagem é neutra; terracota só no sino quando há não lidas.', `
+        ${_secao('selos', 'Selo e contagem', 'Selo só para Urgente e "com você". Contagem é neutra; bronze só no sino quando há não lidas.', `
           <div class="sis-linha">
             <span class="kcard-urg">Urgente</span>
             <span class="detalhe-urgente">Urgente</span>

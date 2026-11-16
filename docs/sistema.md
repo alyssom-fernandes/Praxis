@@ -1,6 +1,6 @@
 # Sistema visual
 
-Identidade "Inscrição em terracota": preto quente de cerâmica e argila, texto em osso, acento terracota, cantos retos e hierarquia pela tipografia (GFS Neohellenic nos títulos e numerais, GFS Didot na marca, Hanken Grotesk na interface). Este documento dá nome e limite ao que fica por baixo dela.
+Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terracota"): grafite de pedra e mármore, texto em osso, acento bronze, cantos retos e hierarquia pela tipografia (GFS Neohellenic nos títulos e numerais, GFS Didot na marca, Hanken Grotesk na interface). Este documento dá nome e limite ao que fica por baixo dela.
 
 - **Tokens:** `css/tokens.css` (tema escuro em `:root`, claro em `.light`).
 - **Catálogo ao vivo:** `?tela=sistema` (fora da navegação). Mostra cada componente com as classes reais, nos dois temas.
@@ -11,16 +11,18 @@ Identidade "Inscrição em terracota": preto quente de cerâmica e argila, texto
 
 | Token | Escuro | Claro | Uso |
 |---|---|---|---|
-| `--gold-fill` | #D2693F | #B5502E | Botão primário, fio do item ou aba ativa, selo Urgente, "com você" |
-| `--gold` | #D2693F | #A4462A | Link e texto da aba ativa |
-| `--foco` | tinta (#EFE5D6) | tinta (#1A1510) | **Só** o anel de foco |
-| `--borda-campo` | #7A6D5E | #8E7C64 | Borda que identifica campo e botão secundário (3:1) |
+| `--gold-fill` (bronze) | #C29A55 | #86652A | Botão primário, fio do item ou aba ativa, "com você" |
+| `--gold` (bronze em texto) | #C9A15C | #7A5B21 | Link e texto da aba ativa |
+| `--urgente` | #B4473A | #A63D31 | Só o selo "Urgente" (texto em `--on-urgente`, branco) |
+| `--foco` | tinta (#EEE9DF) | tinta (#1B1915) | **Só** o anel de foco |
+| `--borda-campo` | #7A7264 | #8E8676 | Borda que identifica campo e botão secundário (3:1) |
 | `--text` / `--text2` / `--text3` | | | Texto; contagens e valores usam `--text`. `--text3` nunca sobre `--card3` |
 | `--blue` · `--green` · `--red` · `--amber` | | | Em andamento · concluído · encerrado, erro e atraso · aviso (vence hoje) |
 | `--acento-*` (9 matizes) | | | Sem significado: categorias de compra e séries de gráfico |
 
 **Regras:**
-- A terracota tem quatro papéis: ação primária, item ou aba ativa, urgência e "com você". Ela não marca foco, contagem, dado nem perfil.
+- O bronze tem três papéis: ação primária, item ou aba ativa e "com você". A urgência tem cor própria (`--urgente`), para o alerta não disputar com a ação. Nenhum dos dois marca foco, contagem, dado nem perfil.
+- Os nomes `--gold*` ficaram por compatibilidade; o nome antigo "terracota" também ficou nas cores do PDF (`js/pdf-papel.js`), com os valores do bronze.
 - A etapa tem cor pela **categoria**, num mapa só (`CATEGORIA_ETAPA` em `js/constants.js`):
   - aguardando, neutro: Solicitado;
   - em andamento, azul: de Em cotação a Entregue;

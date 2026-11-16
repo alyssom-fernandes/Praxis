@@ -8,7 +8,7 @@
 //
 // Saída (nesta pasta):
 //   praxis-icon.svg          favicon vetorial; acompanha o tema do sistema
-//   praxis-favicon.ico       16, 32 e 48 px (terracota com o triângulo em osso)
+//   praxis-favicon.ico       16, 32 e 48 px (bronze com o triângulo em osso)
 //   praxis-icon-192.png      ícone de app (cantos arredondados)
 //   praxis-icon-512.png      ícone de app (cantos arredondados)
 //   praxis-maskable-512.png  ícone de app sem cantos (o sistema recorta)
@@ -22,7 +22,7 @@ const path = require('path')
 const TRI  = 'M296 100H323L466 527V535H521V553H77V535Q128 535 145 495ZM289 197L185 470Q172 505 175 525Q180 535 215 535H405Z'
 const TRIP = 'M286 92H334L480 520V524H530V560H70V524Q118 524 136 486ZM292 236L206 466Q196 494 199 508Q203 516 226 516H392Z'
 
-const TERRACOTA = [181, 80, 46]   // #B5502E (acento do tema claro; lê bem nos dois fundos)
+const TERRACOTA = [134, 101, 42]  // #86652A, o bronze do tema claro (o nome ficou; lê bem nos dois fundos)
 const OSSO      = [255, 244, 232] // #FFF4E8
 
 // ── Caminho SVG (só comandos absolutos M H V L Q Z) → polígonos ──────────
@@ -172,7 +172,7 @@ const gravar = (nome, dados) => { fs.writeFileSync(path.join(dir, nome), dados);
 
 // Favicon vetorial: só o triângulo, na cor do texto do tema do sistema
 gravar('praxis-icon.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 86 480 480">
-  <style>path{fill:#1A1510}@media (prefers-color-scheme:dark){path{fill:#EFE5D6}}</style>
+  <style>path{fill:#1B1915}@media (prefers-color-scheme:dark){path{fill:#EEE9DF}}</style>
   <path fill-rule="evenodd" d="${TRIP}"/>
 </svg>
 `)
