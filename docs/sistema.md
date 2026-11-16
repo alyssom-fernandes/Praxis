@@ -53,6 +53,21 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 - **Foco apagado:** nenhum foco é apagado sem outro no lugar.
 - **Link de salto:** "Pular para o conteúdo" é o primeiro Tab de toda tela com a barra lateral e leva o foco ao `<main>`.
 
+## Teclado
+
+| Tecla | Onde | O que faz |
+|---|---|---|
+| C | Quadro | Cria um pedido |
+| J / K | Quadro e lista | Próximo e anterior |
+| Enter | Cartão ou linha | Abre o pedido |
+| M, tecla de menu ou Shift+F10 | Cartão ou linha | "Mover para…": as mesmas etapas e travas do arrasto |
+| / | Quadro | Foca a busca |
+| Ctrl + K | Todas as telas | Paleta: buscar pedido e comandos |
+| ? | Quadro | Lista dos atalhos |
+
+- **Atalhos de uma tecla** (C, J, K, M, ?): podem ser desligados pela paleta ("Desligar atalhos de uma tecla"), por qualquer perfil, e em Ajustes (WCAG 2.1.4). A tecla de menu e o Shift+F10 continuam valendo com eles desligados.
+- **No arrasto:** a coluna de destino permitida acende, e as outras esmaecem desde o começo.
+
 ## Componentes
 
 | Componente | Quando usar | Quando não usar | Texto |

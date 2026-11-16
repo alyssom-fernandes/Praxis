@@ -37,7 +37,7 @@ const FORA_DA_VARREDURA = {
 // e fontes
 const PERMITIDOS = new Set([
   'Escape', 'Enter', 'Tab', 'Home', 'End', 'Backspace', 'Delete',
-  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'ContextMenu', 'F10',
   'Esc', 'Ctrl', 'Ctrl K', 'OK',
   'Praxis', 'PR', 'XIS', 'AFN', 'SYSTEMS', 'by Alyssom Fernandes',
   'CNPJ', 'CSV', 'PDF', 'ExcelJS', 'Calibri', 'Helvetica',

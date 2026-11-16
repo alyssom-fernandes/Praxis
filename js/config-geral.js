@@ -1,7 +1,7 @@
 import { db, collection, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
-import { abrirTour, definirTema, preferenciaTema } from './ui.js'
+import { abrirTour, definirTema, preferenciaTema, atalhosLigados, definirAtalhos } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { t } from './constants.js'
 import { empresasDoUsuario } from './utils.js'
@@ -61,6 +61,15 @@ export async function renderConfigGeral() {
                 ${opcaoTema('auto', ICO.auto(), t('cfgTemaAuto'))}
                 ${opcaoTema('dark', ICO.lua(), t('cfgTemaEscuro'))}
                 ${opcaoTema('light', ICO.sol(), t('cfgTemaClaro'))}
+              </div>
+            </div>
+            <div class="cfg-item">
+              <div class="cfg-item-texto">
+                <div class="cfg-item-titulo" id="cfg-atalhos-titulo">${t('cfgAtalhosTitulo')}</div>
+                <p class="cfg-item-desc">${t('cfgAtalhosDesc')}</p>
+              </div>
+              <div class="cfg-seg" id="cfg-atalhos" role="radiogroup" aria-labelledby="cfg-atalhos-titulo">
+                ${[true, false].map(v => `<button type="button" class="cfg-seg-op ${atalhosLigados() === v ? 'active' : ''}" role="radio" aria-checked="${atalhosLigados() === v}" tabindex="${atalhosLigados() === v ? 0 : -1}" data-atalhos="${v ? 'on' : 'off'}"><span>${t(v ? 'cfgAtalhosLigados' : 'cfgAtalhosDesligados')}</span></button>`).join('')}
               </div>
             </div>
             ${sessao.isDemo ? '' : `
@@ -135,6 +144,28 @@ function _bindEvents() {
     definirTema(novo)
     _marcarTema(novo)
     grupo.querySelector(`[data-tema="${novo}"]`)?.focus()
+  })
+
+  const atalhos = document.getElementById('cfg-atalhos')
+  const marcarAtalhos = ligados => atalhos?.querySelectorAll('[data-atalhos]').forEach(b => {
+    const on = (b.dataset.atalhos === 'on') === ligados
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-checked', String(on))
+    b.tabIndex = on ? 0 : -1
+  })
+  atalhos?.addEventListener('click', e => {
+    const b = e.target.closest('[data-atalhos]')
+    if (!b) return
+    definirAtalhos(b.dataset.atalhos === 'on')
+    marcarAtalhos(b.dataset.atalhos === 'on')
+  })
+  atalhos?.addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+    e.preventDefault()
+    const novo = !atalhosLigados()
+    definirAtalhos(novo)
+    marcarAtalhos(novo)
+    atalhos.querySelector(`[data-atalhos="${novo ? 'on' : 'off'}"]`)?.focus()
   })
 
   // abrirTour leva ao quadro de pedidos e começa o tour lá

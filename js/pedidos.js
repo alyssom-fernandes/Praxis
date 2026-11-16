@@ -4,7 +4,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
 import { sessao, registrarPedidos } from './estado.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
+import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
@@ -646,7 +646,8 @@ function _bindEvents() {
     debounce(e => { _termoBusca = e.target.value; _mudouFiltro() }, 250)
   )
 
-  // Atalho "/" foca a busca (fora de campos de texto)
+  // Teclado no quadro (fora de campos de texto e de diálogos): "/" foca a
+  // busca; os de uma tecla (C, J, K, M, ?) podem ser desligados em Ajustes
   const onKey = e => {
     if (e.key === 'Escape' && _painelAberto()) {
       if (document.querySelector('.calendario.aberto, .dialog-overlay.visible')) return
@@ -654,14 +655,25 @@ function _bindEvents() {
       _fecharPainel(true)
       return
     }
-    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+    if (e.ctrlKey || e.metaKey || e.altKey) return
     const alvo = e.target
     if (alvo && (alvo.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName))) return
-    if (document.querySelector('.modal-overlay.visible')) return
-    const busca = document.getElementById('busca-pedidos')
-    if (!busca || !busca.offsetParent) return
-    e.preventDefault()
-    busca.focus()
+    if (document.querySelector('.modal-overlay.visible, .dialog-overlay.visible, .cmd-palette-overlay.visible')) return
+    if (e.key === '/') {
+      const busca = document.getElementById('busca-pedidos')
+      if (!busca || !busca.offsetParent) return
+      e.preventDefault()
+      busca.focus()
+      return
+    }
+    if (!atalhosLigados()) return
+    const tecla = e.key.toLowerCase()
+    if (tecla === 'c') { e.preventDefault(); document.getElementById('btn-novo-pedido')?.click() }
+    else if (tecla === 'j' || tecla === 'k') { e.preventDefault(); _andarEntreItens(tecla === 'j' ? 1 : -1) }
+    else if (tecla === 'm') {
+      const item = alvo?.closest?.('#pedidos-view [data-id]')
+      if (item) { e.preventDefault(); _moverPorTeclado(item.dataset.id) }
+    } else if (e.key === '?') { e.preventDefault(); prxAlert(t('atalhosTitulo'), t('atalhosLista')) }
   }
   document.addEventListener('keydown', onKey)
 
@@ -1264,6 +1276,8 @@ function _renderView() {
       card.addEventListener('click', () => navegar('detalhe', { id: card.dataset.id }))
       card.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); navegar('detalhe', { id: card.dataset.id }) }
+        // Tecla de menu (ou Shift+F10): "Mover para…", também com os atalhos desligados
+        else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); _moverPorTeclado(card.dataset.id) }
       })
     })
     container.querySelectorAll('[data-ver-mais]').forEach(btn => {
@@ -1295,6 +1309,7 @@ function _renderView() {
     row.addEventListener('click', () => navegar('detalhe', { id: row.dataset.id }))
     row.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target === row) { e.preventDefault(); navegar('detalhe', { id: row.dataset.id }) }
+      else if (e.target === row && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) { e.preventDefault(); _moverPorTeclado(row.dataset.id) }
     })
   })
   container.querySelectorAll('th.sortable[data-campo]').forEach(th => {
@@ -1492,6 +1507,32 @@ function _transicoesDragPermitidas(perfil) {
   return {}
 }
 
+// "Mover para…" pelo teclado: as mesmas etapas que o arrasto permite a este
+// perfil, e as mesmas travas (_tentarMoverPedido). O foco volta ao cartão
+async function _moverPorTeclado(id) {
+  const p = _pedidos.find(x => x.id === id)
+  if (!p) return
+  const destinos = _transicoesDragPermitidas(sessao.usuario.perfil)[p.status] || []
+  if (!destinos.length) { prxToast(t('quadroSemMover'), 'info'); return }
+  const escolha = await prxEscolha(
+    t('moverParaTitulo', { num: p.numeroPedido || '' }),
+    t('moverParaTexto', { etapa: STATUS_LABEL[p.status] }),
+    destinos.map(st => ({ valor: st, rotulo: STATUS_LABEL[st] })))
+  if (escolha) await _tentarMoverPedido(p.id, p.status, escolha)
+  setTimeout(() => document.querySelector(`#pedidos-view [data-id="${CSS.escape(id)}"]`)?.focus(), escolha ? 700 : 0)
+}
+
+// J e K: próximo e anterior entre os cartões (ou as linhas da lista), na
+// ordem da tela
+function _andarEntreItens(passo) {
+  const itens = [...document.querySelectorAll('#pedidos-view .kcard, #pedidos-view tbody tr[data-id]')].filter(el => el.offsetParent)
+  if (!itens.length) return
+  const atual = itens.indexOf(document.activeElement)
+  const prox = atual < 0 ? (passo > 0 ? 0 : itens.length - 1) : Math.min(itens.length - 1, Math.max(0, atual + passo))
+  itens[prox].focus()
+  itens[prox].scrollIntoView({ block: 'nearest', inline: 'nearest' })
+}
+
 async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
   const perfil   = sessao.usuario.perfil
   const permitidos = _transicoesDragPermitidas(perfil)
@@ -1560,11 +1601,14 @@ function _bindDragDrop(container) {
   const zonas = () => container.querySelectorAll('[data-drop-status]')
   const marcarDestinos = origem => {
     container.classList.add('arrastando')
-    zonas().forEach(z => z.classList.toggle('drop-ok', podeSoltar(origem, z.dataset.dropStatus)))
+    zonas().forEach(z => {
+      z.classList.toggle('drop-ok', podeSoltar(origem, z.dataset.dropStatus))
+      z.classList.toggle('drop-origem', z.dataset.dropStatus === origem)
+    })
   }
   const limpar = () => {
     container.classList.remove('arrastando')
-    zonas().forEach(z => z.classList.remove('drop-over', 'drop-ok'))
+    zonas().forEach(z => z.classList.remove('drop-over', 'drop-ok', 'drop-origem'))
   }
 
   // ── HTML5 ──
@@ -1838,7 +1882,7 @@ function _renderKcard(p) {
     .filter(Boolean).join(', ')
 
   return `
-    <article class="kcard${p.urgente ? ' kcard-urgente' : ''}${mudou ? ' kcard-mudou' : ''}" data-id="${esc(p.id)}"${_podeArrastar(p.status) ? ' draggable="true"' : ''} tabindex="0"
+    <article class="kcard${p.urgente ? ' kcard-urgente' : ''}${mudou ? ' kcard-mudou' : ''}" data-id="${esc(p.id)}"${_podeArrastar(p.status) ? ' draggable="true"' : ''} tabindex="0" aria-keyshortcuts="Enter M"
       ${mudou ? `style="--desde: -${desde}ms${_mudaramAgora.has(p.id) ? `; view-transition-name: ${_nomeTransicao(p.id)}` : ''}"` : ''}
       aria-label="${esc(rotulo)}">
       <div class="kcard-top">

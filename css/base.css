@@ -566,7 +566,11 @@ button:disabled {
 .dialog p  { color: var(--text2); font-size: var(--t-corpo); margin-bottom: 24px; line-height: 1.6; text-wrap: pretty; }
 .dialog h3:last-child { margin-bottom: 22px; }
 /* Cancelar à esquerda, ação principal à direita (mesma ordem no foco) */
-.dialog-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: flex-end; }
+/* Lista de opções (prxEscolha, "Mover para…"): uma por linha */
+.dialog-opcoes { display: flex; flex: 1 1 100%; flex-direction: column; gap: 0.5rem; }
+.dialog-opcoes > button { justify-content: flex-start; min-height: 40px; }
+.dialog p { white-space: pre-line; }
 .dialog-actions > button { min-height: 40px; padding-inline: 1.15rem; }
 
 /* Celular: o diálogo vira folha de baixo, como os modais */

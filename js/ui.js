@@ -255,6 +255,16 @@ function _cmdGetAcoes() {
         : ico('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>'),
       fn: () => toggleTheme(),
     },
+    // Todos os perfis chegam aqui (Ajustes é só de quem administra)
+    {
+      id: 'alternar-atalhos', label: atalhosLigados() ? t('palDesligarAtalhos') : t('palLigarAtalhos'), termos: 'atalhos teclado tecla',
+      icon: ico('<rect x="2" y="6" width="20" height="12" rx="1"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
+      fn: () => {
+        const ligar = !atalhosLigados()
+        definirAtalhos(ligar)
+        prxToast(ligar ? t('atalhosForamLigados') : t('atalhosForamDesligados'), 'info')
+      },
+    },
   ]
   return acoes.filter(Boolean)
 }
@@ -513,6 +523,45 @@ export function prxConfirm(titulo, mensagem = '', labelOk = t('confirmar'), labe
       if (e.target === overlay) { fecharDialog(overlay); resolve(false) }
     })
   })
+}
+
+// Escolha entre poucas opções ("Mover para…"): uma lista de botões e
+// "Cancelar". Resolve com o valor escolhido, ou null
+export function prxEscolha(titulo, mensagem, opcoes, labelCancel = t('btnCancelar')) {
+  return new Promise(resolve => {
+    const overlay = _montarDialogo({
+      titulo, mensagem, papel: 'dialog',
+      botoes: `
+        <div class="dialog-opcoes" role="group" aria-label="${esc(titulo)}">
+          ${opcoes.map((o, i) => `<button type="button" class="btn-secondary" data-opcao="${i}">${esc(o.rotulo)}</button>`).join('')}
+        </div>
+        <button type="button" class="btn-ghost" id="prx-confirm-cancel">${esc(labelCancel)}</button>`,
+    })
+    const botoes = [...overlay.querySelectorAll('[data-opcao]')]
+    setTimeout(() => botoes[0]?.focus(), 20)
+    botoes.forEach(b => { b.onclick = () => { fecharDialog(overlay); resolve(opcoes[+b.dataset.opcao].valor) } })
+    overlay.querySelector('#prx-confirm-cancel').onclick = () => { fecharDialog(overlay); resolve(null) }
+    overlay.addEventListener('click', e => { if (e.target === overlay) { fecharDialog(overlay); resolve(null) } })
+    // Setas andam entre as opções
+    overlay.addEventListener('keydown', e => {
+      if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return
+      const i = botoes.indexOf(document.activeElement)
+      if (i < 0) return
+      e.preventDefault()
+      botoes[(i + (e.key === 'ArrowDown' ? 1 : -1) + botoes.length) % botoes.length].focus()
+    })
+  })
+}
+
+// Atalhos de uma tecla (C, J, K, M, ?): ligados por padrão, com a opção de
+// desligar em Ajustes, porque quem usa leitor de tela ou ditado pode
+// dispará-los sem querer (WCAG 2.1.4)
+const _CHAVE_ATALHOS = 'praxis_atalhos'
+export function atalhosLigados() {
+  try { return localStorage.getItem(_CHAVE_ATALHOS) !== 'off' } catch { return true }
+}
+export function definirAtalhos(ligados) {
+  try { if (ligados) localStorage.removeItem(_CHAVE_ATALHOS); else localStorage.setItem(_CHAVE_ATALHOS, 'off') } catch {}
 }
 
 // ── Modal genérico ────────────────────────────────────────────

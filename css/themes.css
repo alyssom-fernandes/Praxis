@@ -385,6 +385,7 @@ input[type="checkbox"], input[type="radio"] {
   .regua-item.ativa .regua-nome { color: var(--text); }
   .regua-item.eh-fila:not(.zero) .regua-n { color: var(--gold); opacity: 1; }
   .regua-item:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
+  #pedidos-view.arrastando .regua-item:not(.drop-ok):not(.drop-origem) { opacity: 0.45; }
   #pedidos-view.arrastando .regua-item.drop-ok { background: var(--gold-dim); border-top-color: var(--gold-fill); }
   .regua-item.drop-over { box-shadow: inset 0 0 0 1.5px var(--gold-border); }
   .regua-sk { border-top-color: var(--border); }

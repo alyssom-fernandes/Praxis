@@ -1118,6 +1118,8 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
 .kcard[draggable="true"].kcard-drag-active { touch-action: none; opacity: 0.5; }
 .kcard-ghost { box-shadow: var(--shadow-lg) !important; transform: rotate(1.5deg); opacity: 0.96; }
 #pedidos-view.arrastando .kanban-col.drop-ok { background: var(--gold-dim); }
+/* Onde não dá para soltar fica esmaecido já no começo do arrasto */
+#pedidos-view.arrastando .kanban-col:not(.drop-ok):not(.drop-origem) { opacity: 0.45; }
 #pedidos-view.arrastando .kanban-col.drop-ok > .kanban-col-header { border-top-color: var(--gold-fill); }
 .kanban-col.drop-over { box-shadow: inset 0 0 0 1.5px var(--gold-border); }
 
