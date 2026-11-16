@@ -430,7 +430,12 @@ button:disabled {
 .toast-blue  { --toast-cor: var(--blue); }
 .toast-amber { --toast-cor: var(--amber); }
 .toast-ico { color: var(--toast-cor); flex-shrink: 0; display: flex; margin-top: 2px; }
-.toast-msg { flex: 1; min-width: 0; color: var(--text); font-size: var(--t-corpo); font-weight: 500; line-height: 1.45; padding-top: 1px; text-wrap: pretty; }
+.toast-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.toast-msg { color: var(--text); font-size: var(--t-corpo); font-weight: 500; line-height: 1.45; padding-top: 1px; text-wrap: pretty; }
+/* Ações do aviso: texto com verbo, em link, à esquerda */
+.toast-acoes { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.toast-acao { min-height: 0; padding: 0; border: 0; background: none; color: var(--gold); font-size: var(--t-corpo); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.toast-acao:hover { color: var(--text); }
 .toast-fechar {
   width: 30px; height: 30px;
   min-height: 30px;

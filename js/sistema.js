@@ -160,7 +160,7 @@ export function renderSistema() {
             ${_cartao({ num: 'PRX-0002', titulo: 'Uniformes e EPIs — equipe de campo', empresa: 'Orbix Industrial', prazo: 'Pago em 11/11/2026', classe: 'feito', valor: 'R$ 7.980,00' })}
           </div>`)}
 
-        ${_secao('avisos', 'Avisos e confirmação', 'Sucesso em frase curta, sem "com sucesso". Erro diz o que houve e o que fazer, sem mensagem técnica. Confirmação só para o que não volta.', `
+        ${_secao('avisos', 'Avisos e confirmação', 'Sucesso em frase curta, sem "com sucesso", com até duas ações ("Ver pedido"). Erro diz o que houve e o que fazer, sem mensagem técnica, e fica até a pessoa fechar. Confirmação só para o que não volta.', `
           <div class="sis-linha">
             <button type="button" class="btn-secondary btn-sm" data-aviso="success">Aviso de sucesso</button>
             <button type="button" class="btn-secondary btn-sm" data-aviso="error">Aviso de erro</button>
@@ -201,7 +201,8 @@ export function renderSistema() {
       error: 'O pedido não foi aprovado. Verifique a conexão e tente de novo.',
       info: 'Pedido movido para "Aprovado".',
     }
-    prxToast(textos[b.dataset.aviso], b.dataset.aviso)
+    const acoes = b.dataset.aviso === 'success' ? [{ rotulo: 'Ver pedido', fn: () => {} }] : []
+    prxToast(textos[b.dataset.aviso], b.dataset.aviso, { acoes })
   }))
   document.getElementById('sis-confirmar')?.addEventListener('click', () =>
     prxConfirm('Cancelar 2 pedidos?', 'Os pedidos saem da fila e ficam em Encerrados, com o motivo.', 'Cancelar pedidos', 'Voltar', true))

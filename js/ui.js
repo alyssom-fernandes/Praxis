@@ -414,8 +414,12 @@ export function progressoDemo(fase, porcento = 0) {
 }
 
 // ── Toast ─────────────────────────────────────────────────────
-// Sucesso e info somem em 4 s; erro e aviso ficam 6 s (dá tempo de ler).
-// No máximo quatro ao mesmo tempo; o mais antigo sai primeiro.
+// Sucesso e info somem em 4 s (8 s quando têm ação); aviso fica 6 s; erro
+// fica até a pessoa fechar, para dar tempo de ler e agir. Até duas ações
+// ("Ver pedido"). No máximo quatro ao mesmo tempo; o mais antigo sai primeiro.
+//   prxToast(texto, tipo)
+//   prxToast(texto, tipo, 3000)                                 (duração em ms)
+//   prxToast(texto, tipo, { acoes: [{ rotulo, fn }], duracao })
 const _TOAST_TIPOS = {
   success: { cor: 'green', icone: () => iconeCheck(),  papel: 'status' },
   error:   { cor: 'red',   icone: () => iconeX(),      papel: 'alert'  },
@@ -423,11 +427,12 @@ const _TOAST_TIPOS = {
   warning: { cor: 'amber', icone: () => iconeAviso(),  papel: 'alert'  },
 }
 
-export function prxToast(mensagem, tipo = 'info', duracao) {
+export function prxToast(mensagem, tipo = 'info', opcoes) {
   const container = document.getElementById('toast-container')
   if (!container) return
   const cfg = _TOAST_TIPOS[tipo] || _TOAST_TIPOS.info
-  const tempo = duracao ?? (tipo === 'error' || tipo === 'warning' ? 6000 : 4000)
+  const { duracao, acoes = [] } = typeof opcoes === 'number' ? { duracao: opcoes } : (opcoes || {})
+  const tempo = duracao ?? (tipo === 'error' ? 0 : tipo === 'warning' ? 6000 : acoes.length ? 8000 : 4000)
 
   const vivos = [...container.querySelectorAll('.toast:not(.out)')]
   if (vivos.length >= 4) _sairToast(vivos[0])
@@ -437,14 +442,20 @@ export function prxToast(mensagem, tipo = 'info', duracao) {
   toast.setAttribute('role', cfg.papel)
   toast.innerHTML = `
     <span class="toast-ico" aria-hidden="true">${cfg.icone()}</span>
-    <span class="toast-msg">${esc(mensagem)}</span>
+    <span class="toast-corpo">
+      <span class="toast-msg">${esc(mensagem)}</span>
+      ${acoes.length ? `<span class="toast-acoes">${acoes.slice(0, 2).map((a, i) => `<button type="button" class="toast-acao" data-acao="${i}">${esc(a.rotulo)}</button>`).join('')}</span>` : ''}
+    </span>
     <button type="button" class="toast-fechar" aria-label="${t('fecharAviso')}">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   `
   toast.querySelector('.toast-fechar').onclick = () => _sairToast(toast)
+  toast.querySelectorAll('[data-acao]').forEach(b => { b.onclick = () => { _sairToast(toast); acoes[+b.dataset.acao].fn?.() } })
   container.appendChild(toast)
 
+  // Erro (tempo 0) fica até a pessoa fechar
+  if (!tempo) return
   // Pausa enquanto o ponteiro está em cima (para ler com calma)
   let restante = tempo
   let inicio = Date.now()

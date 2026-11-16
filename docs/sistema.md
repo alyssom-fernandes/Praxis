@@ -83,7 +83,7 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 | Filtro rápido | Recortes do quadro com o número ao lado (`aria-pressed`) | Trocar a forma da visão | Substantivo curto: "Urgentes" |
 | Troca de visão | Quadro e lista, gráfico e tabela: o mesmo conteúdo | Filtrar | Ícone com `aria-label` |
 | Cartão de pedido | Pedido no quadro | Detalhe do pedido | Número, título em até duas linhas, empresa, prazo, valor |
-| Aviso (toast) | Resultado de uma ação | Erro de carga (vai na própria área) | Sucesso curto, sem "com sucesso"; erro com o que houve e o que fazer |
+| Aviso (toast) | Resultado de uma ação; até duas ações ("Ver pedido") | Erro de carga (vai na própria área) | Sucesso curto, sem "com sucesso"; erro com o que houve e o que fazer, e fica até a pessoa fechar |
 | Confirmação | Ação que não volta | Ação que dá para desfazer | Título em pergunta; botão com verbo + objeto |
 | Estado vazio | Lista ou área sem itens | Erro | Causa e saída, com uma ação de uma ou duas palavras |
 | Esqueleto | Enquanto a área carrega | Ações em andamento (use o botão carregando) | Nenhum; a medida do conteúdo que vem |
@@ -91,8 +91,5 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 ## O que falta (Fase 1 do roteiro)
 
 - **Espaço e alturas de controle:** tokens `--esp-*` em base 8 e controles de 32 e 40 px (1.5).
-- **Componentes unificados:**
-  - lozenge, régua e estado vazio únicos;
-  - faixa da demo em tinta invertida;
-  - aviso com ação e erro que persiste (1.6).
+- **Componentes unificados (1.6):** lozenge, régua e estado vazio únicos, e a faixa da demo em tinta invertida. O aviso com ação e o erro que persiste já estão feitos.
 - **Densidade do quadro e estrutura das telas (1.7 e 1.9):** dependem de revisão do dono.

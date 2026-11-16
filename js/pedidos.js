@@ -993,7 +993,7 @@ async function _submeterNovoPedido() {
     })
 
     fecharModal('modal-novo-pedido')
-    prxToast(t('pedidoAberto'), 'success')
+    prxToast(t('pedidoAberto'), 'success', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id: pedidoRef.id }) }] })
   } catch (err) {
     prxToast(t('erroAbrirPedido'), 'error')
     console.error(err)
