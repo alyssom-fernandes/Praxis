@@ -79,7 +79,7 @@ flowchart LR
   R -.->|reaberto com justificativa| S
 ```
 
-O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comprador, e pelo gestor até a entrega. Ele só vai para aprovação com uma cotação indicada, e dali em diante as cotações não mudam mais. Quem abriu ou cotou o pedido não o aprova nem o reprova, e as cotações e o recebimento ficam com o comprador que assumiu. As regras de cada transição estão em [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
+O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comprador, e pelo gestor até a entrega. Ele só vai para aprovação com uma cotação indicada, e dali em diante as cotações não mudam mais. Quem abriu ou cotou o pedido não o aprova nem o reprova, e as cotações e o recebimento ficam com o comprador que assumiu. As regras de cada transição estão em [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md), e o nome de cada etapa e de cada termo da interface, em [`docs/glossario.md`](docs/glossario.md).
 
 ## Decisões técnicas
 

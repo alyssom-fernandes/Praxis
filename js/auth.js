@@ -5,7 +5,7 @@ import {
 } from './firebase.js'
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
-import { t } from './constants.js'
+import { t, STATUS, STATUS_LABEL } from './constants.js'
 import { DEMO_CREDENTIALS } from './config.js'
 import { esc } from './utils.js'
 
@@ -28,7 +28,8 @@ const ICO = {
 // lado já diz o mesmo). A etapa acesa percorre o caminho devagar; com
 // movimento reduzido, fica parada na aprovação.
 function _etapasEntrada() {
-  const nomes = String(t('loginEtapas')).split('|')
+  const nomes = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
+    .map(st => STATUS_LABEL[st])
   return `
     <ol class="entrada-etapas" aria-hidden="true">
       ${nomes.map((nome, i) => `

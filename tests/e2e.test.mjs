@@ -134,7 +134,7 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   await sol.fill('#np-valor', '450,00')
   await sol.click('#np-categorias .chip')
   await sol.click('#btn-abrir-pedido')
-  await sol.getByText('Pedido aberto.').first().waitFor()
+  await sol.getByText('Pedido criado.').first().waitFor()
 
   let id
   for (let i = 0; i < 60 && !id; i++) {

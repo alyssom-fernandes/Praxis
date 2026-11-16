@@ -10,6 +10,7 @@ import {
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
   empresasDoUsuario, textoPrazo, dataAbsoluta, dataEHora, dataComRelativo, formatarDataRelativa,
+  mensagemDeErro,
 } from '../js/utils.js'
 import {
   tomDaCor, corCategoria, TONS_CATEGORIA,
@@ -290,4 +291,18 @@ test('datas: dd/mm/aaaa à vista, o relativo como complemento e a hora no title'
   assert.equal(formatarDataRelativa(antiga).label, '15/01/2020')
   assert.equal(dataComRelativo(antiga).texto, '15/01/2020')
   assert.deepEqual(dataComRelativo(null), { texto: '—', title: '' })
+})
+
+test('erro na tela: o texto do app passa, a mensagem técnica não', () => {
+  const avisar = console.warn
+  console.warn = () => {}
+  try {
+    assert.equal(mensagemDeErro(new Error('Este pedido já foi assumido.'), 'padrão'), 'Este pedido já foi assumido.')
+    const firebase = Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied', name: 'FirebaseError' })
+    assert.equal(mensagemDeErro(firebase, 'padrão'), 'padrão')
+    assert.equal(mensagemDeErro(new TypeError("Cannot read properties of undefined (reading 'x')"), 'padrão'), 'padrão')
+    assert.equal(mensagemDeErro(undefined, 'padrão'), 'padrão')
+  } finally {
+    console.warn = avisar
+  }
 })

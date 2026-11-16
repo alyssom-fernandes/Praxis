@@ -374,7 +374,10 @@ input[type="checkbox"], input[type="radio"] {
     line-height: 1.1;
     letter-spacing: 0;
     color: var(--text3);
-    text-overflow: clip;
+    /* O mesmo nome da etapa do quadro, cortado na tela quando não cabe
+       (docs/glossario.md); o nome inteiro vai no aria-label do botão */
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .regua-item.zero .regua-n { color: var(--text3); opacity: 0.55; }
   .regua-item.ativa { border-top-color: var(--tinta); box-shadow: inset 0 -2px 0 var(--gold-fill); }

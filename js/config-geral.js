@@ -63,13 +63,14 @@ export async function renderConfigGeral() {
                 ${opcaoTema('light', ICO.sol(), t('cfgTemaClaro'))}
               </div>
             </div>
+            ${sessao.isDemo ? '' : `
             <div class="cfg-item">
               <div class="cfg-item-texto">
                 <div class="cfg-item-titulo">${t('tourTitulo')}</div>
                 <p class="cfg-item-desc">${t('tourDesc')}</p>
               </div>
               <button class="btn-secondary btn-sm cfg-item-acao" id="btn-ver-tour">${ICO.play(12)}<span>${t('btnVerTour')}</span></button>
-            </div>
+            </div>`}
           </div>
         </section>
       </main>

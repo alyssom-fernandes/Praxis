@@ -80,7 +80,7 @@ flowchart LR
   R -.->|reopened with justification| S
 ```
 
-An order can be cancelled with a reason: by its requester while it waits for a buyer, and by a manager until delivery. It only goes to approval with a chosen quote, and from then on its quotes no longer change. Whoever opened or quoted an order cannot approve or reject it, and quotes and delivery belong to the buyer who claimed it. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md).
+An order can be cancelled with a reason: by its requester while it waits for a buyer, and by a manager until delivery. It only goes to approval with a chosen quote, and from then on its quotes no longer change. Whoever opened or quoted an order cannot approve or reject it, and quotes and delivery belong to the buyer who claimed it. The rules for each transition are in [`docs/fluxo-pedidos.md`](docs/fluxo-pedidos.md), and the name of each stage and interface term in [`docs/glossario.md`](docs/glossario.md) (Portuguese, with the English terms).
 
 ## Technical decisions
 

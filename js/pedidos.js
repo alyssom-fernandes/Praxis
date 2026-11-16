@@ -4,7 +4,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
 import { sessao, registrarPedidos } from './estado.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao } from './ui.js'
+import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
@@ -111,11 +111,6 @@ function _rotuloFiltro(f) {
   })[f] || f
 }
 
-const _CHAVE_ETAPA_CURTA = {
-  solicitado: 'etapaCurtaSolicitado', ag_cotacao: 'etapaCurtaCotacao', em_aprovacao: 'etapaCurtaAprovacao',
-  aprovado: 'etapaCurtaAprovado', comprado: 'etapaCurtaComprado', entregue: 'etapaCurtaEntregue',
-  pago: 'etapaCurtaPago', reprovado: 'etapaCurtaReprovado', cancelado: 'etapaCurtaCancelado',
-}
 
 // ── Render da tela ────────────────────────────────────────────
 export async function renderPedidos() {
@@ -1050,8 +1045,8 @@ function _iniciarListenerPedidos() {
     if (_arrastoAtivo) { _renderPendente = true; return }
     _renderMostrandoMudancas()
   }, err => {
+    // O erro fica na própria área, com o que fazer (um aviso a mais repetiria)
     console.error(err)
-    prxToast(t('erroCarregarPedidos'), 'error')
     const container = document.getElementById('pedidos-view')
     if (container) {
       container.innerHTML = _estadoVazioHTML({
@@ -1246,7 +1241,6 @@ function _atualizarResumo(lista) {
   let extra = ''
   if (_filtroAtivo === 'pendentes') extra = _descricaoFila()
   else if (_filtroAtivo === 'encerrados') extra = t('resumoEncerrados')
-  else if (_viewMode === 'kanban' && n > 0) extra = t('resumoEtapas')
   el.innerHTML = `${partes.join(', ')}.${extra ? ` <span class="resumo-extra">${extra}</span>` : ''}`
 }
 
@@ -1702,7 +1696,7 @@ function _renderKanban(lista) {
         const n = porEtapa[st].length
         const sel = st === atual
         const classes = ['regua-item', sel ? 'ativa' : '', st === statusFila ? 'eh-fila' : '', n === 0 ? 'zero' : ''].filter(Boolean).join(' ')
-        const nome = colunas.length > 4 ? t(_CHAVE_ETAPA_CURTA[st]) : STATUS_LABEL[st]
+        const nome = STATUS_LABEL[st]
         return `<button type="button" role="tab" class="${classes}" id="regua-${st}" data-etapa="${st}" data-drop-status="${st}"
           aria-selected="${sel}" aria-controls="coluna-${st}" tabindex="${sel ? 0 : -1}" aria-label="${esc(STATUS_LABEL[st])}: ${n}">
           <span class="regua-n" aria-hidden="true">${n}</span><span class="regua-nome" aria-hidden="true">${esc(nome)}</span>
@@ -1738,7 +1732,7 @@ function _renderKanban(lista) {
           <!-- O numeral é a quantidade de pedidos na etapa (sem zero à esquerda,
                para não ler como o número da etapa, que vai de 01 a 07 no detalhe) -->
           <span class="etapa-topo">
-            <span class="etapa-n${cards.length ? '' : ' zero'}" aria-hidden="true">${cards.length}</span>
+            <span class="etapa-n${cards.length ? '' : ' zero'}" aria-hidden="true" title="${cards.length} ${cards.length === 1 ? t('pedidoSing') : t('pedidosPlural')} ${t('nestaEtapa')}">${cards.length}</span>
             ${ehFila ? `<span class="etapa-fila" aria-hidden="true">${t('etapaFilaCurto')}</span>` : ''}
           </span>
           <h2 class="etapa-nome" id="etapa-${status}">${label}<span class="sr-only">: ${cards.length} ${cards.length === 1 ? t('pedidoSing') : t('pedidosPlural')}${ehFila ? `. ${t('etapaDaFila')}` : ''}</span></h2>
@@ -2471,7 +2465,7 @@ async function _confirmarBulkCancel() {
     _renderView()
     prxToast(`${candidatos.length} ${candidatos.length !== 1 ? t('pedidosCancelados') : t('pedidoCancelado')}.`, 'success')
   } catch (err) {
-    prxToast(t('erroCancelarPedidos') + (err.message || 'tente novamente'), 'error')
+    prxToast(estaOnline() ? t('erroCancelarPedidos') : t('semConexaoAcao'), 'error')
     console.error(err)
   } finally {
     esconderSpinner()

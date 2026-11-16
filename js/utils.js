@@ -17,6 +17,15 @@ export function formatDate(dateStr) {
   return `${m[3]}/${m[2]}/${m[1]}`
 }
 
+// Erro para a tela: o que o próprio app lança com t() (new Error(t(...)))
+// passa como está; o técnico (Firebase, rede, código) vai para o console, e a
+// pessoa lê o texto da ação, que diz o que houve e o que fazer
+export function mensagemDeErro(err, padrao) {
+  if (err?.constructor === Error && !('code' in err) && err.message) return err.message
+  console.warn(err)
+  return padrao
+}
+
 // ── Datas ─────────────────────────────────────────────────────
 // Regra da interface: a data absoluta dd/mm/aaaa fica à vista; o relativo
 // ("há 2 dias") vem como complemento, e a hora vai no title. Aceita Timestamp

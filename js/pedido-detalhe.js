@@ -18,7 +18,7 @@ import {
   formatCurrency, formatDate, formatarDataRelativa, dataAbsoluta, dataComRelativo, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
-  empresasDoUsuario, textoPrazo,
+  empresasDoUsuario, textoPrazo, mensagemDeErro,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -1512,7 +1512,7 @@ async function _assumirPedido() {
     })
     prxToast(t('pedidoAssumido'), 'success')
   } catch (err) {
-    prxToast(err.message || t('erroAssumir'), 'error')
+    prxToast(mensagemDeErro(err, t('erroAssumir')), 'error')
   } finally {
     esconderSpinner()
   }
@@ -1571,7 +1571,7 @@ async function _aprovarPedido() {
     })
     prxToast(t('pedidoAprovado'), 'success')
   } catch (err) {
-    prxToast(err.message || t('erroAprovar'), 'error')
+    prxToast(mensagemDeErro(err, t('erroAprovar')), 'error')
   } finally {
     esconderSpinner()
   }
@@ -1605,7 +1605,7 @@ async function _reprovarPedido() {
     fecharModal('modal-reprovar')
     prxToast(t('pedidoReprovado'), 'info')
   } catch (err) {
-    prxToast(err.message || t('erroReprovar'), 'error')
+    prxToast(mensagemDeErro(err, t('erroReprovar')), 'error')
   } finally {
     esconderSpinner()
   }
@@ -2557,7 +2557,7 @@ async function _exportarPedidoPDF() {
       [t('npValor'), p.valorEstimado ? formatCurrency(p.valorEstimado) : '—'],
       [t('colSolicitante'), solicNome],
       [t('colComprador'), p.compradorId ? (_nomePorId(p.compradorId) || '—') : (_quemFez(STATUS.AG_COTACAO)?.nome || t('pdfNaoAtribuido'))],
-      [t('etapaCurtaAprovacao'), (() => {
+      [t('pdfAprovacao'), (() => {
         const ap = _quemFez(STATUS.APROVADO), rp = _quemFez(STATUS.REPROVADO)
         if (p.aprovadoPor || ap) return `${_nomePorId(p.aprovadoPor) || ap?.nome || t('aprovadoStatus')}, ${tsStr(p.aprovadoEm || ap?.em).slice(0, 10)}`
         if (p.reprovadoPor || rp) return t('pdfReprovadoPor', { nome: _nomePorId(p.reprovadoPor) || rp?.nome || '—' })
@@ -2926,7 +2926,7 @@ async function _removerAnexo(anexoId, storagePath) {
     _renderDetalhe()
     prxToast(t('anexoRemovido'), 'success')
   } catch (err) {
-    prxToast(t('erroRemoverAnexo') + (err.message || 'tente novamente'), 'error')
+    prxToast(mensagemDeErro(err, t('erroRemoverAnexo')), 'error')
   } finally {
     esconderSpinner()
   }
