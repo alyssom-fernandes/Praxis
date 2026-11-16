@@ -490,22 +490,18 @@ function _renderDetalhe() {
     <div class="detalhe-layout${_avancouDe != null ? ' avancou' : ''}"${desde ? ` style="--desde:-${desde}ms"` : ''}>
       ${_renderCabecalho(acoes.menu)}
       ${_renderCaminho()}
-      ${_renderDecisao(acoes.painel)}
 
+      <!-- Conteúdo à esquerda (descrição, cotações, parcelas, anexos, atividade);
+           à direita, o trilho de contexto: próximo passo, dados, pessoas e tempo.
+           No celular vira uma coluna, na ordem das classes ord-* (themes.css) -->
       <div class="detalhe-cols">
         <div class="detalhe-main">
 
-          <section class="dt-bloco ord-dados" aria-labelledby="sec-dados">
-            <div class="dt-card-head"><h2 class="dt-secao" id="sec-dados">${t('dtDadosPedido')}</h2></div>
-            <dl class="detalhe-meta-grid">
-              ${dados.map(([k, v, cls]) => `<div class="meta-item ${cls || ''}"><dt class="meta-label">${k}</dt><dd class="meta-value">${v}</dd></div>`).join('')}
-            </dl>
-            ${p.descricao ? `
-              <div class="detalhe-descricao">
-                <div class="meta-label">${t('dtDescricao')}</div>
-                <p>${esc(p.descricao)}</p>
-              </div>` : ''}
-          </section>
+          ${p.descricao ? `
+            <section class="dt-bloco ord-descricao" aria-labelledby="sec-desc">
+              <div class="dt-card-head"><h2 class="dt-secao" id="sec-desc">${t('dtDescricao')}</h2></div>
+              <div class="detalhe-descricao"><p>${esc(p.descricao)}</p></div>
+            </section>` : ''}
 
           <section class="dt-bloco ord-cotacoes" aria-labelledby="sec-cot">
             <div class="dt-card-head">
@@ -528,6 +524,18 @@ function _renderDetalhe() {
             </section>
           ` : ''}
 
+          <section class="dt-bloco ord-anexos" aria-labelledby="sec-anexos">
+            <div class="dt-card-head">
+              <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${_anexos.length ? `<span class="dt-contagem">${_anexos.length}</span>` : ''}</h2>
+              ${_enviaArquivos() ? `
+              <label class="btn-ghost btn-sm dt-upload" tabindex="0">
+                ${ICO.clipe} ${t('dtAnexar')}
+                <input type="file" id="input-upload-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" multiple class="sr-only" tabindex="-1">
+              </label>` : ''}
+            </div>
+            <div id="anexos-list">${_renderAnexos()}</div>
+          </section>
+
           <section class="dt-bloco ord-atividade" aria-labelledby="sec-ativ">
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-ativ">${t('secaoAtividade')}</h2></div>
             <div class="comentario-composer">
@@ -547,6 +555,15 @@ function _renderDetalhe() {
         </div>
 
         <aside class="detalhe-aside">
+          <div class="ord-decisao">${_renderDecisao(acoes.painel)}</div>
+
+          <section class="dt-bloco ord-dados" aria-labelledby="sec-dados">
+            <div class="dt-card-head"><h2 class="dt-secao" id="sec-dados">${t('dtDadosPedido')}</h2></div>
+            <dl class="detalhe-meta-grid">
+              ${dados.map(([k, v, cls]) => `<div class="meta-item ${cls || ''}"><dt class="meta-label">${k}</dt><dd class="meta-value">${v}</dd></div>`).join('')}
+            </dl>
+          </section>
+
           <section class="dt-bloco ord-pessoas" aria-labelledby="sec-pessoas">
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-pessoas">${t('pessoasEnvolvidas')}</h2></div>
             <div class="pessoas-lista">
@@ -558,18 +575,6 @@ function _renderDetalhe() {
           </section>
 
           ${_renderSLATimeline()}
-
-          <section class="dt-bloco ord-anexos" aria-labelledby="sec-anexos">
-            <div class="dt-card-head">
-              <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${_anexos.length ? `<span class="dt-contagem">${_anexos.length}</span>` : ''}</h2>
-              ${_enviaArquivos() ? `
-              <label class="btn-ghost btn-sm dt-upload" tabindex="0">
-                ${ICO.clipe} ${t('dtAnexar')}
-                <input type="file" id="input-upload-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" multiple class="sr-only" tabindex="-1">
-              </label>` : ''}
-            </div>
-            <div id="anexos-list">${_renderAnexos()}</div>
-          </section>
         </aside>
       </div>
     </div>

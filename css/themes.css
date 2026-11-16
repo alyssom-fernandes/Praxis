@@ -42,6 +42,7 @@ input[type="checkbox"], input[type="radio"] {
      com a atividade (longa) por último */
   .detalhe-cols { display: flex; flex-direction: column; align-items: stretch; gap: 36px; }
   .detalhe-main, .detalhe-aside { display: contents; }
+  .ord-decisao { order: 0; } .ord-descricao { order: 2; }
   .ord-dados { order: 1; } .ord-cotacoes { order: 2; } .ord-parcelas { order: 3; } .ord-pessoas { order: 4; }
   .ord-anexos { order: 5; } .ord-sla { order: 6; } .ord-atividade { order: 7; }
 }
@@ -578,4 +579,12 @@ input[type="checkbox"], input[type="radio"] {
     border: 1px solid var(--gold-border);
     flex-shrink: 0;
   }
+}
+
+/* Quadro no celular: o resumo numa linha e os filtros rápidos no topo da
+   folha "Filtros" (js/pedidos.js move o elemento), para o primeiro pedido
+   aparecer mais cedo */
+@media (max-width: 767px) {
+  .pedidos-resumo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pf-corpo > .pedidos-rapidos { order: -1; flex-wrap: wrap; align-self: stretch; overflow: visible; }
 }

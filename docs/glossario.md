@@ -18,6 +18,7 @@ Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos 
 | Minha fila | My queue | Os pedidos que esperam uma ação da pessoa que está usando | Pendências |
 | Ajustes | Settings | Tema e preferências; na paleta, "Ir para Ajustes" | Configurações: Geral |
 | Cadastros | Records | Empresas, categorias e fornecedores | |
+| Administração | Administration | Grupo da barra lateral com os cadastros e os usuários, só para quem administra | Configurações |
 
 ## Etapas
 

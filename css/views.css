@@ -646,10 +646,12 @@
 .pedidos-busca input::-webkit-search-cancel-button:hover { background: var(--text); }
 
 /* Filtros rápidos: texto com o contador em numeral, como os itens da lateral */
+/* Filtros rápidos: chips retos com o número ao lado (são filtros da mesma
+   lista, não abas); o ativo ganha fundo */
 .pedidos-rapidos {
   display: flex;
-  align-self: stretch;
-  gap: 1.4rem;
+  align-self: center;
+  gap: 6px;
   min-width: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -659,34 +661,22 @@
 .rapido {
   position: relative;
   flex-shrink: 0;
-  min-height: 0;
-  padding: 0 1px;
+  min-height: 32px;
+  padding: 0 10px;
   gap: 0.45rem;
-  border: none;
-  border-radius: 0;
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text2);
   font-size: var(--t-corpo);
   font-weight: 600;
 }
-.rapido::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: transparent;
-  transition: background var(--transition-fast);
-}
 @media (hover: hover) {
-  .rapido:hover { color: var(--text); }
-  .rapido:hover::after { background: var(--border-strong); }
+  .rapido:hover { color: var(--text); background: var(--card2); }
 }
 .rapido:active:not(:disabled) { transform: none; }
-.rapido.active { color: var(--text); }
-.rapido.active::after { background: var(--gold-fill); }
-.rapido:focus-visible { outline: 2px solid var(--foco); outline-offset: -4px; }
+.rapido.active { color: var(--text); background: var(--gold-dim); border-color: var(--gold-border); }
+.rapido:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .rapido-n {
   font-family: var(--display);
   font-size: var(--t-titulo-3);
@@ -917,6 +907,7 @@
 #np-categorias .chip { border-radius: var(--radius-tag); }
 .np-grid { gap: 1.1rem 1rem; }
 .np-req { color: var(--text3); font-weight: 600; }
+.np-opcional { margin-left: 4px; color: var(--text3); font-weight: 400; }
 .np-legenda { margin-right: auto; align-self: center; font-size: var(--t-pequeno); color: var(--text3); }
 .form-group.invalido input,
 .form-group.invalido select,
@@ -1918,6 +1909,24 @@
 .decisao-resp .avatar-vazio svg { width: 14px; height: 14px; }
 .decisao-resp-txt { display: flex; flex-direction: column; min-width: 0; }
 .decisao-resp-nome { font-size: var(--t-titulo-3); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Trilho de contexto do detalhe (computador): o próximo passo no topo, os
+   fatos em duas colunas (o último sozinho ocupa a linha toda, sem deixar
+   um vão), depois dados, pessoas e tempo por etapa */
+@media (min-width: 1024px) {
+  .detalhe-layout .detalhe-cols { grid-template-columns: minmax(0, 1fr) 360px; gap: 40px; }
+  .detalhe-layout .detalhe-aside { gap: 32px; }
+  .detalhe-aside .decisao-valor { white-space: nowrap; }
+  .detalhe-aside .decisao { padding: 16px 18px 0; }
+  .detalhe-aside .decisao-topo { flex-direction: column; align-items: stretch; gap: 14px; padding-bottom: 16px; }
+  .detalhe-aside .decisao-titulo { font-size: var(--t-titulo-2); }
+  .detalhe-aside .decisao-acoes { justify-content: flex-start; flex-wrap: wrap; }
+  .detalhe-aside .decisao-fatos { grid-template-columns: 1fr 1fr; margin: 0 -18px; }
+  .detalhe-aside .decisao-fato { padding: 12px 18px; }
+  .detalhe-aside .decisao-fato:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .detalhe-aside .decisao-resp-nome { white-space: normal; }
+  .detalhe-aside .detalhe-meta-grid { grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+}
 .decisao-resp-papel { font-size: var(--t-pequeno); color: var(--text3); }
 
 /* Menu "…" do cabeçalho: as ações secundárias (editar, duplicar, reabrir, PDF, liberar, cancelar) */

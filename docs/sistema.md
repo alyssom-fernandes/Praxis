@@ -82,7 +82,7 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 | Responsável no cartão | O comprador que assumiu, em iniciais (24 px), com o nome no title | Antes de alguém assumir | Nenhum; o nome vai no title e no rótulo do cartão |
 | Selo | Urgente e "com você" | Etapa, contagem | Uma palavra, sem caixa alta |
 | Contagem | Quantos itens há numa aba, filtro ou item da lateral | Destacar (é dado, fica neutra) | Só o número |
-| Filtro rápido | Recortes do quadro com o número ao lado (`aria-pressed`) | Trocar a forma da visão | Substantivo curto: "Urgentes" |
+| Filtro rápido | Recortes do quadro: chip reto com o número ao lado (`aria-pressed`); no celular, no topo da folha Filtros | Trocar a forma da visão | Substantivo curto: "Urgentes" |
 | Troca de visão | Quadro e lista, gráfico e tabela: o mesmo conteúdo | Filtrar | Ícone com `aria-label` |
 | Cartão de pedido | Pedido no quadro | Detalhe do pedido | Número, título em até duas linhas, empresa, prazo, valor |
 | Aviso (toast) | Resultado de uma ação; até duas ações ("Ver pedido") | Erro de carga (vai na própria área) | Sucesso curto, sem "com sucesso"; erro com o que houve e o que fazer, e fica até a pessoa fechar |

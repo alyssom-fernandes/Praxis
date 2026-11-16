@@ -145,7 +145,7 @@ export function renderSistema() {
             <span class="sis-sino"><span class="notif-badge">3</span></span>
           </div>`)}
 
-        ${_secao('filtros', 'Filtros rápidos e troca de visão', 'Filtro rápido é botão com aria-pressed e o número ao lado; o ativo ganha o fio terracota. Abas só trocam a visão do mesmo conteúdo.', `
+        ${_secao('filtros', 'Filtros rápidos e troca de visão', 'Filtro rápido é um chip reto com aria-pressed e o número ao lado; o ativo ganha fundo. No celular, os filtros rápidos ficam no topo da folha Filtros. Abas só trocam a visão do mesmo conteúdo.', `
           <div class="sis-linha">
             <div class="pedidos-rapidos" role="group" aria-label="Filtros rápidos">
               <button type="button" class="rapido active" aria-pressed="true"><span class="rapido-rotulo">Todos</span><span class="rapido-n">34</span></button>

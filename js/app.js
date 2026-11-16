@@ -347,12 +347,11 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
         ${pode.relatorios ? item('relatorios', 'relatorios', t('navRelatorios')) : ''}
         ${pode.config ? `
         <div class="lateral-grupo" id="lateral-cadastros" role="group" aria-labelledby="lateral-cadastros-rotulo">
-          <span class="lateral-grupo-rotulo" id="lateral-cadastros-rotulo">${t('navCadastros')}</span>
+          <span class="lateral-grupo-rotulo" id="lateral-cadastros-rotulo">${t('navAdministracao')}</span>
           ${item('cad-empresas', 'config-cadastros', t('secaoEmpresas'), { aba: 'empresas' })}
           ${item('cad-categorias', 'config-cadastros', t('secaoCategorias'), { aba: 'categorias' })}
           ${item('cad-fornecedores', 'config-cadastros', t('secaoFornecedores'), { aba: 'fornecedores' })}
           ${item('usuarios', 'config-usuarios', t('configUsuarios'))}
-          ${item('config-geral', 'config-geral', t('navAjustes'))}
         </div>` : ''}
       </nav>
 

@@ -266,7 +266,7 @@ export async function renderPedidos() {
                 <input type="text" id="np-cc" placeholder="${t('opcional')}" maxlength="60" autocomplete="off">
               </div>
               <div class="form-group col-span-3" data-campo="np-categorias">
-                <label id="np-categorias-label">${t('npCategoria')} <span class="np-req" aria-hidden="true">*</span></label>
+                <label id="np-categorias-label">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></label>
                 <div class="category-chips" id="np-categorias" role="radiogroup" aria-labelledby="np-categorias-label"></div>
               </div>
               <div class="form-group col-span-3">
@@ -633,6 +633,22 @@ function _atualizarResultadoPainel(n) {
 // ── Eventos ───────────────────────────────────────────────────
 function _bindEvents() {
   // Filtros rápidos
+  // No celular os filtros rápidos vão para o topo da folha "Filtros" (o mesmo
+  // elemento, com os mesmos eventos); no computador ficam na barra
+  const fileiraRapidos = document.getElementById('filter-pills')
+  const lugarRapidos = fileiraRapidos?.parentElement
+  const proximoRapidos = fileiraRapidos?.nextElementSibling
+  const corpoFiltros = document.querySelector('#painel-filtros .pf-corpo')
+  const celular = window.matchMedia('(max-width: 767px)')
+  const posicionarRapidos = () => {
+    if (!fileiraRapidos || !corpoFiltros || !lugarRapidos) return
+    if (celular.matches) corpoFiltros.prepend(fileiraRapidos)
+    else lugarRapidos.insertBefore(fileiraRapidos, proximoRapidos)
+  }
+  posicionarRapidos()
+  celular.addEventListener('change', posicionarRapidos)
+  registrarLimpador(() => celular.removeEventListener('change', posicionarRapidos))
+
   document.getElementById('filter-pills')?.addEventListener('click', e => {
     const btn = e.target.closest('[data-filtro]')
     if (!btn) return
@@ -772,9 +788,12 @@ function _bindEvents() {
   document.getElementById('np-categorias')?.addEventListener('click', e => {
     const chip = e.target.closest('.chip')
     if (!chip) return
+    // A categoria é opcional: tocar de novo na escolhida desmarca
+    const marcar = !chip.classList.contains('selected')
     document.querySelectorAll('#np-categorias .chip').forEach(c => {
-      c.classList.toggle('selected', c === chip)
-      c.setAttribute('aria-checked', c === chip ? 'true' : 'false')
+      const on = marcar && c === chip
+      c.classList.toggle('selected', on)
+      c.setAttribute('aria-checked', on ? 'true' : 'false')
     })
     _limparErroCampo('np-categorias')
   })
@@ -909,7 +928,6 @@ function _validarNovoPedido(v) {
   if (!v.unidade) erros.push(['np-unidade', t('campoObrigatorio')])
   if (!v.data) erros.push(['np-data', t('campoObrigatorio')])
   else if (v.data < hojeISO()) erros.push(['np-data', t('dataNoPassado')])
-  if (!v.categoriaId) erros.push(['np-categorias', t('escolhaCategoria')])
   return erros
 }
 
