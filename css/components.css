@@ -85,7 +85,7 @@
   color: var(--text3);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.lateral-item.active .lateral-n { color: var(--gold); }
+.lateral-item.active .lateral-n { color: var(--text); }
 
 .lateral-grupo {
   display: flex;
@@ -460,7 +460,7 @@
   text-align: center;
 }
 .pill-n:empty { display: none; }
-.pill.active .pill-n { background: var(--gold-dim); color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold-border); }
+.pill.active .pill-n { background: var(--card3); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong); }
 
 /* ── Quadro de pedidos (Inscrição) ───────────────────── */
 /* Cada etapa é uma inscrição: fio de tinta de 2px no topo, numeral grande em
@@ -706,7 +706,7 @@
   .kcard-prazo svg { width: 11px; height: 11px; }
 }
 .kcard-prazo.perto { color: var(--text); font-weight: 700; }
-.kcard-prazo.hoje { color: var(--gold); font-weight: 700; }
+.kcard-prazo.hoje { color: var(--amber); font-weight: 700; }
 .kcard-prazo.atrasado { color: var(--red); font-weight: 700; }
 .kcard-prazo.sem { color: var(--text3); }
 .kcard-valor {
@@ -814,7 +814,7 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
   color: var(--text);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.cotacao-compare-indicada .cotacao-compare-valor { color: var(--gold); }
+.cotacao-compare-indicada .cotacao-compare-valor { color: var(--text); }
 .cotacao-compare-dif { font-size: 0.8rem; color: var(--text3); margin-top: -4px; }
 .cotacao-compare-row { display: flex; flex-direction: column; gap: 3px; font-size: 0.86rem; color: var(--text2); border-top: 1px solid var(--line); padding-top: 9px; }
 .cotacao-compare-arq { align-self: flex-start; margin-top: 4px; }
@@ -1190,7 +1190,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .lp-etapa .dot { width: 7px; height: 7px; }
 .lp-prazo { font-size: 0.82rem; }
 .lp-prazo.perto { color: var(--text); font-weight: 700; }
-.lp-prazo.hoje { color: var(--gold); font-weight: 700; }
+.lp-prazo.hoje { color: var(--amber); font-weight: 700; }
 .lp-prazo.atrasado { color: var(--red); font-weight: 700; }
 .lp-prazo.sem { color: var(--text3); }
 .lp-valor {
@@ -1290,7 +1290,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   color: var(--text);
   white-space: nowrap;
 }
-.cotacao-item.indicada .cotacao-valor { color: var(--gold); }
+.cotacao-item.indicada .cotacao-valor { color: var(--text); }
 .cotacao-dif { font-size: 0.78rem; color: var(--text3); white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
 .cotacao-dif-pct { margin-left: 7px; color: var(--text2); font-weight: 600; }
 .cotacao-dif.mais-barata,

@@ -10,7 +10,7 @@ import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
-  perfilHtml, corPerfil, dataAcesso, iniciais,
+  perfilHtml, dataAcesso, iniciais,
   marcarErro, limparErro, limparErros, focarPrimeiroErro, ligarInterruptor, definirInterruptor,
   revelarItemLateral, completarContagensLateral,
 } from './config-comum.js'
@@ -356,14 +356,13 @@ function _opcoesPerfil(perfilAtual = '') {
   _descreverPerfil()
 }
 
-// Descrição do perfil escolhido, marcada com a cor do ponto do perfil
+// Descrição do perfil escolhido
 function _descreverPerfil() {
   const p   = document.getElementById('usr-perfil')?.value
   const el  = document.getElementById('usr-perfil-desc')
   if (!el) return
   el.hidden = !p
   el.textContent = p ? t(`perfilDesc_${p}`) : ''
-  el.style.setProperty('--cor', corPerfil(p))
 }
 
 function _atualizarBotaoTodas() {

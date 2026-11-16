@@ -21,29 +21,27 @@ function _rotulos(valores, prefixo) {
 
 export const STATUS_LABEL = _rotulos(Object.values(STATUS), 'status_')
 
-export const STATUS_COLOR = {
-  solicitado:   'neutral',
-  ag_cotacao:   'blue',
-  em_aprovacao: 'gold',
-  aprovado:     'green',
-  comprado:     'green',
-  entregue:     'green',
-  pago:         'green',
-  reprovado:    'red',
-  cancelado:    'red',
+// A cor da etapa vem da categoria, não da etapa (como no Jira): aguardando,
+// em andamento, concluído e encerrado sem compra. O nome exato da etapa vai
+// sempre no texto ao lado do ponto (docs/glossario.md)
+export const CATEGORIA_ETAPA = {
+  solicitado:   'aguardando',
+  ag_cotacao:   'andamento',
+  em_aprovacao: 'andamento',
+  aprovado:     'andamento',
+  comprado:     'andamento',
+  entregue:     'andamento',
+  pago:         'concluido',
+  reprovado:    'encerrado',
+  cancelado:    'encerrado',
 }
-
-export const STATUS_DOT_COLOR = {
-  solicitado:   'dot-gray',
-  ag_cotacao:   'dot-blue',
-  em_aprovacao: 'dot-gold',
-  aprovado:     'dot-green',
-  comprado:     'dot-green',
-  entregue:     'dot-green',
-  pago:         'dot-green',
-  reprovado:    'dot-red',
-  cancelado:    'dot-red',
-}
+// As duas formas da mesma cor: a classe do ponto (.dot-*, css/base.css) e o
+// token, para quem pinta por --cor (relatórios)
+const _PONTO_DA_CATEGORIA = { aguardando: 'dot-gray', andamento: 'dot-blue', concluido: 'dot-green', encerrado: 'dot-red' }
+const _COR_DA_CATEGORIA = { aguardando: 'var(--text3)', andamento: 'var(--blue)', concluido: 'var(--green)', encerrado: 'var(--red)' }
+const _porEtapa = mapa => Object.fromEntries(Object.entries(CATEGORIA_ETAPA).map(([etapa, cat]) => [etapa, mapa[cat]]))
+export const STATUS_DOT_COLOR = _porEtapa(_PONTO_DA_CATEGORIA)
+export const COR_DA_ETAPA     = _porEtapa(_COR_DA_CATEGORIA)
 
 export const PERFIS = {
   SUPREMO:     'supremo',
@@ -55,15 +53,6 @@ export const PERFIS = {
 }
 
 export const PERFIS_LABEL = _rotulos(Object.values(PERFIS), 'perfil_')
-
-export const PERFIS_COLOR = {
-  supremo:     'gold',
-  gestor:      'green',
-  aprovador:   'blue',
-  comprador:   'neutral',
-  financeiro:  'neutral',
-  solicitante: 'neutral',
-}
 
 // Motivos de reprovação e de cancelamento. O valor gravado no pedido é o texto
 // em português (as regras do Firestore conferem o 'Outros'); a tela mostra o

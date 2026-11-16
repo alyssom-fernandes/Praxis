@@ -63,6 +63,19 @@
   --amber-border: rgba(217, 165, 74, 0.32);
   --neutral-dim: rgba(239, 229, 214, 0.05);
 
+  /* Acentos sem significado: categorias de compra e séries de gráfico.
+     Matizes da cerâmica; a cor cadastrada na categoria escolhe o matiz
+     (TONS_CATEGORIA em js/constants.js) */
+  --acento-ocre: #D3A04E;
+  --acento-areia: #C9B48C;
+  --acento-oliva: #93AE7C;
+  --acento-mar: #82ADA3;
+  --acento-egeu: #8CA6C2;
+  --acento-ametista: #A893BC;
+  --acento-rosa: #C88E96;
+  --acento-vinho: #B9746B;
+  --acento-argila: #A09282;
+
   /* Raios: cantos retos, como pedra cortada */
   --radius: 6px;                         /* modais, diálogos, folhas */
   --radius-card: 3px;                    /* cards e painéis */
@@ -135,6 +148,16 @@
   --amber-dim: rgba(131, 90, 16, 0.09);
   --amber-border: rgba(131, 90, 16, 0.28);
   --neutral-dim: rgba(26, 21, 16, 0.045);
+
+  --acento-ocre: #9A6A14;
+  --acento-areia: #8C7346;
+  --acento-oliva: #4F7A3A;
+  --acento-mar: #3D756C;
+  --acento-egeu: #41678C;
+  --acento-ametista: #6C5888;
+  --acento-rosa: #9A5462;
+  --acento-vinho: #8E3F33;
+  --acento-argila: #7D6E5C;
 
   --shadow-sm: 0 1px 0 rgba(120, 92, 60, 0.18);
   --shadow-md: 0 8px 22px rgba(80, 56, 30, 0.10);

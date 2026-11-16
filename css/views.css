@@ -696,7 +696,7 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 .rapido-n:empty { display: none; }
-.rapido.active .rapido-n { color: var(--gold); }
+.rapido.active .rapido-n { color: var(--text); }
 
 /* Botão "Filtros" e o painel que ele abre */
 .pedidos-filtros-wrap { position: relative; flex-shrink: 0; margin-left: auto; }
@@ -711,7 +711,7 @@
   font-size: 1rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--gold);
+  color: var(--text);
   font-variant-numeric: tabular-nums lining-nums;
 }
 
@@ -773,7 +773,7 @@
   letter-spacing: 0;
   color: var(--text);
 }
-.pf-ativos { font-size: 0.8rem; font-weight: 600; color: var(--gold); }
+.pf-ativos { font-size: 0.8rem; font-weight: 600; color: var(--text2); }
 .pf-limpar {
   min-height: 32px;
   margin-left: auto;
@@ -1053,15 +1053,15 @@
 :root, .rel-page {
   /* Tons das séries (categorias): matizes da cerâmica, sem azul ou vermelho
      saturados. A cor cadastrada escolhe o matiz (js/relatorios.js). */
-  --rel-ocre: #D3A04E;
-  --rel-areia: #C9B48C;
-  --rel-oliva: #93AE7C;
-  --rel-mar: #82ADA3;
-  --rel-egeu: #8CA6C2;
-  --rel-ametista: #A893BC;
-  --rel-rosa: #C88E96;
-  --rel-vinho: #B9746B;
-  --rel-argila: #A09282;
+  --rel-ocre: var(--acento-ocre);
+  --rel-areia: var(--acento-areia);
+  --rel-oliva: var(--acento-oliva);
+  --rel-mar: var(--acento-mar);
+  --rel-egeu: var(--acento-egeu);
+  --rel-ametista: var(--acento-ametista);
+  --rel-rosa: var(--acento-rosa);
+  --rel-vinho: var(--acento-vinho);
+  --rel-argila: var(--acento-argila);
   --rel-neutra: #8A7D6E;                 /* barras de empresa e fornecedor */
   --rel-outras: color-mix(in srgb, var(--text3) 60%, var(--bg));   /* "Outras" categorias */
   /* Gráfico mensal: os meses fechados são o dado, em terracota cheia (5,3:1
@@ -1071,15 +1071,6 @@
   --rel-mes-hover: var(--gold-fill-hover);
 }
 .light, .light .rel-page {
-  --rel-ocre: #9A6A14;
-  --rel-areia: #8C7346;
-  --rel-oliva: #4F7A3A;
-  --rel-mar: #3D756C;
-  --rel-egeu: #41678C;
-  --rel-ametista: #6C5888;
-  --rel-rosa: #9A5462;
-  --rel-vinho: #8E3F33;
-  --rel-argila: #7D6E5C;
   --rel-neutra: #A08F7A;
   --rel-mes: var(--gold-fill);
   --rel-mes-hover: var(--gold-fill-hover);
@@ -1200,7 +1191,7 @@
   color: var(--text);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 17cqi, 3.5rem); color: var(--gold); }
+.rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 17cqi, 3.5rem); color: var(--text); }
 .rel-moeda { margin-right: 0.16em; font-size: 0.5em; letter-spacing: 0.02em; }
 .rel-cent { font-size: 0.5em; }
 .rel-kpi-rotulo { margin-top: 10px; font-size: 0.9rem; font-weight: 600; color: var(--text); }
@@ -2029,7 +2020,7 @@
 .meta-label { color: var(--text3); }
 .meta-value { font-size: 0.95rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
 .meta-value .dt-numeral { font-size: 1.15rem; line-height: 1.2; }
-.meta-item.destaque .meta-value .dt-numeral { color: var(--gold); font-size: 1.3rem; }
+.meta-item.destaque .meta-value .dt-numeral { color: var(--text); font-size: 1.3rem; }
 .detalhe-descricao {
   margin-top: 22px;
   padding-top: 18px;
@@ -2246,7 +2237,7 @@
   color: var(--text3);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.cfg-filtro.active .cfg-filtro-n { color: var(--gold); }
+.cfg-filtro.active .cfg-filtro-n { color: var(--text); }
 .cfg-filtro:focus-visible { outline: 2px solid var(--foco); outline-offset: 4px; }
 .cfg-busca { width: 280px; max-width: 100%; }
 .cfg-busca input { width: 100%; min-height: 38px; padding-top: 0.45rem; padding-bottom: 0.45rem; }

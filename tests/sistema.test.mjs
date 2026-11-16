@@ -133,6 +133,33 @@ test('nenhum foco é apagado sem outro no lugar', () => {
   assert.deepEqual(apagados, [])
 })
 
+// ── Papéis de cor ─────────────────────────────────────────────
+// A terracota tem quatro papéis: ação primária, item ou aba ativa, urgência e
+// "com você". Número e valor são dado: ficam na cor do texto, salvo quando o
+// próprio número é o item ativo ou a fila da pessoa
+const NUMERO_OU_VALOR = /(-n|-num|-valor|-dur|dt-numeral|-soma)\b/
+const NUMERO_COM_PAPEL = /eh-fila|\.atual|\.agora|\.bv-|\.tour-n/
+
+test('contagens e valores não usam a terracota', () => {
+  const fora = REGRAS
+    .filter(r => NUMERO_OU_VALOR.test(r.seletor) && !NUMERO_COM_PAPEL.test(r.seletor) && /var\(--gold/.test(r.corpo))
+    .map(r => `${r.nome}: ${r.seletor}`)
+  assert.deepEqual(fora, [])
+})
+
+test('etapa tem cor por categoria; perfil não tem cor', async () => {
+  const { STATUS, CATEGORIA_ETAPA, STATUS_DOT_COLOR } = await import('../js/constants.js')
+  assert.deepEqual(Object.keys(CATEGORIA_ETAPA).sort(), Object.values(STATUS).sort())
+  assert.deepEqual([...new Set(Object.values(CATEGORIA_ETAPA))].sort(), ['aguardando', 'andamento', 'concluido', 'encerrado'])
+  assert.equal(new Set(Object.values(STATUS_DOT_COLOR)).size, 4)
+  assert.equal(CATEGORIA_ETAPA.pago, 'concluido', 'só Pago é concluído')
+  const js = fs.readdirSync(path.join(RAIZ, 'js')).filter(n => n.endsWith('.js'))
+    .map(n => fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8')).join('\n')
+  assert.doesNotMatch(js, /PERFIS_COLOR|COR_PERFIL|corPerfil/, 'nenhum mapa de cor de perfil')
+  assert.doesNotMatch(js, /COR_STATUS|STATUS_COLOR\b/, 'um mapa só de cor de etapa (CATEGORIA_ETAPA)')
+  assert.doesNotMatch(js, /dot-gold/, 'nenhuma etapa em terracota')
+})
+
 test('o foco não usa a terracota nem como sombra', () => {
   const terracota = REGRAS
     .filter(r => /:focus/.test(r.seletor) && /(box-shadow|outline)\s*:[^;]*var\(--gold/.test(r.corpo))

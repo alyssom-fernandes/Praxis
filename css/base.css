@@ -632,7 +632,6 @@ button:disabled {
 }
 .dot-green  { background: var(--green); }
 .dot-red    { background: var(--red); }
-.dot-gold   { background: var(--gold); }
 .dot-blue   { background: var(--blue); }
 .dot-gray   { background: var(--text3); }
 

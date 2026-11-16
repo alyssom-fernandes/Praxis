@@ -70,18 +70,10 @@ export function iniciais(nome) {
   return gerarIniciais(limpo || nome)
 }
 
-// Perfil: texto com um ponto de cor (as cores vêm das semânticas quentes)
-const COR_PERFIL = {
-  supremo:     'var(--gold)',
-  gestor:      'var(--amber)',
-  aprovador:   'var(--green)',
-  comprador:   'var(--blue)',
-  financeiro:  'var(--text2)',
-  solicitante: 'var(--text3)',
-}
-export const corPerfil = p => COR_PERFIL[p] || 'var(--text3)'
+// Perfil: texto simples. Cor fica para etapa, urgência e ação; perfil não
+// tem cor (verde já quer dizer "concluído" e azul, "em andamento")
 export function perfilHtml(perfil) {
-  return `<span class="cfg-perfil" style="--cor:${corPerfil(perfil)}"><span class="cfg-ponto" aria-hidden="true"></span>${esc(PERFIS_LABEL[perfil] || perfil || '—')}</span>`
+  return `<span class="cfg-perfil">${esc(PERFIS_LABEL[perfil] || perfil || '—')}</span>`
 }
 
 // Cabeçalho de tela: título da inscrição e uma frase curta à esquerda, ações à direita

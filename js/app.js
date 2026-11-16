@@ -1,7 +1,7 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada } from './auth.js'
-import { PERFIS, PERFIS_LABEL, PERFIS_COLOR, t } from './constants.js'
+import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { gerarIniciais, esc } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
@@ -574,20 +574,18 @@ function _posicionarNotificacoes() {
 // Desktop: menu suspenso preso ao avatar. Celular: folha que sobe de baixo,
 // aberta pelo item "Conta" da barra inferior.
 // Cabeçalho tipográfico (nome, e-mail e, abaixo de um fio tracejado como o
-// pé dos cartões do quadro, o perfil com o ponto da cor dele); depois as ações.
-const _PONTO_PERFIL = { gold: 'dot-gold', green: 'dot-green', blue: 'dot-blue', red: 'dot-red' }
+// pé dos cartões do quadro, o perfil em texto: perfil não tem cor); depois as ações.
 function _menuUsuarioHTML() {
   const { usuario } = sessao
   const claro = document.documentElement.classList.contains('light')
   const perfil = usuario.perfil
-  const ponto = _PONTO_PERFIL[PERFIS_COLOR[perfil]] || 'dot-gray'
   return `
     <div class="um-cabecalho">
       <div class="um-nome">${esc(usuario.nome)}</div>
       <div class="um-email">${esc(usuario.email || '')}</div>
       <div class="um-perfil">
         <span class="um-perfil-rotulo">${t('menuPerfil')}</span>
-        <span class="um-perfil-valor"><span class="dot ${ponto}" aria-hidden="true"></span>${esc(PERFIS_LABEL[perfil] || perfil)}</span>
+        <span class="um-perfil-valor">${esc(PERFIS_LABEL[perfil] || perfil)}</span>
       </div>
     </div>
     <div class="um-sep" role="separator"></div>

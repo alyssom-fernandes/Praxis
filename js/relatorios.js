@@ -4,7 +4,7 @@ import { sessao } from './estado.js'
 import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
 import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { STATUS, STATUS_LABEL, PERFIS, t, tomDaCor } from './constants.js'
+import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor } from './constants.js'
 import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
@@ -57,12 +57,6 @@ const ETAPAS = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATU
   STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
 const FORA = [STATUS.REPROVADO, STATUS.CANCELADO]
 const ORDEM_STATUS = [...ETAPAS, ...FORA]
-// Ponto de cor do status nas listas (texto + ponto, sem etiqueta colorida)
-const COR_STATUS = {
-  solicitado: 'var(--text3)', ag_cotacao: 'var(--blue)', em_aprovacao: 'var(--amber)',
-  aprovado: 'var(--green)', comprado: 'var(--green)', entregue: 'var(--green)', pago: 'var(--green)',
-  reprovado: 'var(--red)', cancelado: 'var(--text3)',
-}
 
 // Tons das categorias: a cor cadastrada escolhe o matiz, e o tom vem da paleta
 // quente da tela (variáveis --rel-* em views.css, uma por tema). Nada de azul
@@ -791,7 +785,7 @@ function _blocoDinheiro(D) {
 function _estadoVenc(iso) {
   const diff = _diasEntre(_iso(_hoje()), iso)
   if (diff < 0) return `<span class="rel-estado atraso" style="--cor:var(--red)">${diff === -1 ? tr('vencidaHa1') : tr('vencidaHaN', { n: -diff })}</span>`
-  if (diff === 0) return `<span class="rel-estado forte" style="--cor:var(--gold)">${tr('venceHoje')}</span>`
+  if (diff === 0) return `<span class="rel-estado forte" style="--cor:var(--amber)">${tr('venceHoje')}</span>`
   if (diff === 1) return `<span class="rel-estado" style="--cor:var(--amber)">${tr('venceAmanha')}</span>`
   return `<span class="rel-estado sem-ponto">${tr('emDias', { n: diff })}</span>`
 }
@@ -834,7 +828,7 @@ function _blocoMaiores(D) {
       </span>
       <span class="rel-linha-fim">
         <span class="rel-linha-valor num">${_brl(p.valorFinal)}</span>
-        <span class="rel-estado" style="--cor:${COR_STATUS[p.status] || 'var(--text3)'}">${STATUS_LABEL[p.status] || p.status}</span>
+        <span class="rel-estado" style="--cor:${COR_DA_ETAPA[p.status] || 'var(--text3)'}">${STATUS_LABEL[p.status] || p.status}</span>
       </span>
     </button></li>`).join('')
   return _secao({ id: 'bloco-maiores', larg: 6, titulo: tr('tMaiores'), meta: tr('compradasPeriodo'), corpo: `<ul class="rel-linhas">${linhas}</ul>` })
