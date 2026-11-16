@@ -9,6 +9,7 @@ import { renderNotificacoes } from './notificacoes.js'
 import { CATEGORIAS_PADRAO, TONS_CATEGORIA, CORES_CATEGORIA, corCategoria, tomDaCor, PERFIS, STATUS, t } from './constants.js'
 import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario } from './utils.js'
 import { gravarAuditado } from './auditoria.js'
+import { abrirImportacao } from './importar-fornecedores.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
   doisDigitos, moedaCurta, moeda,
@@ -72,14 +73,16 @@ function _cabecalho() {
       acao: botaoNovo('btn-nova-categoria', t('btnNovaCategoria'), t('cfgNovaCurto')),
     })
   }
-  // Fornecedores entram pelas cotações: a ação da tela é a busca
+  // Fornecedores entram pelas cotações ou pela importação de um CSV: as ações
+  // da tela são a busca e a importação
   return cabecalho(t('secaoFornecedores'), {
     resumoId: 'cad-resumo',
     acao: `
       <div class="search-input-wrap cfg-busca">
         ${ICO.busca()}
         <input type="search" id="busca-forn" placeholder="${t('cfgBuscarFornecedor')}" aria-label="${t('cfgBuscarFornecedor')}" autocomplete="off">
-      </div>`,
+      </div>
+      <button type="button" class="btn-secondary cfg-btn-importar" id="btn-importar-forn">${ICO.enviar()}${t('impBotao')}</button>`,
   })
 }
 
@@ -655,6 +658,9 @@ function _bindEvents() {
   // Busca fornecedores
   document.getElementById('busca-forn')?.addEventListener('input',
     debounce(e => { _buscaForn = e.target.value; _renderFornecedores() }, 200))
+
+  // Importação por CSV: ao terminar, a lista e as contagens voltam do banco
+  document.getElementById('btn-importar-forn')?.addEventListener('click', () => abrirImportacao({ aoConcluir: _carregar }))
 }
 
 // ── Salvar Empresa ────────────────────────────────────────────

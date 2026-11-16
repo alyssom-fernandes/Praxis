@@ -11,7 +11,8 @@ Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos 
 | Criar pedido | Create order | A ação do botão do formulário "Novo pedido". Depois de criado, o pedido foi "aberto por" quem o criou | Abrir pedido (no botão), enviar |
 | Cotação | Quote | Uma proposta de fornecedor registrada pelo comprador, com valor, prazo e condições | Orçamento (no sentido de proposta) |
 | Cotação indicada | Selected quote | A cotação que o comprador recomenda; indicar leva o pedido para "Em aprovação" | Cotação escolhida, vencedora |
-| Fornecedor | Supplier | Quem vende; nasce no cadastro ou na primeira cotação | Vendedor |
+| Fornecedor | Supplier | Quem vende; nasce na primeira cotação ou na importação de um CSV | Vendedor |
+| Importar CSV | Import CSV | Trazer fornecedores de uma planilha (cabeçalho com "nome" e, se houver, "CNPJ"), com prévia de cada linha (novo, já cadastrado, completa o CNPJ, conflito, recusada) antes de gravar. Exemplo em `docs/exemplos/fornecedores.csv` | Upload, carga |
 | Parcela | Installment | Cada pagamento da compra, com vencimento e comprovante | Prestação |
 | Centro de custo | Cost center | Código interno de quem paga a compra, opcional | |
 | Urgente | Urgent | Marca do pedido que vai para o topo da coluna e avisa quem age | Prioritário |

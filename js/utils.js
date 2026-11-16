@@ -89,6 +89,12 @@ export function formatCNPJ(cnpj) {
   return `${n.slice(0,2)}.${n.slice(2,5)}.${n.slice(5,8)}/${n.slice(8,12)}-${n.slice(12)}`
 }
 
+// CNPJ vazio ou com 14 dígitos (a máscara não conta)
+export function cnpjValido(valor) {
+  const n = String(valor || '').replace(/\D/g, '')
+  return n.length === 0 || n.length === 14
+}
+
 export function debounce(fn, delay = 300) {
   let timer
   return (...args) => {

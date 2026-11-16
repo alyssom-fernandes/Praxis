@@ -5,7 +5,7 @@ import { db, collection, getDocs, consulta, consultaUsuarios } from './firebase.
 import { atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
 import { t, PERFIS_LABEL } from './constants.js'
-import { esc, gerarIniciais } from './utils.js'
+import { esc, gerarIniciais, cnpjValido } from './utils.js'
 import { estadoVazio } from './ui.js'
 
 const svg = (tam, corpo, traco = 2) =>
@@ -21,6 +21,7 @@ export const ICO = {
   sol:       (n = 14) => svg(n, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
   play:      (n = 14) => svg(n, '<polygon points="6 3 20 12 6 21 6 3"/>'),
   baixar:    (n = 14) => svg(n, '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
+  enviar:    (n = 14) => svg(n, '<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/>'),
   cadeado:   (n = 14) => svg(n, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>'),
 }
 
@@ -37,6 +38,9 @@ export function plural(n, sing, plur) {
 function _locale() {
   try { return sessionStorage.getItem('praxis_lang') === 'en' ? 'en-US' : 'pt-BR' } catch { return 'pt-BR' }
 }
+
+// Número inteiro no idioma da sessão: "1.000" ou "1,000"
+export const numero = n => new Intl.NumberFormat(_locale()).format(n)
 
 // Numeral grande das inscrições: dois dígitos, como "07" no quadro de pedidos
 export const doisDigitos = n => (Number.isInteger(n) && n >= 0 && n < 10 ? `0${n}` : String(n))
@@ -195,11 +199,6 @@ export function ligarMascaraCNPJ(input) {
   })
 }
 
-export function cnpjValido(valor) {
-  const n = String(valor || '').replace(/\D/g, '')
-  return n.length === 0 || n.length === 14
-}
-
 // Interruptor acessível (div.toggle-wrap com role="switch")
 export function ligarInterruptor(wrap, aoMudar) {
   if (!wrap) return
@@ -222,4 +221,5 @@ export function definirInterruptor(wrap, on) {
   wrap.setAttribute('aria-checked', String(on))
 }
 
-export { esc }
+// O CNPJ é validado em utils.js (a importação por CSV também usa, sem DOM)
+export { esc, cnpjValido }

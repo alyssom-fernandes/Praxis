@@ -16,6 +16,9 @@ import {
   tomDaCor, corCategoria, TONS_CATEGORIA,
   t, STATUS_LABEL, PERFIS_LABEL, rotuloMotivo, rotuloNota, rotuloUrgencia,
 } from '../js/constants.js'
+import {
+  MAX_LINHAS, MAX_NOME, lerCSV, decodificarArquivo, classificarFornecedores, contarSituacoes,
+} from '../js/fornecedores-csv.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -305,4 +308,109 @@ test('erro na tela: o texto do app passa, a mensagem técnica não', () => {
   } finally {
     console.warn = avisar
   }
+})
+
+// ── Importação de fornecedores por CSV ─────────────────────────
+test('CSV: separador ";" ou ",", BOM, aspas, CRLF e linhas em branco', () => {
+  const pv = lerCSV('\uFEFFNome;CNPJ\r\nAcme Ltda;11.222.333/0001-81\r\n\r\n"Beta; Cia";\r\n')
+  assert.equal(pv.separador, ';')
+  assert.deepEqual(pv.linhas, [
+    { linha: 2, nome: 'Acme Ltda', cnpj: '11.222.333/0001-81' },
+    { linha: 4, nome: 'Beta; Cia', cnpj: '' },
+  ])
+
+  const vg = lerCSV('cnpj,razão social\n11222333000181,"Gama ""G"" Ltda"\n,"Delta\nFilial"\nÉpsilon\n')
+  assert.equal(vg.separador, ',')
+  assert.deepEqual(vg.linhas.map(l => [l.linha, l.nome, l.cnpj]), [
+    [2, 'Gama "G" Ltda', '11222333000181'],
+    [3, 'Delta\nFilial', ''],
+    [5, '', 'Épsilon'],
+  ])
+
+  // Só a coluna do nome: o CNPJ fica vazio
+  assert.deepEqual(lerCSV('fornecedor\nZeta').linhas, [{ linha: 2, nome: 'Zeta', cnpj: '' }])
+})
+
+test('CSV: cabeçalho obrigatório, arquivo vazio, aspas abertas e teto de linhas', () => {
+  assert.equal(lerCSV('').erro, 'impErroVazio')
+  assert.equal(lerCSV('\uFEFF \r\n').erro, 'impErroVazio')
+  assert.equal(lerCSV('Acme;11.222.333/0001-81\nBeta;').erro, 'impErroSemNome')
+  assert.equal(lerCSV('nome;cnpj\r\n').erro, 'impErroSemLinhas')
+  assert.equal(lerCSV('nome\n"Acme\nBeta').erro, 'impErroAspas')
+  const cheio = 'nome\n' + Array.from({ length: MAX_LINHAS }, (_, i) => `F${i}`).join('\n')
+  assert.equal(lerCSV(cheio).linhas.length, MAX_LINHAS)
+  const demais = lerCSV(cheio + '\nUm a mais')
+  assert.equal(demais.erro, 'impErroMuitasLinhas')
+  assert.deepEqual(demais.vars, { max: MAX_LINHAS, n: MAX_LINHAS + 1 })
+})
+
+test('CSV: UTF-8 com ou sem BOM e o Windows-1252 do Excel antigo', () => {
+  const utf8 = new TextEncoder().encode('\uFEFFnome\nGráfica')
+  assert.equal(lerCSV(decodificarArquivo(utf8)).linhas[0].nome, 'Gráfica')
+  const ansi = Uint8Array.from([...'nome\nGr'].map(c => c.charCodeAt(0)).concat(0xE1, ...[...'fica'].map(c => c.charCodeAt(0))))
+  assert.equal(lerCSV(decodificarArquivo(ansi)).linhas[0].nome, 'Gráfica')
+})
+
+test('importação: novo, existente, CNPJ a completar, conflito e recusada com motivo', () => {
+  const cadastro = [
+    { id: 'a', nome: 'acme ltda', nomeExibicao: 'Acme Ltda', cnpj: '11.222.333/0001-81' },
+    { id: 'b', nome: 'beta comercio', nomeExibicao: 'Beta Comércio', cnpj: '' },
+    { id: 'c', nome: 'gama', nomeExibicao: 'Gama', cnpj: '44.555.666/0001-99' },
+  ]
+  const linhas = [
+    { linha: 2, nome: 'Delta Serviços', cnpj: '' },
+    { linha: 3, nome: '  ACME   LTDA ', cnpj: '' },
+    { linha: 4, nome: 'acme ltda', cnpj: '11222333000181' },
+    { linha: 5, nome: 'Beta Comercio', cnpj: '77.888.999/0001-00' },
+    { linha: 6, nome: 'Acme Ltda.', cnpj: '44.555.666/0001-99' },
+    { linha: 7, nome: 'Gama', cnpj: '12.345.678/0001-00' },
+    { linha: 8, nome: '', cnpj: '12.345.678/0001-00' },
+    { linha: 9, nome: 'Épsilon', cnpj: '123.456' },
+    { linha: 10, nome: 'Zeta', cnpj: 'não tem' },
+    { linha: 11, nome: 'delta serviços', cnpj: '' },
+    { linha: 12, nome: 'Eta', cnpj: '77.888.999/0001-00' },
+    { linha: 13, nome: 'x'.repeat(MAX_NOME + 1), cnpj: '' },
+  ]
+  const r = classificarFornecedores(linhas, cadastro)
+  const sit = r.map(i => [i.linha, i.situacao, i.motivo?.chave || ''])
+  assert.deepEqual(sit, [
+    [2, 'novo', ''],
+    [3, 'existente', 'impMotivoMesmoNome'],
+    [4, 'recusada', 'impMotivoRepetida'],          // "acme ltda" já veio na linha 3
+    [5, 'completar', 'impMotivoSemCnpj'],
+    [6, 'existente', 'impMotivoMesmoCnpj'],        // outro nome, CNPJ da Gama
+    [7, 'conflito', 'impMotivoOutroCnpj'],
+    [8, 'recusada', 'impMotivoSemNome'],
+    [9, 'recusada', 'impMotivoCnpj'],
+    [10, 'recusada', 'impMotivoCnpj'],
+    [11, 'recusada', 'impMotivoRepetida'],
+    [12, 'recusada', 'impMotivoRepetida'],         // mesmo CNPJ da linha 5
+    [13, 'recusada', 'impMotivoNomeLongo'],
+  ])
+  assert.equal(r[1].nome, 'ACME LTDA')
+  assert.equal(r[1].fornecedor.id, 'a')
+  assert.equal(r[3].cnpj, '77888999000100')
+  assert.equal(r[3].fornecedor.id, 'b')
+  assert.deepEqual(r[2].motivo.vars, { n: 3 })
+  assert.deepEqual(r[5].motivo.vars, { cnpj: '44.555.666/0001-99' })
+  assert.deepEqual(contarSituacoes(r), { novo: 1, completar: 1, existente: 2, conflito: 1, recusada: 7 })
+
+  // O mesmo nome sem CNPJ no cadastro, mas o CNPJ da linha é de outro fornecedor
+  const outro = classificarFornecedores([{ linha: 2, nome: 'Beta Comércio', cnpj: '44.555.666/0001-99' }], cadastro)
+  assert.deepEqual([outro[0].situacao, outro[0].motivo], ['conflito', { chave: 'impMotivoCnpjDeOutro', vars: { nome: 'Gama' } }])
+})
+
+test('importação: o mesmo arquivo duas vezes não cria nada na segunda', () => {
+  const lido = lerCSV(readFileSync(new URL('../docs/exemplos/fornecedores.csv', import.meta.url), 'utf8'))
+  const cadastro = [{ id: 'x', nome: 'distribuidora alfa ltda', nomeExibicao: 'Distribuidora Alfa Ltda', cnpj: '11.111.111/0001-11' }]
+  const primeira = classificarFornecedores(lido.linhas, cadastro)
+  assert.ok(primeira.some(i => i.situacao === 'novo'))
+  // Grava como o app: os novos entram no cadastro com o nome e o CNPJ da linha
+  const depois = [...cadastro, ...primeira.filter(i => i.situacao === 'novo')
+    .map((i, n) => ({ id: `n${n}`, nome: normalizarTexto(i.nome), nomeExibicao: i.nome, cnpj: formatCNPJ(i.cnpj) }))]
+  const segunda = classificarFornecedores(lido.linhas, depois)
+  assert.equal(segunda.filter(i => i.situacao === 'novo' || i.situacao === 'completar').length, 0)
+  // As linhas que não entraram continuam de fora pelo mesmo motivo
+  assert.deepEqual(segunda.filter(i => i.situacao === 'recusada' || i.situacao === 'conflito').map(i => i.motivo.chave),
+    primeira.filter(i => i.situacao === 'recusada' || i.situacao === 'conflito').map(i => i.motivo.chave))
 })

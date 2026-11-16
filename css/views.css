@@ -2324,6 +2324,36 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .forn-tabela .c-cnpj { width: 200px; white-space: nowrap; }
 .forn-tabela td.c-nome, .cat-tabela td.c-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .forn-tabela td.c-valor { font-size: var(--t-titulo-3); }
+.cfg-btn-importar { min-height: 38px; white-space: nowrap; }
+
+/* Importação de fornecedores por CSV: instruções, prévia e relatório */
+.cfg-modal.imp-modal { max-width: 760px; }
+.imp-regras { display: grid; gap: var(--esp-100); padding-left: var(--esp-250); list-style: disc; font-size: var(--t-corpo); line-height: 1.55; color: var(--text2); }
+.imp-escolher { margin-top: var(--esp-300); }
+.imp-espera { font-size: var(--t-corpo); color: var(--text3); }
+.imp-resumo { display: flex; flex-wrap: wrap; gap: var(--esp-200) var(--esp-400); margin: 0 0 var(--esp-250); }
+.imp-res { display: flex; flex-direction: column-reverse; gap: var(--esp-025); }
+.imp-res dt { font-size: var(--t-pequeno); font-weight: 600; color: var(--text3); }
+.imp-res dd { margin: 0; font-family: var(--display); font-size: var(--t-titulo-2); font-weight: 700; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+.imp-res.is-zero dd { color: var(--text3); }
+.imp-nota { margin: 0 0 var(--esp-200); font-size: var(--t-corpo); line-height: 1.55; color: var(--text2); }
+.imp-livro { border-top: 2px solid var(--tinta); }
+.imp-tabela { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t-corpo); }
+.imp-tabela th { padding: var(--esp-100) var(--esp-150); border-bottom: 1px solid var(--line); text-align: left; font-size: var(--t-pequeno); font-weight: 600; color: var(--text3); }
+.imp-tabela td { padding: var(--esp-150); border-bottom: 1px solid var(--line); vertical-align: top; }
+.imp-tabela .c-linha { width: 3.5rem; text-align: right; color: var(--text3); font-variant-numeric: tabular-nums lining-nums; }
+.imp-tabela .c-cnpj { width: 10.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.imp-tabela .c-sit { width: 13rem; }
+.imp-tabela td.c-nome { overflow-wrap: anywhere; }
+.imp-sit { display: inline-flex; align-items: center; gap: var(--esp-100); font-weight: 500; color: var(--text2); }
+.imp-motivo { display: block; margin-top: var(--esp-025); font-size: var(--t-pequeno); line-height: 1.45; color: var(--text3); }
+/* Ponto da situação: azul o que vai ser gravado, verde o gravado, âmbar o
+   conflito, vermelho a recusa e a falha; vazado o que já existia */
+.imp-tabela tr.is-novo    { --cor: var(--blue); }
+.imp-tabela tr.is-feito   { --cor: var(--green); }
+.imp-tabela tr.is-atencao { --cor: var(--amber); }
+.imp-tabela tr.is-erro    { --cor: var(--red); }
+.imp-tabela tr.is-neutro .cfg-ponto { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text3); }
 
 /* Modais de configurações: fio de tinta no alto e o título na voz da inscrição */
 .cfg-modal { max-width: 540px; border-top: 2px solid var(--tinta); border-radius: 0 0 var(--radius) var(--radius); }
@@ -2559,7 +2589,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 /* ── Configurações no celular ── */
 @media (max-width: 767px) {
   /* Folha do modal fica sobre a barra inferior (sem ela, Salvar ficaria coberto) */
-  body:has(#modal-usuario.visible, #modal-empresa.visible, #modal-categoria.visible, #modal-forn-edit.visible) .bottom-nav { display: none; }
+  body:has(#modal-usuario.visible, #modal-empresa.visible, #modal-categoria.visible, #modal-forn-edit.visible, #modal-importar.visible) .bottom-nav { display: none; }
 
   /* Cabeçalho: título e ação na mesma linha; a frase embaixo, na largura toda */
   .cfg-head {
@@ -2581,6 +2611,30 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .cfg-fornecedores .cfg-head { grid-template-areas: "titulo titulo" "resumo resumo" "acoes acoes"; }
   .cfg-fornecedores .cfg-head-acoes { margin-top: var(--esp-200); }
   .cfg-head-acoes .cfg-busca { width: 100%; }
+  .cfg-fornecedores .cfg-head-acoes .cfg-busca { flex: 1; min-width: 0; }
+  .cfg-btn-importar { min-height: 40px; }
+
+  /* Importação: cada linha vira um bloco (linha, nome; CNPJ; situação) e os
+     botões do rodapé ocupam a largura, o de trocar de arquivo numa linha só */
+  .imp-resumo { gap: var(--esp-150) var(--esp-300); }
+  .imp-tabela thead { display: none; }
+  .imp-tabela, .imp-tabela tbody { display: block; }
+  .imp-tabela tbody tr {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    grid-template-areas: "linha nome" ". cnpj" ". sit";
+    gap: var(--esp-050) var(--esp-100);
+    padding: var(--esp-150) 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .imp-tabela td { display: block; width: auto; padding: 0; border: none; }
+  .imp-tabela td.c-linha { grid-area: linha; text-align: left; }
+  .imp-tabela td.c-nome { grid-area: nome; font-weight: 600; }
+  .imp-tabela td.c-cnpj { grid-area: cnpj; }
+  .imp-tabela td.c-sit { grid-area: sit; }
+  .imp-modal .modal-footer { flex-wrap: wrap; }
+  .imp-modal .modal-footer > * { flex: 1 1 0; min-height: 44px; }
+  .imp-modal .modal-footer > .cfg-acao-esquerda { flex-basis: 100%; margin-right: 0; }
 
   .cfg-toolbar { flex-direction: column; align-items: stretch; gap: var(--esp-100); }
   .cfg-filtros { gap: 0 var(--esp-300); }
