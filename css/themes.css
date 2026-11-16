@@ -142,7 +142,7 @@ input[type="checkbox"], input[type="radio"] {
     left: 0;
     right: 0;
     bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-    z-index: 850;
+    z-index: var(--z-acoes-fixas);
     gap: 8px;
     padding: 10px 1rem;
     background: color-mix(in srgb, var(--bg) 92%, transparent);
@@ -288,7 +288,7 @@ input[type="checkbox"], input[type="radio"] {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 1001;
+    z-index: var(--z-folha);
     width: auto;
     max-width: none;
     max-height: 88vh;
@@ -299,7 +299,7 @@ input[type="checkbox"], input[type="radio"] {
     box-shadow: var(--shadow-lg);
     animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  .pf-fundo { display: block; position: fixed; inset: 0; z-index: 1000; background: var(--overlay); }
+  .pf-fundo { display: block; position: fixed; inset: 0; z-index: var(--z-cortina); background: var(--overlay); }
   body.pf-aberto { overflow: hidden; }
   body.pf-aberto .bottom-nav { display: none; }
   .pf-cabeca { padding: 10px 10px 10px 16px; }
@@ -488,7 +488,7 @@ input[type="checkbox"], input[type="radio"] {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 800;
+    z-index: var(--z-puxar);
     box-shadow: var(--shadow-md);
     transition: transform 0.15s ease, opacity 0.15s ease;
     opacity: 0;
@@ -521,7 +521,7 @@ input[type="checkbox"], input[type="radio"] {
     backdrop-filter: saturate(140%) blur(12px);
     -webkit-backdrop-filter: saturate(140%) blur(12px);
     border-top: 1px solid var(--border);
-    z-index: 900;
+    z-index: var(--z-barra);
   }
   .bottom-nav-item {
     position: relative;

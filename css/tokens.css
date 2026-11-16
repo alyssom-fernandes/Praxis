@@ -108,6 +108,34 @@
   --afn-stroke: rgba(214, 95, 112, 0.4);
   --afn-sys: rgba(255, 255, 255, 0.5);    /* guia AFN: 28%; 50% aqui para 4,5:1 */
 
+  /* Camadas (z-index), de baixo para cima, com os valores de hoje. Valores
+     até 20 ficam no próprio componente (empilhamento local) */
+  --z-menu: 60;
+  --z-fixo: 100;
+  --z-barra-selecao: 500;
+  --z-escolha-pessoa: 600;
+  --z-puxar: 800;
+  --z-acoes-fixas: 850;
+  --z-barra: 900;
+  --z-faixa: 950;
+  --z-popover: 950;
+  --z-painel-fundo: 955;
+  --z-painel: 960;
+  --z-cortina: 1000;
+  --z-folha: 1001;
+  --z-tour-bloqueio: 1080;
+  --z-tour-destaque: 1090;
+  --z-tour: 1100;
+  --z-folha-conta-fundo: 1150;
+  --z-folha-conta: 1200;
+  --z-paleta: 1300;
+  --z-calendario: 1500;
+  --z-dialogo: 2000;
+  --z-bloqueio: 9999;
+  --z-dica: 9999;
+  --z-aviso: 10000;
+  --z-salto: 10001;
+
   /* Transições */
   --transition: 0.2s ease;
   --transition-fast: 0.14s ease;

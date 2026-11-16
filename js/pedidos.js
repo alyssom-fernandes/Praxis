@@ -1628,7 +1628,7 @@ function _bindDragDrop(container) {
         ghost = card.cloneNode(true)
         ghost.classList.add('kcard-ghost')
         Object.assign(ghost.style, {
-          position: 'fixed', zIndex: '9999', pointerEvents: 'none',
+          position: 'fixed', zIndex: 'var(--z-dica)', pointerEvents: 'none',
           width: card.offsetWidth + 'px',
           left: (toque.clientX - card.offsetWidth / 2) + 'px',
           top:  (toque.clientY - 20) + 'px',

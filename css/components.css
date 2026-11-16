@@ -6,7 +6,7 @@
 .lateral {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-fixo);
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -149,7 +149,7 @@
    quadro; cabeçalho só tipográfico e o perfil com o ponto da cor dele. */
 .user-menu {
   position: fixed;
-  z-index: 950;
+  z-index: var(--z-popover);
   width: 268px;
   background: var(--card);
   border: 1px solid var(--border-strong);
@@ -261,7 +261,7 @@
   border-radius: 0 0 var(--radius-card) var(--radius-card);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
-  z-index: 960;
+  z-index: var(--z-painel);
   display: none;
   animation: dropIn 0.16s ease;
 }
@@ -1354,7 +1354,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
     left: 0; right: 0; bottom: 0;
     top: auto !important;
     width: auto;
-    z-index: 1200;
+    z-index: var(--z-folha-conta);
     border-left: none;
     border-right: none;
     border-bottom: none;
@@ -1370,7 +1370,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 1150;
+    z-index: var(--z-folha-conta-fundo);
     background: var(--overlay);
     animation: overlayFadeIn 0.18s ease;
   }
@@ -1385,7 +1385,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
     border-left: none;
     border-right: none;
     border-radius: 0;
-    z-index: 960;
+    z-index: var(--z-painel);
   }
   .notif-list { max-height: calc(100vh - var(--notif-top, 56px) - 56px - 96px - env(safe-area-inset-bottom, 0px)); }
   .notif-header { min-height: 54px; padding: 8px 8px 8px 16px; }
@@ -1396,7 +1396,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   .notif-fundo {
     position: fixed;
     inset: var(--notif-top, 56px) 0 0 0;
-    z-index: 955;
+    z-index: var(--z-painel-fundo);
     background: var(--overlay);
     animation: overlayFadeIn 0.16s ease;
   }
@@ -1519,7 +1519,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   left: 50%;
   bottom: 1.25rem;
   transform: translateX(-50%);
-  z-index: 960;
+  z-index: var(--z-painel);
   width: max-content;
   max-width: min(760px, calc(100vw - 2rem));
   display: flex;
@@ -1574,7 +1574,7 @@ body.com-offline { padding-bottom: 4.5rem; }
 .demo-faixa {
   position: fixed;
   top: 0; left: 0; right: 0;
-  z-index: 950;
+  z-index: var(--z-faixa);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1657,7 +1657,7 @@ body.com-demo .lateral { top: var(--faixa-demo-h); height: calc(100dvh - var(--f
   border-radius: var(--radius-tag);
   white-space: nowrap;
   pointer-events: none;
-  z-index: 9999;
+  z-index: var(--z-dica);
   /* Só existe enquanto aparece: escondida com opacity ela ainda ocupava
      área rolável e alargava a página perto da borda direita */
   display: none;
@@ -1793,7 +1793,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
 .cmd-palette-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1300;
+  z-index: var(--z-paleta);
   background: var(--overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -2002,11 +2002,11 @@ button:active:not(:disabled) { transform: scale(0.98); }
 
 /* ── Tour guiado (4.3) ───────────────────────────────── */
 /* Camada que impede cliques na página durante o tour */
-.tour-bloqueio { position: fixed; inset: 0; z-index: 1080; }
+.tour-bloqueio { position: fixed; inset: 0; z-index: var(--z-tour-bloqueio); }
 /* Recorte: tudo escurece menos o alvo, contornado pela terracota; reto */
 .tour-spot {
   position: fixed;
-  z-index: 1090;
+  z-index: var(--z-tour-destaque);
   pointer-events: none;
   border-radius: 2px;
   box-shadow: 0 0 0 2px var(--gold-fill), 0 0 0 9999px var(--overlay);
@@ -2017,7 +2017,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
    boas-vindas) e as ações embaixo */
 .tour-popover {
   position: fixed;
-  z-index: 1100;
+  z-index: var(--z-tour);
   background: var(--card);
   border: 1px solid var(--border-strong);
   border-top: 2px solid var(--tinta);
@@ -2081,7 +2081,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
   bottom: 1.5rem;
   left: calc(50% + 118px);
   transform: translateX(-50%);
-  z-index: 500;
+  z-index: var(--z-barra-selecao);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -2145,7 +2145,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
    numerais, hoje sublinhado na terracota, escolhido cheio. */
 .calendario {
   position: fixed;
-  z-index: 1500;
+  z-index: var(--z-calendario);
   display: none;
   width: 292px;
   padding: 12px 12px 10px;

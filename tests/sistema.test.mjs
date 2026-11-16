@@ -152,6 +152,24 @@ test('tamanho de texto só pela escala, e nada abaixo de 12 px', () => {
   assert.deepEqual(fora, [])
 })
 
+// ── Camadas ───────────────────────────────────────────────────
+// z-index global só por token (--z-*, css/tokens.css); literal só para o
+// empilhamento local de um componente (até 20)
+test('z-index global só pelas camadas nomeadas', () => {
+  const fora = []
+  for (const nome of CSS) {
+    for (const m of ler(nome).matchAll(/z-index\s*:\s*([^;}]+)/g)) {
+      const v = m[1].trim()
+      if (/^var\(--z-[\w-]+\)$/.test(v)) continue
+      if (/^-?\d+$/.test(v) && Math.abs(+v) <= 20) continue
+      fora.push(`${nome}: ${v}`)
+    }
+  }
+  const js = fs.readdirSync(path.join(RAIZ, 'js')).filter(n => n.endsWith('.js'))
+    .flatMap(n => [...fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8').matchAll(/zIndex\s*[:=]\s*['"]?(\d{2,})/g)].map(m => `${n}: ${m[1]}`))
+  assert.deepEqual([...fora, ...js], [])
+})
+
 // ── Papéis de cor ─────────────────────────────────────────────
 // A terracota tem quatro papéis: ação primária, item ou aba ativa, urgência e
 // "com você". Número e valor são dado: ficam na cor do texto, salvo quando o

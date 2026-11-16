@@ -357,7 +357,7 @@ button:disabled {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-bloqueio);
   background: color-mix(in srgb, var(--bg) 62%, transparent);
   align-items: center;
   justify-content: center;
@@ -399,7 +399,7 @@ button:disabled {
   position: fixed;
   bottom: 1.25rem;
   right: 1.25rem;
-  z-index: 10000;
+  z-index: var(--z-aviso);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -466,7 +466,7 @@ button:disabled {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-cortina);
   background: var(--overlay);
   backdrop-filter: blur(3px);
   align-items: center;
@@ -534,7 +534,7 @@ button:disabled {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-dialogo);
   background: var(--overlay);
   backdrop-filter: blur(3px);
   align-items: center;
@@ -659,7 +659,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   position: fixed;
   top: 0.5rem;
   left: 0.5rem;
-  z-index: 10001;
+  z-index: var(--z-salto);
   padding: 0.6rem 1rem;
   background: var(--card);
   color: var(--text);
