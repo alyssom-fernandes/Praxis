@@ -152,15 +152,102 @@ test('tamanho de texto só pela escala, e nada abaixo de 12 px', () => {
   assert.deepEqual(fora, [])
 })
 
+// ── Espaço ────────────────────────────────────────────────────
+// Padding, margin e gap só pelos degraus --esp-* (base 8). Fora da escala,
+// só 0, 1 px (compensa uma borda), unidades relativas (%, em, vh, vw), a área
+// segura do celular (env) e as alturas fixas que o espaço desconta. Cada
+// outro literal precisa de motivo aqui
+const PROP_ESPACO = /(?<![\w-])((?:padding|margin|gap|row-gap|column-gap|scroll-padding)(?:-[a-z-]+)?)\s*:\s*([^;{}]+)/g
+const VAR_DE_ESPACO = /^--(esp-\d+|barra-inferior-h|acoes-fixas-h|faixa-demo-h)$/
+const ESPACO_FORA_DA_ESCALA = {
+  '.rel-plot':        'recuo igual à largura dos rótulos do eixo Y do gráfico',
+  '.rel-eixo-x':      'alinha o eixo X com o gráfico (.rel-plot)',
+  '.login-shell':     'entrada: respiro fluido (clamp) entre o celular e a tela grande',
+  '.entrada-miolo':   'entrada: respiro fluido (clamp)',
+  '.entrada-titulo':  'entrada: respiro fluido (clamp)',
+  '.entrada-etapas':  'entrada: régua fluida (clamp)',
+}
+
+function espacoForaDaEscala(valor) {
+  const falhas = []
+  for (const m of valor.matchAll(/var\((--[\w-]+)/g)) if (!VAR_DE_ESPACO.test(m[1])) falhas.push(`var(${m[1]})`)
+  const resto = valor.replace(/var\([^()]*(\([^()]*\))?[^()]*\)/g, '').replace(/env\([^()]*\)/g, '')
+  for (const m of resto.matchAll(/(?<![\w.])-?(\d*\.?\d+)(px|rem)\b/g)) if (m[0].replace('-', '') !== '1px') falhas.push(m[0])
+  return falhas
+}
+
+test('espaço só pela escala --esp-* (base 8)', () => {
+  const fora = []
+  const usadas = new Set()
+  for (const r of REGRAS) {
+    for (const m of r.corpo.matchAll(PROP_ESPACO)) {
+      const falhas = espacoForaDaEscala(m[2])
+      if (!falhas.length) continue
+      const seletores = r.seletor.split(',').map(s => s.trim())
+      if (seletores.every(s => s in ESPACO_FORA_DA_ESCALA)) { seletores.forEach(s => usadas.add(s)); continue }
+      fora.push(`${r.nome}: ${r.seletor} { ${m[1]}: ${m[2].trim()} }`)
+    }
+  }
+  // Exceção que não serve mais sai da lista
+  for (const s of Object.keys(ESPACO_FORA_DA_ESCALA)) if (!usadas.has(s)) fora.push(`exceção sem uso: ${s}`)
+  // Estilos escritos no JS (style="…")
+  for (const n of fs.readdirSync(path.join(RAIZ, 'js')).filter(n => n.endsWith('.js'))) {
+    const js = fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8')
+    for (const s of js.matchAll(/style="([^"]*)"/g)) {
+      for (const m of s[1].matchAll(PROP_ESPACO)) if (espacoForaDaEscala(m[2]).length) fora.push(`${n}: style="${s[1]}"`)
+    }
+  }
+  assert.deepEqual(fora, [])
+})
+
+test('a escala de espaço tem os 13 degraus da base 8', () => {
+  const degraus = Object.entries(ESCURO).filter(([k]) => /^--esp-\d+$/.test(k)).map(([, v]) => parseInt(v, 10))
+  assert.deepEqual(degraus, [2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80])
+})
+
+// ── Componentes únicos ────────────────────────────────────────
+// Um estado vazio (.vazio, estadoVazio em js/ui.js) e uma régua de etapas
+// (.regua: entrada, detalhe e quadro no celular). Os desenhos antigos não
+// voltam
+test('um estado vazio e uma régua de etapas', () => {
+  const ANTIGOS = /\b(empty-state(-branded)?|empty-(icon|title|sub)|pedidos-vazio[\w-]*|cfg-vazio[\w-]*|dt-vazio[\w-]*|rel-vazio-(ic|tit|txt)|rel-erro|notif-empty[\w-]*|cmd-empty[\w-]*|caminho-(etapa|num|nome|sub)|entrada-medalhao|entrada-etapa-nome)\b/
+  const achados = []
+  for (const nome of CSS) for (const m of ler(nome).matchAll(new RegExp(ANTIGOS, 'g'))) achados.push(`${nome}: ${m[0]}`)
+  for (const n of fs.readdirSync(path.join(RAIZ, 'js')).filter(n => n.endsWith('.js'))) {
+    for (const m of fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8').matchAll(new RegExp(ANTIGOS, 'g'))) achados.push(`${n}: ${m[0]}`)
+  }
+  assert.deepEqual(achados, [])
+  const js = n => fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8')
+  for (const n of ['auth.js', 'pedido-detalhe.js', 'pedidos.js']) {
+    assert.match(js(n), /regua-etapa/, `${n} usa a régua comum`)
+    assert.match(js(n), /STATUS_LABEL\[/, `${n} nomeia a etapa por STATUS_LABEL`)
+  }
+})
+
 // ── Camadas ───────────────────────────────────────────────────
-// z-index global só por token (--z-*, css/tokens.css); literal só para o
-// empilhamento local de um componente (até 20)
-test('z-index global só pelas camadas nomeadas', () => {
+// Nove camadas (css/tokens.css), de baixo para cima. z-index global só por
+// elas, ou um degrau acima ou abaixo de uma delas (calc(var(--z-…) ± n), até
+// 9) para quem convive na mesma camada; literal só para o empilhamento local
+// de um componente (até 20)
+const NOVE_CAMADAS = ['fixo', 'barra', 'popover', 'folha', 'cortina', 'modal', 'tour', 'aviso', 'dica']
+
+test('as nove camadas, em ordem', () => {
+  const camadas = Object.entries(ESCURO).filter(([k]) => k.startsWith('--z-'))
+  assert.deepEqual(camadas.map(([k]) => k.slice(4)), NOVE_CAMADAS)
+  const valores = camadas.map(([, v]) => +v)
+  assert.deepEqual(valores, [...valores].sort((a, b) => a - b), 'de baixo para cima')
+  // Os degraus "+ n" de uma camada não alcançam a seguinte
+  valores.slice(1).forEach((v, i) => assert.ok(v - valores[i] > 9, `${camadas[i][0]} e ${camadas[i + 1][0]}`))
+})
+
+test('z-index global só pelas nove camadas', () => {
+  const camada = `var\\(--z-(?:${NOVE_CAMADAS.join('|')})\\)`
+  const permitido = new RegExp(`^(?:${camada}|calc\\(${camada} [+-] [1-9]\\))$`)
   const fora = []
   for (const nome of CSS) {
     for (const m of ler(nome).matchAll(/z-index\s*:\s*([^;}]+)/g)) {
       const v = m[1].trim()
-      if (/^var\(--z-[\w-]+\)$/.test(v)) continue
+      if (permitido.test(v)) continue
       if (/^-?\d+$/.test(v) && Math.abs(+v) <= 20) continue
       fora.push(`${nome}: ${v}`)
     }

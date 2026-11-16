@@ -342,7 +342,7 @@ function _renderEmpresas() {
 
   if (!_empresas.length) {
     grid.innerHTML = vazio({
-      icone: ICO.predio(20), titulo: t('cfgSemEmpresasTitulo'), sub: t('cfgSemEmpresasSub'),
+      titulo: t('cfgSemEmpresasTitulo'), texto: t('cfgSemEmpresasSub'),
       acao: `<button class="btn-secondary btn-sm" data-acao-vazio="empresa">${ICO.mais(13)}${t('btnNovaEmpresa')}</button>`,
     })
     grid.classList.add('is-vazio')
@@ -393,7 +393,7 @@ function _renderCategorias() {
 
   if (!_categorias.length) {
     tbody.innerHTML = linhaVazia(4, {
-      icone: ICO.etiqueta(), titulo: t('cfgSemCategoriasTitulo'), sub: t('cfgSemCategoriasSub'),
+      titulo: t('cfgSemCategoriasTitulo'), texto: t('cfgSemCategoriasSub'),
       acao: `<button class="btn-secondary btn-sm" data-acao-vazio="categoria">${ICO.mais(13)}${t('btnNovaCategoria')}</button>`,
     })
     return
@@ -435,11 +435,11 @@ function _renderFornecedores() {
   if (!lista.length) {
     tbody.innerHTML = q
       ? linhaVazia(5, {
-          icone: ICO.busca(20), titulo: t('cfgSemResultadoTitulo'),
-          sub: esc(tf('cfgSemResultadoBusca', { q: _buscaForn.trim() })),
+          titulo: t('cfgSemResultadoTitulo'),
+          texto: esc(tf('cfgSemResultadoBusca', { q: _buscaForn.trim() })),
           acao: `<button class="btn-secondary btn-sm" data-acao-vazio="limpar-forn">${t('cfgLimparBusca')}</button>`,
         })
-      : linhaVazia(5, { icone: ICO.caminhao(), titulo: t('cfgSemFornecedoresTitulo'), sub: t('cfgSemFornecedoresSub') })
+      : linhaVazia(5, { titulo: t('cfgSemFornecedoresTitulo'), texto: t('cfgSemFornecedoresSub') })
     return
   }
 

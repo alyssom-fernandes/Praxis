@@ -143,12 +143,9 @@ function _cmdRenderResultados(query) {
 
   if (!acoesMatch.length && !pedidosMatch.length) {
     // Vazio na voz do quadro: o numeral zerado, como uma etapa sem pedidos
-    results.innerHTML = `
-      <div class="cmd-empty" role="status">
-        <span class="cmd-empty-n numeral" aria-hidden="true">0</span>
-        <strong>${t('nenhumResultadoPara')} “${esc(query.trim())}”</strong>
-        <span>${t('palDica')}</span>
-      </div>`
+    results.innerHTML = estadoVazio({ variante: 'painel', numeral: true, classe: 'cmd-vazio',
+      titulo: `${t('nenhumResultadoPara')} “${esc(query.trim())}”`, texto: t('palDica') })
+    results.querySelector('.cmd-vazio')?.setAttribute('role', 'status')
     document.getElementById('cmd-input')?.removeAttribute('aria-activedescendant')
     return
   }
@@ -411,6 +408,27 @@ export function esconderSpinner() {
 export function progressoDemo(fase, porcento = 0) {
   const chave = { limpando: 'demoFaseLimpando', pedidos: 'demoFasePedidos' }[fase]
   if (chave) mostrarSpinner(t(chave).replace('{n}', porcento))
+}
+
+// ── Estado vazio ──────────────────────────────────────────────
+// Um componente só (docs/sistema.md): título, uma frase e, se houver, uma
+// ação. Variantes:
+//   (padrão)   área de página, sob o fio de tinta; o numeral "0" é a contagem
+//   'solto'    dentro de tabela, grade ou seção, sem fio
+//   'compacto' dentro de um bloco do detalhe
+//   'painel'   dentro do sino e da paleta (numeral menor)
+// Ícone só no erro (erro: true), em vermelho. Os textos chegam prontos (já
+// escapados por quem chama).
+export function estadoVazio({ titulo, texto = '', acao = '', variante = '', numeral = false, erro = false, icone = '', nivel = 'p', tag = 'div', classe = '' } = {}) {
+  const cls = ['vazio', variante, erro ? 'erro' : '', classe].filter(Boolean).join(' ')
+  return `
+    <${tag} class="${cls}"${erro ? ' role="alert"' : ''}>
+      ${numeral ? '<span class="vazio-n" aria-hidden="true">0</span>' : ''}
+      ${erro && icone ? `<span class="vazio-icone" aria-hidden="true">${icone}</span>` : ''}
+      <${nivel} class="vazio-titulo">${titulo}</${nivel}>
+      ${texto ? `<p class="vazio-texto">${texto}</p>` : ''}
+      ${acao ? `<div class="vazio-acao">${acao}</div>` : ''}
+    </${tag}>`
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -943,20 +961,20 @@ export function skeletonKanban(nColunas = 4) {
 
 export function skeletonLista(nLinhas = 5) {
   const linhas = Array.from({ length: nLinhas }, () => `
-    <div class="skeleton skeleton-row" style="margin-bottom:0.4rem"></div>
+    <div class="skeleton skeleton-row" style="margin-bottom:var(--esp-075)"></div>
   `).join('')
-  return `<div style="padding:0.5rem">${linhas}</div>`
+  return `<div style="padding:var(--esp-100)">${linhas}</div>`
 }
 
 export function skeletonDashCards(n = 4) {
   const cards = Array.from({ length: n }, () => `
-    <div class="card no-hover" style="padding:1.5rem">
-      <div class="skeleton skeleton-text" style="width:50%;margin-bottom:0.75rem"></div>
-      <div class="skeleton skeleton-title" style="width:70%;height:2rem;margin-bottom:0.5rem"></div>
+    <div class="card no-hover" style="padding:var(--esp-300)">
+      <div class="skeleton skeleton-text" style="width:50%;margin-bottom:var(--esp-150)"></div>
+      <div class="skeleton skeleton-title" style="width:70%;height:2rem;margin-bottom:var(--esp-100)"></div>
       <div class="skeleton skeleton-text" style="width:40%"></div>
     </div>
   `).join('')
-  return `<div class="dash-grid-1" style="margin-bottom:1rem">${cards}</div>`
+  return `<div class="dash-grid-1" style="margin-bottom:var(--esp-200)">${cards}</div>`
 }
 
 // ── Tour guiado (4.3) ─────────────────────────────────────────

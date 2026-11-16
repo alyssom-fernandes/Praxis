@@ -2,7 +2,7 @@ import { db, collection, where, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
 import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
-import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline } from './ui.js'
+import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline, estadoVazio } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor } from './constants.js'
 import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
@@ -28,9 +28,6 @@ const ICONE = {
   pdf: ic('<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>'),
   grafico: ic('<path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-9"/>', 14),
   tabela: ic('<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M9 10v10"/>', 14),
-  calendario: ic('<rect x="3" y="4" width="18" height="17" rx="1"/><path d="M16 2v4M8 2v4M3 10h18"/>', 22),
-  moedas: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>', 22),
-  check: ic('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>', 22),
   alerta: ic('<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>', 22),
   sobe: ic('<path d="M7 17 17 7M9 7h8v8"/>', 13),
   desce: ic('<path d="M7 7l10 10M17 9v8H9"/>', 13),
@@ -237,14 +234,14 @@ function _itemMenu(attr, icone, titulo, desc) {
 
 function _skeleton(fin) {
   const n = fin ? 5 : 4
-  const kpi = i => `<div class="rel-kpi${fin && i === 0 ? ' destaque' : ''}"><div class="skeleton" style="height:38px;width:${i === 0 ? 78 : 52}%"></div><div class="skeleton skeleton-text" style="width:46%;margin-top:12px"></div><div class="skeleton skeleton-text" style="width:64%"></div></div>`
+  const kpi = i => `<div class="rel-kpi${fin && i === 0 ? ' destaque' : ''}"><div class="skeleton" style="height:38px;width:${i === 0 ? 78 : 52}%"></div><div class="skeleton skeleton-text" style="width:46%;margin-top:var(--esp-150)"></div><div class="skeleton skeleton-text" style="width:64%"></div></div>`
   return `<div class="rel-dash" aria-busy="true">
     <div class="rel-kpis rel-kpis-${n}">${Array.from({ length: n }, (_, i) => kpi(i)).join('')}</div>
     <div class="rel-grade">
       <section class="rel-secao rel-larg-12">
         <div class="skeleton skeleton-title" style="width:180px"></div>
         <div class="skeleton skeleton-text" style="width:240px"></div>
-        <div class="skeleton" style="height:230px;margin-top:18px"></div>
+        <div class="skeleton" style="height:230px;margin-top:var(--esp-200)"></div>
       </section>
     </div>
   </div>`
@@ -263,9 +260,8 @@ async function _carregar() {
     if (geracao !== _geracao) return
     console.warn('Relatórios: falha ao carregar', err)
     if (container) container.innerHTML = `
-      <div class="rel-erro">
-        ${_vazio(ICONE.alerta, tr('erroTit'), tr('erroTxt'), `<button class="btn-secondary btn-sm" type="button" id="rel-tentar">${tr('tentar')}</button>`)}
-      </div>`
+      ${estadoVazio({ erro: true, icone: ICONE.alerta, titulo: tr('erroTit'), texto: tr('erroTxt'),
+        acao: `<button class="btn-secondary btn-sm" type="button" id="rel-tentar">${tr('tentar')}</button>` })}`
     document.getElementById('rel-tentar')?.addEventListener('click', () => {
       container.innerHTML = _skeleton(_podeVerFinanceiro())
       _carregar()
@@ -538,7 +534,7 @@ function _renderDash() {
   let grade
   if (!D.ped.length) {
     grade = `
-      ${_secao({ id: 'bloco-vazio', larg: 12, titulo: tr('pedidosPeriodo'), corpo: _vazio(ICONE.calendario, tr('vazioTit'),
+      ${_secao({ id: 'bloco-vazio', larg: 12, titulo: tr('pedidosPeriodo'), corpo: _vazio(tr('vazioTit'),
         tr('vazioTxt', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) }),
         _filtroPer !== 'ano' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="ano">${tr('verAno')}</button>` : '') })}
       ${_blocoMensal(D)}
@@ -549,7 +545,7 @@ function _renderDash() {
     grade = `
       ${_blocoMensal(D)}
       ${semCompras
-        ? _secao({ id: 'bloco-dinheiro', larg: 12, titulo: tr('tDinheiro'), corpo: _vazio(ICONE.moedas, tr('semComprasTit'),
+        ? _secao({ id: 'bloco-dinheiro', larg: 12, titulo: tr('tDinheiro'), corpo: _vazio(tr('semComprasTit'),
             `${D.ped.length === 1 ? tr('semComprasTxt1') : tr('semComprasTxtN', { n: D.ped.length })} ${tr('semComprasTxt')}`, acao) })
         : _blocoDinheiro(D)}
       ${_blocoParcelas(D, semCompras ? 12 : 6)}
@@ -626,13 +622,10 @@ function _secao({ id, larg = 12, titulo, meta = '', acoes = '', corpo, cls = '' 
   </section>`
 }
 
-function _vazio(icone, titulo, texto, acao = '') {
-  return `<div class="rel-vazio">
-    <span class="rel-vazio-ic">${icone}</span>
-    <p class="rel-vazio-tit">${titulo}</p>
-    ${texto ? `<p class="rel-vazio-txt">${texto}</p>` : ''}
-    ${acao}
-  </div>`
+// Estado vazio de um bloco: o componente único (js/ui.js), variante "solto";
+// .rel-vazio só o centra na altura do bloco
+function _vazio(titulo, texto, acao = '') {
+  return estadoVazio({ variante: 'solto', classe: 'rel-vazio', titulo, texto, acao })
 }
 
 // Escala "bonita" para o eixo Y
@@ -678,7 +671,7 @@ function _blocoMensal(D) {
 
   let grafico
   if (!max) {
-    grafico = _vazio(ICONE.moedas, tr('vazioMensal'), '')
+    grafico = _vazio(tr('vazioMensal'), '')
   } else if (_vistaMensal === 'tabela') {
     grafico = `<div class="rel-tabela-wrap"><table class="rel-tabela">
       <thead><tr><th>${tr('mes')}</th><th class="dir">${tr('colQtd')}</th>${fin ? `<th class="dir">${tr('kGasto')}</th>` : ''}<th class="dir">${tr('variacao')}</th></tr></thead>
@@ -796,7 +789,7 @@ function _blocoParcelas(D, larg) {
   const totalAberto = lista.reduce((s, p) => s + (Number(p.valor) || 0), 0)
   if (!lista.length) {
     return _secao({ id: 'bloco-parcelas', larg, titulo: tr('tParcelas'), meta: tr('proximos30'),
-      corpo: _vazio(ICONE.check, tr('vazioParcelasTit'), tr('vazioParcelasTxt')) })
+      corpo: _vazio(tr('vazioParcelasTit'), tr('vazioParcelasTxt')) })
   }
   const loc = _locale()
   const linhas = lista.slice(0, 6).map(pc => {
@@ -836,7 +829,7 @@ function _blocoMaiores(D) {
 
 function _blocoFila(D) {
   const fila = [...D.emAprov].sort((a, b) => (b.urgente ? 1 : 0) - (a.urgente ? 1 : 0) || (_dataPedido(a) || 0) - (_dataPedido(b) || 0))
-  if (!fila.length) return _secao({ id: 'bloco-fila', larg: 12, titulo: tr('tFila'), corpo: _vazio(ICONE.check, tr('vazioFilaTit'), tr('vazioFilaTxt')) })
+  if (!fila.length) return _secao({ id: 'bloco-fila', larg: 12, titulo: tr('tFila'), corpo: _vazio(tr('vazioFilaTit'), tr('vazioFilaTxt')) })
   const linhas = fila.slice(0, 6).map((p, i) => {
     const d = _isoPedido(p)
     const dias = d ? _diasEntre(d, _iso(_hoje())) : 0

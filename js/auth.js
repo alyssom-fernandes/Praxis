@@ -24,18 +24,18 @@ const ICO = {
   alerta:  _svg(14, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
 }
 
-// As sete etapas do caminho, em medalhões numerados (decorativo: o texto ao
-// lado já diz o mesmo). A etapa acesa percorre o caminho devagar; com
-// movimento reduzido, fica parada na aprovação.
+// As sete etapas do caminho na régua (a mesma do detalhe e do quadro no
+// celular; decorativa: o texto ao lado já diz o mesmo). O fio aceso percorre
+// o caminho devagar; com movimento reduzido, fica o estado final.
 function _etapasEntrada() {
   const nomes = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
     .map(st => STATUS_LABEL[st])
   return `
-    <ol class="entrada-etapas" aria-hidden="true">
+    <ol class="regua entrada-etapas" aria-hidden="true">
       ${nomes.map((nome, i) => `
-        <li style="--i:${i}">
-          <span class="entrada-medalhao">${String(i + 1).padStart(2, '0')}</span>
-          <span class="entrada-etapa-nome">${nome}</span>
+        <li class="regua-etapa" style="--i:${i}">
+          <span class="regua-n">${String(i + 1).padStart(2, '0')}</span>
+          <span class="regua-nome">${nome}</span>
         </li>`).join('')}
     </ol>`
 }

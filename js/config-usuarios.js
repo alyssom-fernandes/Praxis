@@ -263,18 +263,18 @@ function _renderTabela() {
   if (!lista.length) {
     if (_termoBusca) {
       tbody.innerHTML = linhaVazia(COLUNAS, {
-        icone: ICO.busca(20), titulo: t('cfgSemResultadoTitulo'),
-        sub: esc(tf('cfgSemResultadoBusca', { q: _termoBusca.trim() })),
+        titulo: t('cfgSemResultadoTitulo'),
+        texto: esc(tf('cfgSemResultadoBusca', { q: _termoBusca.trim() })),
         acao: `<button class="btn-secondary btn-sm" data-acao-vazio="limpar">${t('cfgLimparBusca')}</button>`,
       })
     } else if (_filtroStatus === 'inativos') {
       tbody.innerHTML = linhaVazia(COLUNAS, {
-        icone: ICO.usuarios(), titulo: t('cfgSemInativosTitulo'), sub: t('cfgSemInativosSub'),
+        titulo: t('cfgSemInativosTitulo'), texto: t('cfgSemInativosSub'),
         acao: `<button class="btn-secondary btn-sm" data-acao-vazio="todos">${t('cfgVerTodos')}</button>`,
       })
     } else {
       tbody.innerHTML = linhaVazia(COLUNAS, {
-        icone: ICO.usuarios(), titulo: t('cfgSemUsuariosTitulo'), sub: t('cfgSemUsuariosSub'),
+        titulo: t('cfgSemUsuariosTitulo'), texto: t('cfgSemUsuariosSub'),
         acao: `<button class="btn-secondary btn-sm" data-acao-vazio="novo">${ICO.mais(13)}${t('btnNovoUsuario')}</button>`,
       })
     }

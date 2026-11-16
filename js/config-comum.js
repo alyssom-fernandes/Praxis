@@ -6,6 +6,7 @@ import { atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
 import { t, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais } from './utils.js'
+import { estadoVazio } from './ui.js'
 
 const svg = (tam, corpo, traco = 2) =>
   `<svg width="${tam}" height="${tam}" fill="none" stroke="currentColor" stroke-width="${traco}" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
@@ -15,10 +16,6 @@ export const ICO = {
   busca:     (n = 14) => svg(n, '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
   editar:    (n = 15) => svg(n, '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
   fechar:    (n = 16) => svg(n, '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
-  usuarios:  (n = 20) => svg(n, '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'),
-  predio:    (n = 18) => svg(n, '<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="22" x2="9" y2="18"/><line x1="15" y1="22" x2="15" y2="18"/><line x1="9" y1="18" x2="15" y2="18"/><line x1="8" y1="6" x2="8.01" y2="6"/><line x1="12" y1="6" x2="12.01" y2="6"/><line x1="16" y1="6" x2="16.01" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/>'),
-  etiqueta:  (n = 20) => svg(n, '<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'),
-  caminhao:  (n = 20) => svg(n, '<rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>'),
   auto:      (n = 14) => svg(n, '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>'),
   lua:       (n = 14) => svg(n, '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'),
   sol:       (n = 14) => svg(n, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
@@ -124,15 +121,10 @@ export async function completarContagensLateral(conhecidas = {}) {
   if (Object.keys(contagens).length) atualizarLateral({ contagens })
 }
 
-// Estado vazio: ícone discreto, título curto, uma frase e, se houver, uma ação
-export function vazio({ icone = '', titulo = '', sub = '', acao = '' } = {}) {
-  return `
-    <div class="cfg-vazio">
-      ${icone ? `<div class="cfg-vazio-icone">${icone}</div>` : ''}
-      <div class="cfg-vazio-titulo">${titulo}</div>
-      ${sub ? `<p class="cfg-vazio-sub">${sub}</p>` : ''}
-      ${acao ? `<div class="cfg-vazio-acao">${acao}</div>` : ''}
-    </div>`
+// Estado vazio dentro de tabela ou grade: o componente único (js/ui.js),
+// variante "solto"
+export function vazio({ titulo = '', texto = '', acao = '' } = {}) {
+  return estadoVazio({ titulo, texto, acao, variante: 'solto' })
 }
 
 // Linha de tabela com estado vazio (ocupa todas as colunas)

@@ -1,7 +1,7 @@
 import { db, collection, query, where, orderBy, limit, onSnapshot, updateDoc, doc, getDocs, writeBatch } from './firebase.js'
 import { registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast } from './ui.js'
+import { prxToast, estadoVazio } from './ui.js'
 import { EVENTOS, t } from './constants.js'
 import { formatarDataRelativa, esc } from './utils.js'
 
@@ -106,13 +106,7 @@ function _renderDropdown(items) {
       ${naoLidas ? `<button type="button" class="notif-marcar" id="btn-marcar-todas">${t('notifMarcarTodas')}</button>` : ''}
     </div>
     <div class="notif-list" id="notif-list">
-      ${items.length ? items.slice(0, MAX_ITENS).map(_renderItem).join('') : `
-        <div class="notif-empty">
-          <span class="notif-empty-n numeral" aria-hidden="true">0</span>
-          <strong>${t('notifVazioTitulo')}</strong>
-          <span>${t('notifVazioTexto')}</span>
-        </div>
-      `}
+      ${items.length ? items.slice(0, MAX_ITENS).map(_renderItem).join('') : estadoVazio({ variante: 'painel', numeral: true, titulo: t('notifVazioTitulo'), texto: t('notifVazioTexto') })}
     </div>
     ${sessao.isDemo ? `<p class="notif-demo-nota">${t('notifDemoNota')}</p>` : ''}
   `

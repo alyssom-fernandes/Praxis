@@ -7,7 +7,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca } from './ui.js'
+import { prxToast, prxConfirm, estadoVazio, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL,
@@ -389,15 +389,15 @@ function _renderCaminho() {
     } else { cls = parou ? 'cortada' : 'futura' }
     if (_avancouDe != null && i > _avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
     return `
-      <li class="caminho-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
-        <span class="caminho-num" aria-hidden="true">${_dois(i + 1)}</span>
-        <span class="caminho-nome">${STATUS_LABEL[st]}${leitor ? `<span class="sr-only">, ${leitor}</span>` : ''}</span>
-        <span class="caminho-sub"${dica ? ` title="${dica}"` : ''}>${sub || '&nbsp;'}</span>
+      <li class="regua-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
+        <span class="regua-n" aria-hidden="true">${_dois(i + 1)}</span>
+        <span class="regua-nome">${STATUS_LABEL[st]}${leitor ? `<span class="sr-only">, ${leitor}</span>` : ''}</span>
+        <span class="regua-sub"${dica ? ` title="${dica}"` : ''}>${sub || '&nbsp;'}</span>
       </li>`
   }).join('')
   return `
     <div class="caminho-wrap">
-      <ol class="caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="${t('dtCaminhoAria')}">${etapas}</ol>
+      <ol class="regua caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="${t('dtCaminhoAria')}">${etapas}</ol>
     </div>`
 }
 
@@ -594,7 +594,7 @@ function _renderDetalhe() {
           ${MOTIVOS_REPROVACAO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" id="reprov-outros-wrap" style="display:none;margin-top:1rem">
+      <div class="form-group" id="reprov-outros-wrap" style="display:none;margin-top:var(--esp-200)">
         <label for="reprov-outros">${t('especifique')} *</label>
         <textarea id="reprov-outros" placeholder="${t('especifiquePlaceholder')}" rows="3"></textarea>
       </div>`, `
@@ -610,7 +610,7 @@ function _renderDetalhe() {
           ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" id="cancel-outros-wrap" style="display:none;margin-top:1rem">
+      <div class="form-group" id="cancel-outros-wrap" style="display:none;margin-top:var(--esp-200)">
         <label for="cancel-outros">${t('especifique')} *</label>
         <textarea id="cancel-outros" placeholder="${t('especifiquePlaceholder')}" rows="3"></textarea>
       </div>`, `
@@ -1099,11 +1099,7 @@ function _renderCotacoes() {
       : _pedido.status === STATUS.SOLICITADO
         ? t('dtCotVazioSolic')
         : t('dtCotVazioOutros')
-    return `
-      <div class="dt-vazio">
-        <div class="dt-vazio-titulo">${t('dtCotVazioTitulo')}</div>
-        <div class="dt-vazio-texto">${sub}</div>
-      </div>`
+    return estadoVazio({ variante: 'compacto', titulo: t('dtCotVazioTitulo'), texto: sub })
   }
   const valores = _cotacoes.map(c => c.valor || 0)
   const menor = Math.min(...valores)
@@ -1163,11 +1159,7 @@ function _renderActivityFeed() {
   const comt = _comentarios.map(c => ({ ...c, _feedTipo: 'comentario' }))
   const feed = [...hist, ...comt].sort((a, b) => _tsMs(b.criadoEm) - _tsMs(a.criadoEm))
 
-  if (!feed.length) return `
-    <li class="dt-vazio dt-vazio-compacto">
-      <div class="dt-vazio-titulo">${t('dtAtividadeVazia')}</div>
-      <div class="dt-vazio-texto">${t('dtAtividadeVaziaTexto')}</div>
-    </li>`
+  if (!feed.length) return estadoVazio({ variante: 'compacto', tag: 'li', titulo: t('dtAtividadeVazia'), texto: t('dtAtividadeVaziaTexto') })
 
   const evento = (marca, html, ts, cls = '') => `
     <li class="feed-item ${cls}">
@@ -2822,12 +2814,8 @@ function _tsMs(ts) {
 
 // ── Anexos gerais (4.10) ──────────────────────────────────────
 function _renderAnexos() {
-  if (!_anexos.length) return `
-    <div class="dt-vazio dt-vazio-compacto">
-      <div class="dt-vazio-titulo">${t('dtAnexosVazio')}</div>
-      <div class="dt-vazio-texto">${_enviaArquivos() ? t('dtAnexosVazioTexto') : t('dtArquivosDesligados')}</div>
-    </div>
-  `
+  if (!_anexos.length) return estadoVazio({ variante: 'compacto', titulo: t('dtAnexosVazio'),
+    texto: _enviaArquivos() ? t('dtAnexosVazioTexto') : t('dtArquivosDesligados') })
   const uid    = sessao.usuario.id
   const perfil = sessao.usuario.perfil
   return `<ul class="anexos-lista">${_anexos.map(a => {

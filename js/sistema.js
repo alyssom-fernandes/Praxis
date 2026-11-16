@@ -9,7 +9,7 @@
 // português, fora do dicionário (tests/textos.test.mjs sabe disso).
 
 import { renderTopbar, initTopbarEvents, renderFooter } from './app.js'
-import { prxToast, prxConfirm, definirTema, preferenciaTema } from './ui.js'
+import { prxToast, prxConfirm, definirTema, preferenciaTema, estadoVazio } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, CATEGORIA_ETAPA } from './constants.js'
 import { esc } from './utils.js'
@@ -48,10 +48,23 @@ const TIPOS = [
   ['--t-corpo', '14 px', 'Texto padrão, células, campos, botões'],
   ['--t-pequeno', '12 px', 'Metadados, legenda, cabeçalho de tabela, selo (mínimo)'],
 ]
-const CAMADAS = ['--z-menu', '--z-fixo', '--z-barra-selecao', '--z-escolha-pessoa', '--z-puxar', '--z-acoes-fixas',
-  '--z-barra', '--z-faixa', '--z-popover', '--z-painel-fundo', '--z-painel', '--z-cortina', '--z-folha',
-  '--z-tour-bloqueio', '--z-tour-destaque', '--z-tour', '--z-folha-conta-fundo', '--z-folha-conta', '--z-paleta',
-  '--z-calendario', '--z-dialogo', '--z-bloqueio', '--z-dica', '--z-aviso', '--z-salto']
+const ESPACOS = [
+  ['025', 'Ajuste fino: selo, ícone e texto'], ['050', 'Ícone + rótulo'], ['075', 'Etiqueta, gap de chips'],
+  ['100', 'Gap padrão dentro de um componente'], ['150', 'Padding de cartão e de célula'], ['200', 'Padding de painel; margem no celular'],
+  ['250', 'Entre grupos de campos'], ['300', 'Padding de diálogo; entre blocos'], ['400', 'Margem da página; entre seções'],
+  ['500', 'Abaixo do cabeçalho de página'], ['600', 'Entre seções grandes'], ['800', 'Respiro de vazio e do 404'], ['1000', 'Só na entrada'],
+]
+const CAMADAS = [
+  ['--z-fixo', 'Lateral'],
+  ['--z-barra', 'Barra de seleção; barra inferior (+1), faixa da demo (+2), aviso offline (+3)'],
+  ['--z-popover', 'Menus, sino e menu da conta no computador, dica do gráfico'],
+  ['--z-folha', 'Folhas do celular: filtros, sino, conta (o fundo em −1)'],
+  ['--z-cortina', 'Janela com cortina: modal, paleta, escolha de pessoa'],
+  ['--z-modal', 'Diálogo de confirmação ou escolha; calendário (+1)'],
+  ['--z-tour', 'Tour: bloqueio, destaque (+1) e balão (+2)'],
+  ['--z-aviso', 'Avisos; tela de bloqueio (−1)'],
+  ['--z-dica', 'Dica, cartão arrastado; link de salto (+1)'],
+]
 
 const CATEGORIAS = {
   aguardando: 'Aguardando', andamento: 'Em andamento', concluido: 'Concluído', encerrado: 'Encerrado sem compra',
@@ -87,6 +100,13 @@ export function renderSistema() {
   const etapas = Object.values(STATUS).map(st => `
     <li class="sis-etapa"><span class="lozenge lozenge-${CATEGORIA_ETAPA[st]}">${STATUS_LABEL[st]}</span>
       <span class="sis-mudo">${CATEGORIAS[CATEGORIA_ETAPA[st]]}</span></li>`).join('')
+  // Régua: as sete etapas do caminho com cada estado, como no detalhe
+  const CAMINHO = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
+  const regua = (estados, subs) => `
+    <ol class="regua" aria-label="Etapas do pedido">${CAMINHO.map((st, i) => `
+      <li class="regua-etapa ${estados[i]}"><span class="regua-n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>
+        <span class="regua-nome">${STATUS_LABEL[st]}</span><span class="regua-sub">${subs[i] || '&nbsp;'}</span></li>`).join('')}
+    </ol>`
 
   const app = document.getElementById('app')
   app.innerHTML = `
@@ -138,6 +158,17 @@ export function renderSistema() {
         ${_secao('etapas', 'Etapas', 'Mesmo nome em toda parte (docs/glossario.md). A etiqueta (lozenge) tem a cor da categoria e o nome da etapa; na paleta e nos relatórios, um ponto na mesma cor.', `
           <ul class="sis-etapas">${etapas}</ul>`)}
 
+        ${_secao('regua', 'Régua de etapas', 'Uma régua só, na entrada, no detalhe e no quadro do celular: numeral, nome da etapa e a data, sob um fio de 2 px. Quadrada; o destaque fica só no fio: tinta (feita), bronze (atual), vermelho (onde parou), tracejado (o que não vai acontecer).', `
+          <div class="sis-reguas">
+            ${regua(['feita', 'feita', 'atual', 'futura', 'futura', 'futura', 'futura'], ['06/11/2026', '07/11/2026', '10/11/2026'])}
+            ${regua(['feita', 'feita', 'parou', 'cortada', 'cortada', 'cortada', 'cortada'], ['06/11/2026', '07/11/2026', 'Reprovado em 10/11/2026'])}
+          </div>`)}
+
+        ${_secao('espaco', 'Espaço', 'Base 8, treze degraus. Dentro de um componente, 2 a 8; entre componentes, 12 a 24; layout, 32 a 80. Padding, margin e gap só por estes tokens (o teste barra literal fora da escala).', `
+          <ul class="sis-espacos">${ESPACOS.map(([n, uso]) => `
+            <li><span class="sis-barra-esp" style="width:var(--esp-${n})"></span><code>--esp-${n}</code><span class="sis-valor" data-token="--esp-${n}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
+          </ul>`)}
+
         ${_secao('selos', 'Selo e contagem', 'Selo só para Urgente e "com você". Contagem é neutra; bronze só no sino quando há não lidas.', `
           <div class="sis-linha">
             <span class="kcard-urg">Urgente</span>
@@ -170,19 +201,20 @@ export function renderSistema() {
             <button type="button" class="btn-secondary btn-sm" id="sis-confirmar">Confirmação</button>
           </div>`)}
 
-        ${_secao('vazio', 'Estado vazio e carregando', 'Vazio diz a causa e a saída, com uma ação de uma ou duas palavras. O esqueleto tem a medida do conteúdo que vem.', `
+        ${_secao('vazio', 'Estado vazio e carregando', 'Um componente só (estadoVazio): título, uma frase com a causa e a saída, e uma ação de uma ou duas palavras. Na página, sob o fio de tinta (no quadro, com o 0 da contagem); solto dentro de tabela, grade ou seção; compacto num bloco do detalhe; no sino e na paleta, com o 0 menor. Ícone só no erro. O esqueleto tem a medida do conteúdo que vem.', `
           <div class="sis-vazio">
-            <div class="pedidos-vazio">
-              <span class="pedidos-vazio-n" aria-hidden="true">0</span>
-              <h2 class="pedidos-vazio-titulo">Nada encontrado para “zzqx”</h2>
-              <p class="pedidos-vazio-sub">Tente ajustar o filtro ou o termo de busca.</p>
-              <div class="pedidos-vazio-acao"><button type="button" class="btn-secondary btn-sm">Limpar filtros</button></div>
-            </div>
+            ${estadoVazio({ numeral: true, titulo: 'Nada encontrado para “zzqx”', texto: 'Tente ajustar o filtro ou o termo de busca.',
+              acao: '<button type="button" class="btn-secondary btn-sm">Limpar filtros</button>' })}
             <div class="sis-esqueleto" aria-hidden="true"><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div></div>
+          </div>
+          <div class="sis-vazios">
+            ${estadoVazio({ variante: 'solto', titulo: 'Nenhum usuário inativo', texto: 'Quem for desativado aparece aqui.', acao: '<button type="button" class="btn-secondary btn-sm">Ver todos</button>' })}
+            ${estadoVazio({ variante: 'compacto', titulo: 'Nenhuma cotação ainda', texto: 'As propostas aparecem aqui depois que um comprador assumir o pedido.' })}
+            ${estadoVazio({ erro: true, icone: _svg(22, '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>'), titulo: 'Não deu para carregar os pedidos', texto: 'Verifique a conexão e tente de novo.', acao: '<button type="button" class="btn-secondary btn-sm">Recarregar</button>' })}
           </div>`)}
 
-        ${_secao('camadas', 'Camadas', 'z-index global só por token, de baixo para cima. Até 20, empilhamento local dentro do componente.', `
-          <ol class="sis-camadas">${CAMADAS.map(tk => `<li><code>${tk}</code><span class="sis-valor" data-token="${tk}"></span></li>`).join('')}</ol>`)}
+        ${_secao('camadas', 'Camadas', 'Nove camadas, de baixo para cima. Quem convive na mesma camada sobe com calc(var(--z-…) + n). Até 20, empilhamento local dentro do componente.', `
+          <ol class="sis-camadas">${CAMADAS.map(([tk, uso]) => `<li><span class="sis-camada-nome"><code>${tk}</code><span class="sis-valor" data-token="${tk}"></span></span><span class="sis-uso">${uso}</span></li>`).join('')}</ol>`)}
 
         ${_secao('foco', 'Foco', 'Um anel só: 2 px em --foco, a 2 px do elemento (para dentro em listas e tabelas). O primeiro Tab de toda tela é "Pular para o conteúdo". Use Tab nesta página para ver.', '')}
       </main>

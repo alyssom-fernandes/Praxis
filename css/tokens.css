@@ -113,33 +113,42 @@
   --afn-stroke: rgba(214, 95, 112, 0.4);
   --afn-sys: rgba(255, 255, 255, 0.5);    /* guia AFN: 28%; 50% aqui para 4,5:1 */
 
-  /* Camadas (z-index), de baixo para cima, com os valores de hoje. Valores
-     até 20 ficam no próprio componente (empilhamento local) */
-  --z-menu: 60;
-  --z-fixo: 100;
-  --z-barra-selecao: 500;
-  --z-escolha-pessoa: 600;
-  --z-puxar: 800;
-  --z-acoes-fixas: 850;
-  --z-barra: 900;
-  --z-faixa: 950;
-  --z-popover: 950;
-  --z-painel-fundo: 955;
-  --z-painel: 960;
-  --z-cortina: 1000;
-  --z-folha: 1001;
-  --z-tour-bloqueio: 1080;
-  --z-tour-destaque: 1090;
-  --z-tour: 1100;
-  --z-folha-conta-fundo: 1150;
-  --z-folha-conta: 1200;
-  --z-paleta: 1300;
-  --z-calendario: 1500;
-  --z-dialogo: 2000;
-  --z-bloqueio: 9999;
-  --z-dica: 9999;
-  --z-aviso: 10000;
-  --z-salto: 10001;
+  /* Espaço: base 8, 13 degraus (cap. 15 do estudo). Dentro de um componente,
+     2–8; entre componentes, 12–24; layout, 32–80. Padding, margin e gap só
+     por estes tokens (tests/sistema.test.mjs) */
+  --esp-025: 2px;                        /* ajuste fino: selo, ícone e texto */
+  --esp-050: 4px;                        /* ícone + rótulo, padding vertical de selo */
+  --esp-075: 6px;                        /* padding de etiqueta, gap de chips */
+  --esp-100: 8px;                        /* gap padrão dentro de um componente */
+  --esp-150: 12px;                       /* padding de cartão e de célula, gap de cartões */
+  --esp-200: 16px;                       /* padding de painel e de campo, margem lateral no celular */
+  --esp-250: 20px;                       /* entre grupos de campos */
+  --esp-300: 24px;                       /* padding de diálogo, entre blocos do detalhe */
+  --esp-400: 32px;                       /* margem da página no computador, entre seções */
+  --esp-500: 40px;                       /* abaixo do cabeçalho de página */
+  --esp-600: 48px;                       /* entre seções grandes */
+  --esp-800: 64px;                       /* respiro de estados vazios e do 404 */
+  --esp-1000: 80px;                      /* só na entrada */
+
+  /* Alturas fixas que o espaço em volta precisa descontar (celular) */
+  --barra-inferior-h: 56px;              /* barra de navegação de baixo */
+  --acoes-fixas-h: 65px;                 /* barra de ação do detalhe, acima dela */
+
+  /* Camadas (z-index): nove, de baixo para cima (cap. 15 do estudo, na
+     ordem do ADS, salvo o aviso, que fica acima do tour como sempre ficou).
+     Quem convive na mesma camada sobe com calc(var(--z-…) + n): a barra
+     inferior fica sobre a barra de seleção, o calendário sobre a janela e o
+     diálogo, o fundo de uma folha logo abaixo dela. Valores até 20 ficam no
+     próprio componente (empilhamento local) */
+  --z-fixo: 100;                         /* lateral */
+  --z-barra: 200;                        /* barra de seleção, barra inferior, faixa da demo, aviso offline */
+  --z-popover: 300;                      /* menus, sino e menu da conta no computador, dica do gráfico */
+  --z-folha: 400;                        /* folhas do celular: filtros, sino, conta (o fundo em -1) */
+  --z-cortina: 500;                      /* janela com cortina: modal, paleta, escolha de pessoa */
+  --z-modal: 510;                        /* diálogo de confirmação ou escolha, que abre sobre uma janela */
+  --z-tour: 600;                         /* tour: bloqueio, destaque (+1) e balão (+2) */
+  --z-aviso: 700;                        /* avisos (toast); a tela de bloqueio fica em -1 */
+  --z-dica: 800;                         /* dica (tooltip), cartão arrastado e o link de salto (+1) */
 
   /* Transições */
   --transition: 0.2s ease;

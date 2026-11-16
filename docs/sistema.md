@@ -5,7 +5,7 @@ Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terraco
 - **Tokens:** `css/tokens.css` (tema escuro em `:root`, claro em `.light`).
 - **Catálogo ao vivo:** `?tela=sistema` (fora da navegação). Mostra cada componente com as classes reais, nos dois temas.
 - **Nomes e textos:** [`docs/glossario.md`](glossario.md).
-- **Conferido no CI:** `tests/sistema.test.mjs` cobre os contrastes, o foco, a escala de texto, as camadas e os papéis de cor.
+- **Conferido no CI:** `tests/sistema.test.mjs` cobre os contrastes, o foco, a escala de texto, o espaço, as camadas, os papéis de cor e os componentes únicos (estado vazio e régua).
 
 ## Cores
 
@@ -46,9 +46,50 @@ Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terraco
 - **Display:** dois degraus na GFS Neohellenic, `--t-display-g` (40 px: título de tela, numeral da coluna, KPI em destaque) e `--t-display-m` (28 px: título do pedido, numerais da régua, KPIs). No celular, o título de tela fica em 30 px. A entrada e o 404 têm tamanhos próprios.
 - **Diálogos:** o título vai na fonte da interface (20 px), sem caixa alta. A inscrição em maiúsculas é só do título de tela.
 
+## Espaço
+
+Base 8, treze degraus. Padding, margin e gap só por estes tokens; o teste barra literal fora da escala.
+
+| Token | px | Uso |
+|---|---|---|
+| `--esp-025` | 2 | Ajuste fino: selo, ícone e texto |
+| `--esp-050` | 4 | Ícone + rótulo, padding vertical de selo |
+| `--esp-075` | 6 | Padding de etiqueta, gap de chips |
+| `--esp-100` | 8 | Gap padrão dentro de um componente |
+| `--esp-150` | 12 | Padding de cartão e de célula, gap de cartões |
+| `--esp-200` | 16 | Padding de painel e de campo, margem lateral no celular |
+| `--esp-250` | 20 | Entre grupos de campos |
+| `--esp-300` | 24 | Padding de diálogo, entre blocos do detalhe |
+| `--esp-400` | 32 | Margem da página no computador, entre seções |
+| `--esp-500` | 40 | Abaixo do cabeçalho de página |
+| `--esp-600` | 48 | Entre seções grandes |
+| `--esp-800` | 64 | Respiro de estados vazios e do 404 |
+| `--esp-1000` | 80 | Só na entrada |
+
+- **Faixas:** dentro de um componente, 2 a 8; entre componentes, 12 a 24; layout, 32 a 80.
+- **Fora da escala, sem token:** 0, 1 px (compensa uma borda), unidades relativas (%, em, vh, vw) e a área segura do celular (`env()`).
+- **Alturas que o espaço desconta:** `--barra-inferior-h` (56 px) e `--acoes-fixas-h` (65 px), no celular.
+- **Exceções com motivo** (lista em `tests/sistema.test.mjs`): o recuo do gráfico mensal, igual à largura dos rótulos do eixo Y, e o respiro fluido (`clamp`) da entrada.
+- **Negativo:** `calc(var(--esp-…) * -1)`, para a sangria que cancela o padding de quem está em volta.
+
 ## Camadas
 
-O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` (60) a `--z-salto` (10001). Valores até 20 ficam no próprio componente. Hoje os tokens guardam os valores antigos. Juntar tudo nas nove camadas da auditoria (fixo, barra, popover, folha, cortina, modal, aviso, tour, dica) muda a ordem de pares que aparecem juntos e pede conferência tela a tela.
+Nove camadas, de baixo para cima. O `z-index` global só usa estes tokens, ou um degrau acima ou abaixo de um deles, com `calc(var(--z-…) + n)`, para quem convive na mesma camada. Valores até 20 ficam no próprio componente.
+
+| Token | Valor | O que fica nela |
+|---|---|---|
+| `--z-fixo` | 100 | Lateral |
+| `--z-barra` | 200 | Barra de seleção; barra inferior (+1), faixa da demo (+2), aviso offline (+3) |
+| `--z-popover` | 300 | Menus, sino e menu da conta no computador, dica do gráfico |
+| `--z-folha` | 400 | Folhas do celular: filtros, sino, conta; o fundo de cada folha em −1 |
+| `--z-cortina` | 500 | Janela com cortina: modal, paleta, escolha de pessoa |
+| `--z-modal` | 510 | Diálogo de confirmação ou escolha, que abre sobre uma janela; calendário (+1) |
+| `--z-tour` | 600 | Tour: bloqueio, destaque (+1) e balão (+2) |
+| `--z-aviso` | 700 | Avisos; a tela de bloqueio em −1 |
+| `--z-dica` | 800 | Dica, cartão arrastado; link de salto (+1) |
+
+- **Ordem:** a do ADS, com uma diferença: o aviso fica acima do tour, como sempre ficou no Praxis (um erro durante o tour precisa aparecer).
+- **Pares que aparecem juntos, conferidos no navegador:** calendário dentro do modal, confirmação sobre o modal, aviso sobre o modal e sobre o tour, barra inferior sobre a barra de seleção, menu da conta no celular sobre a barra inferior e a faixa, tour sobre a faixa e a barra inferior.
 
 ## Foco
 
@@ -89,11 +130,6 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 | Cartão de pedido | Pedido no quadro | Detalhe do pedido | Número, título em até duas linhas, empresa, prazo, valor |
 | Aviso (toast) | Resultado de uma ação; até duas ações ("Ver pedido") | Erro de carga (vai na própria área) | Sucesso curto, sem "com sucesso"; erro com o que houve e o que fazer, e fica até a pessoa fechar |
 | Confirmação | Ação que não volta | Ação que dá para desfazer | Título em pergunta; botão com verbo + objeto |
-| Estado vazio | Lista ou área sem itens | Erro | Causa e saída, com uma ação de uma ou duas palavras |
+| Estado vazio | Lista ou área sem itens: um componente só (`estadoVazio` em `js/ui.js`). Na página, sob o fio de tinta (no quadro, com o 0 da contagem); `solto` em tabela, grade ou seção; `compacto` num bloco do detalhe; `painel` no sino e na paleta. Erro de carga: o mesmo componente, com ícone em vermelho | Aviso de ação (use o toast) | Título curto; uma frase com a causa e a saída; uma ação de uma ou duas palavras |
+| Régua de etapas | As sete etapas do caminho: na entrada, no detalhe e no quadro do celular (`.regua`). Numeral, nome (`STATUS_LABEL`) e data, sob um fio de 2 px; destaque só no fio: tinta (feita), bronze (atual ou escolhida), vermelho (onde parou), tracejado (o que não vai acontecer) | Etapa de um pedido numa lista (use a etiqueta) | O nome da etapa, igual ao do quadro |
 | Esqueleto | Enquanto a área carrega | Ações em andamento (use o botão carregando) | Nenhum; a medida do conteúdo que vem |
-
-## O que falta (Fase 1 do roteiro)
-
-- **Espaço (1.5):** tokens `--esp-*` em base 8. As alturas de botão (40 e 32 px) já estão feitas.
-- **Componentes unificados (1.6):** régua e estado vazio únicos. A etiqueta de etapa, a faixa da demo, o título dos diálogos, o aviso com ação e o erro que persiste já estão feitos.
-- **Estrutura das telas (1.9):** depende de um protótipo próprio e da revisão do dono.

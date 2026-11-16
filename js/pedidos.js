@@ -4,7 +4,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
 import { sessao, registrarPedidos } from './estado.js'
-import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
+import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, estadoVazio, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, CATEGORIA_ETAPA,
@@ -399,7 +399,7 @@ function _skeleton() {
     return `<div class="pedidos-esqueleto-lista" aria-busy="true" aria-label="${t('carregandoPedidos')}">${linhas}</div>`
   }
   const alturas = [[118, 104, 128], [128, 104], [118], [104, 118, 104], [128, 104], [104, 118], [104]]
-  const regua = KANBAN_COLUNAS.map(() => `<span class="regua-item regua-sk" aria-hidden="true"><span class="skeleton sk-regua-n"></span><span class="skeleton sk-regua-nome"></span></span>`).join('')
+  const regua = KANBAN_COLUNAS.map(() => `<span class="regua-etapa regua-item regua-sk" aria-hidden="true"><span class="skeleton sk-regua-n"></span><span class="skeleton sk-regua-nome"></span></span>`).join('')
   const cols = alturas.map((cards, i) => `
     <div class="kanban-col kanban-col-skeleton${i === 0 ? ' atual' : ''}" aria-hidden="true">
       <div class="kanban-col-header">
@@ -1067,10 +1067,10 @@ function _iniciarListenerPedidos() {
     console.error(err)
     const container = document.getElementById('pedidos-view')
     if (container) {
-      container.innerHTML = _estadoVazioHTML({
-        icone: ICO.alerta(22),
+      container.innerHTML = estadoVazio({
+        erro: true, icone: ICO.alerta(22), nivel: 'h2',
         titulo: t('erroCarregarPedidos'),
-        sub: t('verificarConexao'),
+        texto: t('verificarConexao'),
         acao: `<button class="btn-secondary btn-sm" id="btn-empty-recarregar">${t('recarregar')}</button>`,
       })
       container.querySelector('#btn-empty-recarregar')?.addEventListener('click', () => window.location.reload())
@@ -1746,7 +1746,7 @@ function _renderKanban(lista) {
       ${colunas.map(st => {
         const n = porEtapa[st].length
         const sel = st === atual
-        const classes = ['regua-item', sel ? 'ativa' : '', st === statusFila ? 'eh-fila' : '', n === 0 ? 'zero' : ''].filter(Boolean).join(' ')
+        const classes = ['regua-etapa', 'regua-item', sel ? 'ativa' : '', st === statusFila ? 'eh-fila' : '', n === 0 ? 'zero' : ''].filter(Boolean).join(' ')
         const nome = STATUS_LABEL[st]
         return `<button type="button" role="tab" class="${classes}" id="regua-${st}" data-etapa="${st}" data-drop-status="${st}"
           aria-selected="${sel}" aria-controls="coluna-${st}" tabindex="${sel ? 0 : -1}" aria-label="${esc(STATUS_LABEL[st])}: ${n}">
@@ -1927,37 +1927,26 @@ function _tipoVazio() {
   return 'vazio'
 }
 
-// Mesma inscrição do quadro: fio de tinta, numeral grande (00), título e a saída
-function _estadoVazioHTML({ icone = '', titulo, sub, acao = '' }) {
-  return `
-    <div class="pedidos-vazio">
-      ${icone ? `<span class="pedidos-vazio-icone">${icone}</span>` : '<span class="pedidos-vazio-n" aria-hidden="true">0</span>'}
-      <h2 class="pedidos-vazio-titulo">${titulo}</h2>
-      <p class="pedidos-vazio-sub">${sub}</p>
-      ${acao ? `<div class="pedidos-vazio-acao">${acao}</div>` : ''}
-    </div>`
-}
-
 function _renderEmptyState(tipo) {
   if (tipo === 'busca') {
     const termo = _termoBusca.trim()
-    return _estadoVazioHTML({
+    return estadoVazio({ numeral: true, nivel: 'h2',
       titulo: termo ? `${t('nenhumResultadoPara')} “${esc(termo)}”` : t('nenhumResultado'),
-      sub: t('ajustarFiltro'),
+      texto: t('ajustarFiltro'),
       acao: `<button class="btn-secondary btn-sm" data-empty-limpar>${t('limparFiltros')}</button>`,
     })
   }
   if (tipo === 'pendentes') {
-    return _estadoVazioHTML({ titulo: t('semPendentesTitulo'), sub: t('semPendentesSub'),
+    return estadoVazio({ numeral: true, nivel: 'h2', titulo: t('semPendentesTitulo'), texto: t('semPendentesSub'),
       acao: `<button class="btn-secondary btn-sm" data-empty-limpar>${t('verTodos')}</button>` })
   }
   if (tipo === 'filtro') {
-    return _estadoVazioHTML({ titulo: t('semPedidosFiltro'), sub: t('semPedidosFiltroSub'),
+    return estadoVazio({ numeral: true, nivel: 'h2', titulo: t('semPedidosFiltro'), texto: t('semPedidosFiltroSub'),
       acao: `<button class="btn-secondary btn-sm" data-empty-limpar>${t('verTodos')}</button>` })
   }
-  return _estadoVazioHTML({
+  return estadoVazio({ numeral: true, nivel: 'h2',
     titulo: t('nenhumPedido'),
-    sub: t('semPedidosSub'),
+    texto: t('semPedidosSub'),
     acao: `<button class="btn-secondary btn-sm" data-empty-novo>${ICO.mais(14)}${t('novoPedido')}</button>`,
   })
 }
