@@ -121,7 +121,7 @@ Para rodar os testes das regras de segurança (eles sobem e derrubam os próprio
 npm run testar-regras
 ```
 
-Os testes de unidade não precisam de emulador. Eles cobrem a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário) e as regras dos avisos das Cloud Functions (quem recebe cada aviso, um aviso por evento, datas no horário de São Paulo):
+Os testes de unidade não precisam de emulador. Eles cobrem a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário), o contraste das cores nos dois temas (texto a 4,5:1; anel de foco e borda de campo a 3:1, pelo WCAG) com um só estilo de foco nos CSS, e as regras dos avisos das Cloud Functions (quem recebe cada aviso, um aviso por evento, datas no horário de São Paulo):
 
 ```bash
 npm run testar-unidade

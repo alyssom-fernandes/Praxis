@@ -125,7 +125,7 @@ input, select, textarea {
   font-family: inherit;
   font-size: 0.875rem;
   background: var(--card2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--borda-campo);
   border-radius: var(--radius-input);
   color: var(--text);
   padding: 0.55rem 0.8rem;
@@ -137,15 +137,10 @@ input, select, textarea {
 input[type="checkbox"], input[type="radio"] { min-height: 0; }
 
 input:hover:not(:focus):not(:disabled), select:hover:not(:focus):not(:disabled), textarea:hover:not(:focus):not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--text3);
 }
 
 input::placeholder, textarea::placeholder { color: var(--text3); opacity: 0.8; }
-
-input:focus, select:focus, textarea:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-dim);
-}
 
 input:disabled, select:disabled, textarea:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -641,20 +636,45 @@ button:disabled {
 .dot-blue   { background: var(--blue); }
 .dot-gray   { background: var(--text3); }
 
-/* ── Foco visível — WCAG 2.11 ────────────────────────── */
+/* ── Foco visível (WCAG 2.4.7 e 1.4.11) ─────────────────
+   Um anel só: 2 px na cor --foco, a 2 px do elemento. Dentro de listas e
+   tabelas que cortam o que passa da borda, o mesmo anel vem para dentro
+   (outline-offset negativo) */
 :focus { outline: none; }
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--foco);
   outline-offset: 2px;
 }
-/* Campos: anel de 2 px na cor de destaque. O navegador trata o foco num campo
-   de texto como "visível" mesmo pelo mouse, então ele aparece sempre que o
-   campo recebe o cursor (antes era só uma sombra de 12%, quase invisível) */
+/* Campos: o mesmo anel, mais junto. O navegador trata o foco num campo de
+   texto como "visível" mesmo pelo mouse, então ele aparece sempre que o
+   campo recebe o cursor */
 input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--foco);
   outline-offset: 1px;
   box-shadow: none;
 }
+
+/* Link de salto: o primeiro Tab de toda tela com a barra lateral. Fica fora
+   da tela até receber o foco */
+.link-salto {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10001;
+  padding: 0.6rem 1rem;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--tinta);
+  border-radius: var(--radius-btn);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.link-salto:focus-visible { transform: none; }
+/* A área principal recebe o foco do link de salto só para o leitor de tela e
+   o próximo Tab partirem dela; não é um controle, então não leva o anel */
+main:focus { outline: none; }
 
 /* ── prefers-reduced-motion — 2.10 ──────────────────── */
 @media (prefers-reduced-motion: reduce) {

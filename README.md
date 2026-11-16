@@ -122,7 +122,7 @@ To run the security rules tests (they start and stop their own emulators):
 npm run testar-regras
 ```
 
-The unit tests need no emulator. They cover the interface text check (every key in both languages, no text outside the dictionary) and the Cloud Functions' notification rules (who gets each notice, one notice per event, dates in São Paulo time):
+The unit tests need no emulator. They cover the interface text check (every key in both languages, no text outside the dictionary), color contrast in both themes (text at 4.5:1; focus ring and field border at 3:1, per WCAG) with a single focus style across the CSS, and the Cloud Functions' notification rules (who gets each notice, one notice per event, dates in São Paulo time):
 
 ```bash
 npm run testar-unidade

@@ -326,6 +326,7 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
   }
 
   return `
+    <a class="link-salto" href="#">${t('pularConteudo')}</a>
     <aside class="lateral" data-mode="${modoConfig ? 'config' : 'main'}">
       <div class="lateral-topo">
         <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos" aria-label="Praxis: ${t('navPedidos')}">${marcaPraxis()}</a>
@@ -406,6 +407,13 @@ function _registrarListenersDocumento() {
   _docListeners = true
 
   document.addEventListener('click', e => {
+    // "Pular para o conteúdo": leva o foco à área principal da tela
+    if (e.target.closest('.link-salto')) {
+      e.preventDefault()
+      const principal = document.querySelector('main')
+      if (principal) { principal.tabIndex = -1; principal.focus() }
+      return
+    }
     const wrap = document.getElementById('notif-wrap')
     if (_notifPainel && !_notifPainel.contains(e.target) && !wrap?.contains(e.target)) _fecharNotificacoes()
     const menu = document.getElementById('user-menu')

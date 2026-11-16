@@ -15,7 +15,7 @@ import {
   CONDICAO_PAGAMENTO, STORAGE_PATHS, DEMO_ENVIA_ARQUIVOS, t,
 } from './constants.js'
 import {
-  formatCurrency, formatDate, formatarDataRelativa, gerarIniciais,
+  formatCurrency, formatDate, formatarDataRelativa, dataAbsoluta, dataComRelativo, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
   empresasDoUsuario, textoPrazo,
@@ -55,9 +55,9 @@ export async function renderDetalhe(pedidoId) {
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('pedidos')}
-      <div class="main-content">
+      <main class="main-content">
         <div id="detalhe-root"></div>
-      </div>
+      </main>
       ${renderFooter()}
     </div>
   `
@@ -296,15 +296,6 @@ function _quemFez(status) {
   return { id: h.autorId || null, nome: h.autorNome || _nomePorId(h.autorId), em: h.criadoEm }
 }
 
-// Data de um campo Timestamp/ISO para dd/mm/aaaa
-function _dataCurta(v) {
-  if (!v) return ''
-  if (typeof v === 'string') return formatDate(v.slice(0, 10))
-  const d = v.toDate ? v.toDate() : new Date(v)
-  if (isNaN(d)) return ''
-  return d.toLocaleDateString('pt-BR')
-}
-
 function _diasAte(iso) {
   if (!iso) return null
   return Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 86400000)
@@ -368,15 +359,6 @@ function _posicaoCaminho() {
   return { atual: ultima ? _ETAPAS.indexOf(ultima.status) : 0, parou: STATUS.CANCELADO }
 }
 
-// dd/mm, com o ano quando não for o corrente
-function _diaMes(v) {
-  if (!v) return ''
-  const d = typeof v === 'string' ? new Date(v.slice(0, 10) + 'T00:00:00') : (v.toDate ? v.toDate() : new Date(v))
-  if (isNaN(d)) return ''
-  const dm = `${_dois(d.getDate())}/${_dois(d.getMonth() + 1)}`
-  return d.getFullYear() === new Date().getFullYear() ? dm : `${dm}/${String(d.getFullYear()).slice(2)}`
-}
-
 // Prazo do pedido em palavras, com o estado: atrasado, perto ou com folga
 function _estadoPrazo() {
   const p = _pedido
@@ -394,14 +376,15 @@ function _renderCaminho() {
   const fim = parou === STATUS.REPROVADO ? (p.reprovadoEm || _quemFez(STATUS.REPROVADO)?.em)
     : parou === STATUS.CANCELADO ? (p.canceladoEm || _quemFez(STATUS.CANCELADO)?.em) : null
   const etapas = _ETAPAS.map((st, i) => {
-    let cls, sub = '', leitor = ''
-    if (i < atual) { cls = 'feita'; sub = _diaMes(ent[st]); leitor = t('dtEtapaConcluida') }
+    let cls, sub = '', leitor = '', dica = ''
+    if (i < atual) { cls = 'feita'; sub = dataAbsoluta(ent[st]); leitor = t('dtEtapaConcluida') }
     else if (i === atual && parou) {
       cls = 'parou'
-      sub = fim ? t(parou === STATUS.REPROVADO ? 'prazoReprovadoEm' : 'prazoCanceladoEm', { d: _diaMes(fim) }) : STATUS_LABEL[parou]
+      sub = fim ? t(parou === STATUS.REPROVADO ? 'prazoReprovadoEm' : 'prazoCanceladoEm', { d: dataAbsoluta(fim) }) : STATUS_LABEL[parou]
     } else if (i === atual) {
       cls = p.status === STATUS.PAGO ? 'atual fim' : 'atual'
-      sub = p.status === STATUS.PAGO ? t('dtEmData', { d: _diaMes(ent[st]) || '—' }) : (ent[st] ? formatarDataRelativa(ent[st]).label : t('dtAgora'))
+      sub = p.status === STATUS.PAGO ? t('dtEmData', { d: dataAbsoluta(ent[st]) || '—' }) : (ent[st] ? dataAbsoluta(ent[st]) : t('dtAgora'))
+      if (ent[st]) { const r = formatarDataRelativa(ent[st]); dica = `${r.title} · ${r.label.charAt(0).toLowerCase()}${r.label.slice(1)}` }
       leitor = t('dtEtapaAtual')
     } else { cls = parou ? 'cortada' : 'futura' }
     if (_avancouDe != null && i > _avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
@@ -409,7 +392,7 @@ function _renderCaminho() {
       <li class="caminho-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
         <span class="caminho-num" aria-hidden="true">${_dois(i + 1)}</span>
         <span class="caminho-nome">${STATUS_LABEL[st]}${leitor ? `<span class="sr-only">, ${leitor}</span>` : ''}</span>
-        <span class="caminho-sub">${sub || '&nbsp;'}</span>
+        <span class="caminho-sub"${dica ? ` title="${dica}"` : ''}>${sub || '&nbsp;'}</span>
       </li>`
   }).join('')
   return `
@@ -423,12 +406,12 @@ function _renderCabecalho(menu) {
   const p = _pedido
   const empresa = _empresas.find(e => e.id === p.empresaId)
   const solicNome = _nomePorId(p.solicitanteId) || p.solicitanteNome || null
-  const criado = p.criadoEm ? formatarDataRelativa(p.criadoEm) : null
+  const criado = p.criadoEm ? dataComRelativo(p.criadoEm) : null
   const prazo = _estadoPrazo()
   const meta = []
   if (empresa?.nome) meta.push(`<span>${esc(empresa.nome)}</span>`)
   if (solicNome || criado) {
-    meta.push(`<span>${solicNome ? t('dtAbertoPor', { nome: esc(solicNome) }) : t('dtAberto')}${criado ? ` <span title="${criado.title}">${criado.label.toLowerCase()}</span>` : ''}</span>`)
+    meta.push(`<span>${solicNome ? t('dtAbertoPor', { nome: esc(solicNome) }) : t('dtAberto')}${criado ? ` <span title="${criado.title}">${t('dtAbertoEm', { d: criado.texto })}</span>` : ''}</span>`)
   }
   if (prazo) {
     meta.push(`<span>${t('dtPrazo')} <span class="detalhe-meta-data">${prazo.data}</span>${prazo.texto
@@ -853,7 +836,7 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
       const em = p.aprovadoEm || h?.em
       titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' })} ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
+      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
         : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
       if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
@@ -899,7 +882,7 @@ function _renderDecisao(acoes) {
         ? t(p.fornecedorNome ? 'dtPagosValorA' : 'dtPagosValor', { valor: formatCurrency(p.valorFinal), fornecedor: esc(p.fornecedorNome || '') })
         : t(p.fornecedorNome ? 'dtPagoIntegralA' : 'dtPagoIntegral', { fornecedor: esc(p.fornecedorNome || '') })
       if (p.valorFinal) fatos.push([t('dtValorPago'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
-      if (ent[STATUS.PAGO]) fatos.push([t('dtConcluidoEm'), `<span class="dt-numeral">${_dataCurta(ent[STATUS.PAGO])}</span>`])
+      if (ent[STATUS.PAGO]) fatos.push([t('dtConcluidoEm'), `<span class="dt-numeral">${dataAbsoluta(ent[STATUS.PAGO])}</span>`])
       if (p.criadoEm && ent[STATUS.PAGO]) {
         const d = Math.max(1, Math.round((_tsMs(ent[STATUS.PAGO]) - _tsMs(p.criadoEm)) / 86400000))
         fatos.push([t('dtDoPedidoAoPagamento'), `<span class="dt-numeral">${d}</span><span class="dt-de"> ${t(d === 1 ? 'dtDia' : 'dtDias')}</span>`])
@@ -914,7 +897,7 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.reprovadoPor) || p.reprovadoPorNome || h?.nome
       const em = p.reprovadoEm || h?.em
       titulo = motivo ? esc(motivo) : t('dtReprovadoTitulo')
-      texto = quem ? t(em ? 'dtReprovadoPorEm' : 'dtReprovadoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' }) : ''
+      texto = quem ? t(em ? 'dtReprovadoPorEm' : 'dtReprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' }) : ''
       if (p.reabertoPara) texto += ` ${t('dtJaReaberto')} ${esc(p.reabertaParaNum || '')}.`
       else if ([PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) texto += ` ${t('dtDicaReabrir')}`
       break
@@ -927,7 +910,7 @@ function _renderDecisao(acoes) {
       const quem = _nomePorId(p.canceladoPor) || p.canceladoPorNome || h?.nome
       const em = p.canceladoEm || h?.em
       titulo = motivo ? esc(motivo) : t('dtCanceladoTitulo')
-      texto = `${quem ? `${t(em ? 'dtCanceladoPorEm' : 'dtCanceladoPor', { nome: esc(quem), d: em ? _dataCurta(em) : '' })} ` : ''}${t('dtCanceladoTexto')}`
+      texto = `${quem ? `${t(em ? 'dtCanceladoPorEm' : 'dtCanceladoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${t('dtCanceladoTexto')}`
       break
     }
 
@@ -1058,13 +1041,13 @@ function _renderPessoaAprovadores() {
     const h = _quemFez(STATUS.APROVADO)
     const nome = _nomePorId(p.aprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
     const em = p.aprovadoEm || h?.em
-    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, `${ICO.check} ${em ? t('dtAprovadoEm', { d: _dataCurta(em) }) : t('aprovadoStatus')}`, '', 'text-green')
+    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, `${ICO.check} ${em ? t('dtAprovadoEm', { d: dataAbsoluta(em) }) : t('aprovadoStatus')}`, '', 'text-green')
   }
   if (p.status === STATUS.REPROVADO || p.reprovadoPor) {
     const h = _quemFez(STATUS.REPROVADO)
     const nome = _nomePorId(p.reprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
     const em = p.reprovadoEm || h?.em
-    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, em ? t('dtReprovouEm', { d: _dataCurta(em) }) : t('dtReprovou'), '', 'text-red')
+    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, em ? t('dtReprovouEm', { d: dataAbsoluta(em) }) : t('dtReprovou'), '', 'text-red')
   }
   const lista = _aprovadoresDoPedido()
   const status = p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
@@ -1185,14 +1168,14 @@ function _renderActivityFeed() {
       <div class="feed-left">${marca}</div>
       <div class="feed-body">
         <div class="feed-text">${html}</div>
-        <div class="feed-time" title="${ts.title}">${ts.label}</div>
+        <div class="feed-time" title="${ts.title}">${ts.texto}</div>
       </div>
     </li>`
   const icone = d => `<span class="feed-marca">${_svg(d, 12)}</span>`
 
   return feed.map(item => {
     const nome = item.autorNome || _nomePorId(item.autorId)
-    const ts   = formatarDataRelativa(item.criadoEm)
+    const ts   = dataComRelativo(item.criadoEm)
     const quem = nome ? `<strong>${esc(nome)}</strong>` : ''
 
     if (item._feedTipo === 'status') {
@@ -1239,7 +1222,7 @@ function _renderActivityFeed() {
           <div class="feed-body">
             <div class="feed-header">
               <span class="feed-author">${esc(nome || t('feedParticipante'))}</span>
-              <span class="feed-time" title="${ts.title}">${ts.label}</span>
+              <span class="feed-time" title="${ts.title}">${ts.texto}</span>
               ${editado}
               ${(meu || apaga) && !editando ? `<span class="coment-acoes">
                 ${meu ? acao('editar', t('comentEditarAria')) : ''}
@@ -1300,7 +1283,7 @@ function _renderParcelas() {
   return _parcelas.map(parc => {
     let estado, cls = ''
     if (parc.pago) {
-      estado = parc.pagoEm ? t('parcPagaEm', { d: _dataCurta(parc.pagoEm) }) : t('parcPaga')
+      estado = parc.pagoEm ? t('parcPagaEm', { d: dataAbsoluta(parc.pagoEm) }) : t('parcPaga')
       cls = 'paga'
     } else {
       const d = _diasAte(parc.vencimento)
@@ -2850,14 +2833,14 @@ function _renderAnexos() {
   return `<ul class="anexos-lista">${_anexos.map(a => {
     const ext = (a.nome || '').includes('.') ? (a.nome || '').split('.').pop().toLowerCase() : ''
     const autor = _nomePorId(a.autorId) || a.autorNome || '—'
-    const ts    = formatarDataRelativa(a.criadoEm)
+    const ts    = dataComRelativo(a.criadoEm)
     const podeRemover = a.autorId === uid || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
     return `
       <li class="anexo-item">
         <span class="anexo-tipo" aria-hidden="true">${esc((ext || 'arq').slice(0, 4))}</span>
         <div class="anexo-info">
           <a class="anexo-nome" href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" title="${esc(a.nome)}">${esc(a.nome)}</a>
-          <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${esc(autor)} · <span title="${ts.title}">${ts.label.toLowerCase()}</span></div>
+          <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${esc(autor)} · <span title="${ts.title}">${ts.texto}</span></div>
         </div>
         <div class="anexo-acoes">
           <a href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('anexoBaixarAria', { nome: esc(a.nome) })}" title="${t('anexoBaixar')}">${ICO.baixar}</a>

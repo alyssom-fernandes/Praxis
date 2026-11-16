@@ -7,7 +7,7 @@ import { sessao } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
-import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario } from './utils.js'
+import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, corPerfil, dataAcesso, iniciais,
@@ -33,9 +33,6 @@ const _meuId      = () => sessao.usuario?.id || sessao.fireUser?.uid
 const _ativo      = u => u.ativo !== false
 const _emailNorm  = e => String(e || '').trim().toLowerCase()
 const _vencido    = c => !c.expiraEm?.toMillis || c.expiraEm.toMillis() <= Date.now()
-const _dataCurta  = ts => ts?.toDate
-  ? ts.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  : ''
 
 export async function renderConfigUsuarios() {
   _filtroStatus = 'todos'
@@ -302,8 +299,8 @@ function _linha(u, eu) {
   const acesso = !convite
     ? _celAcesso(u, eu)
     : vencido
-      ? `<span class="cfg-mudo">${esc(tf('cfgConviteExpirouEm', { data: _dataCurta(u.expiraEm) }))}</span>`
-      : `<span>${esc(tf('cfgConviteAte', { data: _dataCurta(u.expiraEm) }))}</span>`
+      ? `<span class="cfg-mudo">${esc(tf('cfgConviteExpirouEm', { data: dataAbsoluta(u.expiraEm) }))}</span>`
+      : `<span>${esc(tf('cfgConviteAte', { data: dataAbsoluta(u.expiraEm) }))}</span>`
   return `
       <tr data-uid="${esc(u.id)}" tabindex="0" class="${ativo && !vencido ? '' : 'cfg-linha-inativa'}">
         <td class="c-usuario">

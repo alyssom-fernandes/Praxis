@@ -9,7 +9,7 @@ import {
   formatFileSize, pluralizar, calcularSLA, maisXDiasISO, hojeISO, dataEhPassado, dataEhProximos,
   agruparPor, ordenarPor, validarEmail, validarNumeroPositivo,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
-  empresasDoUsuario, textoPrazo,
+  empresasDoUsuario, textoPrazo, dataAbsoluta, dataEHora, dataComRelativo, formatarDataRelativa,
 } from '../js/utils.js'
 import {
   tomDaCor, corCategoria, TONS_CATEGORIA,
@@ -266,4 +266,28 @@ test('jsPDF e ExcelJS servidos pelo próprio site, com a licença junto', () => 
   }
   assert.match(ui, /vendor\/jspdf-2\.5\.1\/jspdf\.umd\.min\.js/)
   assert.match(ui, /vendor\/exceljs-4\.4\.0\/exceljs\.min\.js/)
+})
+
+test('datas: dd/mm/aaaa à vista, o relativo como complemento e a hora no title', () => {
+  // "aaaa-mm-dd" é dia do calendário, sem virar o dia anterior pelo fuso
+  assert.equal(dataAbsoluta('2026-01-05'), '05/01/2026')
+  const ts = { toDate: () => new Date(2025, 10, 4, 9, 7) }
+  assert.equal(dataAbsoluta(ts), '04/11/2025')
+  assert.equal(dataEHora(ts), '04/11/2025 09:07')
+  assert.equal(dataAbsoluta(null), '')
+  assert.equal(dataAbsoluta('não é data'), '')
+
+  const ha3dias = new Date(Date.now() - 3 * 864e5)
+  const r = formatarDataRelativa(ha3dias)
+  assert.equal(r.label, 'Há 3 dias')
+  assert.equal(r.data, dataAbsoluta(ha3dias))
+  assert.equal(r.title, dataEHora(ha3dias))
+  assert.equal(dataComRelativo(ha3dias).texto, `${dataAbsoluta(ha3dias)} · há 3 dias`)
+  assert.equal(formatarDataRelativa(new Date(Date.now() - 2 * 3600e3)).label, 'Há 2 h')
+
+  // Depois de um ano o relativo já seria a própria data: fica só ela
+  const antiga = new Date(2020, 0, 15)
+  assert.equal(formatarDataRelativa(antiga).label, '15/01/2020')
+  assert.equal(dataComRelativo(antiga).texto, '15/01/2020')
+  assert.deepEqual(dataComRelativo(null), { texto: '—', title: '' })
 })

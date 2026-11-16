@@ -357,7 +357,7 @@
   border-radius: 2px;
 }
 .login-link:hover { color: var(--gold); text-decoration-color: currentColor; }
-.login-link:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.login-link:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 
 .login-senha { position: relative; }
 .login-senha input { padding-right: 2.75rem; }
@@ -376,7 +376,7 @@
 .login-olho:hover { color: var(--text); background: var(--card3); }
 .login-olho[aria-pressed="true"] { color: var(--text2); }
 .login-olho:active:not(:disabled) { transform: translateY(-50%); }
-.login-olho:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.login-olho:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 
 /* Erro: uma nota da inscrição, com o fio carmim à esquerda (o carmim é
    erro; a terracota fica para a ação) */
@@ -686,7 +686,7 @@
 .rapido:active:not(:disabled) { transform: none; }
 .rapido.active { color: var(--text); }
 .rapido.active::after { background: var(--gold-fill); }
-.rapido:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -4px; }
+.rapido:focus-visible { outline: 2px solid var(--foco); outline-offset: -4px; }
 .rapido-n {
   font-family: var(--display);
   font-size: 0.98rem;
@@ -737,7 +737,7 @@
 .view-toggle button:hover:not(.active) { color: var(--text); background: var(--card3); }
 .view-toggle button.active { color: var(--text); background: var(--card3); box-shadow: inset 0 -2px 0 var(--gold-fill); }
 .view-toggle button:active:not(:disabled) { transform: none; }
-.view-toggle button:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
+.view-toggle button:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 
 /* Painel de filtros: no computador, preso ao botão; no celular, folha de baixo */
 .painel-filtros {
@@ -942,7 +942,7 @@
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 .np-urgente:hover { border-color: var(--border-strong); }
-.np-urgente:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.np-urgente:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 /* Urgência usa o acento: ligado, a caixa fica terracota e o selo do cartão aparece */
 .np-urgente.on { background: var(--gold-dim); border-color: var(--gold-border); }
 .np-urgente .toggle-label { display: flex; align-items: center; gap: 0.6rem; }
@@ -1130,7 +1130,7 @@
 .rel-seg-btn:hover:not(.active) { background: var(--card3); color: var(--text); }
 /* Ativo como no quadro/lista de Pedidos: fundo leve e o traço terracota */
 .rel-seg-btn.active { background: var(--card3); color: var(--text); box-shadow: inset 0 -2px 0 var(--gold-fill); }
-.rel-seg-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
+.rel-seg-btn:focus-visible { outline: 2px solid var(--foco); outline-offset: -3px; }
 .rel-datas { display: flex; align-items: center; gap: 8px; }
 .rel-datas[hidden] { display: none; }
 .rel-datas .campo-data-texto { width: 134px; min-height: 38px; padding-top: 0.4rem; padding-bottom: 0.4rem; }
@@ -1172,7 +1172,7 @@
 }
 .rel-menu-item svg { margin-top: 1px; color: var(--text3); }
 .rel-menu-item:hover,
-.rel-menu-item:focus-visible { background: var(--card3); color: var(--text); outline: none; }
+.rel-menu-item:focus-visible { background: var(--card3); color: var(--text); outline: 2px solid var(--foco); outline-offset: -2px; }
 .rel-menu-item:hover svg,
 .rel-menu-item:focus-visible svg { color: var(--gold); }
 .rel-menu-txt { display: flex; flex-direction: column; gap: 1px; }
@@ -1301,7 +1301,7 @@
   background: transparent;
   cursor: default;
 }
-.rel-col:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.rel-col:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 .rel-col:active:not(:disabled) { transform: none; }
 .rel-col-valor {
   margin-bottom: 5px;
@@ -1468,7 +1468,7 @@
 }
 .rel-linha:hover { background: var(--neutral-dim); }
 .rel-linha:active:not(:disabled) { transform: none; }
-.rel-linha:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.rel-linha:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 .rel-data { display: flex; flex-direction: column; align-items: center; width: 38px; line-height: 1; }
 .rel-data strong { font-family: var(--display); font-size: 1.6rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .rel-data small {
@@ -1713,7 +1713,7 @@
   transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 .detalhe-layout :is(a, label).btn-icon:focus-within,
-.detalhe-layout :is(a, label):focus-visible { outline: 2px solid var(--gold-border); outline-offset: 1px; }
+.detalhe-layout :is(a, label):focus-visible { outline: 2px solid var(--foco); outline-offset: 1px; }
 
 /* Cabeçalho: trilha com o número do pedido, título, uma linha de dados */
 .detalhe-head { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -2138,7 +2138,7 @@
   transition: border-color var(--transition-fast);
 }
 .dropzone:hover,
-.dropzone:focus-within { border-color: var(--gold-border); color: var(--text); outline: 2px solid var(--gold); outline-offset: 1px; }
+.dropzone:focus-within { color: var(--text); outline: 2px solid var(--foco); outline-offset: 1px; }
 .dropzone span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .edit-urgente-wrap { margin-top: 0.5rem; cursor: pointer; }
 .modal-comparar { max-width: 920px; }
@@ -2247,7 +2247,7 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 .cfg-filtro.active .cfg-filtro-n { color: var(--gold); }
-.cfg-filtro:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.cfg-filtro:focus-visible { outline: 2px solid var(--foco); outline-offset: 4px; }
 .cfg-busca { width: 280px; max-width: 100%; }
 .cfg-busca input { width: 100%; min-height: 38px; padding-top: 0.45rem; padding-bottom: 0.45rem; }
 .cfg-busca input::-webkit-search-cancel-button {
@@ -2279,7 +2279,7 @@
 .cfg-tabela tbody tr,
 .cfg-tabela tbody tr:last-child { border-bottom: 1px solid var(--line); }
 @media (hover: hover) { .cfg-tabela tbody tr:hover { background: var(--card); } }
-.cfg-tabela tbody tr:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.cfg-tabela tbody tr:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 .cfg-tabela tbody td { padding: 0.9rem 1rem; }
 .cfg-tabela tbody td:first-child { color: inherit; font-weight: inherit; }
 .cfg-tabela th.c-acoes, .cfg-tabela td.c-acoes { width: 56px; text-align: right; padding-left: 0.25rem; padding-right: 0.5rem; }
@@ -2404,7 +2404,7 @@ input.cfg-mono { font-size: 0.85rem; }
 }
 .light .emp-cartao { box-shadow: var(--shadow-sm); }
 @media (hover: hover) { .emp-cartao:hover { background: var(--card2); } }
-.emp-cartao:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.emp-cartao:focus-visible { outline: 2px solid var(--foco); outline-offset: 3px; }
 .emp-cartao.is-esqueleto { padding: 0; cursor: default; min-height: 196px; }
 .emp-cab { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
 .emp-nome {
@@ -2522,7 +2522,7 @@ input.cfg-mono { font-size: 0.85rem; }
 }
 .cfg-interruptor .toggle { border-radius: var(--radius-sm); }
 .cfg-interruptor .toggle::after { border-radius: 2px; }
-.cfg-interruptor:focus-visible .toggle { box-shadow: 0 0 0 3px var(--gold-dim); border-color: var(--gold-border); }
+.cfg-interruptor:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .cfg-interruptor[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 .form-group.invalido .cfg-interruptor .toggle { border-color: var(--red-border); }
 
@@ -2627,7 +2627,7 @@ input.cfg-mono { font-size: 0.85rem; }
 }
 .cfg-cor:hover { border-color: var(--border-strong); }
 .cfg-cor.active { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
-.cfg-cor:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.cfg-cor:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 /* Prévia: a categoria como ela aparece na lista */
 .cfg-previa {
   display: flex;
@@ -2705,7 +2705,7 @@ input.cfg-mono { font-size: 0.85rem; }
 .cfg-seg-op + .cfg-seg-op { border-left: 1px solid var(--border-strong); }
 .cfg-seg-op:hover:not(.active) { color: var(--text); background: var(--card3); }
 .cfg-seg-op.active { color: var(--text); background: var(--card3); box-shadow: inset 0 -2px 0 var(--gold-fill); }
-.cfg-seg-op:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
+.cfg-seg-op:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 
 /* ── Configurações no celular ── */
 @media (max-width: 767px) {

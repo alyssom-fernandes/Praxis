@@ -1,4 +1,4 @@
-import { t, idioma } from './constants.js'
+import { t } from './constants.js'
 
 export function formatCurrency(value) {
   if (value == null || isNaN(value)) return '—'
@@ -17,14 +17,42 @@ export function formatDate(dateStr) {
   return `${m[3]}/${m[2]}/${m[1]}`
 }
 
-export function formatTimestamp(ts) {
-  if (!ts) return ''
-  return formatarDataRelativa(ts).label
+// ── Datas ─────────────────────────────────────────────────────
+// Regra da interface: a data absoluta dd/mm/aaaa fica à vista; o relativo
+// ("há 2 dias") vem como complemento, e a hora vai no title. Aceita Timestamp
+// do Firestore, Date, milissegundos e texto ISO; "aaaa-mm-dd" sozinho é o dia
+// do calendário, sem fuso
+function _paraData(v) {
+  if (v == null || v === '') return null
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(`${v}T00:00:00`)
+  const d = v.toDate ? v.toDate() : new Date(v)
+  return isNaN(d) ? null : d
+}
+const _doisDigitos = n => String(n).padStart(2, '0')
+
+export function dataAbsoluta(v) {
+  const d = _paraData(v)
+  return d ? `${_doisDigitos(d.getDate())}/${_doisDigitos(d.getMonth() + 1)}/${d.getFullYear()}` : ''
 }
 
+export function dataEHora(v) {
+  const d = _paraData(v)
+  return d ? `${dataAbsoluta(d)} ${_doisDigitos(d.getHours())}:${_doisDigitos(d.getMinutes())}` : ''
+}
+
+// "13/11/2026 · há 2 dias": a data e, como complemento, o relativo (que some
+// quando já seria a própria data, depois de um ano)
+export function dataComRelativo(v) {
+  const r = formatarDataRelativa(v)
+  if (!r.data) return { texto: '—', title: '' }
+  if (r.label === r.data) return { texto: r.data, title: r.title }
+  return { texto: `${r.data} · ${r.label.charAt(0).toLowerCase()}${r.label.slice(1)}`, title: r.title }
+}
+
+// Só o relativo, para onde o espaço é curto (sino): a data e a hora no title
 export function formatarDataRelativa(ts) {
-  if (!ts) return { label: '—', title: '' }
-  const date   = ts.toDate ? ts.toDate() : new Date(ts)
+  const date = _paraData(ts)
+  if (!date) return { label: '—', title: '', data: '' }
   const now    = new Date()
   const diffMs = now - date
   const diffMin = Math.floor(diffMs / 60000)
@@ -32,7 +60,6 @@ export function formatarDataRelativa(ts) {
   const diffD   = Math.floor(diffMs / 86400000)
   const diffM   = Math.floor(diffD / 30)
 
-  const local = idioma() === 'en' ? 'en-US' : 'pt-BR'
   let label
   if (diffMin < 1)    label = t('relAgora')
   else if (diffMin < 60)  label = t('relMinutos', { n: diffMin })
@@ -41,10 +68,9 @@ export function formatarDataRelativa(ts) {
   else if (diffD < 30)    label = t('relDias', { n: diffD })
   else if (diffM === 1)   label = t('relMes1')
   else if (diffM < 12)    label = t('relMeses', { n: diffM })
-  else label = date.toLocaleDateString(local, { day: '2-digit', month: 'short', year: 'numeric' })
+  else label = dataAbsoluta(date)
 
-  const title = date.toLocaleString(local, { dateStyle: 'short', timeStyle: 'short' })
-  return { label, title }
+  return { label, title: dataEHora(date), data: dataAbsoluta(date) }
 }
 
 export function formatCNPJ(cnpj) {

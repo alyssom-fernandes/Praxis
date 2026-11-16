@@ -73,7 +73,7 @@
 .lateral-item.active { color: var(--text); font-weight: 700; }
 /* Foco pelo teclado: o anel ganha folga dos lados sem mexer no texto
    (a margem negativa devolve o que o recuo empresta) */
-.lateral-item:focus-visible { margin-inline: -8px; padding-inline: 8px; outline: 2px solid var(--gold); outline-offset: 0; color: var(--text); }
+.lateral-item:focus-visible { margin-inline: -8px; padding-inline: 8px; outline: 2px solid var(--foco); outline-offset: 0; color: var(--text); }
 .lateral-marca:focus-visible { outline-offset: 2px; }
 .lateral-conta:focus-visible { outline-offset: 0; background: var(--card2); color: var(--text2); }
 .lateral-item-rotulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -232,16 +232,14 @@
   border-radius: var(--radius-tag);
   padding: 0.25rem 0.35rem;
 }
-/* Item da vez: tom de superfície e o fio terracota à esquerda (mesma
-   marcação do item ativo na paleta de comandos) */
+/* Item da vez: tom de superfície; pelo teclado, o anel de foco por dentro */
 .um-item:hover,
-.um-item:focus-visible { background: var(--card2); color: var(--text); outline: none; }
-.um-item:focus-visible { box-shadow: inset 2px 0 0 var(--gold-fill); background: var(--card3); }
+.um-item:focus-visible { background: var(--card2); color: var(--text); }
+.um-item:focus-visible { background: var(--card3); outline: 2px solid var(--foco); outline-offset: -2px; }
 .um-item:hover svg,
 .um-item:focus-visible svg { color: var(--text); }
 .um-item.um-sair:hover,
 .um-item.um-sair:focus-visible { color: var(--red); }
-.um-item.um-sair:focus-visible { box-shadow: inset 2px 0 0 var(--red); }
 .um-item.um-sair:hover svg,
 .um-item.um-sair:focus-visible svg { color: var(--red); }
 
@@ -334,7 +332,7 @@
 .notif-item:last-child { border-bottom: none; }
 .notif-item:hover { background: var(--card2); }
 .notif-item:active { transform: none !important; }
-.notif-item:focus-visible { outline: none; background: var(--card3); box-shadow: inset 2px 0 0 var(--gold-fill); }
+.notif-item:focus-visible { background: var(--card3); outline: 2px solid var(--foco); outline-offset: -2px; }
 
 .notif-icon {
   width: 16px;
@@ -629,7 +627,7 @@
    cartões se movem; o resto da tela troca na hora, sem esmaecer */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 ::view-transition-group(*) { animation-duration: 0.45s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
-.kcard:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.kcard:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .light .kcard { background: var(--card); }
 .light .kcard:hover { background: var(--card); box-shadow: 0 1px 0 var(--border-strong), 0 0 0 1px var(--border-strong); }
 
@@ -919,7 +917,7 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
 }
 .chip:hover { border-color: var(--border-strong); color: var(--text); }
 .chip.selected { background: var(--gold-dim); border-color: var(--gold-border); color: var(--gold); }
-.chip:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.chip:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .chip-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 0.45rem; flex-shrink: 0; }
 
 /* ── Pessoas envolvidas ──────────────────────────────── */
@@ -1009,7 +1007,7 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
 }
 .coment-acao:hover { color: var(--gold); text-decoration-color: currentColor; }
 .coment-acao-perigo:hover { color: var(--red); }
-.coment-acao:focus-visible { outline: 2px solid var(--gold-border); outline-offset: 2px; }
+.coment-acao:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .coment-edicao textarea { display: block; width: 100%; min-height: 72px; resize: vertical; }
 .coment-edicao-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
@@ -1021,11 +1019,11 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
   min-width: 0;
   position: relative;
   background: var(--card2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--borda-campo);
   border-radius: var(--radius-input);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
-.comentario-campo:focus-within { border-color: var(--gold-border); outline: 2px solid var(--gold); outline-offset: 1px; }
+.comentario-campo:focus-within { outline: 2px solid var(--foco); outline-offset: 1px; }
 .comentario-campo textarea,
 .comentario-campo textarea:focus {
   display: block;
@@ -1136,7 +1134,7 @@ th.sortable {
   transition: color var(--transition-fast);
 }
 th.sortable:hover, th.sortable.ativo { color: var(--text); }
-th.sortable:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
+th.sortable:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 th.sortable .sort-ico { margin-left: 0.35rem; vertical-align: -1px; opacity: 0.4; }
 th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 
@@ -1175,7 +1173,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .pedidos-tabela td.c-data { color: var(--text3); font-variant-numeric: tabular-nums lining-nums; }
 .pedidos-tabela tbody tr.selecionada,
 .pedidos-tabela tbody tr.selecionada:hover { background: var(--gold-dim); }
-.pedidos-tabela tbody tr:focus-visible { outline: 2px solid var(--gold-border); outline-offset: -2px; }
+.pedidos-tabela tbody tr:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 .lp-linha { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
 .lp-num {
   flex-shrink: 0;
@@ -1920,7 +1918,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
 }
 .cmd-item:active { transform: none !important; }
 .cmd-item.active { background: var(--card3); color: var(--text); box-shadow: inset 2px 0 0 var(--gold-fill); }
-.cmd-item:focus-visible { outline: none; }
+.cmd-item:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 .cmd-item-icon { color: var(--text3); flex-shrink: 0; display: flex; }
 .cmd-item.active .cmd-item-icon { color: var(--text); }
 .cmd-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2032,7 +2030,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
   padding: 14px 18px 14px;
 }
 .tour-popover:focus { outline: none; }
-.tour-popover:focus-visible { box-shadow: var(--shadow-lg), 0 0 0 2px var(--gold-border); }
+.tour-popover:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .tour-popover.entrando { animation: tourIn 0.18s ease; }
 @keyframes tourIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .tour-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; margin-bottom: 10px; }

@@ -5,7 +5,7 @@ import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
 import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, PERFIS, t, tomDaCor } from './constants.js'
-import { formatCurrency, formatDate, esc, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
 // ── Textos da tela (PT e EN): js/textos-relatorios.js ─────────
@@ -191,7 +191,7 @@ export async function renderRelatorios() {
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('relatorios')}
-      <div class="main-content rel-page">
+      <main class="main-content rel-page">
         <div class="rel-print-head" aria-hidden="true">
           ${marcaPraxis('rel-print-marca')}
           <span class="rel-print-doc">${tr('relatorioCompras')}</span>
@@ -220,7 +220,7 @@ export async function renderRelatorios() {
 
         <div id="dash-content" aria-live="polite">${_skeleton(fin)}</div>
         <div class="rel-dica" id="rel-dica" role="tooltip" hidden></div>
-      </div>
+      </main>
       ${renderFooter()}
     </div>
   `
@@ -809,7 +809,7 @@ function _blocoParcelas(D, larg) {
     const p = _todos.find(x => x.id === pc.pedidoId)
     const d = _deIso(pc.vencimento)
     return `<li><button type="button" class="rel-linha" data-pedido="${esc(pc.pedidoId)}">
-      <span class="rel-data"><strong>${_pad(d.getDate())}</strong><small>${d.toLocaleDateString(loc, { month: 'short' }).replace('.', '')}</small></span>
+      <span class="rel-data" title="${dataAbsoluta(d)}"><strong>${_pad(d.getDate())}</strong><small>${d.toLocaleDateString(loc, { month: 'short' }).replace('.', '')}</small></span>
       <span class="rel-linha-txt">
         <span class="rel-linha-tit">${esc(p?.titulo || '—')}</span>
         <span class="rel-linha-sub">${_cod(p)}<span>${tr('colParcela')} ${pc.numero}/${pc.total}</span></span>

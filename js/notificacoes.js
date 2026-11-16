@@ -3,7 +3,7 @@ import { registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
 import { prxToast } from './ui.js'
 import { EVENTOS, t } from './constants.js'
-import { formatTimestamp, esc } from './utils.js'
+import { formatarDataRelativa, esc } from './utils.js'
 
 // Painel de notificações da topbar: as mais recentes (lidas e não lidas),
 // com contador das não lidas no sino. As Cloud Functions gravam o campo
@@ -170,14 +170,14 @@ function _renderItem(n) {
   const icone     = ICONE_POR_EVENTO[n.evento] || ICO.info
   const titulo    = n.titulo || t('novaNotificacao')
   const corpo     = n.titulo && n.corpo ? n.corpo : ''
-  const quando    = formatTimestamp(_quando(n))
+  const quando    = _quando(n) ? formatarDataRelativa(_quando(n)) : null
   return `
     <button type="button" class="notif-item ${n.lida ? 'lida' : 'unread'}" data-id="${esc(n.id)}" ${n.pedidoId ? `data-pedido="${esc(n.pedidoId)}"` : ''}>
       <span class="notif-icon" aria-hidden="true">${icone}</span>
       <span class="notif-body">
         <span class="notif-titulo">${esc(titulo)}</span>
         ${corpo ? `<span class="notif-corpo">${esc(corpo)}</span>` : ''}
-        ${quando ? `<span class="notif-time">${esc(quando)}</span>` : ''}
+        ${quando ? `<span class="notif-time" title="${quando.title}">${esc(quando.label)}</span>` : ''}
       </span>
       ${n.lida ? '' : `<span class="notif-ponto" aria-hidden="true"></span><span class="sr-only">${t('notifNaoLida')}</span>`}
     </button>

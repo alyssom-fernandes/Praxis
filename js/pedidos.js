@@ -11,7 +11,7 @@ import {
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
   corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -139,7 +139,7 @@ export async function renderPedidos() {
   app.innerHTML = `
     <div class="main-layout">
       ${renderTopbar('pedidos')}
-      <div class="main-content pedidos-tela">
+      <main class="main-content pedidos-tela">
         <header class="pedidos-head">
           <div class="pedidos-head-top">
             <div class="pedidos-head-titulo">
@@ -224,7 +224,7 @@ export async function renderPedidos() {
         </header>
 
         <div id="pedidos-view">${_skeleton()}</div>
-      </div>
+      </main>
       ${renderFooter()}
     </div>
     <div class="pf-fundo" id="pf-fundo" hidden></div>
@@ -1788,19 +1788,20 @@ function _isoDe(v) {
 function _diasEntre(isoA, isoB) {
   return Math.round((new Date(isoB + 'T00:00:00') - new Date(isoA + 'T00:00:00')) / 86400000)
 }
-function _ddmm(iso) {
-  const [y, m, d] = iso.split('-')
-  return String(new Date().getFullYear()) === y ? `${d}/${m}` : `${d}/${m}/${y.slice(2)}`
-}
-
 // Prazo em texto, como no quadro aprovado: "Falta 1 dia", "Faltam 22 dias",
-// "Atrasado 8 dias", "Entregue há 2 dias", "Pago em 26/09".
+// "Atrasado 8 dias", "Entregue há 2 dias", "Pago em 26/09/2026". A data
+// absoluta vai no title (data) quando o texto é relativo.
 //   classe: '' | 'perto' (até 3 dias) | 'hoje' | 'atrasado' | 'feito' | 'sem'
 function _prazoPedido(p) {
+  const r = _prazoTexto(p)
+  if (r && !r.data && p.dataNecessaria && !['feito', 'sem'].includes(r.classe)) r.data = `${t('dtPrazo')}: ${dataAbsoluta(p.dataNecessaria)}`
+  return r
+}
+function _prazoTexto(p) {
   const hoje = hojeISO()
   const emData = (chave, campo) => {
     const iso = _isoDe(p[campo]) || _isoDe(p.atualizadoEm)
-    return iso ? { texto: t(chave).replace('{d}', _ddmm(iso)), classe: 'feito' } : null
+    return iso ? { texto: t(chave).replace('{d}', dataAbsoluta(iso)), classe: 'feito' } : null
   }
   switch (p.status) {
     case STATUS.PAGO:      return emData('prazoPagoEm', 'pagoEm')
@@ -1810,7 +1811,7 @@ function _prazoPedido(p) {
       const iso = _isoDe(p.dataEntrega) || _isoDe(p.atualizadoEm)
       if (!iso) return null
       const n = Math.max(0, _diasEntre(iso, hoje))
-      return { texto: n === 0 ? t('prazoEntregueHoje') : (n === 1 ? t('prazoEntregue1') : t('prazoEntregue').replace('{n}', n)), classe: 'feito' }
+      return { texto: n === 0 ? t('prazoEntregueHoje') : (n === 1 ? t('prazoEntregue1') : t('prazoEntregue').replace('{n}', n)), classe: 'feito', data: dataAbsoluta(iso) }
     }
     default: {
       if (!p.dataNecessaria) return { texto: t('prazoSem'), classe: 'sem' }
@@ -1854,7 +1855,7 @@ function _renderKcard(p) {
       <h3 class="kcard-title">${esc(p.titulo)}</h3>
       ${nomeEmp ? `<div class="kcard-empresa" title="${esc(nomeEmp)}">${esc(nomeEmp)}</div>` : ''}
       <div class="kcard-pe">
-        ${prazo ? `<span class="kcard-prazo${prazo.classe ? ' ' + prazo.classe : ''}">${ICO.relogio(12)}<span>${prazo.texto}</span></span>` : ''}
+        ${prazo ? `<span class="kcard-prazo${prazo.classe ? ' ' + prazo.classe : ''}"${prazo.data ? ` title="${prazo.data}"` : ''}>${ICO.relogio(12)}<span>${prazo.texto}</span></span>` : ''}
         ${valor ? `<span class="kcard-valor">${formatCurrency(valor)}</span>` : `<span class="kcard-sem-valor">${t('semValor')}</span>`}
       </div>
     </article>
@@ -1950,7 +1951,7 @@ function _renderLista(lista, totalFiltrada, totalPaginas, inicio) {
         <td class="c-empresa">${esc(nomeEmp || '—')}</td>
         <td class="c-solic">${esc(solicit || '—')}</td>
         <td class="c-status"><span class="lp-etapa"><span class="dot ${STATUS_DOT_COLOR[p.status] || 'dot-gray'}" aria-hidden="true"></span>${label}</span></td>
-        <td class="c-prazo">${prazo ? `<span class="lp-prazo${prazo.classe ? ' ' + prazo.classe : ''}">${prazo.texto}</span>` : '—'}</td>
+        <td class="c-prazo">${prazo ? `<span class="lp-prazo${prazo.classe ? ' ' + prazo.classe : ''}"${prazo.data ? ` title="${prazo.data}"` : ''}>${prazo.texto}</span>` : '—'}</td>
         <td class="c-valor">${valor ? `<span class="lp-valor">${formatCurrency(valor)}</span>` : `<span class="lp-nulo">${t('semValor')}</span>`}</td>
         <td class="c-data">${p.criadoEm ? formatDate(_tsToISO(p.criadoEm)) : '—'}</td>
       </tr>

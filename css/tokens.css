@@ -37,6 +37,11 @@
   --line: #2B241D;
   --tinta: #EFE5D6;                      /* fio grosso das inscrições (topo das colunas, frisos) */
   --grade: rgba(239, 229, 214, 0.035);   /* grade sutil do fundo */
+  --borda-campo: #7A6D5E;                /* borda que identifica o campo: 3:1 sobre as superfícies (WCAG 1.4.11) */
+
+  /* Foco: o anel de teclado usa a tinta (osso no escuro, preto no claro) e
+     nada mais usa esta cor de foco. A terracota fica para a ação */
+  --foco: var(--tinta);
 
   /* Texto */
   --text: #EFE5D6;
@@ -111,6 +116,7 @@
   --line: #E2D5C1;
   --tinta: #1A1510;
   --grade: rgba(26, 21, 16, 0.045);
+  --borda-campo: #8E7C64;
 
   --text: #1A1510;
   --text2: #57493A;
