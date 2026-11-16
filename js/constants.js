@@ -1253,6 +1253,10 @@ export const TRADUCOES = {
     comentApagado:        'Comentário apagado.',
     erroEditarComentario: 'Não foi possível salvar a edição. Tente de novo.',
     erroApagarComentario: 'Não foi possível apagar o comentário. Tente de novo.',
+    comentVersoesAria:    'Ver as versões anteriores',
+    notaInternaOpcao:     'Só equipe de compras',
+    notaInternaSelo:      'Só equipe',
+    notaInternaDica:      'Nota interna: quem pediu a compra não vê.',
   },
 
   en: {
@@ -2297,6 +2301,10 @@ export const TRADUCOES = {
     comentApagado:        'Comment deleted.',
     erroEditarComentario: 'Could not save the edit. Please try again.',
     erroApagarComentario: 'Could not delete the comment. Please try again.',
+    comentVersoesAria:    'Show earlier versions',
+    notaInternaOpcao:     'Purchasing team only',
+    notaInternaSelo:      'Team only',
+    notaInternaDica:      'Internal note: the requester cannot see it.',
   },
 }
 

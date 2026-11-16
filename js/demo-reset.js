@@ -29,7 +29,7 @@ import {
 } from './firebase.js'
 import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
 
-const SUBCOLECOES = ['cotacoes', 'comentarios', 'parcelas', 'historico', 'anexos']
+const SUBCOLECOES = ['cotacoes', 'comentarios', 'notasInternas', 'parcelas', 'historico', 'anexos']
 const CATEGORIAS_BASE = [
   { key: 'manutencao',  nome: 'Manutenção',       cor: '#C0705A' },
   { key: 'escritorio',  nome: 'Escritório',       cor: '#6E8FA8' },
@@ -215,7 +215,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
   let n = 0
   for (const ped of seed.pedidos || []) {
     n++
-    const { empresaKey, categoriaKey, key, abertoPor, reabertoDeKey, historico, comentarios, cotacoes, parcelas, ...dados } = ped
+    const { empresaKey, categoriaKey, key, abertoPor, reabertoDeKey, historico, comentarios, notasInternas, cotacoes, parcelas, ...dados } = ped
     const hist = historico || []
     const numeroPedido = numDe(n)
     const pedRef = doc(db, 'pedidos', idDe(n))
@@ -281,6 +281,10 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     }))
     ;(comentarios || []).forEach((c, i) => lote.set(doc(collection(pedRef, 'comentarios')), {
       texto: c.texto, autorId: comentaristas[i % comentaristas.length], criadoEm: ts(c.diasAtras),
+    }))
+    // Notas internas: a conversa do comprador com a equipe (o solicitante não vê)
+    ;(notasInternas || []).forEach(c => lote.set(doc(collection(pedRef, 'notasInternas')), {
+      texto: c.texto, autorId: P.comprador, autorNome: nomeDe[P.comprador], criadoEm: ts(c.diasAtras),
     }))
     ;(cotacoes || []).forEach((c, i) => lote.set(refsCotacao[i], {
       fornecedorId: fornMap[_normalizar(c.fornecedorNome)] || null,

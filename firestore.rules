@@ -478,16 +478,41 @@ service cloud.firestore {
         allow delete: if areaDemo() || (temPerfil() && eGestor() && daEmpresa() && emCotacao());
       }
 
-      // ── Comentários ───────────────────────────────────────────
-      // Editar muda só o texto; editar e apagar valem só dentro de um pedido
-      // que a pessoa vê (o gestor, só nas empresas dele)
+      // ── Comentários e notas internas ──────────────────────────
+      // Nasce sem edição. Só o autor edita, e só o texto: a edição grava
+      // editadoEm (hora do servidor) e anexa o texto anterior a versoes, com a
+      // data dele; as versões de antes não mudam (até 20). Apagar fica com o
+      // gestor da empresa do pedido e o supremo
+      function comentarioNovo() {
+        return autorSouEu() && !request.resource.data.keys().hasAny(['versoes', 'editadoEm']);
+      }
+      function edicaoDoAutor() {
+        let antes = resource.data.get('versoes', []);
+        let depois = request.resource.data.get('versoes', []);
+        let n = antes.size();
+        return eu() == resource.data.autorId &&
+          mudouSo(['texto', 'editadoEm', 'versoes']) &&
+          request.resource.data.editadoEm == request.time &&
+          depois.size() == n + 1 && depois.size() <= 20 &&
+          (n == 0 || depois[0:n] == antes) &&
+          depois[n].keys().hasOnly(['texto', 'em']) &&
+          depois[n].texto == resource.data.texto &&
+          depois[n].em == resource.data.get('editadoEm', resource.data.get('criadoEm', null));
+      }
       match /comentarios/{comentarioId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
-        allow create: if areaDemo() || (temPerfil() && veOPedido() && autorSouEu());
-        allow update: if areaDemo() || (temPerfil() && veOPedido() &&
-          mudouSo(['texto', 'editadoEm']) && (
-            request.auth.uid == resource.data.autorId || (eGestor() && daEmpresa())
-          ));
+        allow create: if areaDemo() || (temPerfil() && veOPedido() && comentarioNovo());
+        allow update: if areaDemo() || (temPerfil() && veOPedido() && edicaoDoAutor());
+        allow delete: if areaDemo() || (temPerfil() && eGestor() && daEmpresa());
+      }
+      // Nota interna: a conversa da equipe de compras (preço, prazo,
+      // negociação). O perfil solicitante não lê nem escreve; quem é da equipe
+      // e abriu o próprio pedido continua vendo
+      match /notasInternas/{notaId} {
+        function daEquipe() { return perfil() != 'solicitante'; }
+        allow read: if areaDemo() || (temPerfil() && daEquipe() && veOPedido());
+        allow create: if areaDemo() || (temPerfil() && daEquipe() && veOPedido() && comentarioNovo());
+        allow update: if areaDemo() || (temPerfil() && daEquipe() && veOPedido() && edicaoDoAutor());
         allow delete: if areaDemo() || (temPerfil() && eGestor() && daEmpresa());
       }
 

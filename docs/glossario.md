@@ -16,6 +16,7 @@ Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos 
 | Centro de custo | Cost center | Código interno de quem paga a compra, opcional | |
 | Urgente | Urgent | Marca do pedido que vai para o topo da coluna e avisa quem age | Prioritário |
 | Minha fila | My queue | Os pedidos que esperam uma ação da pessoa que está usando | Pendências |
+| Nota interna | Internal note | Comentário marcado "Só equipe de compras": quem tem o perfil solicitante não vê. Para preço, prazo e negociação | Comentário privado, nota secreta |
 | Ajustes | Settings | Tema e preferências; na paleta, "Ir para Ajustes" | Configurações: Geral |
 | Cadastros | Records | Empresas, categorias e fornecedores | |
 | Administração | Administration | Grupo da barra lateral com os cadastros e os usuários, só para quem administra | Configurações |

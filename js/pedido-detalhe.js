@@ -18,7 +18,7 @@ import {
   formatCurrency, formatDate, formatarDataRelativa, dataAbsoluta, dataComRelativo, gerarIniciais,
   hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
   dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
-  empresasDoUsuario, textoPrazo, mensagemDeErro,
+  empresasDoUsuario, textoPrazo, mensagemDeErro, dataEHora,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
@@ -35,6 +35,25 @@ let _avancouEm    = 0
 let _cotacoes    = []
 let _comentarios = []
 let _comentEditando = null  // { id, rascunho }: o comentário aberto para edição
+let _notaInterna = false     // seletor "Só equipe de compras" do compositor
+const _versoesAbertas = new Set() // comentários com as versões anteriores à mostra
+
+// Nota interna: a conversa da equipe de compras, que o perfil solicitante não
+// lê (firestore.rules, notasInternas). Fica numa subcoleção própria porque as
+// regras não filtram documento a documento numa consulta
+const _COL_INTERNA = 'notasInternas'
+function _ehEquipe() { return sessao.usuario.perfil !== PERFIS.SOLICITANTE }
+
+async function _lerComentarios() {
+  const [com, notas] = await Promise.all([
+    getDocs(collection(db, 'pedidos', _pedidoId, 'comentarios')),
+    _ehEquipe() ? getDocs(collection(db, 'pedidos', _pedidoId, _COL_INTERNA)) : Promise.resolve({ docs: [] }),
+  ])
+  return [
+    ...com.docs.map(d => ({ id: d.id, _col: 'comentarios', ...d.data() })),
+    ...notas.docs.map(d => ({ id: d.id, _col: _COL_INTERNA, interno: true, ...d.data() })),
+  ].sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
+}
 let _historico   = []
 let _parcelas    = []
 let _anexos      = []
@@ -141,14 +160,14 @@ function _iniciarListenerHistorico() {
 }
 
 async function _carregarSubcollections() {
-  const [cotSnap, comSnap, parcSnap, anexSnap] = await Promise.all([
+  const [cotSnap, comentarios, parcSnap, anexSnap] = await Promise.all([
     getDocs(collection(db, 'pedidos', _pedidoId, 'cotacoes')),
-    getDocs(collection(db, 'pedidos', _pedidoId, 'comentarios')),
+    _lerComentarios(),
     getDocs(collection(db, 'pedidos', _pedidoId, 'parcelas')),
     getDocs(collection(db, 'pedidos', _pedidoId, 'anexos')),
   ])
   _cotacoes    = cotSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _comentarios = comSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
+  _comentarios = comentarios
   _parcelas    = parcSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.numero - b.numero)
   _anexos      = anexSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
 }
@@ -541,11 +560,12 @@ function _renderDetalhe() {
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-ativ">${t('secaoAtividade')}</h2></div>
             <div class="comentario-composer">
               <div class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(sessao.usuario.nome || '?')}</div>
-              <div class="comentario-campo">
+              <div class="comentario-campo${_ehEquipe() && _notaInterna ? ' interno' : ''}">
                 <label for="input-comentario" class="sr-only">${t('dtComentario')}</label>
                 <textarea id="input-comentario" rows="2" placeholder="${t('dtComentarioPlaceholder')}"></textarea>
                 <div id="mention-dropdown" class="mention-dropdown" role="listbox" style="display:none"></div>
                 <div class="comentario-rodape">
+                  ${_ehEquipe() ? `<label class="comentario-interno" title="${t('notaInternaDica')}"><input type="checkbox" id="coment-interno"${_notaInterna ? ' checked' : ''}> ${t('notaInternaOpcao')}</label>` : ''}
                   <span class="comentario-dica"><kbd>@</kbd> ${t('dtMenciona')} <span class="so-desktop">· <kbd>Ctrl</kbd>+<kbd>Enter</kbd> ${t('dtEnvia')}</span></span>
                   <button class="btn-secondary btn-sm" id="btn-enviar-comentario">${ICO.enviar}${t('dtComentar')}</button>
                 </div>
@@ -1202,8 +1222,17 @@ function _renderActivityFeed() {
       const id = esc(item.id)
       const acao = (tipo, rotulo, cls = '') =>
         `<button type="button" class="coment-acao ${cls}" data-coment-acao="${tipo}" data-coment-id="${id}" aria-label="${rotulo}">${t(tipo === 'editar' ? 'comentEditar' : 'comentApagar')}</button>`
-      const editado = item.editadoEm
-        ? `<span class="feed-editado" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</span>` : ''
+      const versoes = item.versoes || []
+      const verAberto = _versoesAbertas.has(item.id) && versoes.length > 0
+      const editado = !item.editadoEm ? ''
+        : versoes.length
+          ? `<button type="button" class="feed-editado" data-coment-acao="versoes" data-coment-id="${id}" aria-expanded="${verAberto}" aria-label="${t('comentVersoesAria')}" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</button>`
+          : `<span class="feed-editado" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</span>`
+      const interna = item.interno ? `<span class="lozenge lozenge-aguardando feed-interna" title="${t('notaInternaDica')}">${t('notaInternaSelo')}</span>` : ''
+      const anteriores = verAberto ? `
+            <ol class="coment-versoes" aria-label="${t('comentVersoesAria')}">${[...versoes].reverse().map(v => `
+              <li><span class="coment-versao-data">${v.em ? dataEHora(v.em) : ''}</span><span class="coment-versao-texto">${esc(v.texto || '')}</span></li>`).join('')}
+            </ol>` : ''
       const corpo = editando ? `
             <div class="coment-edicao">
               <label class="sr-only" for="coment-edit-${id}">${t('comentEditarAria')}</label>
@@ -1215,11 +1244,12 @@ function _renderActivityFeed() {
             </div>`
         : `<div class="comentario-bolha"><div class="comment-text">${texto}</div></div>`
       return `
-        <li class="feed-item feed-item-comment">
+        <li class="feed-item feed-item-comment${item.interno ? ' feed-item-interna' : ''}">
           <div class="feed-left"><div class="avatar avatar-sm ${nome ? '' : 'avatar-vazio'}" aria-hidden="true">${nome ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 12)}</div></div>
           <div class="feed-body">
             <div class="feed-header">
               <span class="feed-author">${esc(nome || t('feedParticipante'))}</span>
+              ${interna}
               <span class="feed-time" title="${ts.title}">${ts.texto}</span>
               ${editado}
               ${(meu || apaga) && !editando ? `<span class="coment-acoes">
@@ -1228,6 +1258,7 @@ function _renderActivityFeed() {
               </span>` : ''}
             </div>
             ${corpo}
+            ${anteriores}
           </div>
         </li>`
     }
@@ -1429,6 +1460,10 @@ function _bindDetalheEvents() {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { _fecharMentionDropdown(); _enviarComentario() }
   })
   document.getElementById('input-comentario')?.addEventListener('input', _handleMentionInput)
+  document.getElementById('coment-interno')?.addEventListener('change', e => {
+    _notaInterna = e.target.checked
+    e.target.closest('.comentario-campo')?.classList.toggle('interno', _notaInterna)
+  })
   document.getElementById('input-comentario')?.addEventListener('blur', () => setTimeout(_fecharMentionDropdown, 150))
 
   // Comentário já enviado: o autor edita; o gestor da empresa e o supremo apagam
@@ -1441,6 +1476,11 @@ function _bindDetalheEvents() {
     else if (b.dataset.comentAcao === 'apagar') _apagarComentario(id)
     else if (b.dataset.comentAcao === 'salvar') _salvarComentario(id)
     else if (b.dataset.comentAcao === 'cancelar') _fecharEdicaoComentario(id)
+    else if (b.dataset.comentAcao === 'versoes') {
+      if (_versoesAbertas.has(id)) _versoesAbertas.delete(id); else _versoesAbertas.add(id)
+      _redesenharAtividade()
+      _focarComentario(id, '[data-coment-acao="versoes"]')
+    }
   })
   feed?.addEventListener('input', e => {
     if (_comentEditando && e.target.dataset.comentRascunho === _comentEditando.id) _comentEditando.rascunho = e.target.value
@@ -1980,6 +2020,7 @@ function _handleMentionInput(e) {
     if (u.perfil === PERFIS.SUPREMO || !empresaId) return true
     return empresasDoUsuario(u).includes(empresaId)
   })
+  if (_notaInterna && _ehEquipe()) base = base.filter(u => u.perfil !== PERFIS.SOLICITANTE)
   if (!base.length) {
     const vistos = new Map()
     ;[..._historico, ..._comentarios].forEach(x => { if (x.autorId && x.autorNome && !vistos.has(x.autorId)) vistos.set(x.autorId, { id: x.autorId, nome: x.autorNome }) })
@@ -2025,10 +2066,16 @@ async function _enviarComentario() {
   // Extrai @menções (nomes/apelidos após @)
   const mencoes = [...new Set((texto.match(/@([\wÀ-ÿ]+)/g) || []).map(m => m.slice(1)))]
 
+  // Nota interna (só a equipe) ou comentário para todos os envolvidos
+  const interno = _ehEquipe() && _notaInterna
+  const colecao = interno ? _COL_INTERNA : 'comentarios'
+
   // Optimistic: insere na UI imediatamente; removido no rollback se a escrita falhar
   const tempId = `temp-${Date.now()}`
   _comentarios.push({
     id:        tempId,
+    _col:      colecao,
+    interno,
     texto,
     autorId:   sessao.usuario.id,
     autorNome: sessao.usuario.nome,
@@ -2040,21 +2087,22 @@ async function _enviarComentario() {
   if (input) input.value = ''
 
   try {
-    await addDoc(collection(db, 'pedidos', _pedidoId, 'comentarios'), {
+    await addDoc(collection(db, 'pedidos', _pedidoId, colecao), {
       texto,
       autorId:   sessao.usuario.id,
       autorNome: sessao.usuario.nome,
       mencoes,
       criadoEm:  serverTimestamp(),
     })
-    updateDoc(doc(db, 'pedidos', _pedidoId), { ultimoComentarioEm: serverTimestamp() }).catch(() => {})
+    // A marca de "comentário não lido" do cartão é de todos: a nota interna não a acende
+    if (!interno) updateDoc(doc(db, 'pedidos', _pedidoId), { ultimoComentarioEm: serverTimestamp() }).catch(() => {})
     await _refreshComentarios()
 
     // Notifica usuários mencionados (best-effort; _usuarios pode ser [] para não-gestor)
     for (const m of mencoes) {
       const mNorm = normalizarTexto(m)
       const user  = _usuarios.find(u => normalizarTexto((u.nome || '').split(' ')[0]) === mNorm)
-      if (user && user.id !== sessao.usuario.id) {
+      if (user && user.id !== sessao.usuario.id && !(interno && user.perfil === PERFIS.SOLICITANTE)) {
         addDoc(collection(db, 'notificacoes', user.id, 'items'), {
           evento:   'mencao_comentario',
           titulo:   t('notifMencaoTitulo'),
@@ -2079,9 +2127,10 @@ async function _enviarComentario() {
 }
 
 // ── Comentário: o autor edita o próprio; o gestor e o supremo apagam ──
-// As regras deixam o autor trocar só o texto (com editadoEm) e o gestor da
-// empresa do pedido (o supremo, de qualquer uma) apagar. A edição não avisa de
-// novo quem foi mencionado.
+// As regras deixam só o autor trocar o texto (com editadoEm e o texto anterior
+// em versoes) e o gestor da empresa do pedido (o supremo, de qualquer uma)
+// apagar. Vale também para a nota interna. A edição não avisa de novo quem foi
+// mencionado.
 function _podeApagarComentario() {
   const u = sessao.usuario
   return u.perfil === PERFIS.SUPREMO || (u.perfil === PERFIS.GESTOR && empresasDoUsuario(u).includes(_pedido.empresaId))
@@ -2127,7 +2176,9 @@ async function _salvarComentario(id) {
   const botoes = [...document.querySelectorAll(`#activity-feed .coment-edicao button`)]
   botoes.forEach(b => { b.disabled = true })
   try {
-    await updateDoc(doc(db, 'pedidos', _pedidoId, 'comentarios', id), { texto, editadoEm: serverTimestamp() })
+    // O texto anterior vai para versoes, com a data dele (as regras conferem)
+    const versoes = [...(c.versoes || []), { texto: c.texto, em: c.editadoEm || c.criadoEm || null }]
+    await updateDoc(doc(db, 'pedidos', _pedidoId, c._col, id), { texto, editadoEm: serverTimestamp(), versoes })
     _comentEditando = null
     await _refreshComentarios()
     _focarComentario(id, '[data-coment-acao="editar"]')
@@ -2140,12 +2191,14 @@ async function _salvarComentario(id) {
 }
 
 async function _apagarComentario(id) {
+  const c = _comentarios.find(x => x.id === id)
+  if (!c) return
   const ok = await prxConfirm(t('comentApagarTitulo'), t('acaoIrreversivel'), t('comentApagar'), t('btnCancelar'), true)
   if (!ok) return
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    await deleteDoc(doc(db, 'pedidos', _pedidoId, 'comentarios', id))
+    await deleteDoc(doc(db, 'pedidos', _pedidoId, c._col, id))
     await _refreshComentarios()
     prxToast(t('comentApagado'), 'success')
   } catch (err) {
@@ -2695,8 +2748,7 @@ async function _exportarPedidoPDF() {
 }
 
 async function _refreshComentarios() {
-  const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'comentarios'))
-  _comentarios = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
+  _comentarios = await _lerComentarios()
   const el = document.getElementById('activity-feed')
   if (el) el.innerHTML = _renderActivityFeed()
 }

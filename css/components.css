@@ -1068,6 +1068,16 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
    apaga), discretas como links, à direita do cabeçalho */
 .feed-item-comment .feed-header { flex-wrap: wrap; row-gap: var(--esp-025); }
 .feed-editado { font-size: var(--t-pequeno); color: var(--text3); }
+button.feed-editado { min-height: 0; padding: 0; border: 0; background: none; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+button.feed-editado:hover { color: var(--text2); }
+/* Versões anteriores de um comentário editado: a mais recente primeiro */
+.coment-versoes { list-style: none; margin: var(--esp-100) 0 0; padding: 0 0 0 var(--esp-150); border-left: 2px solid var(--border-strong); display: grid; gap: var(--esp-100); }
+.coment-versoes li { display: grid; gap: var(--esp-025); }
+.coment-versao-data { font-size: var(--t-pequeno); color: var(--text3); font-variant-numeric: tabular-nums; }
+.coment-versao-texto { font-size: var(--t-corpo); color: var(--text2); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Nota interna: a mesma bolha, com borda tracejada e o selo "Só equipe" */
+.feed-item-interna .comentario-bolha { background: transparent; box-shadow: none; border: 1px dashed var(--border-strong); }
+.feed-interna { align-self: center; }
 .coment-acoes { margin-left: auto; display: inline-flex; gap: var(--esp-150); }
 .coment-acao {
   display: inline-flex;
@@ -1124,6 +1134,9 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
   padding: var(--esp-075) var(--esp-100) var(--esp-100) var(--esp-150);
 }
 .comentario-dica { font-size: var(--t-pequeno); color: var(--text3); }
+.comentario-campo.interno { border-style: dashed; }
+.comentario-interno { display: inline-flex; align-items: center; gap: var(--esp-075); margin-right: auto; font-size: var(--t-pequeno); font-weight: 600; color: var(--text2); cursor: pointer; white-space: nowrap; }
+.comentario-interno input { width: 16px; height: 16px; margin: 0; accent-color: var(--gold-fill); }
 .comentario-dica kbd {
   font-size: var(--t-pequeno);
   padding: 1px var(--esp-050);

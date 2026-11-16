@@ -300,7 +300,7 @@ async function main() {
       empresaKey, categoriaKey, key,
       abertoPor, // quem abre o pedido na demo do app (js/demo-reset.js); aqui não se aplica
       reabertoDeKey,
-      historico, comentarios, cotacoes, parcelas,
+      historico, comentarios, notasInternas, cotacoes, parcelas,
       ...pedData
     } = ped
 
@@ -387,6 +387,21 @@ async function main() {
           texto:    c.texto,
           autorId:  solicitanteId,
           criadoEm: ts(c.diasAtras),
+        })
+      })
+      await batch.commit()
+    }
+
+    // Notas internas (do comprador; o perfil solicitante não lê)
+    if (notasInternas?.length) {
+      const comprador = mapaUsuarios['comprador@praxis.app']
+      const batch = db.batch()
+      notasInternas.forEach(c => {
+        batch.set(pedRef.collection('notasInternas').doc(), {
+          texto:     c.texto,
+          autorId:   comprador?.id || solicitanteId,
+          autorNome: USUARIOS_SEED.find(u => u.email === 'comprador@praxis.app')?.nome || 'Comprador',
+          criadoEm:  ts(c.diasAtras),
         })
       })
       await batch.commit()

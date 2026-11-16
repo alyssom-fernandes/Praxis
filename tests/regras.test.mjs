@@ -9,9 +9,10 @@
 
 import { test, before, after, beforeEach } from 'node:test'
 import { readFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing'
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, writeBatch, increment,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, writeBatch, increment, serverTimestamp,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getBytes, deleteObject, listAll } from 'firebase/storage'
 
@@ -493,12 +494,68 @@ test('comentário: só o texto muda, e só dentro da empresa do pedido', async (
   // O autor muda o texto, mas não a assinatura nem a data
   await assertFails(updateDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1'), { autorId: 'u-sol' }))
   await assertFails(updateDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1'), { criadoEm: new Date() }))
-  await assertSucceeds(updateDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1'), { texto: 'oi, corrigido', editadoEm: new Date() }))
-  // Quem não é autor nem gestor não edita
+  await assertSucceeds(editar('comprador', 'pedidos/p1/comentarios/c1', 'oi, corrigido'))
+  // Quem não é o autor não edita, nem o gestor da empresa
   await assertFails(updateDoc(doc(db('solicitante'), 'pedidos/p1/comentarios/c1'), { texto: 'meu agora' }))
+  await assertFails(editar('gestor', 'pedidos/p1/comentarios/c1', 'trocado pelo gestor'))
   // O autor só edita: apagar fica com o gestor da empresa e o supremo
   await assertFails(deleteDoc(doc(db('comprador'), 'pedidos/p1/comentarios/c1')))
   await assertSucceeds(deleteDoc(doc(db('gestor'), 'pedidos/p1/comentarios/c1')))
+})
+
+// Edição pelo app: texto novo, hora do servidor e o texto anterior em versoes
+async function editar(quem, caminho, texto, mexer = v => v) {
+  const ref = doc(db(quem), caminho)
+  let atual
+  await env.withSecurityRulesDisabled(async ctx => { atual = (await getDoc(doc(ctx.firestore(), caminho))).data() })
+  const versoes = [...(atual.versoes || []), { texto: atual.texto, em: atual.editadoEm || atual.criadoEm }]
+  return updateDoc(ref, { texto, editadoEm: serverTimestamp(), versoes: mexer(versoes) })
+}
+
+test('edição guarda o texto anterior, que não se apaga nem se troca', async () => {
+  const c1 = 'pedidos/p1/comentarios/c1'
+  // Sem a versão anterior, ou com hora escolhida pelo cliente, não passa
+  await assertFails(updateDoc(doc(db('comprador'), c1), { texto: 'novo', editadoEm: serverTimestamp() }))
+  await assertFails(updateDoc(doc(db('comprador'), c1), { texto: 'novo', editadoEm: new Date(),
+    versoes: [{ texto: 'oi', em: new Date('2026-10-01') }] }))
+  // A versão guardada tem de ser o texto de antes
+  await assertFails(editar('comprador', c1, 'novo', v => [{ ...v[0], texto: 'outra coisa' }]))
+  await assertSucceeds(editar('comprador', c1, 'segunda'))
+  await assertSucceeds(editar('comprador', c1, 'terceira'))
+  // Não dá para apagar nem reescrever uma versão anterior
+  await assertFails(editar('comprador', c1, 'quarta', v => v.slice(1)))
+  await assertFails(editar('comprador', c1, 'quarta', v => [{ ...v[0], texto: 'reescrito' }, ...v.slice(1)]))
+  await env.withSecurityRulesDisabled(async ctx => {
+    const d = (await getDoc(doc(ctx.firestore(), c1))).data()
+    assert.deepEqual(d.versoes.map(v => v.texto), ['oi', 'segunda'])
+    assert.equal(d.texto, 'terceira')
+  })
+  // Comentário não nasce com histórico pronto
+  await assertFails(addDoc(collection(db('comprador'), 'pedidos/p1/comentarios'),
+    { texto: 'oi', autorId: 'u-com', versoes: [{ texto: 'falso', em: new Date() }] }))
+})
+
+test('nota interna: a equipe lê e escreve; o solicitante, não', async () => {
+  const nota = { texto: 'O fornecedor B baixa 8% se fecharmos até sexta', autorId: 'u-com', criadoEm: serverTimestamp() }
+  await assertSucceeds(addDoc(collection(db('comprador'), 'pedidos/p1/notasInternas'), nota))
+  await assertFails(addDoc(collection(db('solicitante'), 'pedidos/p1/notasInternas'), { ...nota, autorId: 'u-sol' }))
+  // Leitura: o solicitante do pedido não lê, nem a consulta inteira
+  await assertFails(getDocs(collection(db('solicitante'), 'pedidos/p1/notasInternas')))
+  await assertSucceeds(getDocs(collection(db('comprador'), 'pedidos/p1/notasInternas')))
+  await assertSucceeds(getDocs(collection(db('gestor'), 'pedidos/p1/notasInternas')))
+  // Outra empresa não lê
+  await assertFails(getDocs(collection(db('compradorE2'), 'pedidos/p1/notasInternas')))
+  // Assinada por quem escreve; edição só do autor, com o histórico
+  await assertFails(addDoc(collection(db('comprador'), 'pedidos/p1/notasInternas'), { ...nota, autorId: 'u-sup' }))
+  let id
+  await env.withSecurityRulesDisabled(async ctx => {
+    id = (await addDoc(collection(ctx.firestore(), 'pedidos/p1/notasInternas'), { texto: 'a', autorId: 'u-com', criadoEm: new Date('2026-11-01') })).id
+  })
+  await assertSucceeds(editar('comprador', `pedidos/p1/notasInternas/${id}`, 'b'))
+  await assertFails(editar('gestor', `pedidos/p1/notasInternas/${id}`, 'c'))
+  // Apagar: gestor da empresa
+  await assertFails(deleteDoc(doc(db('comprador'), `pedidos/p1/notasInternas/${id}`)))
+  await assertSucceeds(deleteDoc(doc(db('gestor'), `pedidos/p1/notasInternas/${id}`)))
 })
 
 // ── Nada muda sem registro: o histórico no mesmo lote ──────────

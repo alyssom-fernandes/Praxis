@@ -382,7 +382,13 @@
           "indicada": false
         }
       ],
-      "parcelas": []
+      "parcelas": [],
+      "notasInternas": [
+        {
+          "texto": "O primeiro fornecedor aceita baixar 6% se fecharmos até sexta. Seguro a indicação até chegar a segunda proposta.",
+          "diasAtras": 1
+        }
+      ]
     },
     {
       "key": "p05",
@@ -691,7 +697,13 @@
           "indicada": false
         }
       ],
-      "parcelas": []
+      "parcelas": [],
+      "notasInternas": [
+        {
+          "texto": "Indiquei a proposta com garantia de 3 anos, não a mais barata: a outra não cobre a instalação.",
+          "diasAtras": 1
+        }
+      ]
     },
     {
       "key": "p10",
@@ -767,7 +779,13 @@
         }
       ],
       "cotacoes": [],
-      "parcelas": []
+      "parcelas": [],
+      "notasInternas": [
+        {
+          "texto": "Uma das empresas cobra 20% a mais, mas é a única com instrutor credenciado para a turma de 12. Vou pedir à outra que comprove a credencial.",
+          "diasAtras": 2
+        }
+      ]
     },
     {
       "key": "p12",
