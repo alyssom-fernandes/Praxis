@@ -75,11 +75,11 @@ input[type="checkbox"], input[type="radio"] {
     justify-content: space-between;
     padding: 0.3rem 0;
     border: none;
-    font-size: 0.82rem;
+    font-size: var(--t-corpo);
   }
   .table-card-mobile tbody td::before {
     content: attr(data-label);
-    font-size: 0.78rem;
+    font-size: var(--t-pequeno);
     font-weight: 700;
     color: var(--text3);
     letter-spacing: 0;
@@ -101,7 +101,7 @@ input[type="checkbox"], input[type="radio"] {
   .detalhe-head { gap: 8px; }
   .detalhe-head-linha { gap: 10px; }
   .detalhe-titulo { font-size: 1.5rem; line-height: 1.2; }
-  .detalhe-meta { flex-direction: column; align-items: flex-start; gap: 1px; font-size: 0.86rem; }
+  .detalhe-meta { flex-direction: column; align-items: flex-start; gap: 1px; font-size: var(--t-corpo); }
   .detalhe-meta > .detalhe-meta-sep { display: none; }
   .btn-mais { width: 40px; height: 40px; min-height: 40px; }
   .detalhe-layout .so-desktop { display: none !important; }
@@ -127,8 +127,8 @@ input[type="checkbox"], input[type="radio"] {
      fixa logo acima da barra inferior, sempre à mão */
   .decisao { padding: 16px 16px 0; }
   .decisao-topo { flex-direction: column; gap: 0; padding-bottom: 14px; }
-  .decisao-titulo { font-size: 1.15rem; }
-  .decisao-desc { font-size: 0.88rem; }
+  .decisao-titulo { font-size: var(--t-titulo-2); }
+  .decisao-desc { font-size: var(--t-corpo); }
   .decisao-fatos { margin: 0 -16px; grid-template-columns: 1fr; }
   .decisao-fato { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 16px; }
   .decisao-fato dt { margin: 0; flex-shrink: 0; max-width: 50%; white-space: normal; line-height: 1.35; }
@@ -211,7 +211,7 @@ input[type="checkbox"], input[type="radio"] {
     border-bottom: 1px solid var(--line);
   }
   .lateral-topo { flex: 1 0 100%; height: 56px; margin: 0; }
-  .lateral-marca .marca { font-size: 1.2rem; }
+  .lateral-marca .marca { font-size: var(--t-titulo-2); }
   .lateral-icone { margin-right: -6px; }
   .lateral-rodape, .lateral-nav { display: none; }
 
@@ -235,7 +235,7 @@ input[type="checkbox"], input[type="radio"] {
     padding: 0 0.8rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 0.84rem;
+    font-size: var(--t-corpo);
     white-space: nowrap;
   }
   .lateral[data-mode="config"] .lateral-grupo .lateral-item.active { border-color: var(--border-strong); background: var(--card2); }
@@ -252,7 +252,7 @@ input[type="checkbox"], input[type="radio"] {
   /* Cabeçalho numa linha só: PEDIDOS e o "+" (nome acessível "Novo pedido") */
   .pedidos-head { margin-bottom: 16px; }
   .pedidos-head-top { align-items: flex-start; gap: 0.75rem; }
-  .pedidos-resumo { margin-top: 10px; font-size: 0.86rem; line-height: 1.5; }
+  .pedidos-resumo { margin-top: 10px; font-size: var(--t-corpo); line-height: 1.5; }
   /* Mesmo botão dos cadastros no celular: "+ Novo" */
   .pedidos-btn-novo { min-height: 38px; padding: 0 0.9rem; margin-top: 2px; }
   .pedidos-btn-novo-curto { display: inline; }
@@ -261,7 +261,7 @@ input[type="checkbox"], input[type="radio"] {
   /* Busca + Filtros + quadro/lista numa linha; filtros rápidos roláveis embaixo */
   .pedidos-controles { flex-wrap: wrap; gap: 10px 8px; min-height: 0; margin-top: 18px; border-bottom: none; }
   .pedidos-busca { order: 1; flex: 1 1 0; min-width: 0; }
-  .pedidos-busca input { height: 42px; min-height: 42px; font-size: 1rem; }
+  .pedidos-busca input { height: 42px; min-height: 42px; font-size: var(--t-titulo-3); }
   .pedidos-filtros-wrap { order: 2; position: static; margin-left: 0; }
   .pedidos-btn-filtros { min-width: 42px; height: 42px; min-height: 42px; padding: 0 0.7rem; justify-content: center; }
   .pedidos-btn-filtros-txt { display: none; }
@@ -279,7 +279,7 @@ input[type="checkbox"], input[type="radio"] {
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
     mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
   }
-  .rapido { font-size: 0.9rem; }
+  .rapido { font-size: var(--t-corpo); }
 
   /* Painel de filtros vira folha de baixo, acima de tudo */
   .painel-filtros {
@@ -308,7 +308,7 @@ input[type="checkbox"], input[type="radio"] {
   .pf-corpo { padding: 16px; gap: 20px; }
   .pf-grade { grid-template-columns: 1fr; gap: 14px; }
   .pf-campo select,
-  .pf-datas .campo-data-texto { min-height: 44px; font-size: 1rem; }
+  .pf-datas .campo-data-texto { min-height: 44px; font-size: var(--t-titulo-3); }
   .painel-filtros[data-modo="lista"] .pf-ordem { display: block; }
   .pf-visao-nome { min-height: 52px; }
   .pf-visao-acao { width: 40px; height: 40px; min-height: 40px; }
@@ -369,7 +369,7 @@ input[type="checkbox"], input[type="radio"] {
     max-width: 100%;
     overflow: hidden;
     font-family: var(--display);
-    font-size: 0.67rem;
+    font-size: var(--t-pequeno);
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: 0;
@@ -400,19 +400,19 @@ input[type="checkbox"], input[type="radio"] {
   .kanban-col.atual { display: flex; }
   .kanban-col-header { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 16px 0 12px; margin-bottom: 0; border-top: none; }
   .kanban-col-header .etapa-n { display: none; }
-  .etapa-nome { margin-top: 0; font-size: 1.05rem; font-weight: 700; }
-  .etapa-soma { font-size: 0.86rem; color: var(--text2); }
+  .etapa-nome { margin-top: 0; font-size: var(--t-titulo-3); font-weight: 700; }
+  .etapa-soma { font-size: var(--t-corpo); color: var(--text2); }
   .kanban-cards { gap: 10px; min-height: 0; }
-  .kanban-vazio { padding: 18px 0; font-size: 0.86rem; }
-  .kanban-ver-mais { min-height: 44px; font-size: 0.86rem; }
+  .kanban-vazio { padding: 18px 0; font-size: var(--t-corpo); }
+  .kanban-ver-mais { min-height: 44px; font-size: var(--t-corpo); }
   .kcard { padding: 14px 15px 13px; }
-  .kcard-num { font-size: 0.84rem; }
-  .kcard-urg { font-size: 0.68rem; padding: 2px 7px 1px; }
-  .kcard-title { font-size: 0.95rem; -webkit-line-clamp: 3; }
-  .kcard-empresa { font-size: 0.8rem; }
+  .kcard-num { font-size: var(--t-corpo); }
+  .kcard-urg { font-size: var(--t-pequeno); padding: 2px 7px 1px; }
+  .kcard-title { font-size: var(--t-titulo-3); -webkit-line-clamp: 3; }
+  .kcard-empresa { font-size: var(--t-pequeno); }
   .kcard-pe { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
-  .kcard-prazo { font-size: 0.8rem; }
-  .kcard-valor { font-size: 1.2rem; }
+  .kcard-prazo { font-size: var(--t-pequeno); }
+  .kcard-valor { font-size: var(--t-titulo-2); }
 
   /* Lista vira cartões na mesma linguagem do quadro */
   .pedidos-tabela-wrap { overflow: visible; border-top: none; }
@@ -436,24 +436,24 @@ input[type="checkbox"], input[type="radio"] {
   }
   .light .table-card-mobile.pedidos-tabela tbody tr { background: var(--card); }
   .table-card-mobile.pedidos-tabela tbody tr.selecionada { background: var(--gold-dim); box-shadow: 0 1px 0 var(--border-strong), inset 0 0 0 1px var(--gold-border); }
-  .table-card-mobile.pedidos-tabela tbody td { display: block; min-width: 0; padding: 0; border: none; font-size: 0.82rem; }
+  .table-card-mobile.pedidos-tabela tbody td { display: block; min-width: 0; padding: 0; border: none; font-size: var(--t-corpo); }
   .table-card-mobile.pedidos-tabela tbody td::before { content: none; display: none; }
   .table-card-mobile.pedidos-tabela td.c-cb { grid-area: cb; width: auto; display: flex; align-items: flex-start; justify-content: center; padding-top: 1px; }
   .table-card-mobile.pedidos-tabela td.c-cb input { width: 18px; height: 18px; opacity: 0.6; }
   .table-card-mobile.pedidos-tabela td.c-cb input:checked { opacity: 1; }
   .table-card-mobile.pedidos-tabela td.c-pedido { grid-area: pedido; width: auto; max-width: none; }
-  .table-card-mobile.pedidos-tabela td.c-empresa { grid-area: empresa; max-width: none; color: var(--text3); font-size: 0.8rem; }
+  .table-card-mobile.pedidos-tabela td.c-empresa { grid-area: empresa; max-width: none; color: var(--text3); font-size: var(--t-pequeno); }
   .table-card-mobile.pedidos-tabela td.c-status { grid-area: status; margin-top: 6px; }
   .table-card-mobile.pedidos-tabela td.c-prazo { grid-area: prazo; }
   .table-card-mobile.pedidos-tabela td.c-valor { grid-area: valor; align-self: end; }
   .table-card-mobile.pedidos-tabela td.c-solic,
   .table-card-mobile.pedidos-tabela td.c-data { display: none; }
   .pedidos-tabela .lp-linha { flex-wrap: wrap; row-gap: 4px; }
-  .pedidos-tabela .lp-num { font-size: 0.84rem; }
+  .pedidos-tabela .lp-num { font-size: var(--t-corpo); }
   .pedidos-tabela .lp-linha .kcard-urg { order: 2; margin-left: auto; }
   .pedidos-tabela .lp-linha .kcard-unread-dot { order: 2; }
-  .pedidos-tabela .lp-titulo { order: 3; flex-basis: 100%; font-size: 0.95rem; line-height: 1.32; white-space: normal; }
-  .pedidos-tabela .lp-valor { font-size: 1.2rem; }
+  .pedidos-tabela .lp-titulo { order: 3; flex-basis: 100%; font-size: var(--t-titulo-3); line-height: 1.32; white-space: normal; }
+  .pedidos-tabela .lp-valor { font-size: var(--t-titulo-2); }
   .lista-paginacao { padding: 0; }
   .pagina-btns .btn-ghost span { display: none; }
   .pagina-btns .btn-ghost { width: 42px; min-height: 42px; padding: 0; }
@@ -534,7 +534,7 @@ input[type="checkbox"], input[type="radio"] {
     min-width: 0;
     min-height: 56px;
     padding: 0 2px;
-    font: 600 0.66rem/1 var(--font);
+    font: 600 var(--t-pequeno)/1 var(--font);
     letter-spacing: 0.01em;
     color: var(--text3);
     border: none;
@@ -570,7 +570,7 @@ input[type="checkbox"], input[type="radio"] {
     align-items: center;
     justify-content: center;
     font-family: var(--display);
-    font-size: 0.62rem;
+    font-size: var(--t-pequeno);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--gold);

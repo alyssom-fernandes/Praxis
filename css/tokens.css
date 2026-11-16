@@ -91,6 +91,13 @@
   --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55);
 
   /* Tipografia */
+  /* Escala de texto: quatro degraus, mínimo de 12 px (cap. 15 do estudo).
+     Os tamanhos de display (título de tela, numerais, KPIs e a entrada) são
+     a "inscrição" e seguem com os valores aprovados */
+  --t-pequeno: 0.75rem;                  /* 12 px: metadados, legenda, cabeçalho de tabela, selo */
+  --t-corpo: 0.875rem;                   /* 14 px: texto padrão, células, campos, botões */
+  --t-titulo-3: 1rem;                    /* 16 px: título de cartão, de grupo e de painel */
+  --t-titulo-2: 1.25rem;                 /* 20 px: título de seção e de diálogo */
   --font: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --display: 'GFS Neohellenic', 'Hanken Grotesk', system-ui, sans-serif;   /* títulos, numerais, números de pedido */
   --marca: 'GFS Didot', 'Didot', Georgia, 'Times New Roman', serif;        /* letreiro e momentos de marca */

@@ -133,6 +133,25 @@ test('nenhum foco é apagado sem outro no lugar', () => {
   assert.deepEqual(apagados, [])
 })
 
+// ── Escala de texto ───────────────────────────────────────────
+// Texto usa os quatro degraus (--t-pequeno 12, --t-corpo 14, --t-titulo-3 16,
+// --t-titulo-2 20). Literal só para display (1,3rem ou mais, clamp, em
+// relativo ao pai) e o 16 px da raiz e do campo da paleta
+test('tamanho de texto só pela escala, e nada abaixo de 12 px', () => {
+  const fora = []
+  for (const nome of CSS) {
+    const css = ler(nome)
+    for (const m of css.matchAll(/(?:font-size\s*:|\bfont\s*:\s*\d{3})\s*([^;}\s/]+)/g)) {
+      const v = m[1].trim()
+      if (/^var\(--t-/.test(v) || /^clamp\(/.test(v) || /^[\d.]+em$/.test(v) || v === '16px' || v === 'inherit') continue
+      const rem = v.match(/^([\d.]+)rem$/)
+      if (rem && +rem[1] >= 1.3) continue
+      fora.push(`${nome}: ${v}`)
+    }
+  }
+  assert.deepEqual(fora, [])
+})
+
 // ── Papéis de cor ─────────────────────────────────────────────
 // A terracota tem quatro papéis: ação primária, item ou aba ativa, urgência e
 // "com você". Número e valor são dado: ficam na cor do texto, salvo quando o

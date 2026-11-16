@@ -17,7 +17,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
-  font-size: 0.875rem;
+  font-size: var(--t-corpo);
   line-height: 1.45;
 }
 
@@ -110,7 +110,7 @@ code, kbd { font-family: var(--mono); }
 /* Rótulo de seção: frase normal na fonte da interface, com fio à direita */
 .rotulo-secao {
   font-family: var(--font);
-  font-size: 0.86rem;
+  font-size: var(--t-corpo);
   font-weight: 600;
   letter-spacing: 0;
   color: var(--text3);
@@ -123,7 +123,7 @@ code, kbd { font-family: var(--mono); }
 /* Inputs */
 input, select, textarea {
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--t-corpo);
   background: var(--card2);
   border: 1px solid var(--borda-campo);
   border-radius: var(--radius-input);
@@ -183,7 +183,7 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.55; }
 
 label {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--t-pequeno);
   font-weight: 600;
   color: var(--text2);
   margin-bottom: 0.4rem;
@@ -192,7 +192,7 @@ label {
 /* Botões */
 button {
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--t-corpo);
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
@@ -226,7 +226,7 @@ button:disabled {
   justify-content: center;
   gap: 0.45rem;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--t-corpo);
   font-weight: 600;
   line-height: 1.2;
   padding: 0.55rem 1.05rem;
@@ -271,7 +271,7 @@ button:disabled {
 .btn-danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
 
 .btn-sm {
-  font-size: 0.78rem;
+  font-size: var(--t-pequeno);
   padding: 0.35rem 0.75rem;
   min-height: 32px;
   gap: 0.35rem;
@@ -326,7 +326,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.72rem;
+  font-size: var(--t-pequeno);
   font-weight: 600;
   line-height: 1.3;
   padding: 0.16rem 0.5rem;
@@ -363,7 +363,7 @@ button:disabled {
   justify-content: center;
 }
 #spinner-overlay.visible { display: flex; flex-direction: column; gap: 18px; animation: spinnerAparece 0.2s ease 0.12s both; }
-.spinner-texto { font-size: 0.86rem; color: var(--text2); text-align: center; padding: 0 24px; }
+.spinner-texto { font-size: var(--t-corpo); color: var(--text2); text-align: center; padding: 0 24px; }
 /* Espera longa, com texto (a renovação da demo): o fundo cobre a tela de trás,
    para o texto não disputar com os cartões */
 #spinner-overlay:has(.spinner-texto:not(:empty)) { background: color-mix(in srgb, var(--bg) 94%, transparent); }
@@ -430,7 +430,7 @@ button:disabled {
 .toast-blue  { --toast-cor: var(--blue); }
 .toast-amber { --toast-cor: var(--amber); }
 .toast-ico { color: var(--toast-cor); flex-shrink: 0; display: flex; margin-top: 2px; }
-.toast-msg { flex: 1; min-width: 0; color: var(--text); font-size: 0.86rem; font-weight: 500; line-height: 1.45; padding-top: 1px; text-wrap: pretty; }
+.toast-msg { flex: 1; min-width: 0; color: var(--text); font-size: var(--t-corpo); font-weight: 500; line-height: 1.45; padding-top: 1px; text-wrap: pretty; }
 .toast-fechar {
   width: 30px; height: 30px;
   min-height: 30px;
@@ -511,7 +511,7 @@ button:disabled {
   background: var(--card);
   z-index: 2;
 }
-.modal-header h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.005em; }
+.modal-header h2 { font-size: var(--t-titulo-3); font-weight: 700; letter-spacing: -0.005em; }
 
 .modal-body { padding: 1.5rem; flex: 1; }
 
@@ -562,8 +562,8 @@ button:disabled {
   animation: modalIn 0.18s ease;
 }
 .dialog.dialog-perigo { border-top-color: var(--red); }
-.dialog h3 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.32; margin-bottom: 8px; color: var(--text); text-wrap: balance; }
-.dialog p  { color: var(--text2); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.6; text-wrap: pretty; }
+.dialog h3 { font-size: var(--t-titulo-2); font-weight: 700; letter-spacing: -0.01em; line-height: 1.32; margin-bottom: 8px; color: var(--text); text-wrap: balance; }
+.dialog p  { color: var(--text2); font-size: var(--t-corpo); margin-bottom: 24px; line-height: 1.6; text-wrap: pretty; }
 .dialog h3:last-child { margin-bottom: 22px; }
 /* Cancelar à esquerda, ação principal à direita (mesma ordem no foco) */
 .dialog-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
@@ -599,9 +599,9 @@ button:disabled {
   flex-shrink: 0;
   letter-spacing: 0.04em;
 }
-.avatar-sm { width: 26px; height: 26px; font-size: 0.72rem; }
-.avatar-md { width: 32px; height: 32px; font-size: 0.84rem; }
-.avatar-lg { width: 40px; height: 40px; font-size: 1rem; }
+.avatar-sm { width: 26px; height: 26px; font-size: var(--t-pequeno); }
+.avatar-md { width: 32px; height: 32px; font-size: var(--t-corpo); }
+.avatar-lg { width: 40px; height: 40px; font-size: var(--t-titulo-3); }
 
 /* Utilitários */
 .flex { display: flex; }
@@ -617,8 +617,8 @@ button:disabled {
 .text-red { color: var(--red); }
 .text-blue { color: var(--blue); }
 .text-muted { color: var(--text3); }
-.text-sm { font-size: 0.8rem; }
-.text-xs { font-size: 0.72rem; }
+.text-sm { font-size: var(--t-pequeno); }
+.text-xs { font-size: var(--t-pequeno); }
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -665,7 +665,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   color: var(--text);
   border: 1px solid var(--tinta);
   border-radius: var(--radius-btn);
-  font-size: 0.875rem;
+  font-size: var(--t-corpo);
   font-weight: 600;
   text-decoration: none;
   transform: translateY(-200%);
