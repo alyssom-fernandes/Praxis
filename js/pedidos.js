@@ -11,7 +11,7 @@ import {
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
   corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -256,10 +256,6 @@ export async function renderPedidos() {
               <div class="form-group" data-campo="np-data">
                 <label for="np-data">${t('npData')} <span class="np-req" aria-hidden="true">*</span></label>
                 <input type="date" id="np-data" required min="${hojeISO()}">
-              </div>
-              <div class="form-group" data-campo="np-valor">
-                <label for="np-valor">${t('npValor')}</label>
-                <input type="text" id="np-valor" placeholder="R$ 0,00" inputmode="decimal" autocomplete="off">
               </div>
               <div class="form-group" data-campo="np-cc">
                 <label for="np-cc">${t('npCC')}</label>
@@ -805,14 +801,6 @@ function _bindEvents() {
     el?.addEventListener('change', () => _limparErroCampo(id))
   })
 
-  // Valor estimado: formata ao sair do campo
-  document.getElementById('np-valor')?.addEventListener('blur', e => {
-    const v = e.target.value.trim()
-    if (!v) return
-    const n = parseMoeda(v)
-    e.target.value = n > 0 ? formatCurrency(n) : ''
-  })
-
   // Abrir modal
   document.getElementById('btn-novo-pedido')?.addEventListener('click', () => {
     _fecharPainel(false)
@@ -937,7 +925,6 @@ async function _submeterNovoPedido() {
   const quantidade = document.getElementById('np-quantidade')?.value
   const unidade    = document.getElementById('np-unidade')?.value
   const data       = document.getElementById('np-data')?.value
-  const valorStr   = document.getElementById('np-valor')?.value.trim()
   const cc         = document.getElementById('np-cc')?.value.trim()
   const obs        = document.getElementById('np-obs')?.value.trim()
   const urgente    = document.getElementById('np-urgente-toggle')?.classList.contains('on')
@@ -956,7 +943,6 @@ async function _submeterNovoPedido() {
     return
   }
 
-  const valorEstimado = valorStr ? parseMoeda(valorStr) : null
 
   if (!exigirConexao()) return
   const btnAbrir = document.getElementById('btn-abrir-pedido')
@@ -977,7 +963,9 @@ async function _submeterNovoPedido() {
         quantidade:      Number(quantidade),
         unidade,
         dataNecessaria:  data,
-        valorEstimado:   valorEstimado,
+        // O valor estimado saiu do formulário (16/11/2026): o valor do pedido
+        // passa a ser o da cotação indicada e, depois, o da compra
+        valorEstimado:   null,
         centroCusto:     cc || null,
         categoriaId,
         urgente,
@@ -2167,7 +2155,6 @@ function _preencherModalDuplicar(p) {
   const empresa = document.getElementById('np-empresa')
   const quant   = document.getElementById('np-quantidade')
   const unid    = document.getElementById('np-unidade')
-  const valor   = document.getElementById('np-valor')
   const cc      = document.getElementById('np-cc')
   const obs     = document.getElementById('np-obs')
 
@@ -2179,7 +2166,6 @@ function _preencherModalDuplicar(p) {
   }
   if (quant)   quant.value   = p.quantidade || ''
   if (unid)    unid.value    = p.unidade || ''
-  if (valor && p.valorEstimado) valor.value = formatCurrency(p.valorEstimado)
   if (cc)      cc.value      = p.centroCusto || p.cc || ''
   if (obs)     obs.value     = p.descricao || ''
   // A data necessária não é copiada: o prazo do original quase sempre já passou

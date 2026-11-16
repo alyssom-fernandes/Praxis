@@ -474,7 +474,8 @@ function _renderDetalhe() {
     [t('metaCategoria'), esc(categ?.nome || '—')],
     [t('metaQtd'), `<span class="dt-numeral">${esc(p.quantidade ?? '—')}</span> ${esc(p.unidade || '')}`],
     [t('metaNecessario'), p.dataNecessaria ? `<span class="dt-numeral">${formatDate(p.dataNecessaria)}</span>` : '—'],
-    [t('metaValorEst'), p.valorEstimado ? `<span class="dt-numeral">${formatCurrency(p.valorEstimado)}</span>` : '—'],
+    // Pedidos antigos ainda trazem o valor estimado; os novos não têm o campo
+    ...(p.valorEstimado ? [[t('metaValorEst'), `<span class="dt-numeral">${formatCurrency(p.valorEstimado)}</span>`]] : []),
     [t('metaCentro'), `<span class="mono">${esc(p.centroCusto || '—')}</span>`],
   ]
   if (p.fornecedorNome) dados.push([t('fornecedorLabel'), esc(p.fornecedorNome)])
@@ -1824,10 +1825,6 @@ function _editarPedido() {
             <textarea id="edit-descricao" rows="3" style="resize:vertical">${esc(p.descricao || '')}</textarea>
           </div>
           <div class="form-group">
-            <label for="edit-valor">${t('npValor')}</label>
-            <input type="text" id="edit-valor" inputmode="decimal" placeholder="R$ 0,00" value="${p.valorEstimado ? formatCurrency(p.valorEstimado) : ''}">
-          </div>
-          <div class="form-group">
             <label for="edit-data">${t('npData')}</label>
             <input type="date" id="edit-data" value="${esc(p.dataNecessaria || '')}">
           </div>
@@ -1862,17 +1859,15 @@ function _editarPedido() {
 async function _salvarEdicaoPedido(fechar) {
   const titulo      = document.getElementById('edit-titulo')?.value.trim()
   const descricao   = document.getElementById('edit-descricao')?.value.trim()
-  const valorStr    = document.getElementById('edit-valor')?.value.trim()
   const data        = document.getElementById('edit-data')?.value
   const categoriaId = document.getElementById('edit-categoria')?.value
   const urgente     = document.getElementById('edit-urgente-toggle')?.classList.contains('on')
 
   if (!titulo) { prxToast(t('editTituloObrigatorio'), 'error'); return }
 
-  const valorEstimado = valorStr ? parseMoeda(valorStr) : null
   const p = _pedido
 
-  const novos = { titulo, descricao, valorEstimado, dataNecessaria: data, categoriaId, urgente }
+  const novos = { titulo, descricao, dataNecessaria: data, categoriaId, urgente }
   const formatar = (campo, val) => {
     if (campo === 'valorEstimado')  return val ? formatCurrency(val) : '—'
     if (campo === 'dataNecessaria') return val ? formatDate(val) : '—'
@@ -2559,7 +2554,7 @@ async function _exportarPedidoPDF() {
       [t('npCC'), p.centroCusto || '—'],
       [t('npQuantidade'), `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()],
       [t('npData'), p.dataNecessaria ? formatDate(p.dataNecessaria) : '—'],
-      [t('npValor'), p.valorEstimado ? formatCurrency(p.valorEstimado) : '—'],
+      ...(p.valorEstimado ? [[t('npValor'), formatCurrency(p.valorEstimado)]] : []),
       [t('colSolicitante'), solicNome],
       [t('colComprador'), p.compradorId ? (_nomePorId(p.compradorId) || '—') : (_quemFez(STATUS.AG_COTACAO)?.nome || t('pdfNaoAtribuido'))],
       [t('pdfAprovacao'), (() => {
