@@ -100,7 +100,7 @@ input[type="checkbox"], input[type="radio"] {
   .detalhe-layout { gap: 24px; }
   .detalhe-head { gap: 8px; }
   .detalhe-head-linha { gap: 10px; }
-  .detalhe-titulo { font-size: 1.5rem; line-height: 1.2; }
+  .detalhe-titulo { font-size: 1.375rem; line-height: 1.2; }
   .detalhe-meta { flex-direction: column; align-items: flex-start; gap: 1px; font-size: var(--t-corpo); }
   .detalhe-meta > .detalhe-meta-sep { display: none; }
   .btn-mais { width: 40px; height: 40px; min-height: 40px; }
@@ -122,7 +122,7 @@ input[type="checkbox"], input[type="radio"] {
   .caminho::-webkit-scrollbar { display: none; }
   .caminho-etapa { flex: 0 0 102px; scroll-snap-align: start; padding-top: 10px; }
   .caminho-etapa.parou { flex-basis: 134px; }
-  .caminho-num { font-size: 1.75rem; margin-bottom: 3px; }
+  .caminho-num { margin-bottom: 3px; }
   /* Painel de decisão: texto e fatos em lista; a ação desce para uma barra
      fixa logo acima da barra inferior, sempre à mão */
   .decisao { padding: 16px 16px 0; }
@@ -322,7 +322,6 @@ input[type="checkbox"], input[type="radio"] {
   body:has(#modal-bulk-cancel.visible) .bottom-nav,
   body:has(#modal-salvar-visao.visible) .bottom-nav { display: none; }
   .pedidos-modal { max-height: 92vh; max-height: 92dvh; }
-  .pedidos-modal .modal-header h2 { font-size: 1.35rem; }
 
   /* Quadro → régua de etapas: os sete numerais tocáveis, presos no alto;
      a etapa escolhida aparece sozinha, em lista vertical */
@@ -409,7 +408,7 @@ input[type="checkbox"], input[type="radio"] {
   .kcard { padding: 14px 15px 13px; }
   .kcard-num { font-size: var(--t-corpo); }
   .kcard-urg { font-size: var(--t-pequeno); padding: 2px 7px 1px; }
-  .kcard-title { font-size: var(--t-titulo-3); -webkit-line-clamp: 3; }
+  .kcard-title { font-size: var(--t-titulo-3); -webkit-line-clamp: 2; }
   .kcard-empresa { font-size: var(--t-pequeno); }
   .kcard-pe { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
   .kcard-prazo { font-size: var(--t-pequeno); }

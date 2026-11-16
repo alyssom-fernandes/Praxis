@@ -41,7 +41,8 @@ Identidade "Inscrição em terracota": preto quente de cerâmica e argila, texto
 | `--t-pequeno` | 12 px | Metadados, legenda, cabeçalho de tabela, selo |
 
 - **Tamanho mínimo:** 12 px.
-- **Display:** o título de tela, os numerais, os KPIs e a entrada são a "inscrição" e ficam fora desta escala, com os valores aprovados (1,3rem ou mais, ou `clamp`).
+- **Display:** dois degraus na GFS Neohellenic, `--t-display-g` (40 px: título de tela, numeral da coluna, KPI em destaque) e `--t-display-m` (28 px: título do pedido, numerais da régua, KPIs). No celular, o título de tela fica em 30 px. A entrada e o 404 têm tamanhos próprios.
+- **Diálogos:** o título vai na fonte da interface (20 px), sem caixa alta. A inscrição em maiúsculas é só do título de tela.
 
 ## Camadas
 
@@ -77,7 +78,8 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 | Ghost | Cancelar, fechar, ações de baixo peso | Ação que grava | "Cancelar", "Voltar" |
 | Perigo | O que não volta (apagar, cancelar pedidos) | Reprovar (tem fluxo próprio, com motivo) | Diz o objeto: "Cancelar pedidos" |
 | Campo | Dado que a pessoa escreve | Escolha entre poucas opções (use botões ou select) | Rótulo substantivo; placeholder com exemplo; erro abaixo, dizendo o que fazer |
-| Ponto de etapa | Etapa em lista, paleta e relatórios | Perfil, categoria | O nome da etapa ao lado |
+| Etiqueta de etapa (lozenge) | Etapa na lista (20 px, cor da categoria); na paleta e nos relatórios, um ponto na mesma cor | Perfil, categoria | Sempre o nome da etapa |
+| Responsável no cartão | O comprador que assumiu, em iniciais (24 px), com o nome no title | Antes de alguém assumir | Nenhum; o nome vai no title e no rótulo do cartão |
 | Selo | Urgente e "com você" | Etapa, contagem | Uma palavra, sem caixa alta |
 | Contagem | Quantos itens há numa aba, filtro ou item da lateral | Destacar (é dado, fica neutra) | Só o número |
 | Filtro rápido | Recortes do quadro com o número ao lado (`aria-pressed`) | Trocar a forma da visão | Substantivo curto: "Urgentes" |
@@ -90,6 +92,6 @@ O `z-index` global só usa os tokens `--z-*`, de baixo para cima, de `--z-menu` 
 
 ## O que falta (Fase 1 do roteiro)
 
-- **Espaço e alturas de controle:** tokens `--esp-*` em base 8 e controles de 32 e 40 px (1.5).
-- **Componentes unificados (1.6):** lozenge, régua e estado vazio únicos, e a faixa da demo em tinta invertida. O aviso com ação e o erro que persiste já estão feitos.
-- **Densidade do quadro e estrutura das telas (1.7 e 1.9):** dependem de revisão do dono.
+- **Espaço (1.5):** tokens `--esp-*` em base 8. As alturas de botão (40 e 32 px) já estão feitas.
+- **Componentes unificados (1.6):** régua e estado vazio únicos. A etiqueta de etapa, a faixa da demo, o título dos diálogos, o aviso com ação e o erro que persiste já estão feitos.
+- **Estrutura das telas (1.9):** depende de um protótipo próprio e da revisão do dono.

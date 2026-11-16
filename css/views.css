@@ -906,12 +906,7 @@
 /* Modais da tela: fio de tinta no topo e título em Neohellenic, como as telas */
 .pedidos-modal { border-top: 2px solid var(--tinta); }
 .pedidos-modal .modal-header h2 {
-  font-family: var(--display);
-  font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .pedidos-modal-estreito { max-width: 460px; }
 .np-modal { max-width: 680px; }
@@ -1183,7 +1178,7 @@
 }
 .rel-kpi-valor {
   font-family: var(--display);
-  font-size: clamp(1.75rem, 19cqi, 2.75rem);
+  font-size: clamp(1.5rem, 18cqi, var(--t-display-m));
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -1191,7 +1186,7 @@
   color: var(--text);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 17cqi, 3.5rem); color: var(--text); }
+.rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 14cqi, var(--t-display-g)); color: var(--text); }
 .rel-moeda { margin-right: 0.16em; font-size: 0.5em; letter-spacing: 0.02em; }
 .rel-cent { font-size: 0.5em; }
 .rel-kpi-rotulo { margin-top: 10px; font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
@@ -1565,8 +1560,8 @@
   .rel-kpis-5 .rel-kpi { grid-column: auto; }
   .rel-kpis-5 .rel-kpi.destaque { grid-column: 1 / -1; }
   .rel-kpi { padding-top: 12px; }
-  .rel-kpi-valor { font-size: clamp(1.5rem, 18cqi, 2.2rem); }
-  .rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2.2rem, 14cqi, 3rem); }
+  .rel-kpi-valor { font-size: clamp(1.5rem, 18cqi, var(--t-display-m)); }
+  .rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 14cqi, var(--t-display-g)); }
   .rel-kpi-rotulo { margin-top: 8px; font-size: var(--t-corpo); }
 
   .rel-grade { row-gap: 48px; }
@@ -1735,7 +1730,7 @@
 .detalhe-head-linha .menu-acoes-wrap { margin-left: auto; }
 .detalhe-titulo {
   max-width: 980px;
-  font-size: clamp(1.625rem, 2.3vw, 1.875rem);
+  font-size: var(--t-display-m);
   font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1.18;
@@ -1788,7 +1783,7 @@
 .caminho-num {
   margin-bottom: 5px;
   font-family: var(--display);
-  font-size: 2.125rem;
+  font-size: var(--t-display-m);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums lining-nums;
@@ -2094,7 +2089,6 @@
   text-overflow: ellipsis;
 }
 .dt-modal-pedido { margin-left: 10px; font-family: var(--font); font-weight: 500; letter-spacing: 0; }
-.dt-modal .modal-header h2 { font-size: 1.3rem; letter-spacing: -0.01em; }
 .dt-modal .modal-header .btn-icon { margin-top: 2px; }
 .modal-intro { font-size: var(--t-corpo); color: var(--text2); line-height: 1.6; margin-bottom: 1.2rem; }
 .modal-resumo {
@@ -2465,12 +2459,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .cfg-modal-sm { max-width: 460px; }
 .cfg-modal .modal-header { align-items: flex-start; padding: 1.4rem 1.25rem 1.15rem 1.5rem; }
 .cfg-modal .modal-header h2 {
-  font-family: var(--display);
-  font-size: 1.65rem;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 .cfg-modal .modal-header .btn-icon { margin-top: -0.2rem; border-color: transparent; }
 .cfg-modal .modal-header .btn-icon:hover { border-color: var(--border-strong); }
@@ -2796,7 +2785,6 @@ input.cfg-mono { font-size: var(--t-corpo); }
   /* Modais */
   .cfg-modal { border-radius: 0; }
   .cfg-modal .modal-header { padding: 1.15rem 1rem 1rem 1.25rem; }
-  .cfg-modal .modal-header h2 { font-size: 1.45rem; }
   .cfg-form.form-grid-2 { grid-template-columns: 1fr; }
   .cfg-form .col-span-2 { grid-column: auto; }
   /* Numa coluna só, a descrição do perfil fica logo abaixo do perfil escolhido */

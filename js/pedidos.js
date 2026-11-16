@@ -7,11 +7,11 @@ import { sessao, registrarPedidos } from './estado.js'
 import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
-  STATUS, STATUS_LABEL, STATUS_DOT_COLOR,
+  STATUS, STATUS_LABEL, CATEGORIA_ETAPA,
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
   corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, parseMoeda, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -1568,6 +1568,7 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
     const campos = { status: statusDestino, atualizadoEm: serverTimestamp() }
     if (statusDestino === STATUS.AG_COTACAO) {
       campos.compradorId       = sessao.usuario.id
+      campos.compradorNome     = sessao.usuario.nome || null
       campos.compradorAssumiuEm = serverTimestamp()
     }
     if (statusDestino === STATUS.APROVADO && statusOrigem === STATUS.EM_APROVACAO) {
@@ -1810,6 +1811,15 @@ function _nomeEmpresa(id) {
   return e?.nome || ''
 }
 
+// Quem está com o pedido: o comprador que assumiu (nome do cadastro, ou o
+// gravado no pedido para quem não lê a lista de usuários)
+function _nomeComprador(p) {
+  if (!p.compradorId) return ''
+  return _usuarios.find(x => x.id === p.compradorId)?.nome
+    || (p.compradorId === sessao.usuario.id ? sessao.usuario.nome : '')
+    || p.compradorNome || ''
+}
+
 function _nomeSolicitante(p) {
   const u = _usuarios.find(x => x.id === p.solicitanteId)
   if (u?.nome) return u.nome
@@ -1875,10 +1885,11 @@ function _renderKcard(p) {
   const valor   = _valorPedido(p)
   const naoLido = _temComentarioNaoLido(p)
   const prazo   = _prazoPedido(p)
+  const resp    = _nomeComprador(p)
   const desde   = _mudouEm.has(p.id) ? Math.round(performance.now() - _mudouEm.get(p.id)) : null
   if (desde != null && desde > 1900) _mudouEm.delete(p.id)
   const mudou   = desde != null && desde <= 1900
-  const rotulo  = [p.numeroPedido, p.titulo, p.urgente ? t('urgenteTag') : '', prazo?.texto, valor ? formatCurrency(valor) : '']
+  const rotulo  = [p.numeroPedido, p.titulo, p.urgente ? t('urgenteTag') : '', prazo?.texto, valor ? formatCurrency(valor) : '', resp ? `${t('colComprador')}: ${resp}` : '']
     .filter(Boolean).join(', ')
 
   return `
@@ -1895,6 +1906,7 @@ function _renderKcard(p) {
       <div class="kcard-pe">
         ${prazo ? `<span class="kcard-prazo${prazo.classe ? ' ' + prazo.classe : ''}"${prazo.data ? ` title="${prazo.data}"` : ''}>${ICO.relogio(12)}<span>${prazo.texto}</span></span>` : ''}
         ${valor ? `<span class="kcard-valor">${formatCurrency(valor)}</span>` : `<span class="kcard-sem-valor">${t('semValor')}</span>`}
+        ${resp ? `<span class="kcard-resp" title="${t('colComprador')}: ${esc(resp)}" aria-hidden="true">${esc(gerarIniciais(resp))}</span>` : ''}
       </div>
     </article>
   `
@@ -1988,7 +2000,7 @@ function _renderLista(lista, totalFiltrada, totalPaginas, inicio) {
         </td>
         <td class="c-empresa">${esc(nomeEmp || '—')}</td>
         <td class="c-solic">${esc(solicit || '—')}</td>
-        <td class="c-status"><span class="lp-etapa"><span class="dot ${STATUS_DOT_COLOR[p.status] || 'dot-gray'}" aria-hidden="true"></span>${label}</span></td>
+        <td class="c-status"><span class="lozenge lozenge-${CATEGORIA_ETAPA[p.status] || 'aguardando'}">${label}</span></td>
         <td class="c-prazo">${prazo ? `<span class="lp-prazo${prazo.classe ? ' ' + prazo.classe : ''}"${prazo.data ? ` title="${prazo.data}"` : ''}>${prazo.texto}</span>` : '—'}</td>
         <td class="c-valor">${valor ? `<span class="lp-valor">${formatCurrency(valor)}</span>` : `<span class="lp-nulo">${t('semValor')}</span>`}</td>
         <td class="c-data">${p.criadoEm ? formatDate(_tsToISO(p.criadoEm)) : '—'}</td>

@@ -68,8 +68,8 @@ code, kbd { font-family: var(--mono); }
 .titulo-pagina {
   font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(2rem, 3.2vw, 2.875rem);
-  line-height: 0.95;
+  font-size: var(--t-display-g);
+  line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text);
@@ -200,7 +200,7 @@ button {
   outline: none;
   border-radius: var(--radius-btn);
   padding: 0.55rem 1.05rem;
-  min-height: 38px;
+  min-height: 40px;                     /* duas alturas: 40 (padrão) e 32 (.btn-sm) */
   background: none;
   color: inherit;
   transition: background var(--transition-fast), border-color var(--transition-fast),
@@ -230,7 +230,7 @@ button:disabled {
   font-weight: 600;
   line-height: 1.2;
   padding: 0.55rem 1.05rem;
-  min-height: 38px;
+  min-height: 40px;
   border: 1px solid transparent;
   border-radius: var(--radius-btn);
   cursor: pointer;
@@ -248,20 +248,22 @@ button:disabled {
 }
 .btn-primary:hover:not(:disabled) { background: var(--gold-fill-hover); border-color: var(--gold-fill-hover); }
 
+/* Secundário: a borda dos campos (3:1), para ler como botão */
 .btn-secondary {
   background: transparent;
-  border-color: var(--border-strong);
+  border-color: var(--borda-campo);
   color: var(--text);
 }
 .btn-secondary:hover:not(:disabled) { background: var(--card3); }
 
-/* Discreto: sem borda forte, para ações de apoio */
+/* Discreto: sem borda, para cancelar e ações de apoio (com borda, parecia
+   mais uma ação a fazer e tirava peso do primário) */
 .btn-ghost {
   background: transparent;
-  border-color: var(--border);
+  border-color: transparent;
   color: var(--text2);
 }
-.btn-ghost:hover:not(:disabled) { background: var(--card3); color: var(--text); border-color: var(--border-strong); }
+.btn-ghost:hover:not(:disabled) { background: var(--card3); color: var(--text); }
 
 .btn-danger {
   background: var(--red-dim);
@@ -516,7 +518,7 @@ button:disabled {
   background: var(--card);
   z-index: 2;
 }
-.modal-header h2 { font-size: var(--t-titulo-3); font-weight: 700; letter-spacing: -0.005em; }
+.modal-header h2 { font-size: var(--t-titulo-2); font-weight: 700; letter-spacing: -0.005em; line-height: 1.2; }
 
 .modal-body { padding: 1.5rem; flex: 1; }
 
@@ -694,4 +696,9 @@ main:focus { outline: none; }
     transition-delay: 0s !important;
   }
   .skeleton::after { animation: none; }
+}
+
+/* Celular: o título de tela desce para 30 px */
+@media (max-width: 767px) {
+  .titulo-pagina { font-size: 1.875rem; }
 }

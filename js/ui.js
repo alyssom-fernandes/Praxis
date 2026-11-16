@@ -725,8 +725,8 @@ export async function btnComLoading(btn, acao) {
 
 // ── Faixa de modo demonstração ────────────────────────────────
 // Mesmo padrão do FuelMind: faixa fixa no topo, na cor da marca, para
-// ninguém confundir demonstração com dado real. Traz as duas ações do modo:
-// restaurar os dados de exemplo e sair da demo. A altura real vai para
+// ninguém confundir demonstração com dado real. As ações do modo (tour, trocar
+// de pessoa, restaurar os dados de exemplo, sair) ficam num menu só. A altura real vai para
 // --faixa-demo-h, e a barra lateral, a faixa do celular e o conteúdo descem
 // junto (medir em vez de fixar: no celular o texto encolhe).
 function _medirFaixaDemo() {
@@ -781,30 +781,68 @@ export function mostrarDemoBanner(isDemo) {
   faixa.id = 'demo-faixa'
   faixa.className = 'demo-faixa'
   faixa.setAttribute('role', 'note')
+  // As quatro ações do modo num menu só: a faixa avisa, não disputa com a
+  // ação principal da tela
   faixa.innerHTML = `
     <span class="demo-faixa-texto">${_textoFaixaDemo()}</span>
     <span class="demo-faixa-acoes">
-      <button type="button" id="demo-faixa-tour"><span class="demo-faixa-longo">${t('demoFaixaTour')}</span><span class="demo-faixa-curto">${t('demoFaixaTourCurto')}</span></button>
-      <button type="button" id="demo-faixa-trocar"><span class="demo-faixa-longo">${t('demoFaixaTrocar')}</span><span class="demo-faixa-curto">${t('demoFaixaTrocarCurto')}</span></button>
-      <button type="button" id="demo-faixa-restaurar"><span class="demo-faixa-longo">${t('demoFaixaRestaurar')}</span><span class="demo-faixa-curto">${t('demoFaixaRestaurarCurto')}</span></button>
-      <button type="button" id="demo-faixa-sair"><span class="demo-faixa-longo">${t('demoFaixaSair')}</span><span class="demo-faixa-curto">${t('demoFaixaSairCurto')}</span></button>
+      <button type="button" id="demo-faixa-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="demo-faixa-lista">
+        <span class="demo-faixa-longo">${t('demoFaixaMenu')}</span><span class="demo-faixa-curto">${t('demoFaixaMenuCurto')}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <span class="demo-faixa-lista" id="demo-faixa-lista" role="menu" aria-labelledby="demo-faixa-menu" hidden>
+        <button type="button" role="menuitem" id="demo-faixa-tour" tabindex="-1">${t('demoFaixaTour')}</button>
+        <button type="button" role="menuitem" id="demo-faixa-trocar" tabindex="-1">${t('demoFaixaTrocar')}</button>
+        <button type="button" role="menuitem" id="demo-faixa-restaurar" tabindex="-1">${t('demoFaixaRestaurar')}</button>
+        <button type="button" role="menuitem" id="demo-faixa-sair" tabindex="-1">${t('demoFaixaSair')}</button>
+      </span>
     </span>
   `
-  faixa.querySelector('#demo-faixa-trocar').addEventListener('click', async e => {
-    const btn = e.currentTarget
+  const gatilho = faixa.querySelector('#demo-faixa-menu')
+  const lista = faixa.querySelector('#demo-faixa-lista')
+  const itens = [...lista.querySelectorAll('[role="menuitem"]')]
+  const fechar = (devolverFoco = false) => {
+    if (lista.hidden) return
+    lista.hidden = true
+    gatilho.setAttribute('aria-expanded', 'false')
+    if (devolverFoco) gatilho.focus()
+  }
+  const abrir = (indice = 0) => {
+    lista.hidden = false
+    gatilho.setAttribute('aria-expanded', 'true')
+    itens[(indice + itens.length) % itens.length].focus()
+  }
+  gatilho.addEventListener('click', () => (lista.hidden ? abrir(0) : fechar()))
+  gatilho.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); abrir(0) }
+    if (e.key === 'ArrowUp') { e.preventDefault(); abrir(-1) }
+  })
+  lista.addEventListener('keydown', e => {
+    const i = itens.indexOf(document.activeElement)
+    if (e.key === 'ArrowDown') { e.preventDefault(); itens[(i + 1) % itens.length].focus() }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); itens[(i - 1 + itens.length) % itens.length].focus() }
+    else if (e.key === 'Home') { e.preventDefault(); itens[0].focus() }
+    else if (e.key === 'End') { e.preventDefault(); itens.at(-1).focus() }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(true) }
+    else if (e.key === 'Tab') fechar()
+  })
+  document.addEventListener('click', e => { if (!faixa.contains(e.target)) fechar() })
+  const acao = fn => () => { fechar(); fn() }
+
+  faixa.querySelector('#demo-faixa-trocar').addEventListener('click', acao(async () => {
     const { abrirEscolhaPessoa } = await import('./demo-pessoas.js')
     abrirEscolhaPessoa({
       modo: 'trocar',
       aoEscolher: id => trocarPessoa(id),
-      aoFechar: () => btn.focus(),
+      aoFechar: () => gatilho.focus(),
     })
-  })
-  faixa.querySelector('#demo-faixa-tour').addEventListener('click', () => abrirTour())
-  faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', e => _restaurarDadosDemo(e.currentTarget))
-  faixa.querySelector('#demo-faixa-sair').addEventListener('click', async () => {
+  }))
+  faixa.querySelector('#demo-faixa-tour').addEventListener('click', acao(() => abrirTour()))
+  faixa.querySelector('#demo-faixa-restaurar').addEventListener('click', acao(() => _restaurarDadosDemo(gatilho)))
+  faixa.querySelector('#demo-faixa-sair').addEventListener('click', acao(async () => {
     const { fazerLogout } = await import('./auth.js')
     fazerLogout()
-  })
+  }))
   document.body.prepend(faixa)
   document.body.classList.add('com-demo')
   _medirFaixaDemo()

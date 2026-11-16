@@ -11,7 +11,7 @@
 import { renderTopbar, initTopbarEvents, renderFooter } from './app.js'
 import { prxToast, prxConfirm, definirTema, preferenciaTema } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { STATUS, STATUS_LABEL, STATUS_DOT_COLOR, CATEGORIA_ETAPA } from './constants.js'
+import { STATUS, STATUS_LABEL, CATEGORIA_ETAPA } from './constants.js'
 import { esc } from './utils.js'
 
 const _svg = (n, d) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
@@ -65,7 +65,7 @@ function _secao(id, titulo, regra, exemplo) {
     </section>`
 }
 
-function _cartao({ num, titulo, empresa, urgente = false, prazo, classe = '', valor }) {
+function _cartao({ num, titulo, empresa, urgente = false, prazo, classe = '', valor, resp = '' }) {
   return `
     <article class="kcard${urgente ? ' kcard-urgente' : ''}" tabindex="0" aria-label="${esc(`${num}, ${titulo}`)}">
       <div class="kcard-top">
@@ -77,13 +77,14 @@ function _cartao({ num, titulo, empresa, urgente = false, prazo, classe = '', va
       <div class="kcard-pe">
         <span class="kcard-prazo${classe ? ' ' + classe : ''}">${ICONE.relogio(12)}<span>${prazo}</span></span>
         <span class="kcard-valor">${valor}</span>
+        ${resp ? `<span class="kcard-resp" title="Comprador: ${esc(resp)}" aria-hidden="true">${resp.split(' ').map(s => s[0]).join('')}</span>` : ''}
       </div>
     </article>`
 }
 
 export function renderSistema() {
   const etapas = Object.values(STATUS).map(st => `
-    <li class="sis-etapa"><span class="dot ${STATUS_DOT_COLOR[st]}" aria-hidden="true"></span>${STATUS_LABEL[st]}
+    <li class="sis-etapa"><span class="lozenge lozenge-${CATEGORIA_ETAPA[st]}">${STATUS_LABEL[st]}</span>
       <span class="sis-mudo">${CATEGORIAS[CATEGORIA_ETAPA[st]]}</span></li>`).join('')
 
   const app = document.getElementById('app')
@@ -133,7 +134,7 @@ export function renderSistema() {
             <div class="form-group invalido"><label for="sis-c4">Valor estimado</label><input id="sis-c4" type="text" value="abc" aria-invalid="true" aria-describedby="sis-c4-erro"><p class="form-error" id="sis-c4-erro">Informe um valor em reais.</p></div>
           </div>`)}
 
-        ${_secao('etapas', 'Etapas', 'Mesmo nome em toda parte (docs/glossario.md). O ponto diz a categoria; o texto ao lado diz a etapa.', `
+        ${_secao('etapas', 'Etapas', 'Mesmo nome em toda parte (docs/glossario.md). A etiqueta (lozenge) tem a cor da categoria e o nome da etapa; na paleta e nos relatórios, um ponto na mesma cor.', `
           <ul class="sis-etapas">${etapas}</ul>`)}
 
         ${_secao('selos', 'Selo e contagem', 'Selo só para Urgente e "com você". Contagem é neutra; terracota só no sino quando há não lidas.', `
@@ -156,7 +157,7 @@ export function renderSistema() {
         ${_secao('cartao', 'Cartão de pedido', 'Número, título em até duas linhas, empresa, prazo e valor. A urgência é um selo, não uma cor de fundo. Datas dd/mm/aaaa.', `
           <div class="sis-cartoes">
             ${_cartao({ num: 'PRX-0014', titulo: 'Impressora multifuncional para RH', empresa: 'Orbix Industrial', urgente: true, prazo: 'Faltam 4 dias', valor: 'R$ 3.500,00' })}
-            ${_cartao({ num: 'PRX-0030', titulo: 'Seguro empresarial — frota e patrimônio', empresa: 'Veltora Serviços', prazo: 'Atrasado 8 dias', classe: 'atrasado', valor: 'R$ 16.800,00' })}
+            ${_cartao({ num: 'PRX-0030', titulo: 'Seguro empresarial — frota e patrimônio', empresa: 'Veltora Serviços', prazo: 'Atrasado 8 dias', classe: 'atrasado', valor: 'R$ 16.800,00', resp: 'Diana Alves' })}
             ${_cartao({ num: 'PRX-0002', titulo: 'Uniformes e EPIs — equipe de campo', empresa: 'Orbix Industrial', prazo: 'Pago em 11/11/2026', classe: 'feito', valor: 'R$ 7.980,00' })}
           </div>`)}
 
