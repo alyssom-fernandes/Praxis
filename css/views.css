@@ -2814,3 +2814,42 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .cfg-seg { align-self: flex-start; }
   .cfg-seg-op { min-height: 34px; }
 }
+
+/* ── Catálogo do sistema visual (?tela=sistema, js/sistema.js) ── */
+.sis-pagina { max-width: 1100px; }
+.sis-cabeca { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; margin-bottom: 32px; }
+.sis-cabeca .titulo-pagina { flex: 1 1 100%; }
+.sis-resumo { flex: 1 1 320px; margin: 0; color: var(--text2); font-size: var(--t-corpo); }
+.sis-secao { margin-bottom: 40px; }
+.sis-regra { max-width: 72ch; margin: 8px 0 16px; color: var(--text2); font-size: var(--t-corpo); line-height: 1.5; }
+.sis-sub { margin: 20px 0 8px; color: var(--text3); font-size: var(--t-pequeno); }
+.sis-mudo { color: var(--text3); font-size: var(--t-pequeno); }
+.sis-valor { color: var(--text2); font-size: var(--t-pequeno); font-variant-numeric: tabular-nums; }
+.sis-exemplo code, .sis-regra code { font-size: var(--t-pequeno); }
+.sis-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.sis-linha .kcard-urg { margin-left: 0; }
+.sis-cores, .sis-tipos, .sis-etapas, .sis-camadas, .sis-acentos { list-style: none; margin: 0; padding: 0; }
+.sis-cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px 24px; }
+.sis-cores li { display: grid; grid-template-columns: 28px auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; }
+.sis-cores .sis-amostra { grid-row: 1 / 3; }
+.sis-cores .sis-mudo { grid-column: 2 / 4; }
+.sis-amostra { display: inline-block; width: 28px; height: 28px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
+.sis-acentos { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.sis-acentos li { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-pequeno); color: var(--text2); }
+.sis-acentos .sis-amostra { width: 16px; height: 16px; }
+.sis-tipos li { display: grid; grid-template-columns: minmax(240px, 1fr) 140px 2fr; gap: 16px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.sis-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 24px; }
+.sis-etapas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 24px; }
+.sis-etapa { display: flex; align-items: center; gap: 8px; font-size: var(--t-corpo); }
+.sis-etapa .sis-mudo { margin-left: auto; }
+.sis-contagem { display: inline-flex; align-items: center; gap: 12px; font-size: var(--t-corpo); }
+.sis-sino { position: relative; display: inline-block; width: 24px; height: 24px; }
+.sis-cartoes { display: grid; grid-template-columns: repeat(auto-fill, 180px); gap: 12px; }
+.sis-vazio { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 24px; align-items: start; }
+.sis-esqueleto { display: grid; gap: 12px; }
+.sis-camadas { columns: 2 260px; column-gap: 24px; }
+.sis-camadas li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+@media (max-width: 767px) {
+  .sis-tipos li { grid-template-columns: 1fr; gap: 4px; }
+  .sis-vazio { grid-template-columns: 1fr; }
+}

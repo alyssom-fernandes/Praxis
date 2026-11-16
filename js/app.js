@@ -224,6 +224,8 @@ const _TELAS = {
   'config-usuarios':  ['./config-usuarios.js',  'renderConfigUsuarios'],
   'config-cadastros': ['./config-cadastros.js', 'renderConfigCadastros'],
   'config-geral':     ['./config-geral.js',     'renderConfigGeral'],
+  // Catálogo do sistema visual, fora da navegação (docs/sistema.md)
+  'sistema':          ['./sistema.js',          'renderSistema'],
 }
 let _rotaSeq = 0
 
