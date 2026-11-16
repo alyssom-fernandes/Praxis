@@ -1,5 +1,5 @@
 import {
-  db, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp, where,
+  db, collection, getDocs, serverTimestamp, where,
   consulta, consultaUsuarios, marcaDemo,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
@@ -8,6 +8,7 @@ import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fech
 import { renderNotificacoes } from './notificacoes.js'
 import { CATEGORIAS_PADRAO, TONS_CATEGORIA, CORES_CATEGORIA, corCategoria, tomDaCor, PERFIS, STATUS, t } from './constants.js'
 import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario } from './utils.js'
+import { gravarAuditado } from './auditoria.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
   doisDigitos, moedaCurta, moeda,
@@ -294,10 +295,9 @@ async function _contar() {
 
 async function _seedCategorias() {
   for (const cat of CATEGORIAS_PADRAO) {
-    const ref = await addDoc(collection(db, 'categorias'), {
-      nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: serverTimestamp(), ...marcaDemo(),
-    })
-    _categorias.push({ id: ref.id, ...cat, tipo: 'padrao' })
+    const id = await gravarAuditado({ colecao: 'categorias', tipo: 'criar', nome: cat.nome,
+      dados: { nome: cat.nome, cor: cat.cor, tipo: 'padrao', criadaEm: serverTimestamp(), ...marcaDemo() } })
+    _categorias.push({ id, ...cat, tipo: 'padrao' })
   }
 }
 
@@ -569,9 +569,8 @@ function _editarFornecedor(forn) {
     if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
     mostrarSpinner()
     try {
-      await updateDoc(doc(db, 'fornecedores', forn.id), {
-        nome: normalizarTexto(nome), nomeOriginal: nome, nomeExibicao: nome, cnpj,
-      })
+      await gravarAuditado({ colecao: 'fornecedores', id: forn.id, tipo: 'editar', antes: forn, nome,
+        dados: { nome: normalizarTexto(nome), nomeOriginal: nome, nomeExibicao: nome, cnpj } })
       _fechar()
       await _carregar()
       prxToast(t('fornecedorAtualizado'), 'success')
@@ -686,10 +685,12 @@ async function _salvarEmpresa() {
   mostrarSpinner()
   try {
     if (id) {
-      await updateDoc(doc(db, 'empresas', id), { nome, cnpj, segmento, ativa })
+      await gravarAuditado({ colecao: 'empresas', id, tipo: 'editar', antes: _empresas.find(e => e.id === id), nome,
+        dados: { nome, cnpj, segmento, ativa } })
       prxToast(t('empresaAtualizada'), 'success')
     } else {
-      await addDoc(collection(db, 'empresas'), { nome, cnpj, segmento, ativa: true, criadaEm: serverTimestamp() })
+      await gravarAuditado({ colecao: 'empresas', tipo: 'criar', nome,
+        dados: { nome, cnpj, segmento, ativa: true, criadaEm: serverTimestamp() } })
       prxToast(t('empresaCriada'), 'success')
     }
     fecharModal('modal-empresa')
@@ -715,12 +716,12 @@ async function _salvarCategoria() {
   mostrarSpinner()
   try {
     if (id) {
-      await updateDoc(doc(db, 'categorias', id), { nome, cor })
+      await gravarAuditado({ colecao: 'categorias', id, tipo: 'editar', antes: _categorias.find(c => c.id === id), nome,
+        dados: { nome, cor } })
       prxToast(t('categoriaAtualizada'), 'success')
     } else {
-      await addDoc(collection(db, 'categorias'), {
-        nome, cor, tipo: 'personalizada', criadaEm: serverTimestamp(),
-      })
+      await gravarAuditado({ colecao: 'categorias', tipo: 'criar', nome,
+        dados: { nome, cor, tipo: 'personalizada', criadaEm: serverTimestamp() } })
       prxToast(t('categoriaCriada'), 'success')
     }
     fecharModal('modal-categoria')

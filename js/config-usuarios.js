@@ -1,5 +1,5 @@
 import {
-  db, collection, getDocs, setDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, Timestamp,
+  db, collection, getDocs, query, where, serverTimestamp, Timestamp,
   consulta, consultaUsuarios,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
@@ -8,6 +8,7 @@ import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fech
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
+import { gravarAuditado } from './auditoria.js'
 import {
   ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, dataAcesso, iniciais,
@@ -471,7 +472,8 @@ async function _cancelarConvite() {
   if (sessao.isDemo) { prxToast(t('modoDemo'), 'warning'); return }
   mostrarSpinner()
   try {
-    await deleteDoc(doc(db, 'convites', _emailNorm(c.email)))
+    await gravarAuditado({ colecao: 'convites', id: _emailNorm(c.email), tipo: 'apagar', antes: c, nome: c.email,
+      empresaIds: c.empresas || [] })
     prxToast(t('conviteCancelado'), 'success')
     fecharModal('modal-usuario')
     await _carregar()
@@ -583,18 +585,24 @@ async function _salvarUsuario() {
   mostrarSpinner()
   try {
     if (editando) {
-      await updateDoc(doc(db, 'usuarios', id), { nome, perfil, ativo, empresas, atualizadoEm: serverTimestamp() })
+      const original = _usuarios.find(u => u.id === id)
+      await gravarAuditado({ colecao: 'usuarios', id, tipo: 'editar', antes: original, nome,
+        dados: { nome, perfil, ativo, empresas, atualizadoEm: serverTimestamp() },
+        empresaIds: [...empresasDoUsuario(original || {}), ...empresas] })
       prxToast(t('usuarioAtualizado'), 'success')
     } else {
       // Pessoa nova entra por convite, guardado pelo e-mail; o perfil nasce no
       // primeiro acesso, com o UID da conta de login (js/auth.js)
-      const jaConvidado = _convites.some(c => _emailNorm(c.email) === emailNorm)
-      await setDoc(doc(db, 'convites', emailNorm), {
-        email: emailNorm, nome, perfil, empresas, ativo: true,
-        criadoPor: _meuId(), criadoPorNome: sessao.usuario?.nome || '',
-        criadoEm: serverTimestamp(),
-        expiraEm: Timestamp.fromDate(new Date(Date.now() + PRAZO_CONVITE_DIAS * 864e5)),
-      })
+      const anterior = _convites.find(c => _emailNorm(c.email) === emailNorm)
+      const jaConvidado = !!anterior
+      await gravarAuditado({ colecao: 'convites', id: emailNorm, tipo: jaConvidado ? 'editar' : 'criar', sobrescrever: true,
+        antes: anterior || null, nome: emailNorm, empresaIds: [...(anterior?.empresas || []), ...empresas],
+        dados: {
+          email: emailNorm, nome, perfil, empresas, ativo: true,
+          criadoPor: _meuId(), criadoPorNome: sessao.usuario?.nome || '',
+          criadoEm: serverTimestamp(),
+          expiraEm: Timestamp.fromDate(new Date(Date.now() + PRAZO_CONVITE_DIAS * 864e5)),
+        } })
       prxToast(jaConvidado ? t('conviteAtualizado') : tf('conviteCriado', { email: emailNorm }), 'info', 8000)
     }
     fecharModal('modal-usuario')

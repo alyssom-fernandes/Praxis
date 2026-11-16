@@ -44,6 +44,35 @@ const conta = {
   demo:        ['u-demo', { email: 'demo@praxis.app', perfil: 'supremo', empresas: ['e1', 'e2'] }],
 }
 const db = quem => env.authenticatedContext(...conta[quem]).firestore()
+
+// Gravação administrativa como o app faz (js/auditoria.js): no mesmo lote, o
+// registro novo na auditoria e o documento com auditoriaId
+const ENTIDADE = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor' }
+let _seqAud = 0
+function registro(quem, entidade, entidadeId, acao, extra = {}) {
+  return { autorId: conta[quem][0], autorNome: 'Teste', em: serverTimestamp(), entidade, entidadeId, acao,
+    antes: null, depois: null, empresaIds: [], ...extra }
+}
+function auditado(quem, caminho, dados, { tipo = 'update', empresaIds = [], aid = `aud-${++_seqAud}`, mexer = r => r } = {}) {
+  const f = db(quem)
+  const [col, id] = caminho.split('/')
+  const lote = writeBatch(f)
+  lote.set(doc(f, `auditoria/${aid}`), mexer(registro(quem, ENTIDADE[col], id, tipo === 'set' ? 'criar' : 'editar', { empresaIds })))
+  if (tipo === 'set') lote.set(doc(f, caminho), { ...dados, auditoriaId: aid })
+  else lote.update(doc(f, caminho), { ...dados, auditoriaId: aid })
+  return lote.commit()
+}
+async function apagarAuditado(quem, caminho) {
+  const f = db(quem)
+  const [col, id] = caminho.split('/')
+  let atual
+  await env.withSecurityRulesDisabled(async ctx => { atual = (await getDoc(doc(ctx.firestore(), caminho))).data()?.auditoriaId })
+  const aid = `apagou-${ENTIDADE[col]}-${id}-${atual || '0'}`
+  const lote = writeBatch(f)
+  lote.set(doc(f, `auditoria/${aid}`), registro(quem, ENTIDADE[col], id, 'apagar'))
+  lote.delete(doc(f, caminho))
+  return lote.commit()
+}
 const st = quem => env.authenticatedContext(...conta[quem]).storage()
 
 // ── Dados de partida ───────────────────────────────────────────
@@ -128,10 +157,10 @@ test('o usuário não muda o próprio perfil nem as empresas', async () => {
 })
 
 test('o gestor não cria supremo nem dá empresa que não tem', async () => {
-  await assertFails(setDoc(doc(db('gestor'), 'usuarios/novo'), { nome: 'N', perfil: 'supremo', empresas: ['e1'] }))
-  await assertFails(setDoc(doc(db('gestor'), 'usuarios/novo'), { nome: 'N', perfil: 'comprador', empresas: ['e2'] }))
-  await assertSucceeds(setDoc(doc(db('gestor'), 'usuarios/novo'), { nome: 'N', perfil: 'comprador', empresas: ['e1'] }))
-  await assertFails(updateDoc(doc(db('gestor'), 'usuarios/u-sup'), { nome: 'Outro' }))
+  await assertFails(auditado('gestor', 'usuarios/novo', { nome: 'N', perfil: 'supremo', empresas: ['e1'] }, { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'usuarios/novo', { nome: 'N', perfil: 'comprador', empresas: ['e2'] }, { tipo: 'set' }))
+  await assertSucceeds(auditado('gestor', 'usuarios/novo', { nome: 'N', perfil: 'comprador', empresas: ['e1'] }, { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'usuarios/u-sup', { nome: 'Outro' }))
 })
 
 test('o gestor só lê e edita usuários das empresas dele', async () => {
@@ -143,18 +172,18 @@ test('o gestor só lê e edita usuários das empresas dele', async () => {
   await assertSucceeds(getDocs(query(collection(db('gestor'), 'usuarios'), where('empresas', 'array-contains-any', ['e1']))))
   await assertFails(getDocs(query(collection(db('gestorE2'), 'usuarios'), where('empresas', 'array-contains-any', ['e1']))))
   // Edição: o gestor de e2 não puxa para a empresa dele nem muda o perfil de quem é de e1
-  await assertFails(updateDoc(doc(db('gestorE2'), 'usuarios/u-com'), { empresas: ['e2'] }))
-  await assertFails(updateDoc(doc(db('gestorE2'), 'usuarios/u-com'), { perfil: 'gestor' }))
+  await assertFails(auditado('gestorE2', 'usuarios/u-com', { empresas: ['e2'] }))
+  await assertFails(auditado('gestorE2', 'usuarios/u-com', { perfil: 'gestor' }))
   // Quem também é de outra empresa só o supremo edita
-  await assertFails(updateDoc(doc(db('gestor'), 'usuarios/u-multi'), { empresas: ['e1'] }))
-  await assertSucceeds(updateDoc(doc(db('supremo'), 'usuarios/u-multi'), { empresas: ['e1'] }))
-  await assertSucceeds(updateDoc(doc(db('gestor'), 'usuarios/u-com'), { perfil: 'aprovador' }))
+  await assertFails(auditado('gestor', 'usuarios/u-multi', { empresas: ['e1'] }))
+  await assertSucceeds(auditado('supremo', 'usuarios/u-multi', { empresas: ['e1'] }))
+  await assertSucceeds(auditado('gestor', 'usuarios/u-com', { perfil: 'aprovador' }))
 })
 
 test('o gestor só edita as empresas a que tem acesso', async () => {
-  await assertFails(updateDoc(doc(db('gestorE2'), 'empresas/e1'), { nome: 'Tomada' }))
-  await assertSucceeds(updateDoc(doc(db('gestor'), 'empresas/e1'), { nome: 'Empresa 1 S.A.' }))
-  await assertSucceeds(updateDoc(doc(db('supremo'), 'empresas/e2'), { nome: 'Empresa 2 S.A.' }))
+  await assertFails(auditado('gestorE2', 'empresas/e1', { nome: 'Tomada' }))
+  await assertSucceeds(auditado('gestor', 'empresas/e1', { nome: 'Empresa 1 S.A.' }))
+  await assertSucceeds(auditado('supremo', 'empresas/e2', { nome: 'Empresa 2 S.A.' }))
 })
 
 // ── Cadastros: empresas, categorias e fornecedores ─────────────
@@ -172,39 +201,40 @@ test('todo perfil lê empresas, categorias e fornecedores; sem perfil, não', as
 })
 
 test('empresas: o gestor cria, edita as dele, e só o supremo apaga', async () => {
-  await assertSucceeds(setDoc(doc(db('gestor'), 'empresas/nova-ges'), { nome: 'Nova do gestor' }))
-  await assertSucceeds(setDoc(doc(db('supremo'), 'empresas/nova-sup'), { nome: 'Nova do supremo' }))
+  await assertSucceeds(auditado('gestor', 'empresas/nova-ges', { nome: 'Nova do gestor' }, { tipo: 'set' }))
+  await assertSucceeds(auditado('supremo', 'empresas/nova-sup', { nome: 'Nova do supremo' }, { tipo: 'set' }))
   for (const quem of ['aprovador', 'comprador', 'financeiro', 'solicitante']) {
     await assertFails(setDoc(doc(db(quem), `empresas/nova-${quem}`), { nome: 'Não pode' }))
     await assertFails(updateDoc(doc(db(quem), 'empresas/e1'), { nome: 'Não pode' }))
   }
-  await assertFails(deleteDoc(doc(db('gestor'), 'empresas/e1')))
-  await assertSucceeds(deleteDoc(doc(db('supremo'), 'empresas/e2')))
+  await assertFails(apagarAuditado('gestor', 'empresas/e1'))
+  await assertSucceeds(apagarAuditado('supremo', 'empresas/e2'))
 })
 
 test('categorias: o gestor cria e edita, e só o supremo apaga', async () => {
-  await assertSucceeds(setDoc(doc(db('gestor'), 'categorias/nova'), { nome: 'Limpeza', cor: '#93AE7C' }))
-  await assertSucceeds(updateDoc(doc(db('gestor'), 'categorias/cat1'), { nome: 'Categoria renomeada' }))
-  await assertSucceeds(updateDoc(doc(db('supremo'), 'categorias/cat1'), { cor: '#8CA6C2' }))
+  await assertSucceeds(auditado('gestor', 'categorias/nova', { nome: 'Limpeza', cor: '#93AE7C' }, { tipo: 'set' }))
+  await assertSucceeds(auditado('gestor', 'categorias/cat1', { nome: 'Categoria renomeada' }))
+  await assertSucceeds(auditado('supremo', 'categorias/cat1', { cor: '#8CA6C2' }))
   for (const quem of ['aprovador', 'comprador', 'financeiro', 'solicitante']) {
     await assertFails(setDoc(doc(db(quem), `categorias/nova-${quem}`), { nome: 'Não pode' }))
     await assertFails(updateDoc(doc(db(quem), 'categorias/cat1'), { nome: 'Não pode' }))
   }
-  await assertFails(deleteDoc(doc(db('gestor'), 'categorias/cat1')))
-  await assertSucceeds(deleteDoc(doc(db('supremo'), 'categorias/cat1')))
+  await assertFails(apagarAuditado('gestor', 'categorias/cat1'))
+  await assertSucceeds(apagarAuditado('supremo', 'categorias/cat1'))
 })
 
 test('fornecedores: quem compra cadastra e edita, e só a gestão apaga', async () => {
   await assertSucceeds(setDoc(doc(db('comprador'), 'fornecedores/novo-com'), { nome: 'papelaria central' }))
   await assertSucceeds(setDoc(doc(db('gestor'), 'fornecedores/novo-ges'), { nome: 'eletrica sul' }))
-  await assertSucceeds(updateDoc(doc(db('comprador'), 'fornecedores/f1'), { telefone: '(11) 4000-0000' }))
-  await assertSucceeds(updateDoc(doc(db('gestor'), 'fornecedores/f1'), { ativo: false }))
+  await assertFails(auditado('comprador', 'fornecedores/f1', { telefone: '(11) 4000-0000' }))
+  await assertSucceeds(updateDoc(doc(db('comprador'), 'fornecedores/f1'), { usos: increment(1) }))
+  await assertSucceeds(auditado('gestor', 'fornecedores/f1', { ativo: false }))
   for (const quem of ['aprovador', 'financeiro', 'solicitante']) {
     await assertFails(setDoc(doc(db(quem), `fornecedores/novo-${quem}`), { nome: 'não pode' }))
     await assertFails(updateDoc(doc(db(quem), 'fornecedores/f1'), { nome: 'não pode' }))
   }
-  await assertFails(deleteDoc(doc(db('comprador'), 'fornecedores/f1')))
-  await assertSucceeds(deleteDoc(doc(db('gestor'), 'fornecedores/f1')))
+  await assertFails(apagarAuditado('comprador', 'fornecedores/f1'))
+  await assertSucceeds(apagarAuditado('gestor', 'fornecedores/f1'))
 })
 
 test('cadastros sem claims seguem o perfil do documento', async () => {
@@ -478,7 +508,7 @@ test('o supremo segue as etapas e as travas, como um gestor de todas as empresas
   await assertFails(addDoc(collection(s, 'pedidos/p1/comentarios'), { texto: 'oi', autorId: 'u-sol' }))
   await assertSucceeds(cotar('supremo', 'u-sup'))
   // E continua administrando os cadastros
-  await assertSucceeds(updateDoc(doc(s, 'empresas/e2'), { nome: 'Empresa 2 Ltda.' }))
+  await assertSucceeds(auditado('supremo', 'empresas/e2', { nome: 'Empresa 2 Ltda.' }))
 })
 
 test('comentário e histórico assinados por quem escreve', async () => {
@@ -840,20 +870,20 @@ test('sem claims, cada passo do pedido cabe no limite das regras', async () => {
 
 // ── Convites ───────────────────────────────────────────────────
 test('o gestor convida só para as empresas dele, sem supremo e com prazo', async () => {
-  await assertSucceeds(setDoc(doc(db('gestor'), 'convites/novo@x.com'), convite()))
-  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', empresas: ['e2'] })))
-  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', perfil: 'supremo' })))
-  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', expiraEm: daqui(90) })))
-  await assertFails(setDoc(doc(db('gestor'), 'convites/Outro@x.com'), convite({ email: 'Outro@x.com' })))
-  await assertFails(setDoc(doc(db('gestor'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-sup' })))
-  await assertFails(setDoc(doc(db('comprador'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-com' })))
-  await assertFails(setDoc(doc(db('demo'), 'convites/outro@x.com'), convite({ email: 'outro@x.com', criadoPor: 'u-demo' })))
+  await assertSucceeds(auditado('gestor', 'convites/novo@x.com', convite(), { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'convites/outro@x.com', convite({ email: 'outro@x.com', empresas: ['e2'] }), { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'convites/outro@x.com', convite({ email: 'outro@x.com', perfil: 'supremo' }), { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'convites/outro@x.com', convite({ email: 'outro@x.com', expiraEm: daqui(90) }), { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'convites/Outro@x.com', convite({ email: 'Outro@x.com' }), { tipo: 'set' }))
+  await assertFails(auditado('gestor', 'convites/outro@x.com', convite({ email: 'outro@x.com', criadoPor: 'u-sup' }), { tipo: 'set' }))
+  await assertFails(auditado('comprador', 'convites/outro@x.com', convite({ email: 'outro@x.com', criadoPor: 'u-com' }), { tipo: 'set' }))
+  await assertFails(auditado('demo', 'convites/outro@x.com', convite({ email: 'outro@x.com', criadoPor: 'u-demo' }), { tipo: 'set' }))
   // Listar exige filtrar pelas empresas; o gestor de outra empresa não lê
   await assertSucceeds(getDocs(query(collection(db('gestor'), 'convites'), where('empresas', 'array-contains-any', ['e1']))))
   await assertFails(getDocs(collection(db('gestor'), 'convites')))
   await assertFails(getDoc(doc(db('gestorE2'), 'convites/convidado@x.com')))
-  await assertFails(deleteDoc(doc(db('gestorE2'), 'convites/convidado@x.com')))
-  await assertSucceeds(deleteDoc(doc(db('gestor'), 'convites/novo@x.com')))
+  await assertFails(apagarAuditado('gestorE2', 'convites/convidado@x.com'))
+  await assertSucceeds(apagarAuditado('gestor', 'convites/novo@x.com'))
 })
 
 test('no primeiro acesso, o convidado cria o próprio perfil igual ao convite', async () => {
@@ -975,4 +1005,79 @@ test('a conta demo só mexe em arquivos de pedidos da demo', async () => {
   await assertSucceeds(uploadBytes(ref(st('demo'), 'pedidos/demo-0001/comprovantes/p1/recibo.pdf'), pdf, meta))
   await assertSucceeds(getBytes(ref(st('demo'), 'pedidos/demo-0001/anexos/nota.pdf')))
   await assertSucceeds(deleteObject(ref(st('demo'), 'pedidos/demo-0001/anexos/nota.pdf')))
+})
+
+// ── Auditoria administrativa ───────────────────────────────────
+// Toda mudança em usuário, convite, empresa, categoria e fornecedor (pelo
+// cadastro) vem com um registro novo e assinado, que não muda nem some
+test('auditoria: sem o registro no mesmo lote, a mudança administrativa não passa', async () => {
+  await assertFails(updateDoc(doc(db('gestor'), 'usuarios/u-com'), { perfil: 'aprovador' }))
+  await assertFails(updateDoc(doc(db('supremo'), 'usuarios/u-com'), { perfil: 'aprovador' }))
+  await assertFails(updateDoc(doc(db('gestor'), 'empresas/e1'), { nome: 'Sem registro' }))
+  await assertFails(updateDoc(doc(db('gestor'), 'categorias/cat1'), { nome: 'Sem registro' }))
+  await assertFails(updateDoc(doc(db('gestor'), 'fornecedores/f1'), { cnpj: '00000000000000' }))
+  await assertFails(deleteDoc(doc(db('supremo'), 'categorias/cat1')))
+  // O registro tem de apontar para o documento gravado, e ser novo
+  await assertFails(auditado('gestor', 'usuarios/u-com', { perfil: 'aprovador' }, { mexer: r => ({ ...r, entidadeId: 'u-sol' }) }))
+  await assertFails(auditado('gestor', 'usuarios/u-com', { perfil: 'aprovador' }, { mexer: r => ({ ...r, entidade: 'empresa' }) }))
+  await assertSucceeds(auditado('gestor', 'usuarios/u-com', { perfil: 'aprovador' }, { aid: 'reg-1', empresaIds: ['e1'] }))
+  // Reaproveitar um registro que já existe não vale
+  const f = db('gestor')
+  const lote = writeBatch(f)
+  lote.update(doc(f, 'usuarios/u-com'), { perfil: 'financeiro', auditoriaId: 'reg-1' })
+  await assertFails(lote.commit())
+  // O próprio usuário segue registrando o último acesso sem auditoria
+  await assertSucceeds(updateDoc(doc(db('comprador'), 'usuarios/u-com'), { ultimoAcesso: serverTimestamp() }))
+})
+
+test('auditoria: assinada por quem grava, com a hora do servidor', async () => {
+  await assertFails(auditado('gestor', 'empresas/e1', { nome: 'X' }, { mexer: r => ({ ...r, autorId: 'u-sup' }) }))
+  await assertFails(auditado('gestor', 'empresas/e1', { nome: 'X' }, { mexer: r => ({ ...r, em: new Date('2026-01-01') }) }))
+  await assertFails(auditado('gestor', 'empresas/e1', { nome: 'X' }, { mexer: r => ({ ...r, acao: 'promover' }) }))
+  await assertFails(auditado('gestor', 'empresas/e1', { nome: 'X' }, { mexer: r => ({ ...r, extra: 1 }) }))
+  // Quem não administra não escreve registro, nem sozinho
+  await assertFails(setDoc(doc(db('comprador'), 'auditoria/solto'), registro('comprador', 'fornecedor', 'f1', 'editar')))
+  await assertFails(auditado('comprador', 'categorias/cat1', { nome: 'X' }))
+})
+
+test('auditoria: não se altera nem se apaga; o supremo lê tudo e o gestor, as empresas dele', async () => {
+  await assertSucceeds(auditado('gestor', 'empresas/e1', { nome: 'Empresa 1 S.A.' }, { aid: 'reg-e1', empresaIds: ['e1'] }))
+  await assertSucceeds(auditado('supremo', 'empresas/e2', { nome: 'Empresa 2 S.A.' }, { aid: 'reg-e2', empresaIds: ['e2'] }))
+  await assertFails(updateDoc(doc(db('supremo'), 'auditoria/reg-e1'), { acao: 'criar' }))
+  await assertFails(deleteDoc(doc(db('supremo'), 'auditoria/reg-e1')))
+  await assertSucceeds(getDocs(collection(db('supremo'), 'auditoria')))
+  await assertSucceeds(getDocs(query(collection(db('gestor'), 'auditoria'), where('empresaIds', 'array-contains-any', ['e1']))))
+  await assertFails(getDoc(doc(db('gestor'), 'auditoria/reg-e2')))
+  await assertFails(getDocs(collection(db('gestor'), 'auditoria')))
+  for (const quem of ['aprovador', 'comprador', 'financeiro', 'solicitante']) {
+    await assertFails(getDoc(doc(db(quem), 'auditoria/reg-e1')))
+  }
+})
+
+test('auditoria: apagar pede o registro de ID fixo ligado ao estado de antes', async () => {
+  await assertSucceeds(auditado('gestor', 'categorias/cat1', { nome: 'Antes de apagar' }, { aid: 'reg-c1' }))
+  // Um registro de apagar com o auditoriaId errado não vale
+  const f = db('supremo')
+  const lote = writeBatch(f)
+  lote.set(doc(f, 'auditoria/apagou-categoria-cat1-0'), registro('supremo', 'categoria', 'cat1', 'apagar'))
+  lote.delete(doc(f, 'categorias/cat1'))
+  await assertFails(lote.commit())
+  // O registro "apagou-" tem de dizer apagar
+  const lote2 = writeBatch(f)
+  lote2.set(doc(f, 'auditoria/apagou-categoria-cat1-reg-c1'), registro('supremo', 'categoria', 'cat1', 'editar'))
+  lote2.delete(doc(f, 'categorias/cat1'))
+  await assertFails(lote2.commit())
+  await assertSucceeds(apagarAuditado('supremo', 'categorias/cat1'))
+})
+
+test('auditoria na demo: grava e lê só o que é da demo, e a renovação apaga', async () => {
+  const d = db('demo')
+  await assertSucceeds(setDoc(doc(d, 'auditoria/demo-reg'), registro('demo', 'categoria', 'demo-cat', 'editar', { isDemo: true })))
+  await assertFails(setDoc(doc(d, 'auditoria/real-reg'), registro('demo', 'categoria', 'cat1', 'editar')))
+  // O exemplo da demo pode contar uma data do passado; o registro real, não
+  await assertSucceeds(setDoc(doc(d, 'auditoria/demo-antigo'), registro('demo', 'usuario', 'demo-comprador', 'editar', { isDemo: true, em: new Date('2026-10-01') })))
+  await assertSucceeds(getDocs(query(collection(d, 'auditoria'), where('isDemo', '==', true))))
+  await assertSucceeds(deleteDoc(doc(d, 'auditoria/demo-reg')))
+  // O gestor não grava registro marcado como demo
+  await assertFails(setDoc(doc(db('gestor'), 'auditoria/falso'), registro('gestor', 'categoria', 'cat1', 'editar', { isDemo: true })))
 })

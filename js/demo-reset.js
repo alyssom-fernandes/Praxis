@@ -94,10 +94,11 @@ async function _esperarOutroVisitante() {
 // pessoas da demo e os perfis antigos da própria conta (de quando ela foi
 // recriada no console)
 async function _lerDemoAtual(uid) {
-  const [perfisConta, pedidos, fornecedores] = await Promise.all([
+  const [perfisConta, pedidos, fornecedores, auditoria] = await Promise.all([
     getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app'))),
     getDocs(query(collection(db, 'pedidos'), where('isDemo', '==', true))),
     getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true))),
+    getDocs(query(collection(db, 'auditoria'), where('isDemo', '==', true))),
   ])
   const subdocs = []
   await Promise.all(pedidos.docs.filter(d => d.id.startsWith('demo-')).map(async d => {
@@ -110,6 +111,7 @@ async function _lerDemoAtual(uid) {
   return {
     pedidos: pedidos.docs.map(d => d.ref),
     fornecedores: fornecedores.docs.map(d => d.ref),
+    auditoria: auditoria.docs.map(d => d.ref),
     perfisAntigos: perfisConta.docs.filter(d => d.id !== uid).map(d => d.ref),
     subdocs, avisos,
   }
@@ -318,11 +320,21 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     })
   }
 
-  // 6. Contador dos números de pedido da demo e empresas da conta demo
+  // 6. Auditoria de exemplo: mudanças plausíveis nos cadastros, coerentes com
+  // os dados da demo (IDs novos a cada renovação: o registro não se regrava)
+  for (const r of _auditoriaDaDemo({ seed, P, nomeDe, empresaMap, categoriaMap, fornMap, empresasDe })) {
+    lote.set(doc(collection(db, 'auditoria')), {
+      autorId: uid, autorNome: nomeDe[r.autor], em: horasAtras(r.horas), entidade: r.entidade,
+      entidadeId: r.entidadeId, nome: r.nome, acao: r.acao, antes: r.antes, depois: r.depois,
+      empresaIds: r.empresaIds, isDemo: true,
+    })
+  }
+
+  // 7. Contador dos números de pedido da demo e empresas da conta demo
   lote.mesclar(doc(db, '_meta', 'contadoresDemo'), { totalPedidos: n })
   lote.mesclar(doc(db, 'usuarios', uid), { empresas: empresasIds, atualizadoEm: serverTimestamp() })
 
-  // 7. Sai o que não voltou: pedidos e fornecedores criados pelos visitantes,
+  // 8. Sai o que não voltou: pedidos e fornecedores criados pelos visitantes,
   // as subcoleções e os avisos de antes e os perfis antigos da conta demo.
   // Os pedidos marcados fora da área da demo (de seeds antigos, com ID
   // automático) saem sem as subcoleções, que a conta demo não alcança.
@@ -331,11 +343,42 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
   antes.fornecedores.filter(sobra).forEach(ref => lote.del(ref))
   antes.subdocs.forEach(ref => lote.del(ref))
   antes.avisos.forEach(ref => lote.del(ref))
+  antes.auditoria.forEach(ref => lote.del(ref))
   antes.perfisAntigos.forEach(ref => lote.del(ref))
 
   aoProgresso?.('pedidos', 0)
   await lote.fim()
   return n
+}
+
+// ── Auditoria de exemplo ──────────────────────────────────────
+// Seis mudanças que batem com o que a demo mostra: a Diana virou compradora,
+// o Gustavo ficou só com a Nexara, um convite está pendente e outro foi
+// cancelado, um fornecedor ganhou o CNPJ e uma categoria foi criada
+function _auditoriaDaDemo({ seed, P, nomeDe, empresaMap, categoriaMap, fornMap, empresasDe }) {
+  const todas = Object.values(empresaMap)
+  const forn = (seed.fornecedores || []).find(f => f.cnpj)
+  const cat = CATEGORIAS_BASE[CATEGORIAS_BASE.length - 1]
+  const lista = [
+    { horas: 24 * 41, autor: P.supremo, entidade: 'usuario', entidadeId: P.comprador, nome: nomeDe[P.comprador], acao: 'editar',
+      antes: { perfil: 'solicitante' }, depois: { perfil: 'comprador' }, empresaIds: todas },
+    { horas: 24 * 33, autor: P.supremo, entidade: 'categoria', entidadeId: categoriaMap[cat.key], nome: cat.nome, acao: 'criar',
+      antes: null, depois: { nome: cat.nome, cor: cat.cor }, empresaIds: [] },
+    { horas: 24 * 19, autor: P.gestor, entidade: 'usuario', entidadeId: 'demo-gustavo', nome: nomeDe['demo-gustavo'], acao: 'editar',
+      antes: { empresas: [empresaMap.nexara, empresaMap.veltora].filter(Boolean) }, depois: { empresas: empresasDe['demo-gustavo'] },
+      empresaIds: [empresaMap.nexara, empresaMap.veltora].filter(Boolean) },
+    { horas: 24 * 9, autor: P.gestor, entidade: 'convite', entidadeId: 'rafael.souza@demo.praxis', nome: 'rafael.souza@demo.praxis', acao: 'apagar',
+      antes: { nome: 'Rafael Souza', perfil: 'aprovador', empresas: [empresaMap.veltora].filter(Boolean) }, depois: null,
+      empresaIds: [empresaMap.veltora].filter(Boolean) },
+    { horas: 50, autor: P.gestor, entidade: 'convite', entidadeId: 'julia.reis@demo.praxis', nome: 'julia.reis@demo.praxis', acao: 'criar',
+      antes: null, depois: { nome: 'Júlia Reis', perfil: 'comprador', empresas: [empresaMap.nexara].filter(Boolean) },
+      empresaIds: [empresaMap.nexara].filter(Boolean) },
+  ]
+  if (forn) {
+    lista.push({ horas: 6, autor: P.supremo, entidade: 'fornecedor', entidadeId: fornMap[_normalizar(forn.nome)], nome: forn.nome,
+      acao: 'editar', antes: { cnpj: '' }, depois: { cnpj: forn.cnpj }, empresaIds: [] })
+  }
+  return lista.filter(r => r.entidadeId)
 }
 
 // ── Avisos que as Cloud Functions mandariam ───────────────────

@@ -19,7 +19,8 @@ Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos 
 | Nota interna | Internal note | Comentário marcado "Só equipe de compras": quem tem o perfil solicitante não vê. Para preço, prazo e negociação | Comentário privado, nota secreta |
 | Ajustes | Settings | Tema e preferências; na paleta, "Ir para Ajustes" | Configurações: Geral |
 | Cadastros | Records | Empresas, categorias e fornecedores | |
-| Administração | Administration | Grupo da barra lateral com os cadastros e os usuários, só para quem administra | Configurações |
+| Administração | Administration | Grupo da barra lateral com os cadastros, os usuários e a auditoria, só para quem administra | Configurações |
+| Auditoria | Audit log | Registro de quem mudou usuário, convite, empresa, categoria ou fornecedor, quando e o quê (antes e depois). Não se altera nem se apaga | Log, histórico (o histórico é o do pedido) |
 
 ## Etapas
 

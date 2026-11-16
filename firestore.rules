@@ -94,6 +94,56 @@ service cloud.firestore {
     }
 
     // ── Usuários ───────────────────────────────────────────────
+    // ── Auditoria: a gravação administrativa vem com o seu registro ──
+    // Mudança em usuário, convite, empresa, categoria e fornecedor (pelo
+    // cadastro) só passa no mesmo lote que um registro novo em /auditoria,
+    // que aponta para ela. Ao criar ou editar, o documento leva auditoriaId
+    // (um ID novo a cada mudança); ao apagar, o registro tem ID fixo:
+    // apagou-{entidade}-{id}-{auditoriaId de antes}. O registro é assinado
+    // por quem grava (regras em /auditoria)
+    function caminhoAuditoria(aid) { return /databases/$(database)/documents/auditoria/$(aid); }
+    function registroNovo(aid, entidade, id) {
+      return !exists(caminhoAuditoria(aid)) && existsAfter(caminhoAuditoria(aid)) &&
+        getAfter(caminhoAuditoria(aid)).data.entidade == entidade &&
+        getAfter(caminhoAuditoria(aid)).data.entidadeId == id;
+    }
+    function auditada(entidade, id) {
+      let aid = request.resource.data.get('auditoriaId', '');
+      return aid is string && aid.size() > 0 &&
+        (resource == null || aid != resource.data.get('auditoriaId', '')) &&
+        registroNovo(aid, entidade, id);
+    }
+    function auditadaAoApagar(entidade, id) {
+      return registroNovo('apagou-' + entidade + '-' + id + '-' + resource.data.get('auditoriaId', '0'), entidade, id);
+    }
+
+    match /auditoria/{registroId} {
+      // A hora é a do servidor; só o exemplo da demo (renovado todo dia) traz
+      // a data do passado que ele conta
+      function registroValido(horaDoServidor) {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['autorId', 'autorNome', 'em', 'entidade', 'entidadeId', 'nome', 'acao',
+            'antes', 'depois', 'empresaIds', 'isDemo']) &&
+          d.autorId == eu() && d.em is timestamp && (!horaDoServidor || d.em == request.time) &&
+          d.entidade in ['usuario', 'convite', 'empresa', 'categoria', 'fornecedor'] &&
+          d.entidadeId is string && d.acao in ['criar', 'editar', 'apagar'] &&
+          d.empresaIds is list && d.empresaIds.size() <= 30 &&
+          (!registroId.matches('apagou-.*') ||
+            (d.acao == 'apagar' && registroId.matches('apagou-' + d.entidade + '-.*')));
+      }
+      // O supremo lê tudo; o gestor, o que toca as empresas dele (a consulta
+      // filtra por empresaIds); a demo, só o da demo
+      allow read: if (temPerfil() && (eSupremo() ||
+          (eGestor() && resource.data.empresaIds.hasAny(empresasDoUsuario())))) ||
+        (eDemo() && marcadoDemo(resource.data));
+      allow create: if
+        (temPerfil() && eGestor() && !marcadoDemo(request.resource.data) && registroValido(true)) ||
+        (eDemo() && marcadoDemo(request.resource.data) && registroValido(false));
+      // Não se altera nem se apaga; a demo renova os registros dela
+      allow update: if false;
+      allow delete: if eDemo() && marcadoDemo(resource.data);
+    }
+
     match /usuarios/{userId} {
       // Quem não é supremo não cria, edita nem promove ninguém a supremo, e só
       // dá acesso às empresas que ele mesmo tem
@@ -159,18 +209,19 @@ service cloud.firestore {
         (temPerfil() && eGestor() && mesmaEmpresa()) ||
         (eDemo() && (marcadoDemo(resource.data) || perfilDaContaDemo(resource.data)))
       );
-      allow create: if (temPerfil() && eGestor() && semPromover()) || demoGravaUsuario() || aceitaConvite();
+      allow create: if (temPerfil() && eGestor() && semPromover() && auditada('usuario', userId)) ||
+        demoGravaUsuario() || aceitaConvite();
       // O próprio usuário só registra o último acesso: perfil e empresas valem
       // como permissão (no token, pela setUserClaims, ou lidos daqui pelas
       // regras) e não podem ser mudados por ele
       allow update: if estaLogado() && (
         (request.auth.uid == userId && !eDemo() && mudouSo(['ultimoAcesso'])) ||
         (temPerfil() && eGestor() && request.auth.uid != userId &&
-          (eSupremo() || todoNasMinhasEmpresas()) && semPromover()) ||
-        eSupremo() || demoGravaUsuario()
+          (eSupremo() || todoNasMinhasEmpresas()) && semPromover() && auditada('usuario', userId)) ||
+        (eSupremo() && auditada('usuario', userId)) || demoGravaUsuario()
       );
       allow delete: if estaLogado() && (
-        eSupremo() ||
+        (eSupremo() && auditadaAoApagar('usuario', userId)) ||
         (eDemo() && request.auth.uid != userId && perfilDaContaDemo(resource.data))
       );
     }
@@ -186,7 +237,7 @@ service cloud.firestore {
       function conviteValido() {
         let d = request.resource.data;
         return d.keys().hasOnly(
-            ['email', 'nome', 'perfil', 'empresas', 'ativo', 'criadoPor', 'criadoPorNome', 'criadoEm', 'expiraEm']) &&
+            ['email', 'nome', 'perfil', 'empresas', 'ativo', 'criadoPor', 'criadoPorNome', 'criadoEm', 'expiraEm', 'auditoriaId']) &&
           d.email == email && email == email.lower() && email.matches('^[^@/ ]+@[^@/ ]+$') &&
           d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80 &&
           d.perfil in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'] &&
@@ -210,10 +261,10 @@ service cloud.firestore {
         (temPerfil() && (eSupremo() || (eGestor() &&
           resource.data.get('empresas', []).hasAny(empresasDoUsuario()))))
       );
-      allow create: if temPerfil() && eGestor() && conviteValido();
-      allow update: if temPerfil() && eGestor() && conviteDoGestor() && conviteValido();
+      allow create: if temPerfil() && eGestor() && conviteValido() && auditada('convite', email);
+      allow update: if temPerfil() && eGestor() && conviteDoGestor() && conviteValido() && auditada('convite', email);
       allow delete: if estaLogado() && (
-        (temPerfil() && conviteDoGestor()) ||
+        (temPerfil() && conviteDoGestor() && auditadaAoApagar('convite', email)) ||
         (meuEmail() == email && existsAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)))
       );
     }
@@ -222,26 +273,29 @@ service cloud.firestore {
     // O gestor só edita as empresas a que tem acesso
     match /empresas/{empresaId} {
       allow read:   if temPerfil() || leDemo();
-      allow create: if (temPerfil() && eGestor()) || gravaDemo(empresaId);
-      allow update: if (temPerfil() && (eSupremo() || (eGestor() && temAcessoEmpresa(empresaId)))) ||
-        gravaDemo(empresaId);
-      allow delete: if temPerfil() && eSupremo();
+      allow create: if (temPerfil() && eGestor() && auditada('empresa', empresaId)) || gravaDemo(empresaId);
+      allow update: if (temPerfil() && (eSupremo() || (eGestor() && temAcessoEmpresa(empresaId))) &&
+        auditada('empresa', empresaId)) || gravaDemo(empresaId);
+      allow delete: if temPerfil() && eSupremo() && auditadaAoApagar('empresa', empresaId);
     }
 
     // ── Categorias ─────────────────────────────────────────────
     match /categorias/{catId} {
       allow read:   if temPerfil() || leDemo();
-      allow create: if (temPerfil() && eGestor()) || gravaDemo(catId);
-      allow update: if (temPerfil() && eGestor()) || gravaDemo(catId);
-      allow delete: if temPerfil() && eSupremo();
+      allow create: if (temPerfil() && eGestor() && auditada('categoria', catId)) || gravaDemo(catId);
+      allow update: if (temPerfil() && eGestor() && auditada('categoria', catId)) || gravaDemo(catId);
+      allow delete: if temPerfil() && eSupremo() && auditadaAoApagar('categoria', catId);
     }
 
     // ── Fornecedores ───────────────────────────────────────────
+    // Nasce na cotação ou na compra (fica no histórico do pedido, que soma
+    // os usos); a edição pelo cadastro e a remoção vão para a auditoria
     match /fornecedores/{fornId} {
       allow read:   if temPerfil() || leDemo();
       allow create: if (temPerfil() && eComprador()) || gravaDemo(fornId);
-      allow update: if (temPerfil() && (eComprador() || eGestor())) || gravaDemo(fornId);
-      allow delete: if (temPerfil() && eGestor()) || leDemo();
+      allow update: if (temPerfil() && (eComprador() || eGestor()) &&
+        (mudouSo(['usos']) || auditada('fornecedor', fornId))) || gravaDemo(fornId);
+      allow delete: if (temPerfil() && eGestor() && auditadaAoApagar('fornecedor', fornId)) || leDemo();
     }
 
     // ── Metadados internos ─────────────────────────────────────

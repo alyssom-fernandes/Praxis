@@ -11,7 +11,7 @@ import {
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
   corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario, csvNumero, baixarCSV } from './utils.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
@@ -2362,21 +2362,7 @@ function _atualizarBulkBar() {
   }
 }
 
-// CSV para o Excel em português: separador ";", BOM UTF-8, CRLF,
-// números com vírgula decimal e datas dd/mm/aaaa.
-function _csvCampo(v) {
-  if (v == null) return ''
-  let s = String(v)
-  // Texto que começa como fórmula (=, +, -, @) viraria fórmula no Excel:
-  // o apóstrofo o mantém como texto. Números negativos passam intactos
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`
-  return /[";\r\n]/.test(s) || /^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-function _csvNumero(n) {
-  if (n == null || n === '' || isNaN(Number(n))) return ''
-  return Number(n).toFixed(2).replace('.', ',')
-}
-
+// CSV para o Excel em português (utils.js: baixarCSV)
 function _exportarCSV() {
   const ids = new Set(_selecionados)
   // Mantém a ordem em que aparecem na tela
@@ -2402,22 +2388,13 @@ function _exportarCSV() {
     p.urgente ? t('sim') : t('nao'),
     p.quantidade ?? '',
     p.unidade || '',
-    _csvNumero(p.valorEstimado),
-    _csvNumero(p.valorFinal),
+    csvNumero(p.valorEstimado),
+    csvNumero(p.valorFinal),
     p.dataNecessaria ? formatDate(p.dataNecessaria) : '',
     p.criadoEm ? formatDate(_tsToISO(p.criadoEm)) : '',
     p.centroCusto || '',
-  ].map(_csvCampo).join(';'))
-  const csv = [cabecalho.map(_csvCampo).join(';'), ...linhas].join('\r\n') + '\r\n'
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `praxis-pedidos-${hojeISO()}.csv`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  ])
+  baixarCSV(`praxis-pedidos-${hojeISO()}.csv`, cabecalho, linhas)
   prxToast(`${lista.length} ${lista.length !== 1 ? t('pedidosExportados') : t('pedidoExportado')}.`, 'success')
 }
 

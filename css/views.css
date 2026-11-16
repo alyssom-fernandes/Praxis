@@ -2187,6 +2187,23 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .usr-tabela .c-usuario { width: 38%; }
 .usr-tabela .c-perfil { width: 150px; }
 .usr-tabela .c-acesso { width: 160px; white-space: nowrap; }
+
+/* Auditoria: quando, quem, o quê e a mudança (campo, antes → depois) */
+.aud-filtros { justify-content: flex-start; align-items: flex-end; }
+.aud-filtros .form-group { margin: 0; min-width: 180px; }
+.aud-tabela .c-quando { width: 150px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text2); }
+.aud-tabela .c-quem { width: 170px; }
+.aud-tabela .c-oque { width: 26%; }
+.aud-tabela td { vertical-align: top; }
+.aud-acao { display: block; font-size: var(--t-pequeno); color: var(--text3); }
+.aud-nome { display: block; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.aud-mudancas { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--esp-050); }
+.aud-mudancas li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--esp-100); min-width: 0; }
+.aud-campo { font-size: var(--t-pequeno); font-weight: 600; color: var(--text3); }
+.aud-antes { color: var(--text3); text-decoration: line-through; text-decoration-color: var(--border-strong); overflow-wrap: anywhere; }
+.aud-seta { color: var(--text3); }
+.aud-depois { color: var(--text); overflow-wrap: anywhere; }
+.aud-mudo { color: var(--text3); }
 .usr-tabela td.c-acesso { color: var(--text2); font-variant-numeric: tabular-nums lining-nums; }
 .usr-tabela td.c-empresas { color: var(--text2); }
 .usr-cel { display: flex; align-items: center; gap: var(--esp-150); min-width: 0; }
@@ -2589,6 +2606,20 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .cfg-tabela tbody tr.cfg-linha-esq { padding: var(--esp-200) var(--esp-025); }
   .cfg-tabela tbody tr.cfg-linha-esq td + td { display: none; }
   .cfg-linha-vazia .vazio { padding: var(--esp-500) var(--esp-200); }
+
+  /* Auditoria: o quê e quando; quem; a mudança */
+  .aud-filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-150); }
+  .aud-filtros .form-group { min-width: 0; }
+  .aud-filtros .form-group:first-child { grid-column: 1 / -1; }
+  .aud-tabela tbody tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "oque quando" "quem quem" "mud mud";
+    row-gap: var(--esp-050);
+  }
+  .aud-tabela td.c-oque { grid-area: oque; width: auto; }
+  .aud-tabela td.c-quando { grid-area: quando; width: auto; font-size: var(--t-pequeno); }
+  .aud-tabela td.c-quem { grid-area: quem; width: auto; font-size: var(--t-pequeno); color: var(--text2); }
+  .aud-tabela td.c-mudanca { grid-area: mud; margin-top: var(--esp-050); }
 
   /* Usuários: nome e e-mail; perfil e último acesso; empresas */
   .usr-tabela tbody tr {

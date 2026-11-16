@@ -301,3 +301,32 @@ export function validarNumeroPositivo(val) {
   const n = typeof val === 'number' ? val : parseMoeda(val)
   return !isNaN(n) && n > 0
 }
+
+// ── CSV para o Excel em português ─────────────────────────────
+// Separador ";", BOM UTF-8, CRLF, números com vírgula decimal e datas
+// dd/mm/aaaa (quem chama formata). Usado no quadro e na auditoria.
+export function csvCampo(v) {
+  if (v == null) return ''
+  let s = String(v)
+  // Texto que começa como fórmula (=, +, -, @) viraria fórmula no Excel:
+  // o apóstrofo o mantém como texto. Números negativos passam intactos
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`
+  return /[";\r\n]/.test(s) || /^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+export function csvNumero(n) {
+  if (n == null || n === '' || isNaN(Number(n))) return ''
+  return Number(n).toFixed(2).replace('.', ',')
+}
+// Monta o arquivo (cabeçalho + linhas) e entrega para baixar
+export function baixarCSV(nomeArquivo, cabecalho, linhas) {
+  const csv = [cabecalho, ...linhas].map(l => l.map(csvCampo).join(';')).join('\r\n') + '\r\n'
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nomeArquivo
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

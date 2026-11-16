@@ -20,6 +20,7 @@ export const ICO = {
   lua:       (n = 14) => svg(n, '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'),
   sol:       (n = 14) => svg(n, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
   play:      (n = 14) => svg(n, '<polygon points="6 3 20 12 6 21 6 3"/>'),
+  baixar:    (n = 14) => svg(n, '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
   cadeado:   (n = 14) => svg(n, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>'),
 }
 
