@@ -1,11 +1,11 @@
 import {
-  auth, db,
-  signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
+  auth, db, apagarCopiaLocal,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, sendPasswordResetEmail,
   doc, getDoc, setDoc, writeBatch, serverTimestamp,
 } from './firebase.js'
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
-import { t, STATUS, STATUS_LABEL } from './constants.js'
+import { t, idioma, STATUS, STATUS_LABEL } from './constants.js'
 import { DEMO_CREDENTIALS } from './config.js'
 import { esc } from './utils.js'
 
@@ -99,6 +99,7 @@ export function renderLogin() {
               </div>
               <div class="login-erro" id="login-erro" role="alert" hidden></div>
               <button type="submit" class="btn-primary login-botao" id="btn-entrar">${t('btnEntrar')}</button>
+              <p class="login-primeiro">${t('loginPrimeiroAcesso')} <button type="button" class="login-link" id="link-criar">${t('loginCriarSenha')}</button></p>
             </form>
             <div class="login-sep"><span>${t('loginOu')}</span></div>
             <button type="button" class="btn-secondary login-botao" id="btn-demo">${t('btnDemo')}</button>
@@ -121,6 +122,34 @@ export function renderLogin() {
             </form>
           </div>
 
+          <!-- Visão: primeiro acesso (quem foi convidado cria a senha) -->
+          <div class="view" id="view-criar">
+            <button type="button" class="login-voltar" id="btn-criar-voltar">${ICO.voltar}<span>${t('voltar')}</span></button>
+            <h2 class="login-card-titulo">${t('criarTitulo')}</h2>
+            <p class="login-card-sub">${t('criarSub')}</p>
+            <form class="login-form" id="form-criar" novalidate>
+              <div class="form-group">
+                <label for="input-criar-email">${t('emailLabel')}</label>
+                <input type="email" id="input-criar-email" placeholder="${t('emailPlaceholder')}" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
+              </div>
+              <div class="form-group">
+                <label for="input-criar-senha">${t('senhaLabel')}</label>
+                <input type="password" id="input-criar-senha" autocomplete="new-password" minlength="${_SENHA_MINIMA}" aria-describedby="criar-senha-dica" required>
+                <p class="form-hint" id="criar-senha-dica">${t('criarSenhaDica', { n: _SENHA_MINIMA })}</p>
+              </div>
+              <div class="login-erro" id="criar-erro" role="alert" hidden></div>
+              <button type="submit" class="btn-primary login-botao" id="btn-criar">${t('criarBotao')}</button>
+            </form>
+          </div>
+
+          <!-- Visão: confirmar o e-mail (o link foi enviado) -->
+          <div class="view" id="view-confirmar">
+            <div class="sent-icon" aria-hidden="true">${ICO.email}</div>
+            <h2 class="login-card-titulo">${t('confirmarTitulo')}</h2>
+            <p class="login-card-sub" id="confirmar-msg" role="status"></p>
+            <button type="button" class="btn-secondary login-botao login-sent-acao" id="btn-confirmar-voltar">${ICO.voltar}<span>${t('voltarLogin')}</span></button>
+          </div>
+
           <!-- Visão: link enviado -->
           <div class="view" id="view-sent">
             <div class="sent-icon" aria-hidden="true">${ICO.email}</div>
@@ -136,18 +165,36 @@ export function renderLogin() {
 
   mostrarCeu(true)
   _bindLoginEvents()
-  // Quem entrou sem acesso volta para cá sabendo o motivo
-  if (_avisoEntrada) {
-    _mostrarErro('login-erro', _avisoEntrada)
-    _avisoEntrada = ''
-  }
+  // Quem entrou sem acesso volta para cá sabendo o motivo; quem ainda não
+  // confirmou o e-mail, direto na visão que pede a confirmação
+  const aviso = _tirarAviso()
+  if (aviso?.confirmar) _mostrarConfirmar(aviso.confirmar)
+  else if (aviso?.erro) _mostrarErro('login-erro', aviso.erro)
 }
 
-// Aviso mostrado uma vez na próxima tela de entrada (conta sem perfil,
-// convite vencido, acesso desativado)
-let _avisoEntrada = ''
-export function avisarNaEntrada(msg) {
-  _avisoEntrada = msg || ''
+// Aviso mostrado uma vez na próxima tela de entrada: o erro de quem entrou
+// sem acesso (conta sem perfil, convite vencido, acesso desativado) ou o
+// pedido de confirmar o e-mail. Sair recarrega a página, então ele atravessa
+// a recarga no sessionStorage
+let _avisoEntrada = null
+const _CHAVE_AVISO = 'praxis_aviso_entrada'
+export function avisarNaEntrada(msg) { _guardarAviso(msg ? { erro: msg } : null) }
+export function pedirConfirmacaoNaEntrada(email) { _guardarAviso({ confirmar: email }) }
+function _guardarAviso(aviso) {
+  _avisoEntrada = aviso
+  try {
+    if (aviso) sessionStorage.setItem(_CHAVE_AVISO, JSON.stringify(aviso))
+    else sessionStorage.removeItem(_CHAVE_AVISO)
+  } catch { /* sem armazenamento */ }
+}
+function _tirarAviso() {
+  let aviso = _avisoEntrada
+  try {
+    aviso ||= JSON.parse(sessionStorage.getItem(_CHAVE_AVISO) || 'null')
+    sessionStorage.removeItem(_CHAVE_AVISO)
+  } catch { /* sem armazenamento ou texto antigo */ }
+  _avisoEntrada = null
+  return aviso
 }
 
 function _mostrarErro(id, msg) {
@@ -221,6 +268,35 @@ function _bindLoginEvents() {
 
   document.getElementById('btn-forgot-voltar')?.addEventListener('click', () => _irParaView('login'))
   document.getElementById('btn-sent-voltar')?.addEventListener('click', () => _irParaView('login'))
+
+  // Primeiro acesso: aproveita o e-mail já digitado na entrada
+  document.getElementById('link-criar')?.addEventListener('click', () => {
+    const email = document.getElementById('input-email')?.value.trim()
+    if (email) document.getElementById('input-criar-email').value = email
+    _irParaView('criar')
+  })
+  document.getElementById('btn-criar-voltar')?.addEventListener('click', () => _irParaView('login'))
+  document.getElementById('btn-confirmar-voltar')?.addEventListener('click', () => _irParaView('login'))
+  ;['input-criar-email', 'input-criar-senha'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+      _mostrarErro('criar-erro', '')
+      document.querySelectorAll('#form-criar input').forEach(i => i.removeAttribute('aria-invalid'))
+    })
+  })
+  document.getElementById('form-criar')?.addEventListener('submit', async e => {
+    e.preventDefault()
+    const email = document.getElementById('input-criar-email').value.trim()
+    const senha = document.getElementById('input-criar-senha').value
+    const falta = !email ? 'input-criar-email' : senha.length < _SENHA_MINIMA ? 'input-criar-senha' : null
+    if (falta) {
+      _mostrarErro('criar-erro', email ? t('criarErroSenhaCurta', { n: _SENHA_MINIMA }) : t('informeEmail'))
+      const campo = document.getElementById(falta)
+      campo?.setAttribute('aria-invalid', 'true')
+      campo?.focus()
+      return
+    }
+    await _criarConta(email, senha)
+  })
 }
 
 function _irParaView(nome) {
@@ -269,6 +345,52 @@ async function _fazerLogin(email, senha) {
     campo?.focus()
     campo?.select()
   }
+}
+
+// ── Primeiro acesso: criar a senha ───────────────────────────
+// Quem foi convidado cria a própria conta de login. O resto segue sozinho
+// (onAuthStateChanged, em js/app.js): sem perfil e com o e-mail por confirmar,
+// _aceitarConvite envia o link e a entrada volta pedindo a confirmação
+const _SENHA_MINIMA = 8
+
+async function _criarConta(email, senha) {
+  const btn = document.getElementById('btn-criar')
+  _mostrarErro('criar-erro', '')
+  _botaoCarregando(btn, true, t('criarBotao'), t('criando'))
+  try {
+    await createUserWithEmailAndPassword(auth, email, senha)
+  } catch (err) {
+    _mostrarErro('criar-erro', _traduzirErroAuth(err.code))
+    if (['auth/invalid-email', 'auth/email-already-in-use'].includes(err.code)) {
+      document.getElementById('input-criar-email')?.setAttribute('aria-invalid', 'true')
+    } else if (err.code === 'auth/weak-password' || err.code === 'auth/password-does-not-meet-requirements') {
+      document.getElementById('input-criar-senha')?.setAttribute('aria-invalid', 'true')
+    }
+  } finally {
+    _botaoCarregando(btn, false, t('criarBotao'), t('criando'))
+  }
+}
+
+// Envia o link de confirmação no idioma da tela; depois de confirmar, a página
+// do Firebase oferece voltar ao Praxis (endereço autorizado no projeto; se não
+// for, vai sem o retorno)
+async function _enviarConfirmacao(usuario) {
+  auth.languageCode = idioma() === 'en' ? 'en' : 'pt-BR'
+  try {
+    await sendEmailVerification(usuario, { url: `${location.origin}/` })
+  } catch (err) {
+    if (!String(err?.code || '').includes('continue-uri')) throw err
+    await sendEmailVerification(usuario)
+  }
+}
+
+function _mostrarConfirmar(email) {
+  const msg = document.getElementById('confirmar-msg')
+  if (msg) {
+    const [antes, depois] = String(t('confirmarMsgPara')).split('{email}')
+    msg.innerHTML = `${esc(antes)}<b>${esc(email)}</b>${esc(depois ?? '')}`
+  }
+  _irParaView('confirmar')
 }
 
 // ── Entrada na demonstração ──────────────────────────────────
@@ -328,12 +450,28 @@ function _mostrarEnviado(email) {
 }
 
 // ── Logout ────────────────────────────────────────────────────
+// Sair apaga a cópia local dos dados (js/firebase.js) antes de deixar a conta
+// e recarrega a página: o banco encerrado não volta na mesma página. Enquanto
+// isso, a tela fica como está, com o indicador de espera (estaSaindo() faz o
+// app não desenhar a entrada antes da recarga)
+let _saindo = false
+export const estaSaindo = () => _saindo
+
 export async function fazerLogout() {
+  if (_saindo) return
+  _saindo = true
+  mostrarSpinner()
+  // As telas param de escutar o banco antes de ele ser encerrado (js/app.js):
+  // senão cada escuta recebe o erro do encerramento e reage a ele
+  window.dispatchEvent(new Event('praxis:saindo'))
+  await apagarCopiaLocal()
   try {
     await signOut(auth)
   } catch (err) {
-    prxToast(t('erroSair'), 'error')
+    // A conta continua aberta: a página recarrega com um banco novo
+    console.warn('Sair:', err?.code || err?.message || err)
   }
+  location.reload()
 }
 
 // ── Carregar dados do usuário logado ─────────────────────────
@@ -371,6 +509,25 @@ export async function carregarUsuario(uid) {
 async function _aceitarConvite(uid) {
   const email = String(auth.currentUser?.email || '').trim().toLowerCase()
   if (!email) return null
+  // O convite só vale com o e-mail confirmado (firestore.rules, aceitaConvite
+  // e a leitura do convite): sem isso, alguém criaria a conta com o e-mail de
+  // outra pessoa. A confirmação pode ter sido feita em outra aba: o usuário e
+  // o token são relidos antes de decidir. Quem ainda não confirmou recebe o
+  // link (de novo) e volta para a entrada sabendo o porquê
+  if (!auth.currentUser.emailVerified) {
+    try {
+      await auth.currentUser.reload()
+      await auth.currentUser.getIdToken(true)
+    } catch { /* decide com o que tem */ }
+  }
+  if (!auth.currentUser?.emailVerified) {
+    try {
+      await _enviarConfirmacao(auth.currentUser)
+    } catch (e) {
+      console.warn('Link de confirmação não enviado:', e?.code || e?.message)
+    }
+    throw _erroEntrada('praxis/email-nao-confirmado')
+  }
   const ref = doc(db, 'convites', email)
   let snap
   try {
@@ -412,6 +569,12 @@ function _traduzirErroAuth(code) {
     'auth/too-many-requests':      'loginErroTentativas',
     'auth/user-disabled':          'loginErroDesativada',
     'auth/network-request-failed': 'erroConexao',
+    // Primeiro acesso (criar a senha)
+    'auth/email-already-in-use':   'criarErroExiste',
+    'auth/weak-password':          'criarErroSenhaFraca',
+    'auth/password-does-not-meet-requirements': 'criarErroSenhaFraca',
+    'auth/operation-not-allowed':  'criarErroDesligado',
+    'auth/admin-restricted-operation': 'criarErroDesligado',
   }
   return t(map[code] ?? 'loginErroGenerico')
 }

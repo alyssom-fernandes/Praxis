@@ -2414,3 +2414,102 @@ button:active:not(:disabled) { transform: scale(0.98); }
 
 /* Cabeçalho de Pedidos: "Lançar compra" ao lado de "Novo pedido" */
 .pedidos-head-acoes { display: flex; align-items: center; gap: var(--esp-100); flex-shrink: 0; }
+
+/* ── Formulários mais curtos (17/11/2026) ──────────────── */
+/* Novo pedido: o prazo em botões (Hoje, Amanhã, Em 7 dias, Sem pressa), que
+   preenchem a data logo abaixo; ela continua aceitando outra data */
+.np-prazos { margin-bottom: var(--esp-100); }
+.np-prazos .chip { border-radius: var(--radius-tag); }
+.np-prazo .campo-data-texto { max-width: 220px; }
+.np-grid > .np-mais { grid-column: 1 / -1; }
+
+/* "Mais detalhes": o que é opcional fica recolhido (novo pedido e compra já
+   feita) */
+details.np-mais, details.lanc-mais { border-top: 1px solid var(--line); }
+details.np-mais > summary, details.lanc-mais > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-100);
+  min-height: 44px;
+  font-size: var(--t-corpo);
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  list-style: none;
+}
+details.np-mais > summary::-webkit-details-marker,
+details.lanc-mais > summary::-webkit-details-marker { display: none; }
+details.np-mais > summary::before, details.lanc-mais > summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--transition-fast);
+}
+details.np-mais[open] > summary::before, details.lanc-mais[open] > summary::before { transform: rotate(45deg); }
+details.np-mais > summary:hover, details.lanc-mais > summary:hover { color: var(--text); }
+.np-mais-corpo, .lanc-mais-corpo { display: flex; flex-direction: column; gap: var(--esp-200); padding: var(--esp-100) 0 var(--esp-050); }
+
+/* Compra já feita: as pessoas num resumo de uma linha ("Pedido e comprado por
+   você"), com "Alterar" para abrir os campos */
+.lanc-pessoas-resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-150);
+  padding: var(--esp-050) var(--esp-050) var(--esp-050) var(--esp-150);
+  font-size: var(--t-corpo);
+  color: var(--text2);
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.lanc-pessoas-campos { display: flex; flex-direction: column; gap: var(--esp-200); }
+.lanc-pessoas-resumo[hidden], .lanc-pessoas-campos[hidden] { display: none; }
+
+/* Busca de fornecedor (js/autocompletar.js): o campo numa âncora própria e a
+   lista logo abaixo dele, sobre o que vem depois */
+.autocompletar-ancora { position: relative; }
+.autocompletar-lista {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: var(--esp-050) 0 0;
+  padding: var(--esp-050) 0;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+}
+.autocompletar-lista[hidden] { display: none; }
+.autocompletar-lista li {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--esp-150);
+  font-size: var(--t-corpo);
+  color: var(--text2);
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.autocompletar-lista li:hover { background: var(--card2); color: var(--text); }
+.autocompletar-lista li[aria-selected="true"] { background: var(--card3); color: var(--text); box-shadow: inset 2px 0 0 var(--gold-fill); }
+
+/* Nota fiscal: o campo com o botão de ler o QR ao lado e o aviso da chave
+   embaixo (no envio, o erro do formulário toma o lugar do aviso) */
+.nota-linha { display: flex; align-items: stretch; gap: var(--esp-100); }
+.nota-linha > input { flex: 1 1 auto; min-width: 0; }
+.nota-ler { display: inline-flex; align-items: center; gap: var(--esp-075); flex-shrink: 0; white-space: nowrap; }
+.nota-aviso:empty { display: none; }
+.nota-aviso.erro { color: var(--red); }
+.invalido .nota-aviso.erro { display: none; }

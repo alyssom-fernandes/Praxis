@@ -25,6 +25,9 @@ import { retratoAprovacao, situacaoAprovacao, estaNoNivel, aplicarVoto } from '.
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 import { ETAPAS_CAMINHO, TERMINAIS, msDe, transicoes, entradas, segmentosDoPedido, formatarDuracao } from './processo.js'
 import { podeRevisarAutorizacao, revisaoDaAutorizacao } from './lancamento.js'
+import { conferirNota, formatarNota } from './nota.js'
+import { autocompletar } from './autocompletar.js'
+import { prepararCampoNota } from './ler-nota.js'
 
 let _unsubPedido    = null
 let _unsubHistorico = null
@@ -40,6 +43,13 @@ let _comentarios = []
 let _comentEditando = null  // { id, rascunho }: o comentário aberto para edição
 let _notaInterna = false     // seletor "Só equipe de compras" do compositor
 const _versoesAbertas = new Set() // comentários com as versões anteriores à mostra
+// Celular: Dados do pedido, Tempo por etapa e Anexos sem nada começam
+// recolhidos; o que a pessoa abre ou fecha vale até sair do pedido. No
+// computador o botão não aparece e a classe não muda nada (css/themes.css)
+let _secoesAlternadas = {}
+const _secaoAberta = (chave, padrao) => (chave in _secoesAlternadas ? _secoesAlternadas[chave] : padrao)
+const _botaoRecolher = (chave, idTitulo, idCorpo, aberta) =>
+  `<button type="button" class="dt-recolher" data-secao="${chave}" aria-expanded="${aberta}" aria-controls="${idCorpo}" aria-labelledby="${idTitulo}">${ICO.abaixo}</button>`
 
 // Nota interna: a conversa da equipe de compras, que o perfil solicitante não
 // lê (firestore.rules, notasInternas). Fica numa subcoleção própria porque as
@@ -70,6 +80,7 @@ export async function renderDetalhe(pedidoId) {
   if (!pedidoId) { navegar('pedidos'); return }
   _pedidoId = pedidoId
   _comentEditando = null
+  _secoesAlternadas = {}
   _posAnterior = null
   _avancouDe = null
 
@@ -195,13 +206,11 @@ async function _carregarAuxiliares() {
   }
 }
 
-// Opções de autocomplete de fornecedor (datalist)
-function _fornecedorDatalistOptions() {
+// Fornecedores para a busca dos campos (js/autocompletar.js): os mais usados primeiro
+function _opcoesFornecedor() {
   return _fornecedores
-    .map(f => f.nomeExibicao || f.nomeOriginal || f.nome)
-    .filter(Boolean)
-    .map(nome => `<option value="${esc(nome)}"></option>`)
-    .join('')
+    .map(f => ({ nome: f.nomeExibicao || f.nomeOriginal || f.nome, usos: f.usos || 0 }))
+    .filter(o => o.nome)
 }
 
 // Fornecedor da compra ou da cotação, pelo nome normalizado: o que já existe
@@ -292,6 +301,7 @@ const ICO = {
   comparar:  _svg('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>', 14),
   mais2:     _svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', 14),
   conversa:  _svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>', 18),
+  abaixo:    _svg('<polyline points="6 9 12 15 18 9"/>', 18),
 }
 
 const _TERMINAIS = TERMINAIS
@@ -422,7 +432,7 @@ function _renderCabecalho(menu) {
   const meta = []
   if (empresa?.nome) meta.push(`<span>${esc(empresa.nome)}</span>`)
   if (solicNome || criado) {
-    meta.push(`<span>${solicNome ? t('dtAbertoPor', { nome: esc(solicNome) }) : t('dtAberto')}${criado ? ` <span title="${criado.title}">${t('dtAbertoEm', { d: criado.texto })}</span>` : ''}</span>`)
+    meta.push(`<span class="detalhe-meta-aberto">${solicNome ? t('dtAbertoPor', { nome: esc(solicNome) }) : t('dtAberto')}${criado ? ` <span title="${criado.title}">${t('dtAbertoEm', { d: criado.texto })}</span>` : ''}</span>`)
   }
   if (prazo) {
     meta.push(`<span>${t('dtPrazo')} <span class="detalhe-meta-data">${prazo.data}</span>${prazo.texto
@@ -494,7 +504,7 @@ function _renderDetalhe() {
   if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), esc(CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento)])
   if (p.dataCompra)  dados.push([t('metaDataCompra'), `<span class="dt-numeral">${formatDate(p.dataCompra)}</span>`])
   if (p.dataEntrega) dados.push([t('metaDataEntrega'), `<span class="dt-numeral">${formatDate(p.dataEntrega)}</span>`])
-  if (p.notaFiscal)  dados.push([t('dtNotaFiscal'), `<span class="mono dt-nota">${esc(_formatarNota(p.notaFiscal))}</span>`])
+  if (p.notaFiscal)  dados.push([t('dtNotaFiscal'), `<span class="mono dt-nota">${esc(formatarNota(p.notaFiscal))}</span>`])
   if (p.linkCompra && urlSegura(p.linkCompra)) dados.push([t('dtLinkCompra'), `<a href="${esc(urlSegura(p.linkCompra))}" target="_blank" rel="noopener">${t('dtVerAnuncio')}</a>`])
 
   // Na compra já feita, as linhas vazias (categoria, necessário até, centro de
@@ -504,6 +514,8 @@ function _renderDetalhe() {
 
   const nCot = _cotacoes.length
   const nCotValor = _cotacoes.filter(c => !c.semProduto).length
+  const dadosAbertos = _secaoAberta('dados', false)
+  const anexosAbertos = _secaoAberta('anexos', _anexos.length > 0)
   const cotInd = _cotacoes.find(c => c.indicada)
 
   root.innerHTML = `
@@ -546,7 +558,7 @@ function _renderDetalhe() {
             </section>
           ` : ''}
 
-          <section class="dt-bloco ord-anexos" aria-labelledby="sec-anexos">
+          <section class="dt-bloco ord-anexos recolhivel${anexosAbertos ? '' : ' recolhida'}" aria-labelledby="sec-anexos">
             <div class="dt-card-head">
               <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${_anexos.length ? `<span class="dt-contagem">${_anexos.length}</span>` : ''}</h2>
               ${_enviaArquivos() ? `
@@ -554,6 +566,7 @@ function _renderDetalhe() {
                 ${ICO.clipe} ${t('dtAnexar')}
                 <input type="file" id="input-upload-anexo" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" multiple class="sr-only" tabindex="-1">
               </label>` : ''}
+              ${_botaoRecolher('anexos', 'sec-anexos', 'anexos-list', anexosAbertos)}
             </div>
             <div id="anexos-list">${_renderAnexos()}</div>
           </section>
@@ -580,9 +593,9 @@ function _renderDetalhe() {
         <aside class="detalhe-aside">
           <div class="ord-decisao">${_renderDecisao(acoes.painel)}</div>
 
-          <section class="dt-bloco ord-dados" aria-labelledby="sec-dados">
-            <div class="dt-card-head"><h2 class="dt-secao" id="sec-dados">${t('dtDadosPedido')}</h2></div>
-            <dl class="detalhe-meta-grid">
+          <section class="dt-bloco ord-dados recolhivel${dadosAbertos ? '' : ' recolhida'}" aria-labelledby="sec-dados">
+            <div class="dt-card-head"><h2 class="dt-secao" id="sec-dados">${t('dtDadosPedido')}</h2>${_botaoRecolher('dados', 'sec-dados', 'corpo-dados', dadosAbertos)}</div>
+            <dl class="detalhe-meta-grid" id="corpo-dados">
               ${dadosVisiveis.map(([k, v, cls]) => `<div class="meta-item ${cls || ''}"><dt class="meta-label">${k}</dt><dd class="meta-value">${v}</dd></div>`).join('')}
             </dl>
           </section>
@@ -685,8 +698,7 @@ function _corpoModalCompra() {
     <div class="form-grid form-grid-2">
       <div class="form-group col-span-2">
         <label for="mc-fornecedor">${t('fornecedorLabel')} *</label>
-        <input type="text" id="mc-fornecedor" placeholder="${t('dtNomeFornecedor')}" list="fornecedores-datalist" autocomplete="off" value="${esc(ind?.fornecedorNome || '')}">
-        <datalist id="fornecedores-datalist">${_fornecedorDatalistOptions()}</datalist>
+        <input type="text" id="mc-fornecedor" placeholder="${t('dtNomeFornecedor')}" autocomplete="off" value="${esc(ind?.fornecedorNome || '')}">
       </div>
       <div class="form-group">
         <label for="mc-valor">${t('valorFinalLabel')} *</label>
@@ -718,9 +730,6 @@ function _corpoModalCompra() {
       </div>
     </div>`
 }
-
-// Chave de acesso da nota (44 dígitos) em blocos de 4, como no DANFE
-const _formatarNota = n => /^\d{44}$/.test(String(n).replace(/\s/g, '')) ? String(n).replace(/\s/g, '').match(/.{4}/g).join(' ') : n
 
 // ── Compra já feita (js/lancamento.js) ────────────────────────
 // Quem pediu, quem autorizou (com a situação da autorização), quem comprou e
@@ -807,9 +816,12 @@ function _informarNota() {
         <button class="btn-primary" id="salvar-nota">${t('salvar')}</button>
       </div>
     </div>`)
+  prepararCampoNota(overlay.querySelector('#nota-numero'))
   overlay.querySelector('#salvar-nota')?.addEventListener('click', async () => {
     const nota = overlay.querySelector('#nota-numero')?.value.trim()
     if (!nota) { prxToast(t('erroCamposObrigatorios'), 'error'); return }
+    const r = conferirNota(nota)
+    if (r === 'digito' || r === 'tamanho') { prxToast(t(r === 'digito' ? 'notaDigitoErrado' : 'notaTamanhoErrado'), 'warning'); return }
     if (!exigirConexao()) return
     mostrarSpinner()
     try {
@@ -1656,10 +1668,19 @@ function _bindDetalheEvents() {
   })
   document.getElementById('btn-confirmar-reprovar')?.addEventListener('click', _reprovarPedido)
 
+  document.querySelectorAll('#detalhe-root .dt-recolher').forEach(b => b.addEventListener('click', () => {
+    const secao = b.closest('.dt-bloco')
+    const abrir = secao.classList.contains('recolhida')
+    secao.classList.toggle('recolhida', !abrir)
+    b.setAttribute('aria-expanded', String(abrir))
+    _secoesAlternadas[b.dataset.secao] = abrir
+  }))
   document.getElementById('btn-executar-compra')?.addEventListener('click', () => {
     abrirModal('modal-compra')
     _atualizarResumoParcelasCompra()
   })
+  autocompletar(document.getElementById('mc-fornecedor'), _opcoesFornecedor)
+  prepararCampoNota(document.getElementById('mc-nota'))
   ;['mc-valor', 'mc-parcelas'].forEach(id => document.getElementById(id)?.addEventListener('input', _atualizarResumoParcelasCompra))
   document.getElementById('btn-confirmar-compra')?.addEventListener('click', _executarCompra)
 
@@ -1941,6 +1962,10 @@ async function _executarCompra() {
 
   if (!fornecedor || !valorFinal || !condicao || !dataCompra || !venc1) {
     prxToast(t('erroCamposObrigatorios'), 'error')
+    return
+  }
+  if (['digito', 'tamanho'].includes(conferirNota(nota))) {
+    prxToast(t(conferirNota(nota) === 'digito' ? 'notaDigitoErrado' : 'notaTamanhoErrado'), 'warning')
     return
   }
   if (!exigirConexao()) return
@@ -2621,8 +2646,7 @@ async function _mostrarModalCotacao() {
         <div class="form-grid form-grid-2">
           <div class="form-group col-span-2">
             <label for="cot-forn">${t('fornecedorLabel')} *</label>
-            <input type="text" id="cot-forn" placeholder="${t('cotFornecedorBusca')}" list="cot-forn-datalist" autocomplete="off">
-            <datalist id="cot-forn-datalist">${_fornecedorDatalistOptions()}</datalist>
+            <input type="text" id="cot-forn" placeholder="${t('cotFornecedorBusca')}" autocomplete="off">
           </div>
           <div class="form-group col-span-2">
             <label class="cot-sem-produto-op">
@@ -2660,10 +2684,26 @@ async function _mostrarModalCotacao() {
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
+        <button class="btn-secondary" id="salvar-cotacao-outra">${t('cotSalvarOutra')}</button>
         <button class="btn-primary" id="salvar-cotacao">${t('cotSalvar')}</button>
       </div>
     </div>
   `)
+  autocompletar(document.getElementById('cot-forn'), _opcoesFornecedor)
+  // "Salvar e cotar outra": a janela fica aberta e volta limpa ao fornecedor,
+  // para quem cota três lugares seguidos não abrir a janela três vezes
+  const limpar = () => {
+    for (const id of ['cot-forn', 'cot-valor', 'cot-prazo', 'cot-cond', 'cot-link']) {
+      const el = document.getElementById(id)
+      if (el) el.value = ''
+    }
+    const sem = document.getElementById('cot-sem')
+    if (sem?.checked) { sem.checked = false; sem.dispatchEvent(new Event('change')) }
+    const arquivo = document.getElementById('cot-arquivo')
+    if (arquivo?.value) { arquivo.value = ''; arquivo.dispatchEvent(new Event('change')) }
+    document.querySelector('#modal-cotacao .modal-body')?.scrollTo(0, 0)
+    document.getElementById('cot-forn')?.focus()
+  }
   // Sem o produto: some o valor e o prazo (o lugar fica registrado sem preço)
   document.getElementById('cot-sem')?.addEventListener('change', e => {
     document.querySelectorAll('#modal-cotacao .cot-com-produto').forEach(g => { g.hidden = e.target.checked })
@@ -2674,7 +2714,7 @@ async function _mostrarModalCotacao() {
     if (el) el.textContent = f ? f.name : t('cotSelecionarArquivo')
   })
 
-  document.getElementById('salvar-cotacao')?.addEventListener('click', async () => {
+  const salvar = async outra => {
     const fornNome = document.getElementById('cot-forn')?.value.trim()
     const valorStr = document.getElementById('cot-valor')?.value.trim()
     const prazo    = document.getElementById('cot-prazo')?.value.trim()
@@ -2688,8 +2728,8 @@ async function _mostrarModalCotacao() {
     if (!fornNome || (!semProduto && !valor)) { prxToast(t('fornecedorValorObrig'), 'error'); return }
     if (link && !/^https?:\/\/\S+$/i.test(link)) { prxToast(t('lancLinkInvalido'), 'error'); return }
 
-    const btnSalvar = document.getElementById('salvar-cotacao')
-    if (btnSalvar) btnSalvar.disabled = true
+    const botoes = ['salvar-cotacao', 'salvar-cotacao-outra'].map(id => document.getElementById(id)).filter(Boolean)
+    botoes.forEach(b => { b.disabled = true })
     mostrarSpinner()
     try {
       const cotRef = doc(collection(db, 'pedidos', _pedidoId, 'cotacoes'))
@@ -2722,16 +2762,19 @@ async function _mostrarModalCotacao() {
         return f
       })
       if (forn.novo) _fornecedores.push(forn.novo)
-      fechar()
+      if (outra) limpar()
+      else fechar()
       await _refreshCotacoes()
       prxToast(t('cotacaoAdicionada'), 'success')
     } catch (err) {
       prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroSalvarCotacao'), 'error')
-      if (btnSalvar) btnSalvar.disabled = false
     } finally {
+      botoes.forEach(b => { b.disabled = false })
       esconderSpinner()
     }
-  })
+  }
+  document.getElementById('salvar-cotacao')?.addEventListener('click', () => salvar(false))
+  document.getElementById('salvar-cotacao-outra')?.addEventListener('click', () => salvar(true))
 }
 
 // ── Helpers de permissão ──────────────────────────────────────
@@ -3330,13 +3373,15 @@ function _renderSLATimeline() {
       </li>`
   }).join('')
 
+  const aberta = _secaoAberta('sla', false)
   return `
-    <section class="dt-bloco ord-sla" aria-labelledby="sec-sla">
+    <section class="dt-bloco ord-sla recolhivel${aberta ? '' : ' recolhida'}" aria-labelledby="sec-sla">
       <div class="dt-card-head">
         <h2 class="dt-secao" id="sec-sla">${t('dtTempoPorEtapa')}</h2>
         <span class="tempo-total" title="${terminal ? '' : t('dtAteAgora')}"><span class="dt-numeral">${formatarDuracao(totalMs)}</span></span>
+        ${_botaoRecolher('sla', 'sec-sla', 'corpo-sla', aberta)}
       </div>
-      <ol class="tempo-lista">${linhas}</ol>
+      <ol class="tempo-lista" id="corpo-sla">${linhas}</ol>
     </section>
   `
 }

@@ -11,7 +11,7 @@ import {
   PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo,
   corCategoria, t,
 } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario, csvNumero, baixarCSV } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, maisXDiasISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario, csvNumero, baixarCSV } from './utils.js'
 import { podeRevisarAutorizacao } from './lancamento.js'
 
 let _pedidoFonteDuplicar = null
@@ -264,23 +264,21 @@ export async function renderPedidos() {
               </div>
               <div class="form-group" data-campo="np-quantidade">
                 <label for="np-quantidade">${t('npQuantidade')} <span class="np-req" aria-hidden="true">*</span></label>
-                <input type="number" id="np-quantidade" placeholder="1" min="1" step="1" inputmode="numeric" required>
+                <input type="number" id="np-quantidade" value="1" min="1" step="1" inputmode="numeric" required>
               </div>
               <div class="form-group" data-campo="np-unidade">
                 <label for="np-unidade">${t('npUnidade')} <span class="np-req" aria-hidden="true">*</span></label>
                 <select id="np-unidade" required><option value="">${t('selecionar')}</option></select>
               </div>
-              <div class="form-group" data-campo="np-data">
-                <label for="np-data">${t('npData')} <span class="np-req" aria-hidden="true">*</span></label>
-                <input type="date" id="np-data" required min="${hojeISO()}">
-              </div>
-              <div class="form-group" data-campo="np-cc">
-                <label for="np-cc">${t('npCC')}</label>
-                <input type="text" id="np-cc" placeholder="${t('opcional')}" maxlength="60" autocomplete="off">
-              </div>
-              <div class="form-group col-span-3" data-campo="np-categorias">
-                <label id="np-categorias-label">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></label>
-                <div class="category-chips" id="np-categorias" role="radiogroup" aria-labelledby="np-categorias-label"></div>
+              <div class="form-group col-span-3 np-prazo" data-campo="np-data">
+                <span class="form-label-falso" id="np-prazo-rot">${t('npPrazo')} <span class="np-opcional">${t('opcional')}</span></span>
+                <div class="category-chips np-prazos" id="np-prazos" role="group" aria-labelledby="np-prazo-rot">
+                  <button type="button" class="chip" data-prazo="0" aria-pressed="false">${t('npPrazoHoje')}</button>
+                  <button type="button" class="chip" data-prazo="1" aria-pressed="false">${t('npPrazoAmanha')}</button>
+                  <button type="button" class="chip" data-prazo="7" aria-pressed="false">${t('npPrazo7')}</button>
+                  <button type="button" class="chip" data-prazo="" aria-pressed="false">${t('npSemPressa')}</button>
+                </div>
+                <input type="date" id="np-data" min="${hojeISO()}" aria-label="${t('npData')}">
               </div>
               <div class="form-group col-span-3">
                 <div class="toggle-wrap np-urgente" id="np-urgente-wrap" role="switch" aria-checked="false" aria-labelledby="np-urgente-rotulo" aria-describedby="np-urgente-desc" tabindex="0">
@@ -291,10 +289,23 @@ export async function renderPedidos() {
                   <div class="toggle" id="np-urgente-toggle"></div>
                 </div>
               </div>
-              <div class="form-group col-span-3">
-                <label for="np-obs">${t('npObs')}</label>
-                <textarea id="np-obs" placeholder="${t('npObsPlaceholder')}" rows="3"></textarea>
-              </div>
+              <details class="np-mais col-span-3" id="np-mais">
+                <summary>${t('npMaisDetalhes')}</summary>
+                <div class="np-mais-corpo">
+                  <div class="form-group" data-campo="np-categorias">
+                    <span class="form-label-falso" id="np-categorias-label">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></span>
+                    <div class="category-chips" id="np-categorias" role="radiogroup" aria-labelledby="np-categorias-label"></div>
+                  </div>
+                  <div class="form-group" data-campo="np-cc">
+                    <label for="np-cc">${t('npCC')} <span class="np-opcional">${t('opcional')}</span></label>
+                    <input type="text" id="np-cc" maxlength="60" autocomplete="off">
+                  </div>
+                  <div class="form-group">
+                    <label for="np-obs">${t('npObs')} <span class="np-opcional">${t('opcional')}</span></label>
+                    <textarea id="np-obs" placeholder="${t('npObsPlaceholder')}" rows="3"></textarea>
+                  </div>
+                </div>
+              </details>
             </div>
           </form>
         </div>
@@ -829,6 +840,22 @@ function _bindEvents() {
     abrirLancamento()
   })
 
+  // Prazo: o botão preenche a data; mudar a data à mão apaga o botão aceso
+  document.getElementById('np-prazos')?.addEventListener('click', e => {
+    const chip = e.target.closest('.chip')
+    if (!chip) return
+    const dias = chip.dataset.prazo
+    const data = document.getElementById('np-data')
+    if (data) data.value = dias === '' ? '' : maisXDiasISO(Number(dias))
+    _marcarPrazo(dias)
+    _limparErroCampo('np-data')
+  })
+  document.getElementById('np-data')?.addEventListener('change', e => {
+    const v = e.target.value
+    const igual = ['0', '1', '7'].find(d => maisXDiasISO(Number(d)) === v)
+    _marcarPrazo(v ? (igual ?? null) : null)
+  })
+
   // Abrir modal
   document.getElementById('btn-novo-pedido')?.addEventListener('click', () => {
     _fecharPainel(false)
@@ -930,9 +957,32 @@ function _resetarModalNovoPedido() {
   if (sub) { sub.hidden = true; sub.textContent = '' }
   const btn = document.getElementById('btn-abrir-pedido')
   if (btn) btn.textContent = t('btnAbrirPedido')
-  // Com uma única empresa disponível, ela já vem escolhida
+  _marcarPrazo(null)
+  const mais = document.getElementById('np-mais')
+  if (mais) mais.open = false
+  // Com uma única empresa disponível, ela já vem escolhida; com várias, a
+  // última usada por esta pessoa
   const emp = document.getElementById('np-empresa')
   if (emp && emp.options.length === 2) emp.selectedIndex = 1
+  else if (emp) {
+    const ultima = _ultimaEmpresa()
+    if (ultima && [...emp.options].some(o => o.value === ultima)) emp.value = ultima
+  }
+}
+
+// Última empresa em que a pessoa abriu pedido (só neste navegador)
+const _chaveUltimaEmpresa = () => `praxis_ultima_empresa_${sessao.usuario?.id || ''}`
+function _ultimaEmpresa() { try { return localStorage.getItem(_chaveUltimaEmpresa()) } catch { return null } }
+function _guardarUltimaEmpresa(id) { try { localStorage.setItem(_chaveUltimaEmpresa(), id) } catch { /* sem armazenamento */ } }
+
+// Botões de prazo: Hoje, Amanhã, Em 7 dias e Sem pressa preenchem o campo de
+// data (que continua aceitando outra data); o botão aceso acompanha o campo
+function _marcarPrazo(dias) {
+  document.querySelectorAll('#np-prazos .chip').forEach(c => {
+    const on = dias != null && c.dataset.prazo === String(dias)
+    c.classList.toggle('selected', on)
+    c.setAttribute('aria-pressed', String(on))
+  })
 }
 
 function _validarNovoPedido(v) {
@@ -942,8 +992,8 @@ function _validarNovoPedido(v) {
   if (!v.quantidade) erros.push(['np-quantidade', t('campoObrigatorio')])
   else if (!(Number(v.quantidade) >= 1)) erros.push(['np-quantidade', t('quantidadeMinima')])
   if (!v.unidade) erros.push(['np-unidade', t('campoObrigatorio')])
-  if (!v.data) erros.push(['np-data', t('campoObrigatorio')])
-  else if (v.data < hojeISO()) erros.push(['np-data', t('dataNoPassado')])
+  // O prazo é opcional ("Sem pressa"); se vier, não pode estar no passado
+  if (v.data && v.data < hojeISO()) erros.push(['np-data', t('dataNoPassado')])
   return erros
 }
 
@@ -990,7 +1040,7 @@ async function _submeterNovoPedido() {
         empresaId,
         quantidade:      Number(quantidade),
         unidade,
-        dataNecessaria:  data,
+        dataNecessaria:  data || null,
         // O valor estimado saiu do formulário (16/11/2026): o valor do pedido
         // passa a ser o da cotação indicada e, depois, o da compra
         valorEstimado:   null,
@@ -1026,6 +1076,7 @@ async function _submeterNovoPedido() {
       tx.set(contadorRef, { totalPedidos: total }, { merge: true })
     })
 
+    _guardarUltimaEmpresa(empresaId)
     fecharModal('modal-novo-pedido')
     prxToast(t('pedidoAberto'), 'success', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id: pedidoRef.id }) }] })
   } catch (err) {
@@ -2172,6 +2223,7 @@ function _preencherModalNovoPedido() {
     UNIDADES.forEach(u => {
       const opt = document.createElement('option')
       opt.value = u; opt.textContent = u
+      if (u === 'un') { opt.defaultSelected = true; opt.selected = true }
       unidSel.appendChild(opt)
     })
   }
@@ -2224,6 +2276,8 @@ function _preencherModalDuplicar(p) {
     const chip = document.querySelector(`#np-categorias .chip[data-id="${p.categoriaId}"]`)
     if (chip) { chip.classList.add('selected'); chip.setAttribute('aria-checked', 'true') }
   }
+  const mais = document.getElementById('np-mais')
+  if (mais && (p.categoriaId || p.centroCusto || p.cc || p.descricao)) mais.open = true
 
   const h2 = document.getElementById('np-h2')
   if (h2) h2.textContent = t('duplicarPedido')

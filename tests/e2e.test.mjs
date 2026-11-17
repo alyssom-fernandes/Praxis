@@ -132,6 +132,8 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   await sol.fill('#np-quantidade', '2')
   await sol.selectOption('#np-unidade', { index: 1 })
   await sol.fill('#np-data', daqui(20))
+  // Categoria, centro de custo e observação ficam em "Mais detalhes"
+  await sol.click('#np-mais summary')
   await sol.click('#np-categorias .chip')
   await sol.click('#btn-abrir-pedido')
   await sol.getByText('Pedido criado.').first().waitFor()

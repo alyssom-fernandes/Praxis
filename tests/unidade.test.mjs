@@ -29,6 +29,7 @@ import { montarExportacao, paraJSON, nomeDoArquivo, COLECOES, SUBCOLECOES_PEDIDO
 import {
   statusDoLancamento, errosDoLancamento, montarLancamento, podeRevisarAutorizacao, revisaoDaAutorizacao,
 } from '../js/lancamento.js'
+import { digitoDaChave, conferirNota, formatarNota, chaveDoQr } from '../js/nota.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -612,6 +613,11 @@ test('compra já feita: etapa, validação, pedido e parcelas como as regras esp
   assert.deepEqual(campos({ ...v, motivo: 'outro' }), ['lc-detalhes'])
   assert.deepEqual(campos({ ...v, valorFinal: 0, compradoPor: { nome: ' ' } }), ['lc-valor', 'lc-comprado-por'])
   assert.deepEqual(campos({ ...v, parcelas: 0, link: 'mercadolivre.com' }), ['lc-parcelas', 'lc-link'])
+  // A nota: número livre passa; chave com o dígito ou o tamanho errado, não
+  assert.deepEqual(campos({ ...v, notaFiscal: 'NF 1234' }), [])
+  assert.deepEqual(campos({ ...v, notaFiscal: '52060433009911002506550120000007800267301615' }), [])
+  assert.deepEqual(errosDoLancamento({ ...v, notaFiscal: '52060433009911002506550120000007800267301614' }, '2026-11-17'), [['lc-nota', 'notaDigitoErrado']])
+  assert.deepEqual(errosDoLancamento({ ...v, notaFiscal: '520604330099110025065501200000078002673016' }, '2026-11-17'), [['lc-nota', 'notaTamanhoErrado']])
   // Quem não é gestor: autorização pendente, parcelas mensais em centavos
   const quem = { id: 'u9', nome: 'Serviços', perfil: 'solicitante' }
   const { pedido, parcelas } = montarLancamento(v, quem, 'TS')
@@ -631,6 +637,46 @@ test('compra já feita: etapa, validação, pedido e parcelas como as regras esp
   assert.equal(g.pedido.lancamento.autorizacao, 'confirmada')
   assert.equal(g.pedido.lancamento.autorizacaoEm, 'TS')
   assert.deepEqual(g.parcelas, [{ numero: 1, total: 1, valor: 100, vencimento: '2026-11-15', pago: true, pagoEm: 'TS', comprovante: null }])
+})
+
+// Exemplo de chave do Manual de Orientação do Contribuinte da NF-e (cálculo do
+// dígito verificador): soma 644, resto 6, dígito 11 − 6 = 5
+const CHAVE_MOC = '52060433009911002506550120000007800267301615'
+
+test('nota fiscal: dígito da chave, o que foi digitado, blocos e o QR Code da NFC-e', () => {
+  assert.equal(digitoDaChave(CHAVE_MOC.slice(0, 43)), 5)
+  // Resto 0 ou 1 dá dígito 0
+  assert.equal(digitoDaChave('0'.repeat(43)), 0)
+  assert.equal(digitoDaChave(`${'0'.repeat(42)}6`), 0)
+  assert.equal(digitoDaChave(`${'0'.repeat(42)}5`), 1)
+  // O que foi digitado: vazio, número (até 20 dígitos ou com letras), chave
+  // válida (espaços, pontos e traços não contam), dígito ou tamanho errado
+  assert.equal(conferirNota(''), 'vazia')
+  assert.equal(conferirNota('   '), 'vazia')
+  assert.equal(conferirNota(null), 'vazia')
+  assert.equal(conferirNota('1234'), 'numero')
+  assert.equal(conferirNota('NF 001.234'), 'numero')
+  assert.equal(conferirNota('1'.repeat(20)), 'numero')
+  assert.equal(conferirNota(CHAVE_MOC), 'chave')
+  assert.equal(conferirNota(formatarNota(CHAVE_MOC)), 'chave')
+  assert.equal(conferirNota(` ${CHAVE_MOC.slice(0, 22)}-${CHAVE_MOC.slice(22)} `), 'chave')
+  assert.equal(conferirNota(`${CHAVE_MOC.slice(0, 43)}4`), 'digito')
+  // Dois dígitos vizinhos trocados ("01" → "10" nas posições 23 e 24)
+  assert.equal(conferirNota(`${CHAVE_MOC.slice(0, 22)}${CHAVE_MOC[23]}${CHAVE_MOC[22]}${CHAVE_MOC.slice(24)}`), 'digito')
+  assert.equal(conferirNota(CHAVE_MOC.slice(0, 43)), 'tamanho')
+  assert.equal(conferirNota(`${CHAVE_MOC}0`), 'tamanho')
+  assert.equal(conferirNota('1'.repeat(21)), 'tamanho')
+  // Em blocos de 4, como no DANFE; o que não é chave fica como veio
+  assert.equal(formatarNota(CHAVE_MOC), '5206 0433 0099 1100 2506 5501 2000 0007 8002 6730 1615')
+  assert.equal(formatarNota('NF 12'), 'NF 12')
+  // QR Code da NFC-e: a chave no parâmetro "p" (chave|versão|ambiente|...),
+  // em "chNFe", ou solta no texto; com o dígito errado, nada
+  assert.equal(chaveDoQr(`https://www.fazenda.pr.gov.br/nfce/qrcode?p=${CHAVE_MOC}|2|1|1|8F3A0C21B9`), CHAVE_MOC)
+  assert.equal(chaveDoQr(`http://nfce.sefaz.exemplo.gov.br/consulta?chNFe=${CHAVE_MOC}&nVersao=100`), CHAVE_MOC)
+  assert.equal(chaveDoQr(`NFC-e ${CHAVE_MOC} emitida`), CHAVE_MOC)
+  assert.equal(chaveDoQr(`https://x.gov.br/qrcode?p=${CHAVE_MOC.slice(0, 43)}4|2|1|1|AB`), null)
+  assert.equal(chaveDoQr('https://exemplo.com.br/'), null)
+  assert.equal(chaveDoQr(''), null)
 })
 
 test('compra já feita: quem revisa a autorização e o que muda', () => {

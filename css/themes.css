@@ -101,10 +101,13 @@ input[type="checkbox"], input[type="radio"] {
   .detalhe-layout { gap: var(--esp-300); }
   .detalhe-head { gap: var(--esp-100); }
   .detalhe-head-linha { gap: var(--esp-100); }
-  .detalhe-titulo { font-size: 1.375rem; line-height: 1.2; }
+  /* Cabeçalho mais curto: título de 20 px; quem abriu sai (está em Pessoas
+     e no começo da atividade); o caminho "Pedidos" com 44 px para o dedo */
+  .detalhe-titulo { font-size: var(--t-titulo-2); line-height: 1.25; }
   .detalhe-meta { flex-direction: column; align-items: flex-start; gap: 1px; font-size: var(--t-corpo); }
-  .detalhe-meta > .detalhe-meta-sep { display: none; }
-  .btn-mais { width: 40px; height: 40px; min-height: 40px; }
+  .detalhe-meta > .detalhe-meta-sep, .detalhe-meta > .detalhe-meta-aberto { display: none; }
+  .detalhe-trilha a { display: inline-flex; align-items: center; min-height: 44px; }
+  .btn-mais { width: 44px; height: 44px; min-height: 44px; }
   .detalhe-layout .so-desktop { display: none !important; }
   .menu-acoes-item { min-height: 44px; }
   /* Régua: rola na horizontal, com a etapa atual na vista (js) */
@@ -153,7 +156,16 @@ input[type="checkbox"], input[type="radio"] {
   }
   .decisao-acoes > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 var(--esp-150); }
   body:has(.decisao-acoes) .main-footer { padding-bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + var(--esp-200)); }
+  /* O aviso sobe acima da barra de decisão e, com uma janela aberta, acima
+     do rodapé dela. O :has(#bottom-nav) iguala a especificidade da regra
+     da barra inferior (base.css), que antes vencia e cobria os botões */
+  body:has(#bottom-nav):has(.decisao-acoes) #toast-container,
   body:has(.decisao-acoes) #toast-container { bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
+  body:has(#bottom-nav):has(.modal-overlay.visible) #toast-container,
+  body:has(.modal-overlay.visible) #toast-container { bottom: calc(var(--rodape-janela-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
+  /* A cotação tem uma linha de botões a mais ("Salvar e cotar outra"): 48 + 8 */
+  body:has(#bottom-nav):has(#modal-cotacao.visible) #toast-container,
+  body:has(#modal-cotacao.visible) #toast-container { bottom: calc(var(--rodape-janela-h) + 56px + env(safe-area-inset-bottom, 0px) + 0.6rem); }
   .detalhe-cols { gap: var(--esp-400); }
   .dt-card-head { flex-wrap: wrap; row-gap: var(--esp-075); }
   .dt-legenda { display: none; }
@@ -166,8 +178,8 @@ input[type="checkbox"], input[type="radio"] {
     padding: var(--esp-150) var(--esp-200) var(--esp-200);
   }
   .cotacao-lado { align-items: flex-start; }
-  .cotacao-acoes .btn-sm, .cotacao-acoes .btn-icon { min-height: 38px; }
-  .cotacao-acoes .btn-icon { width: 38px; height: 38px; }
+  .cotacao-acoes .btn-sm, .cotacao-acoes .btn-icon { min-height: 44px; }
+  .cotacao-acoes .btn-icon { width: 44px; height: 44px; }
   .parcela-item {
     grid-template-columns: 44px minmax(0, 1fr) auto;
     grid-template-areas: "num info valor" "num acoes acoes";
@@ -179,17 +191,46 @@ input[type="checkbox"], input[type="radio"] {
   .parcela-numero b { font-size: 1.35rem; }
   .parcela-acoes { justify-content: flex-start; }
   .parcela-acoes:empty { display: none; }
-  .parcela-acoes .btn-sm, .parcela-acoes .btn-icon { min-height: 38px; }
-  .parcela-acoes .btn-icon { width: 38px; height: 38px; }
-  .anexo-acoes .btn-icon { width: 38px; height: 38px; min-height: 38px; }
+  .parcela-acoes .btn-sm, .parcela-acoes .btn-icon { min-height: 44px; }
+  .parcela-acoes .btn-icon { width: 44px; height: 44px; }
+  .anexo-acoes .btn-icon { width: 44px; height: 44px; min-height: 44px; }
   .comentario-composer > .avatar { display: none; }
-  .comentario-rodape .btn-sm { min-height: 38px; }
+  .comentario-rodape .btn-sm { min-height: 44px; }
+  /* Editar e apagar o comentário: a área de toque passa do texto (44 px) */
+  .coment-acao { position: relative; }
+  .coment-acao::after { content: ''; position: absolute; inset: -10px -6px; }
   /* Com o seletor "Só equipe de compras", a dica de menção sai para caber numa linha */
   .comentario-rodape:has(.comentario-interno) .comentario-dica { display: none; }
   .cotacao-compare-grid { grid-template-columns: 1fr; }
   .cotacao-compare-badges { min-height: 0; }
   .cotacao-compare-badges:not(:has(.cot-marca)) { display: none; }
-  .dt-upload { min-height: 38px; }
+  .dt-upload { min-height: 44px; }
+  /* Seções recolhíveis (Dados do pedido, Anexos sem nada, Tempo por etapa):
+     o cabeçalho inteiro abre e fecha (o botão se estende sobre ele); o
+     "Anexar" continua por cima. A seta tem 44 px sem crescer o cabeçalho */
+  .dt-bloco.recolhivel > .dt-card-head { position: relative; }
+  .dt-bloco.recolhivel > .dt-card-head > .dt-secao { margin-right: auto; }
+  .dt-recolher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin: calc(var(--esp-075) * -1) calc(var(--esp-150) * -1) calc(var(--esp-075) * -1) 0;
+    padding: 0;
+    color: var(--text3);
+    background: none;
+    border: none;
+  }
+  .dt-recolher::after { content: ''; position: absolute; inset: 0; }
+  .dt-recolher svg { transition: transform var(--transition-fast); }
+  .dt-recolher[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .dt-recolher:active:not(:disabled) { transform: none; }
+  .dt-bloco.recolhivel .dt-upload { position: relative; z-index: 1; }
+  .dt-bloco.recolhida > :not(.dt-card-head) { display: none; }
+  .dt-bloco.recolhida > .dt-card-head { margin-bottom: 0; }
   .dt-modal-pedido { display: none; }
   .dt-modal .modal-header { padding: var(--esp-200) var(--esp-200) var(--esp-200) var(--esp-250); }
   .dt-modal .modal-body { padding: var(--esp-250); }
@@ -215,7 +256,8 @@ input[type="checkbox"], input[type="radio"] {
   }
   .lateral-topo { flex: 1 0 100%; height: 56px; margin: 0; }
   .lateral-marca .marca { font-size: var(--t-titulo-2); }
-  .lateral-icone { margin-right: calc(var(--esp-075) * -1); }
+  .lateral-icone { width: 44px; height: 44px; min-height: 44px; margin-right: calc(var(--esp-150) * -1); }
+  .lateral-marca { min-height: 44px; }
   .lateral-rodape, .lateral-nav { display: none; }
 
   /* Configurações: os cadastros descem para uma segunda linha rolável */
@@ -266,11 +308,11 @@ input[type="checkbox"], input[type="radio"] {
   .pedidos-busca { order: 1; flex: 1 1 0; min-width: 0; }
   .pedidos-busca input { height: 42px; min-height: 42px; font-size: var(--t-titulo-3); }
   .pedidos-filtros-wrap { order: 2; position: static; margin-left: 0; }
-  .pedidos-btn-filtros { min-width: 42px; height: 42px; min-height: 42px; padding: 0 var(--esp-150); justify-content: center; }
+  .pedidos-btn-filtros { min-width: 48px; height: 48px; min-height: 48px; padding: 0 var(--esp-150); justify-content: center; }
   .pedidos-btn-filtros-txt { display: none; }
   .pedidos-btn-filtros svg { width: 17px; height: 17px; }
   .view-toggle { order: 3; }
-  .view-toggle button { width: 38px; height: 40px; }
+  .view-toggle button { width: 44px; height: 46px; }
   .pedidos-rapidos {
     order: 4;
     flex: 1 0 100%;
@@ -437,21 +479,23 @@ input[type="checkbox"], input[type="radio"] {
   .pedidos-tabela .lp-valor { font-size: var(--t-titulo-2); }
   .lista-paginacao { padding: 0; }
   .pagina-btns .btn-ghost span { display: none; }
-  .pagina-btns .btn-ghost { width: 42px; min-height: 42px; padding: 0; }
+  .pagina-btns .btn-ghost { width: 44px; min-height: 44px; padding: 0; }
 
   /* Barra de seleção: rótulos curtos, acima da barra inferior */
   .bulk-bar { left: 50%; max-width: calc(100vw - 2rem); }
   .bulk-bar .lbl-longo { display: none; }
   .bulk-bar .lbl-curto { display: inline; }
-  .bulk-bar .btn-sm { min-height: 38px; }
-  .bulk-clear { width: 38px; height: 38px; min-height: 38px; }
+  .bulk-bar .btn-sm { min-height: 44px; }
+  .bulk-clear { width: 44px; height: 44px; min-height: 44px; }
 
   /* Modal de novo pedido: campos curtos em pares para encurtar a folha */
   .np-legenda { display: none; }
   .form-grid-3.np-grid { grid-template-columns: 1fr 1fr; gap: var(--esp-200) var(--esp-150); }
   .np-grid > .form-group.col-span-3,
-  .np-grid > [data-campo="np-empresa"],
-  .np-grid > [data-campo="np-cc"] { grid-column: 1 / -1; }
+  .np-grid > [data-campo="np-empresa"] { grid-column: 1 / -1; }
+  /* Prazo: os quatro botões dividem a linha */
+  .np-prazos .chip { flex: 1 1 auto; justify-content: center; }
+  .np-prazo .campo-data-texto { max-width: none; }
 
   /* Puxar para atualizar */
   .pull-indicator {
@@ -559,6 +603,24 @@ input[type="checkbox"], input[type="radio"] {
     border: 1px solid var(--gold-border);
     flex-shrink: 0;
   }
+  /* Minha fila: quantos pedidos esperam a pessoa, sobre o canto do ícone */
+  .bottom-nav-item .bnav-contagem {
+    position: absolute;
+    top: var(--esp-075);
+    left: calc(50% + var(--esp-050));
+    min-width: 18px;
+    max-width: none;
+    height: 18px;
+    padding: 0 var(--esp-050);
+    font: 700 var(--t-pequeno)/18px var(--font);
+    letter-spacing: 0;
+    text-align: center;
+    color: var(--on-gold);
+    background: var(--gold-fill);
+    border-radius: var(--radius-tag);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .bottom-nav-item .bnav-contagem:empty { display: none; }
 }
 
 /* Quadro no celular: o resumo numa linha e os filtros rápidos no topo da
@@ -592,12 +654,15 @@ input[type="checkbox"], input[type="radio"] {
   /* Botões com 44 px no mínimo, os pequenos também; ícone em quadrado de 44 */
   .btn-primary, .btn-secondary, .btn-ghost, .btn-danger { min-height: 44px; }
   .btn-icon { min-width: 44px; min-height: 44px; }
-  .chip { min-height: 40px; }
+  .chip { min-height: 44px; }
   .seg-op { min-height: 48px; }
 
   /* Janelas: os botões do rodapé do mesmo tamanho, acima da barra de gestos */
   .modal-footer { padding: var(--esp-150) var(--esp-200) calc(var(--esp-150) + env(safe-area-inset-bottom, 0px)); }
   .modal-footer > .btn-primary, .modal-footer > .btn-secondary, .modal-footer > .btn-danger { flex: 1 1 0; min-height: 48px; }
+  /* Cotação: "Salvar e cotar outra" numa linha só, acima de Cancelar e Salvar */
+  #modal-cotacao .modal-footer { flex-wrap: wrap; }
+  #modal-cotacao .modal-footer > #salvar-cotacao-outra { flex: 1 1 100%; order: -1; }
 
   /* O "+" da barra inferior faz o "Novo pedido" e o "Lançar compra" */
   .pedidos-head-acoes { display: none; }

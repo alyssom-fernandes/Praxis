@@ -5,6 +5,7 @@
 // revisarAutorizacao, parcelaDoLancamento).
 import { STATUS, PERFIS } from './constants.js'
 import { dividirEmParcelas, vencimentosMensais, empresasDoUsuario } from './utils.js'
+import { conferirNota } from './nota.js'
 
 // Por que a compra foi direto, sem solicitação nem cotação (rótulo em
 // lancMotivo_{chave}); "outro" pede a explicação no texto
@@ -47,7 +48,10 @@ export function errosDoLancamento(v, hoje) {
     if (!(Number.isInteger(n) && n >= 1 && n <= 60)) erros.push(['lc-parcelas', 'lancParcelasInvalidas'])
   }
   if (v.link && !_url(v.link)) erros.push(['lc-link', 'lancLinkInvalido'])
+  const nota = conferirNota(v.notaFiscal)
   if (String(v.notaFiscal || '').trim().length > MAX_NOTA) erros.push(['lc-nota', 'lancNotaLonga'])
+  else if (nota === 'digito') erros.push(['lc-nota', 'notaDigitoErrado'])
+  else if (nota === 'tamanho') erros.push(['lc-nota', 'notaTamanhoErrado'])
   return erros
 }
 

@@ -150,9 +150,9 @@ password `demo1234`, to see the system through each role.
 1. Create a project with Firestore, Authentication (email and password), Storage and Cloud Functions.
 2. Fill `js/config.js` with the project keys and update `.firebaserc`.
 3. `npx firebase deploy`. The rules (`firestore.rules`, `storage.rules`) and indexes are in the repository. The Storage rules read the role from Firestore; on the first deploy, Firebase asks you to allow that access.
-4. In Authentication › Settings › User actions, turn off account creation: only administrators create sign-in accounts.
+4. In Authentication › Settings › User actions, keep account creation on (the default): invited people create their own password in the app. The rules only accept an invitation from an account whose email was confirmed through the link Firebase sends.
 5. Create the first supremo by hand: the sign-in account in Authentication and, in Firestore, the document `usuarios/{account UID}` with `nome`, `email`, `perfil: "supremo"`, `empresas: []` and `ativo: true`.
-6. From then on, people join by invitation: in Settings › Users, an administrator invites by email, creates the sign-in account with that email in Authentication, and on first sign-in the person gets the role from the invitation.
+6. From then on, people join by invitation: in Settings › Users, an administrator invites by email. On the sign-in screen, the person taps **Primeiro acesso? Criar senha** (First time here? Create password), uses the invited email and confirms it through the link Firebase sends; on the next sign-in, the person gets the role from the invitation. An account created by hand in Authentication also works once its email is confirmed (the app sends the link on the first sign-in).
 
 > **Do not create the demo account (`demo@praxis.app`) in a project with real data.** Its password goes into `js/config.js`, which the site serves to every visitor. The rules keep it away from real data, but anyone with it could still create and change demo records. The demo account belongs only in a project made for the public demo.
 

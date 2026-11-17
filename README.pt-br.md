@@ -149,9 +149,9 @@ todos com a senha `demo1234`, para ver o sistema por cada perfil.
 1. Crie um projeto com Firestore, Authentication (e-mail e senha), Storage e Cloud Functions.
 2. Preencha `js/config.js` com as chaves do projeto e ajuste `.firebaserc`.
 3. `npx firebase deploy`. As regras (`firestore.rules`, `storage.rules`) e os índices estão no repositório. As regras do Storage leem o perfil no Firestore; na primeira publicação, o Firebase pede para liberar esse acesso.
-4. Em Authentication › Configurações › Ações do usuário, desligue a criação de contas: só quem administra cria contas de login.
+4. Em Authentication › Configurações › Ações do usuário, deixe a criação de contas ligada (o padrão): quem foi convidado cria a própria senha no app. As regras só aceitam o convite de uma conta com o e-mail confirmado pelo link que o Firebase envia.
 5. Crie o primeiro supremo à mão: a conta de login no Authentication e, no Firestore, o documento `usuarios/{UID da conta}` com `nome`, `email`, `perfil: "supremo"`, `empresas: []` e `ativo: true`.
-6. Daí em diante, as pessoas entram por convite: em Configurações › Usuários, quem administra convida pelo e-mail, cria a conta de login com esse e-mail no Authentication e, no primeiro acesso, a pessoa recebe o perfil do convite.
+6. Daí em diante, as pessoas entram por convite: em Configurações › Usuários, quem administra convida pelo e-mail. Na entrada, a pessoa toca em **Primeiro acesso? Criar senha**, usa o e-mail do convite e o confirma pelo link que o Firebase envia; ao entrar de novo, recebe o perfil do convite. Uma conta criada à mão no Authentication também serve, depois de confirmado o e-mail (o app envia o link no primeiro acesso).
 
 > **Não crie a conta demo (`demo@praxis.app`) num projeto com dados reais.** A senha dela vai no `js/config.js`, que o site entrega a todo visitante. As regras a mantêm longe dos dados reais, mas quem tiver a senha ainda consegue criar e alterar registros da demo. A conta demo só cabe num projeto feito para a demonstração pública.
 

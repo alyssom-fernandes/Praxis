@@ -466,6 +466,11 @@ button:disabled {
   #toast-container { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; align-items: stretch; }
   body:has(#bottom-nav) #toast-container { bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
   .toast { width: auto; min-width: 0; max-width: none; }
+  /* 44 px para o dedo sem mudar o desenho: o fechar cresce sobre a margem
+     do aviso e a ação ganha a área em volta */
+  .toast-fechar { width: 44px; height: 44px; min-height: 44px; margin: calc(var(--esp-150) * -1) calc(var(--esp-100) * -1) calc(var(--esp-150) * -1) 0; }
+  .toast-acao { position: relative; }
+  .toast-acao::after { content: ''; position: absolute; inset: -14px -8px; }
 }
 
 /* Modal */
@@ -592,7 +597,8 @@ button:disabled {
     padding: var(--esp-250) var(--esp-200) calc(var(--esp-200) + env(safe-area-inset-bottom, 0px));
     animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  .dialog-actions > * { flex: 1 1 0; min-height: 46px; }
+  /* > button também: a regra de 40 px acima vencia pela especificidade */
+  .dialog-actions > *, .dialog-actions > button { flex: 1 1 0; min-height: 46px; }
 }
 
 /* Avatar */
@@ -698,7 +704,8 @@ main:focus { outline: none; }
   .skeleton::after { animation: none; }
 }
 
-/* Celular: o título de tela desce para 30 px */
+/* Celular: o título de tela desce para 24 px (era 30: ocupava a primeira
+   dobra sem dizer nada que a barra inferior já não diga) */
 @media (max-width: 767px) {
-  .titulo-pagina { font-size: 1.875rem; }
+  .titulo-pagina { font-size: 1.5rem; }
 }

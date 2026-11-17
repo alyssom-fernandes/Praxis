@@ -472,7 +472,19 @@
   .login-card-sub { margin-bottom: var(--esp-250); }
   .login-afn { margin-top: var(--esp-300); }
   .sent-icon { width: 52px; height: 52px; }
+  /* Toques de 44 px: o link de texto ganha a área em volta sem mudar o
+     desenho; o olho da senha cresce dentro do campo de 48 */
+  .login-link { position: relative; }
+  .login-link::after { content: ''; position: absolute; inset: -15px -8px; }
+  /* "Esqueci a senha" fica logo acima do campo: a área não desce sobre ele */
+  .login-label-linha .login-link::after { bottom: -4px; }
+  .login-voltar { min-height: 44px; }
+  .login-olho { right: 2px; width: 44px; height: 44px; min-height: 44px; }
+  .login-senha input { padding-right: var(--esp-600); }
 }
+
+/* Primeiro acesso: a pergunta e o link logo abaixo do Entrar */
+.login-primeiro { margin-top: var(--esp-200); text-align: center; font-size: var(--t-pequeno); color: var(--text3); }
 
 /* ── Layout principal ────────────────────────────────── */
 /* Barra lateral fixa à esquerda; conteúdo e rodapé na segunda coluna. Os
@@ -1911,6 +1923,8 @@
 .dt-card-acoes { display: flex; align-items: center; gap: var(--esp-200); min-width: 0; }
 .dt-legenda { font-size: var(--t-pequeno); color: var(--text3); white-space: nowrap; }
 .dt-upload { font-size: var(--t-pequeno); padding: 0 var(--esp-150); min-height: 32px; }
+/* Recolher a seção: só no celular (css/themes.css); no computador tudo fica aberto */
+.dt-recolher { display: none; }
 
 /* Dados: rótulos espaçados sobre os valores */
 .detalhe-meta-grid {

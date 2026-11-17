@@ -133,6 +133,7 @@
   /* Alturas fixas que o espaço em volta precisa descontar (celular) */
   --barra-inferior-h: 56px;              /* barra de navegação de baixo */
   --acoes-fixas-h: 65px;                 /* barra de ação do detalhe, acima dela */
+  --rodape-janela-h: 73px;               /* rodapé de janela no celular: 12 + botão de 48 + 12 + fio */
 
   /* Camadas (z-index): nove, de baixo para cima (cap. 15 do estudo, na
      ordem do ADS, salvo o aviso, que fica acima do tour como sempre ficou).

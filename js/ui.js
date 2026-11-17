@@ -670,8 +670,11 @@ export function abrirModal(id) {
   // Guarda elemento que abriu para restaurar foco ao fechar
   overlay._focusTrigger = document.activeElement
 
-  // Foco automático no primeiro campo; sem campos, no primeiro botão do modal
+  // Foco automático no primeiro campo; sem campos, no primeiro botão do modal.
+  // Se a pessoa já foi para um campo da janela nesse meio-tempo, o foco fica
+  // onde ela está (antes, o texto digitado ia parar no primeiro campo)
   setTimeout(() => {
+    if (overlay.contains(document.activeElement) && document.activeElement !== overlay) return
     const visivel = el => el.offsetParent !== null
     const campo = [...overlay.querySelectorAll('input:not([type=hidden]):not(:disabled), select:not(:disabled), textarea:not(:disabled)')].find(visivel)
     const alvo = campo || [...overlay.querySelectorAll(_FOCUSAVEIS)].find(visivel)
@@ -949,6 +952,8 @@ export function estaOnline() {
 const _BIBLIOTECAS = {
   jspdf:   { src: '/vendor/jspdf-2.5.1/jspdf.umd.min.js', global: 'jspdf' },
   exceljs: { src: '/vendor/exceljs-4.4.0/exceljs.min.js', global: 'ExcelJS' },
+  // Leitura do QR Code da nota fiscal (js/ler-nota.js), quando o navegador não lê sozinho
+  jsqr:    { src: '/vendor/jsqr-1.4.0/jsQR.js', global: 'jsQR' },
 }
 const _carregando = {}
 

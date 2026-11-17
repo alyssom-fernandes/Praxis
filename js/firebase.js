@@ -9,11 +9,17 @@ import {
   connectAuthEmulator,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
   signOut,
   sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js'
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  terminate,
+  clearIndexedDbPersistence,
   connectFirestoreEmulator,
   collection,
   doc,
@@ -54,7 +60,13 @@ const app       = initializeApp(FIREBASE_CONFIG)
 const auth      = initializeAuth(app, {
   persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
 })
-const db        = getFirestore(app)
+// Cópia local do Firestore (IndexedDB): o que já foi visto abre sem esperar
+// a rede e continua legível sem internet; as abas dividem a mesma cópia.
+// Sem IndexedDB (aba anônima de alguns navegadores), o SDK fica só na
+// memória, como antes. Sair apaga a cópia (apagarCopiaLocal)
+const db        = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+})
 const storage   = getStorage(app)
 
 const _isLocal =
@@ -110,6 +122,19 @@ function novoPedidoRef() {
   return eContaDemo() ? doc(db, 'pedidos', `demo-${ref.id}`) : ref
 }
 
+// Apaga a cópia local dos dados, para quem usar o aparelho depois não ver os
+// pedidos de quem saiu (celular compartilhado no posto). Encerra o banco:
+// depois disso ele não serve mais nesta página, e quem chama recarrega. Com
+// outra aba do Praxis aberta, a cópia continua em uso e não é apagada
+async function apagarCopiaLocal() {
+  try {
+    await terminate(db)
+    await clearIndexedDbPersistence(db)
+  } catch (e) {
+    console.warn('Cópia local do Firestore não apagada:', e?.code || e?.message || e)
+  }
+}
+
 // Contador dos números de pedido (PRX-0001…)
 function contadorPedidosRef() {
   return doc(db, '_meta', eContaDemo() ? 'contadoresDemo' : 'contadores')
@@ -119,9 +144,12 @@ export {
   app, auth, db, storage,
   // Área da demonstração
   eContaDemo, consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
+  apagarCopiaLocal,
   // Auth
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
   signOut,
   sendPasswordResetEmail,
   // Firestore

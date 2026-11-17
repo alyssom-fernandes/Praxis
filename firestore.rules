@@ -8,6 +8,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // E-mail confirmado pelo link do Firebase Auth. A pessoa convidada cria a
+    // própria conta de login (o cadastro fica aberto), então o e-mail do token
+    // só prova quem ela é depois de confirmado: sem isso, alguém criaria a
+    // conta com o e-mail de outra pessoa e usaria o convite dela
+    function emailConfirmado() {
+      return estaLogado() && request.auth.token.get('email_verified', false) == true;
+    }
+
     // Conta da demonstração pública. A senha dela vai no js/config.js do
     // site, então qualquer pessoa pode usá-la fora da interface. Por isso ela
     // tem um perfil próprio, 'demo', que não vale como nenhum outro: só lê e
@@ -183,14 +191,14 @@ service cloud.firestore {
         );
       }
 
-      // Primeiro acesso de quem foi convidado: a própria pessoa cria o seu
-      // perfil copiando o convite (/convites/{e-mail}) campo a campo, enquanto
-      // ele vale. O app apaga o convite no mesmo lote.
+      // Primeiro acesso de quem foi convidado: a própria pessoa, com o e-mail
+      // confirmado, cria o seu perfil copiando o convite (/convites/{e-mail})
+      // campo a campo, enquanto ele vale. O app apaga o convite no mesmo lote.
       function caminhoConvite() {
         return /databases/$(database)/documents/convites/$(request.auth.token.get('email', '').lower());
       }
       function aceitaConvite() {
-        return request.auth.uid == userId && !eDemo() &&
+        return request.auth.uid == userId && !eDemo() && emailConfirmado() &&
           request.auth.token.get('email', '') != '' &&
           exists(caminhoConvite()) &&
           get(caminhoConvite()).data.expiraEm > request.time &&
@@ -230,8 +238,9 @@ service cloud.firestore {
     // Quem administra convida pelo e-mail (o ID é o e-mail em minúsculas), com
     // perfil, empresas e prazo de até 60 dias. No primeiro acesso, a pessoa cria
     // o próprio perfil a partir do convite (aceitaConvite, em /usuarios) e o
-    // apaga. Confiar no e-mail do token depende da criação de contas desligada
-    // no Firebase Auth: só quem administra cria a conta de login.
+    // apaga. O e-mail do token só vale confirmado (emailConfirmado): quem foi
+    // convidado cria a própria conta de login, e o convite não se mostra a
+    // quem ainda não provou ser dono do e-mail.
     match /convites/{email} {
       function meuEmail() { return request.auth.token.get('email', '').lower(); }
       function conviteValido() {
@@ -257,7 +266,7 @@ service cloud.firestore {
       }
 
       allow read: if estaLogado() && (
-        meuEmail() == email ||
+        (meuEmail() == email && emailConfirmado()) ||
         (temPerfil() && (eSupremo() || (eGestor() &&
           resource.data.get('empresas', []).hasAny(empresasDoUsuario()))))
       );
@@ -265,7 +274,7 @@ service cloud.firestore {
       allow update: if temPerfil() && eGestor() && conviteDoGestor() && conviteValido() && auditada('convite', email);
       allow delete: if estaLogado() && (
         (temPerfil() && conviteDoGestor() && auditadaAoApagar('convite', email)) ||
-        (meuEmail() == email && existsAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)))
+        (meuEmail() == email && emailConfirmado() && existsAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)))
       );
     }
 

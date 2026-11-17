@@ -37,10 +37,13 @@ const conta = {
   semClaims:      ['u-doc', { email: 'doc@x.com' }],
   gestorSemClaims: ['u-gdoc', { email: 'gdoc@x.com' }],
   inativo:        ['u-inat', { email: 'inat@x.com' }],
-  // Convites: quem foi convidado, quem não foi e quem tem convite vencido
-  convidado:      ['u-conv', { email: 'convidado@x.com' }],
-  intruso:        ['u-intr', { email: 'outro@x.com' }],
-  convidadoVelho: ['u-velho', { email: 'velho@x.com' }],
+  // Convites: quem foi convidado, quem não foi e quem tem convite vencido,
+  // todos com o e-mail confirmado; e uma conta criada com o e-mail do convite
+  // sem confirmar (a própria pessoa antes do link ou alguém no lugar dela)
+  convidado:      ['u-conv', { email: 'convidado@x.com', email_verified: true }],
+  intruso:        ['u-intr', { email: 'outro@x.com', email_verified: true }],
+  convidadoVelho: ['u-velho', { email: 'velho@x.com', email_verified: true }],
+  convidadoSemConfirmar: ['u-conv2', { email: 'convidado@x.com', email_verified: false }],
   // A conta demo pública: mesmo com permissões de supremo no token (como
   // as que uma Cloud Function poderia gravar), vale só o perfil 'demo'
   demo:        ['u-demo', { email: 'demo@praxis.app', perfil: 'supremo', empresas: ['e1', 'e2'] }],
@@ -901,6 +904,9 @@ test('no primeiro acesso, o convidado cria o próprio perfil igual ao convite', 
   // Quem não foi convidado não lê nem usa o convite de outra pessoa
   await assertFails(getDoc(doc(db('intruso'), 'convites/convidado@x.com')))
   await assertFails(aceite('intruso', 'u-intr', 'convidado@x.com'))
+  // Com o e-mail do convite, mas sem confirmar: nem lê nem usa o convite
+  await assertFails(getDoc(doc(db('convidadoSemConfirmar'), 'convites/convidado@x.com')))
+  await assertFails(aceite('convidadoSemConfirmar', 'u-conv2', 'convidado@x.com'))
   // O convidado não muda o que o convite diz, e convite vencido não vale
   await assertFails(aceite('convidado', 'u-conv', 'convidado@x.com', { perfil: 'gestor' }))
   await assertFails(aceite('convidado', 'u-conv', 'convidado@x.com', { empresas: ['e1', 'e2'] }))

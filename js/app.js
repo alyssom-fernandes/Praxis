@@ -1,6 +1,6 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, prxEscolha, consumirVoltarDeModal, quandoHistoricoLivre, empilharVoltar, desempilharVoltar } from './ui.js'
-import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada } from './auth.js'
+import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada, pedirConfirmacaoNaEntrada, estaSaindo } from './auth.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { gerarIniciais, esc } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
@@ -14,6 +14,8 @@ function _limparTudo() {
   _limpadores.forEach(fn => { try { fn() } catch {} })
   _limpadores.clear()
 }
+// Sair (js/auth.js): as escutas param antes de o banco ser encerrado
+window.addEventListener('praxis:saindo', () => _limparTudo())
 
 // ── Boot ─────────────────────────────────────────────────────
 
@@ -30,6 +32,9 @@ iniciarCamposData()
 initCommandPalette()
 
 onAuthStateChanged(auth, async (fireUser) => {
+  // Saindo: a página recarrega em seguida (fazerLogout, em js/auth.js); a
+  // tela fica como está, com a espera, em vez de piscar a entrada
+  if (!fireUser && estaSaindo()) return
   esconderSpinner()
 
   if (!fireUser) {
@@ -89,6 +94,7 @@ onAuthStateChanged(auth, async (fireUser) => {
     else console.error(err)
     if (err?.code === 'praxis/sem-perfil') avisarNaEntrada(t('entradaSemPerfil'))
     else if (err?.code === 'praxis/convite-expirado') avisarNaEntrada(t('entradaConviteExpirado'))
+    else if (err?.code === 'praxis/email-nao-confirmado') pedirConfirmacaoNaEntrada(fireUser.email)
     await fazerLogout()
   } finally {
     esconderSpinner()
@@ -326,6 +332,11 @@ function _contador(chave) {
   const n = sessao.lateral.contagens[chave]
   return Number.isFinite(n) ? String(n) : ''
 }
+// Na barra inferior, só a fila, e só quando há o que fazer
+function _contadorBarra(chave) {
+  const n = sessao.lateral.contagens[chave]
+  return Number.isFinite(n) && n > 0 ? (n > 99 ? '99+' : String(n)) : ''
+}
 
 export function renderTopbar(telaAtiva, modoConfig = false) {
   const { usuario } = sessao
@@ -390,6 +401,7 @@ export function atualizarLateral({ contagens, filtroPedidos, ativo } = {}) {
   if (contagens) {
     Object.assign(sessao.lateral.contagens, contagens)
     try { sessionStorage.setItem(_CHAVE_CONTAGENS, JSON.stringify(sessao.lateral.contagens)) } catch {}
+    document.querySelectorAll('#bottom-nav [data-n]').forEach(el => { el.textContent = _contadorBarra(el.dataset.n) })
   }
   if (filtroPedidos) sessao.lateral.filtroPedidos = filtroPedidos
   const raiz = document.querySelector('.lateral')
@@ -818,14 +830,15 @@ function _renderBottomNav() {
     document.body.appendChild(nav)
   }
 
-  const item = (chave, ativo, icone, rotulo) => `
+  // A fila leva a contagem sobre o ícone (a mesma da lateral no computador)
+  const item = (chave, ativo, icone, rotulo, contagem = false) => `
     <button type="button" class="bottom-nav-item ${ativo ? 'active' : ''}" data-bnav="${chave}" ${ativo ? 'aria-current="page"' : ''}>
-      ${icone}<span>${rotulo}</span>
+      ${icone}<span>${rotulo}</span>${contagem ? `<span class="bnav-contagem" data-n="${chave}">${_contadorBarra(chave)}</span>` : ''}
     </button>`
 
   nav.innerHTML = `
     ${item('pedidos', ativoPedidos, ICO.quadro(22), t('navPedidos'))}
-    ${item('fila', naFila, ICO.fila(22), t('navMinhaFila'))}
+    ${item('fila', naFila, ICO.fila(22), t('navMinhaFila'), true)}
     <button type="button" class="bottom-nav-item bnav-novo" id="bnav-novo" aria-label="${t('novoOQueFazer')}" aria-haspopup="dialog">
       <span class="bnav-novo-circulo" aria-hidden="true">${ICO.mais(24)}</span><span>${t('navNovo')}</span>
     </button>

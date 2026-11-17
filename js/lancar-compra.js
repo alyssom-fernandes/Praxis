@@ -10,8 +10,10 @@ import { navegar } from './app.js'
 import { sessao } from './estado.js'
 import { abrirModal, fecharModal, prxToast, exigirConexao, btnComLoading } from './ui.js'
 import { PERFIS, t, corCategoria } from './constants.js'
-import { esc, hojeISO, maisXDiasISO, parseMoeda, empresasDoUsuario, mensagemDeErro } from './utils.js'
+import { esc, hojeISO, maisXDiasISO, parseMoeda, empresasDoUsuario, mensagemDeErro, normalizarTexto } from './utils.js'
 import { MOTIVOS_LANCAMENTO, MAX_NOTA, errosDoLancamento, montarLancamento, pessoa } from './lancamento.js'
+import { autocompletar } from './autocompletar.js'
+import { prepararCampoNota } from './ler-nota.js'
 
 const ID = 'modal-lancamento'
 const _ic = d => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
@@ -21,6 +23,10 @@ let _usuarios = []
 let _empresas = []
 
 const _gestor = () => [PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario?.perfil)
+// Última empresa em que a pessoa registrou algo (a mesma do novo pedido)
+const _chaveUltimaEmpresa = () => `praxis_ultima_empresa_${sessao.usuario?.id || ''}`
+function _ultimaEmpresa() { try { return localStorage.getItem(_chaveUltimaEmpresa()) } catch { return null } }
+function _guardarUltimaEmpresa(id) { try { localStorage.setItem(_chaveUltimaEmpresa(), id) } catch { /* sem armazenamento */ } }
 
 // Abre o formulário. `aoConcluir(id)` roda depois de gravar
 export async function abrirLancamento({ aoConcluir } = {}) {
@@ -51,14 +57,16 @@ export async function abrirLancamento({ aoConcluir } = {}) {
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
   overlay.setAttribute('aria-labelledby', 'lc-h2')
-  overlay.innerHTML = _html({ categorias, fornecedores })
+  overlay.innerHTML = _html({ categorias })
   document.body.appendChild(overlay)
   _preencherPessoas()
+  autocompletar(document.getElementById('lc-fornecedor'), fornecedores.map(f => ({ nome: _nomeForn(f), usos: f.usos || 0 })))
+  prepararCampoNota(document.getElementById('lc-nota'))
   _ligar(overlay, { fornecedores, aoConcluir })
   abrirModal(ID)
 }
 
-function _html({ categorias, fornecedores }) {
+function _html({ categorias }) {
   const u = sessao.usuario
   const umaEmpresa = _empresas.length === 1
   const campo = (id, rotulo, html, { obrigatorio = true, cls = '' } = {}) => `
@@ -92,24 +100,16 @@ function _html({ categorias, fornecedores }) {
             ${campo('lc-titulo', t('npTitulo'), `<input type="text" id="lc-titulo" placeholder="${t('lancOQuePlaceholder')}" maxlength="120" autocomplete="off" enterkeyhint="next">`)}
             ${umaEmpresa
               ? `<input type="hidden" id="lc-empresa" value="${esc(_empresas[0].id)}">`
-              : campo('lc-empresa', t('npEmpresa'), `<select id="lc-empresa"><option value="">${t('selecionar')}</option>${_empresas.map(e => `<option value="${esc(e.id)}">${esc(e.nome)}</option>`).join('')}</select>`)}
-            ${categorias.length ? `
-            <div class="form-group" data-campo="lc-categoria">
-              <span class="form-label-falso" id="lc-cat-rot">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></span>
-              <div class="category-chips" id="lc-categorias" role="radiogroup" aria-labelledby="lc-cat-rot">
-                ${categorias.map(c => `<button type="button" class="chip" role="radio" aria-checked="false" data-id="${esc(c.id)}"><span class="chip-dot" style="background:${corCategoria(c.cor)}"></span>${esc(c.nome)}</button>`).join('')}
-              </div>
-            </div>` : ''}
+              : campo('lc-empresa', t('npEmpresa'), `<select id="lc-empresa"><option value="">${t('selecionar')}</option>${_empresas.map(e => `<option value="${esc(e.id)}"${e.id === _ultimaEmpresa() ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`)}
           </section>
 
           <section class="lanc-secao" aria-labelledby="lc-s2">
             <h3 class="lanc-secao-tit" id="lc-s2">${t('lancOnde')}</h3>
-            ${campo('lc-fornecedor', t('lancFornecedor'), `<input type="text" id="lc-fornecedor" list="lc-forn-lista" placeholder="${t('lancFornecedorPlaceholder')}" maxlength="120" autocomplete="off"><datalist id="lc-forn-lista">${fornecedores.map(f => `<option value="${esc(f.nome)}"></option>`).join('')}</datalist>`)}
+            ${campo('lc-fornecedor', t('lancFornecedor'), `<input type="text" id="lc-fornecedor" placeholder="${t('lancFornecedorPlaceholder')}" maxlength="120" autocomplete="off">`)}
             <div class="lanc-par">
               ${campo('lc-valor', t('lancValor'), `<input type="text" id="lc-valor" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">`)}
               ${campo('lc-data', t('lancData'), `<input type="date" id="lc-data" value="${hojeISO()}" max="${hojeISO()}">`)}
             </div>
-            ${campo('lc-link', t('lancLink'), `<input type="url" id="lc-link" inputmode="url" placeholder="${t('cotLinkPlaceholder')}" autocomplete="off">`, { obrigatorio: false })}
             ${campo('lc-nota', t('lancNota'), `<input type="text" id="lc-nota" inputmode="numeric" placeholder="${t('lancNotaPlaceholder')}" maxlength="${MAX_NOTA}" autocomplete="off">`, { obrigatorio: false })}
           </section>
 
@@ -125,9 +125,16 @@ function _html({ categorias, fornecedores }) {
 
           <section class="lanc-secao" aria-labelledby="lc-s4">
             <h3 class="lanc-secao-tit" id="lc-s4">${t('lancPessoas')}</h3>
-            ${pessoaCampo('lc-pedido-por', t('lancPedidoPor'))}
-            ${pessoaCampo('lc-autorizado-por', t('lancAutorizadoPor'))}
-            ${pessoaCampo('lc-comprado-por', t('lancCompradoPor'))}
+            ${_gestor() ? '' : pessoaCampo('lc-autorizado-por', t('lancAutorizadoPor'))}
+            <div class="lanc-pessoas-resumo" id="lc-pessoas-resumo">
+              <span id="lc-pessoas-texto">${esc(t(_gestor() ? 'lancPessoasResumoGestor' : 'lancPessoasResumo'))}</span>
+              <button type="button" class="btn-ghost btn-sm" id="lc-pessoas-alterar" aria-expanded="false" aria-controls="lc-pessoas-campos">${t('lancAlterar')}</button>
+            </div>
+            <div class="lanc-pessoas-campos" id="lc-pessoas-campos" hidden>
+              ${pessoaCampo('lc-pedido-por', t('lancPedidoPor'))}
+              ${_gestor() ? pessoaCampo('lc-autorizado-por', t('lancAutorizadoPor')) : ''}
+              ${pessoaCampo('lc-comprado-por', t('lancCompradoPor'))}
+            </div>
           </section>
 
           <section class="lanc-secao" aria-labelledby="lc-s5">
@@ -139,6 +146,19 @@ function _html({ categorias, fornecedores }) {
             </div>
             ${campo('lc-detalhes', t('lancDetalhes'), `<textarea id="lc-detalhes" rows="3" maxlength="1000" placeholder="${t('lancDetalhesPlaceholder')}"></textarea>`, { obrigatorio: false })}
           </section>
+          <details class="lanc-mais" id="lc-mais">
+            <summary>${t('npMaisDetalhes')}</summary>
+            <div class="lanc-mais-corpo">
+            ${categorias.length ? `
+            <div class="form-group" data-campo="lc-categoria">
+              <span class="form-label-falso" id="lc-cat-rot">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></span>
+              <div class="category-chips" id="lc-categorias" role="radiogroup" aria-labelledby="lc-cat-rot">
+                ${categorias.map(c => `<button type="button" class="chip" role="radio" aria-checked="false" data-id="${esc(c.id)}"><span class="chip-dot" style="background:${corCategoria(c.cor)}"></span>${esc(c.nome)}</button>`).join('')}
+              </div>
+            </div>` : ''}
+            ${campo('lc-link', t('lancLink'), `<input type="url" id="lc-link" inputmode="url" placeholder="${t('cotLinkPlaceholder')}" autocomplete="off">`, { obrigatorio: false })}
+            </div>
+          </details>
           <p class="lanc-quem">${esc(t('lancResumo', { quem: u.nome || u.email || '', data: hojeISO().split('-').reverse().join('/') }))}</p>
         </form>
       </div>
@@ -169,6 +189,16 @@ function _preencherPessoas() {
     _mostrarNome(id)
   }
 }
+// Mostra os campos das pessoas (o resumo some)
+function _abrirPessoas(focar = false) {
+  const campos = document.getElementById('lc-pessoas-campos')
+  if (!campos || !campos.hidden) return
+  campos.hidden = false
+  document.getElementById('lc-pessoas-resumo').hidden = true
+  document.getElementById('lc-pessoas-alterar')?.setAttribute('aria-expanded', 'true')
+  if (focar) campos.querySelector('select')?.focus()
+}
+
 function _mostrarNome(id) {
   const outra = document.getElementById(id)?.value === 'outra'
   const nome = document.getElementById(`${id}-nome`)
@@ -233,6 +263,7 @@ function _ligar(overlay, { fornecedores, aoConcluir }) {
   })
 
   document.getElementById('lc-empresa')?.addEventListener('change', () => _preencherPessoas())
+  document.getElementById('lc-pessoas-alterar')?.addEventListener('click', () => _abrirPessoas(true))
   for (const id of ['lc-pedido-por', 'lc-autorizado-por', 'lc-comprado-por']) {
     document.getElementById(id)?.addEventListener('change', () => {
       _mostrarNome(id)
@@ -270,10 +301,12 @@ function _marcar(campo, chave) {
   if (entrada) { entrada.setAttribute('aria-invalid', 'true'); entrada.setAttribute('aria-describedby', erro.id) }
 }
 
+// O nome do fornecedor como foi cadastrado (o campo nome guarda a forma normalizada)
+const _nomeForn = f => f.nomeExibicao || f.nomeOriginal || f.nome || ''
+
 function _ler(fornecedores) {
   const fornecedorNome = document.getElementById('lc-fornecedor')?.value.trim() || ''
-  const norm = s => String(s || '').trim().toLowerCase()
-  const forn = fornecedores.find(f => norm(f.nome) === norm(fornecedorNome))
+  const forn = fornecedorNome ? fornecedores.find(f => normalizarTexto(_nomeForn(f)) === normalizarTexto(fornecedorNome)) : null
   return {
     titulo: document.getElementById('lc-titulo')?.value.trim(),
     empresaId: document.getElementById('lc-empresa')?.value,
@@ -300,12 +333,16 @@ async function _gravar({ fornecedores, fechar, aoConcluir }) {
   const v = _ler(fornecedores)
   document.querySelectorAll(`#${ID} [data-campo]`).forEach(g => _limpar(g.dataset.campo))
   const erros = errosDoLancamento(v, hojeISO())
+  // Erro num campo recolhido: abre a parte dele antes de marcar
+  if (erros.some(([c]) => ['lc-pedido-por', 'lc-comprado-por'].includes(c) || (c === 'lc-autorizado-por' && _gestor()))) _abrirPessoas()
+  if (erros.some(([c]) => ['lc-link', 'lc-categoria'].includes(c))) document.getElementById('lc-mais').open = true
   if (erros.length) {
     erros.forEach(([campo, chave]) => _marcar(campo, chave))
     const grupo = document.querySelector(`#${ID} [data-campo="${erros[0][0]}"]`)
     grupo?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     grupo?.querySelector('input:not([type=hidden]):not(.campo-data-nativo), select, textarea, .chip')?.focus({ preventScroll: true })
-    prxToast(t('erroCamposObrigatorios'), 'warning')
+    // Um erro só (a chave da nota, a data): o aviso diz qual; vários, o geral
+    prxToast(erros.length === 1 ? t(erros[0][1]) : t('erroCamposObrigatorios'), 'warning')
     return
   }
   if (!exigirConexao()) return
@@ -321,6 +358,7 @@ async function _gravar({ fornecedores, fechar, aoConcluir }) {
       parcelas.forEach(p => tx.set(doc(collection(db, 'pedidos', pedidoRef.id, 'parcelas')), p))
       tx.set(contadorRef, { totalPedidos: total }, { merge: true })
     })
+    _guardarUltimaEmpresa(v.empresaId)
     fechar()
     const pendente = pedido.lancamento.autorizacao === 'pendente'
     prxToast(t(pendente ? 'lancRegistradoPendente' : 'lancRegistrado'), 'success',
