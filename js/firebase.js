@@ -1,6 +1,6 @@
 import { FIREBASE_CONFIG } from './config.js'
 import { empresasDoUsuario } from './utils.js'
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js'
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'
 import {
   getAuth,
   connectAuthEmulator,
@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-} from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js'
+} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js'
 import {
   getFirestore,
   connectFirestoreEmulator,
@@ -30,7 +30,7 @@ import {
   Timestamp,
   writeBatch,
   increment,
-} from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js'
+} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js'
 import {
   getStorage,
   connectStorageEmulator,
@@ -38,7 +38,7 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
-} from 'https://www.gstatic.com/firebasejs/13.1.0/firebase-storage.js'
+} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-storage.js'
 // O SDK de Cloud Functions não é importado: o app não chama nenhuma função
 // (as Functions reagem sozinhas a gravações no Firestore). Era um download a
 // mais em toda visita.
