@@ -2,7 +2,10 @@ import { FIREBASE_CONFIG } from './config.js'
 import { empresasDoUsuario } from './utils.js'
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'
 import {
-  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   connectAuthEmulator,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -44,7 +47,13 @@ import {
 // mais em toda visita.
 
 const app       = initializeApp(FIREBASE_CONFIG)
-const auth      = getAuth(app)
+// Login só por e-mail e senha: sem o resolvedor de janela (popup/redirect)
+// que o getAuth() traz, o SDK não tenta carregar o script de apis.google.com,
+// que a política de segurança do site bloqueia. A sessão fica guardada como
+// no getAuth() (IndexedDB, depois localStorage e sessionStorage)
+const auth      = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+})
 const db        = getFirestore(app)
 const storage   = getStorage(app)
 
