@@ -1640,13 +1640,15 @@ async function _aprovarPedido() {
 
 // Com alçada: a aprovação conta para o nível atual. Quando o nível completa,
 // o pedido passa ao seguinte ou, no último, fica aprovado; tudo numa
-// transação, com a entrada do histórico (firestore.rules, votar)
+// transação, com a entrada do histórico (firestore.rules, votar). O supremo
+// aprova de uma vez, em qualquer nível
 async function _votarNaAlcada() {
   const s = situacaoAprovacao(_pedido)
+  const supremo = sessao.usuario?.perfil === 'supremo'
   const ultimo = s.numero === s.total
   const fecha = s.faltam <= 1
-  const ok = await prxConfirm(t('dlgVotoTitulo'),
-    t(fecha ? (ultimo ? 'dlgVotoAprova' : 'dlgVotoAvanca') : 'dlgVotoConta',
+  const ok = await prxConfirm(t(supremo ? 'dlgAprovarTitulo' : 'dlgVotoTitulo'),
+    t(supremo ? 'dlgVotoSupremo' : fecha ? (ultimo ? 'dlgVotoAprova' : 'dlgVotoAvanca') : 'dlgVotoConta',
       { nivel: s.numero, total: s.total, nome: s.nome, faltam: s.faltam - 1 }),
     t('btnAprovar'), t('btnCancelar'))
   if (!ok) return
@@ -1660,7 +1662,7 @@ async function _votarNaAlcada() {
       if (atual.status !== STATUS.EM_APROVACAO) throw new Error(t('pedidoJaProcessado'))
       if (impedimentoDeFuncao(atual, sessao.usuario, 'decidir')) throw new Error(t('votoJaContado'))
       const agora = situacaoAprovacao(atual)
-      const { campos, resultado } = aplicarVoto(atual, sessao.usuario.id)
+      const { campos, resultado } = aplicarVoto(atual, sessao.usuario.id, { supremo })
       tx.update(ref, {
         ...campos,
         ...(resultado === 'aprovado' ? {
@@ -1672,7 +1674,8 @@ async function _votarNaAlcada() {
         atualizadoEm: serverTimestamp(),
       })
       const dados = { nivel: agora.numero, total: agora.total, nome: agora.nome }
-      if (resultado === 'aprovado') _historicoJunto(tx, STATUS.APROVADO, { chave: 'notaAprovouAlcada', dados })
+      const nota = supremo && !(agora.numero === agora.total && agora.faltam <= 1) ? 'notaAprovouSupremo' : 'notaAprovouAlcada'
+      if (resultado === 'aprovado') _historicoJunto(tx, STATUS.APROVADO, { chave: nota, dados })
       else {
         tx.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
           tipo: 'voto', nivel: agora.numero, nivelTotal: agora.total, nivelNome: agora.nome,
@@ -2508,7 +2511,7 @@ function _podeAssumir() {
 }
 
 // Aprova ou reprova quem tem o perfil, menos quem abriu ou cotou o pedido (o
-// supremo também), como nas regras do Firestore
+// supremo pode), como nas regras do Firestore
 function _podeDecidir() {
   return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
          !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
@@ -2534,7 +2537,7 @@ function _podeIndicarCotacao() {
 }
 
 // Registra o pagamento (parcelas, comprovante e conclusão) o financeiro ou um
-// gestor, menos quem aprovou o pedido (o supremo também)
+// gestor, menos quem aprovou o pedido (o supremo pode)
 function _podePagarParcela() {
   return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
          !impedimentoDeFuncao(_pedido, sessao.usuario, 'pagar')

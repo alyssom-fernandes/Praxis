@@ -23,6 +23,7 @@ let env
 const conta = {
   supremo:     ['u-sup', { perfil: 'supremo', empresas: [] }],
   gestor:      ['u-ges', { perfil: 'gestor', empresas: ['e1'] }],
+  gestorB:     ['u-ges3', { perfil: 'gestor', empresas: ['e1'] }],
   gestorE2:    ['u-ges2', { perfil: 'gestor', empresas: ['e2'] }],
   aprovador:   ['u-apr', { perfil: 'aprovador', empresas: ['e1'] }],
   comprador:   ['u-com', { perfil: 'comprador', empresas: ['e1'] }],
@@ -296,15 +297,14 @@ test('separação de funções: quem cotou não decide; quem aprovou não compra
     await setDoc(doc(f, 'pedidos/entrGes/parcelas/x1'), {
       numero: 1, total: 1, valor: 100, vencimento: '2026-12-01', pago: false, pagoEm: null, comprovante: null,
     })
-    // O supremo assumiu este: a mesma trava vale para ele
+    // O supremo assumiu este: a trava não vale para ele
     await setDoc(doc(f, 'pedidos/cotSup'), pedido({ status: 'em_aprovacao', compradorId: 'u-sup' }))
   })
   // Quem cotou não aprova nem reprova; outro aprovador, sim
   await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-ges' }))
   await assertFails(updateDoc(doc(db('gestor'), 'pedidos/cotGes'), { status: 'reprovado', reprovadoPor: 'u-ges', motivoReprovacao: 'x' }))
   await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/cotGes'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
-  await assertFails(updateDoc(doc(db('supremo'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
-  await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
+  await assertSucceeds(updateDoc(doc(db('supremo'), 'pedidos/cotSup'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
   // Quem aprovou não registra a compra; o comprador responsável, sim
   const compra = {
     status: 'comprado', fornecedorId: 'f1', fornecedorNome: 'Fornecedor', valorFinal: 100,
@@ -478,7 +478,7 @@ test('para ir a "Em aprovação", o pedido aponta a cotação indicada; depois, 
   })
 })
 
-test('o supremo segue as etapas e as travas, como um gestor de todas as empresas', async () => {
+test('o supremo segue as etapas, livre da separação de funções', async () => {
   await env.withSecurityRulesDisabled(async ctx => {
     const f = ctx.firestore()
     await setDoc(doc(f, 'pedidos/supAbriu'), pedido({ status: 'em_aprovacao', compradorId: 'u-com', solicitanteId: 'u-sup' }))
@@ -494,14 +494,14 @@ test('o supremo segue as etapas e as travas, como um gestor de todas as empresas
   await assertFails(setDoc(doc(s, 'pedidos/supNovo'), pedido({ status: 'aprovado', solicitanteId: 'u-sup' })))
   // Abre pedido em qualquer empresa, em "Solicitado"
   await assertSucceeds(setDoc(doc(s, 'pedidos/supNovo2'), pedido({ empresaId: 'e2', solicitanteId: 'u-sup' })))
-  // Não decide o que abriu; aprova o que não abriu nem cotou
-  await assertFails(updateDoc(doc(s, 'pedidos/supAbriu'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
+  // Decide também o que abriu, e o que não abriu nem cotou
+  await assertSucceeds(updateDoc(doc(s, 'pedidos/supAbriu'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
   await assertSucceeds(updateDoc(doc(s, 'pedidos/emAprov'), { status: 'aprovado', aprovadoPor: 'u-sup' }))
-  // Não registra o pagamento do que aprovou, nem no Storage
-  await assertFails(updateDoc(doc(s, 'pedidos/supAprovou/parcelas/x1'), { pago: true, pagoEm: new Date() }))
-  await assertFails(updateDoc(doc(s, 'pedidos/supAprovou'), { status: 'pago' }))
-  await assertFails(uploadBytes(ref(st('supremo'), 'pedidos/supAprovou/comprovantes/x1/recibo.pdf'),
+  // Registra o pagamento do que aprovou, também no Storage
+  await assertSucceeds(uploadBytes(ref(st('supremo'), 'pedidos/supAprovou/comprovantes/x1/recibo.pdf'),
     new Uint8Array([37, 80, 68, 70]), { contentType: 'application/pdf' }))
+  await assertSucceeds(updateDoc(doc(s, 'pedidos/supAprovou/parcelas/x1'), { pago: true, pagoEm: new Date() }))
+  await assertSucceeds(updateDoc(doc(s, 'pedidos/supAprovou'), { status: 'pago' }))
   // Grava com a entrada do histórico e assina com o próprio UID
   await assertFails(cotar('supremo', 'u-sup', { historico: false }))
   await assertFails(addDoc(collection(s, 'pedidos/p1/historico'), { status: 'x', autorId: 'u-sol' }))
@@ -1086,7 +1086,7 @@ test('auditoria na demo: grava e lê só o que é da demo, e a renovação apaga
 // Até R$ 1.000, um aprovador ou gestor; acima, o mesmo nível e depois a
 // diretoria (duas pessoas)
 const N1 = { nome: 'Aprovação', perfis: ['aprovador', 'gestor'], usuarios: [], minimo: 1 }
-const N2 = { nome: 'Diretoria', perfis: [], usuarios: ['u-sup', 'u-ges'], minimo: 2 }
+const N2 = { nome: 'Diretoria', perfis: [], usuarios: ['u-ges3', 'u-ges'], minimo: 2 }
 const FAIXAS = [{ ate: 1000, niveis: [N1] }, { ate: null, niveis: [N1, N2] }]
 const retrato = (extra = {}) => ({ faixa: 1, valor: 5000, niveis: [N1, N2], nivelAtual: 0, votos: {}, ...extra })
 
@@ -1184,9 +1184,9 @@ test('alçada: cada nível com os seus votos, sem pular nível nem votar duas ve
   await assertSucceeds(votar('gestor', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges'] } }))
   await assertFails(votar('gestor', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-ges'] } }))
   // O último voto completa o nível: o pedido fica aprovado no mesmo passo
-  await assertFails(votar('supremo', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-sup'] } }))
-  await assertSucceeds(votar('supremo', { status: 'aprovado', aprovadoPor: 'u-sup', aprovadoPorNome: 'Sup', aprovadorIds: [],
-    'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-sup'] } }))
+  await assertFails(votar('gestorB', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-ges3'] } }))
+  await assertSucceeds(votar('gestorB', { status: 'aprovado', aprovadoPor: 'u-ges3', aprovadoPorNome: 'Ges3', aprovadorIds: [],
+    'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-ges3'] } }))
   // Quem votou em qualquer nível não compra nem paga
   await assertFails(updateDoc(doc(db('gestor'), 'pedidos/alc'), { status: 'comprado', valorFinal: 5000 }))
   await assertSucceeds(updateDoc(doc(db('comprador'), 'pedidos/alc'), { status: 'comprado', valorFinal: 5000 }))
@@ -1204,4 +1204,22 @@ test('alçada: reprova quem está no nível atual; o pedido de antes segue com u
   await assertSucceeds(reprovar('gestor'))
   // O pedido que entrou em aprovação antes da alçada: decide um aprovador
   await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/emAprov'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
+})
+
+test('alçada: o supremo aprova de uma vez, em qualquer nível, mesmo tendo cotado', async () => {
+  await comAlcada()
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/alcSup'), pedido({ status: 'em_aprovacao', compradorId: 'u-sup',
+      aprovacao: retrato(), aprovadorIds: [] }))
+  })
+  const votar = campos => updateDoc(doc(db('supremo'), 'pedidos/alcSup'), campos)
+  // Só o voto, sem aprovar, ou avançar de nível: não
+  await assertFails(votar({ 'aprovacao.votos': { 0: ['u-sup'] } }))
+  await assertFails(votar({ 'aprovacao.votos': { 0: ['u-sup'] }, 'aprovacao.nivelAtual': 1, aprovadorIds: N2.usuarios }))
+  // Nem aprovar sem o voto no nível atual
+  await assertFails(votar({ status: 'aprovado', aprovadoPor: 'u-sup', aprovadorIds: [] }))
+  await assertSucceeds(votar({ status: 'aprovado', aprovadoPor: 'u-sup', aprovadoPorNome: 'Sup', aprovadorIds: [],
+    'aprovacao.votos': { 0: ['u-sup'] } }))
+  // E registra a compra do que aprovou
+  await assertSucceeds(updateDoc(doc(db('supremo'), 'pedidos/alcSup'), { status: 'comprado', valorFinal: 5000 }))
 })

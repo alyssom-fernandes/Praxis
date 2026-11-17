@@ -20,7 +20,7 @@ import {
   MAX_LINHAS, MAX_NOME, lerCSV, decodificarArquivo, classificarFornecedores, contarSituacoes,
 } from '../js/fornecedores-csv.js'
 import {
-  faixaDoValor, retratoAprovacao, situacaoAprovacao, aplicarVoto, votouNoPedido, problemasDaAlcada, limparAlcada,
+  faixaDoValor, retratoAprovacao, situacaoAprovacao, aplicarVoto, votouNoPedido, estaNoNivel, problemasDaAlcada, limparAlcada,
 } from '../js/alcadas.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
@@ -89,11 +89,12 @@ test('separação de funções: quem abriu ou cotou não decide; quem aprovou n�
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'comprar'), 'aprovou')
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges2'), 'pagar'), 'aprovou')
   assert.equal(impedimentoDeFuncao(ped, { id: 'u-fin', perfil: 'financeiro' }, 'pagar'), null)
-  // O comprador que cotou registra a compra; o supremo segue as mesmas travas
+  // O comprador que cotou registra a compra; o supremo fica livre das travas
   assert.equal(impedimentoDeFuncao(ped, gestor('u-ges'), 'comprar'), null)
-  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges', perfil: 'supremo' }, 'decidir'), 'cotou')
-  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges2', perfil: 'supremo' }, 'pagar'), 'aprovou')
-  assert.equal(impedimentoDeFuncao(ped, { id: 'u-sup', perfil: 'supremo' }, 'decidir'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-sol', perfil: 'supremo' }, 'decidir'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges', perfil: 'supremo' }, 'decidir'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges2', perfil: 'supremo' }, 'comprar'), null)
+  assert.equal(impedimentoDeFuncao(ped, { id: 'u-ges2', perfil: 'supremo' }, 'pagar'), null)
   // Pedido ainda sem aprovação, comprador ou pessoa: nada a impedir
   assert.equal(impedimentoDeFuncao({ solicitanteId: 'u-sol', aprovadoPor: null }, gestor('u-x'), 'pagar'), null)
   assert.equal(impedimentoDeFuncao(ped, null, 'decidir'), null)
@@ -440,7 +441,7 @@ test('alçada: o valor cai na faixa certa, com o teto incluído', () => {
 test('alçada: vota quem está no nível, uma vez; o nível completo avança e o último aprova', () => {
   const aprovador = { id: 'u-apr', perfil: 'aprovador' }
   const dir1 = { id: 'u-dir1', perfil: 'gestor' }
-  const dir2 = { id: 'u-dir2', perfil: 'supremo' }
+  const dir2 = { id: 'u-dir2', perfil: 'gestor' }
   let p = { solicitanteId: 'u-sol', compradorId: 'u-com', ...retratoAprovacao(ALCADA, 5000) }
   // Quem abriu ou cotou não decide; o comprador não está em nenhum nível
   assert.equal(impedimentoDeFuncao(p, { id: 'u-sol', perfil: 'gestor' }, 'decidir'), 'abriu')
@@ -473,6 +474,23 @@ test('alçada: vota quem está no nível, uma vez; o nível completo avança e o
   assert.equal(impedimentoDeFuncao({ ...p, ...v.campos }, dir2, 'comprar'), 'aprovou')
   // Sem alçada, tudo como antes
   assert.equal(impedimentoDeFuncao({ solicitanteId: 'x' }, aprovador, 'decidir'), null)
+})
+
+test('alçada: o supremo está em todo nível e aprova de uma vez', () => {
+  const sup = { id: 'u-sup', perfil: 'supremo' }
+  // Mesmo tendo cotado o pedido e fora das pessoas do nível 2
+  let p = { solicitanteId: 'u-sol', compradorId: 'u-sup', ...retratoAprovacao(ALCADA, 5000) }
+  assert.equal(estaNoNivel(NV2, sup), true)
+  assert.equal(impedimentoDeFuncao(p, sup, 'decidir'), null)
+  const v = aplicarVoto(p, 'u-sup', { supremo: true })
+  assert.equal(v.resultado, 'aprovado')
+  assert.deepEqual(v.campos.aprovacao.votos, { 0: ['u-sup'] })
+  assert.equal(v.campos.aprovacao.nivelAtual, 0)
+  assert.deepEqual(v.campos.aprovadorIds, [])
+  // Já votou e aprovou: ainda compra e paga
+  p = { ...p, ...v.campos, aprovadoPor: 'u-sup' }
+  assert.equal(impedimentoDeFuncao(p, sup, 'comprar'), null)
+  assert.equal(impedimentoDeFuncao(p, sup, 'pagar'), null)
 })
 
 test('alçada: o editor confere faixas e níveis antes de gravar', () => {

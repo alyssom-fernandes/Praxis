@@ -54,7 +54,7 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 | Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão |
 | Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório, conferido pelas regras |
 
-O supremo segue estas mesmas transições e travas, como um gestor de todas as empresas: não pula etapas e não abre pedido já adiantado.
+O supremo segue estas mesmas transições, como um gestor de todas as empresas: não pula etapas e não abre pedido já adiantado. A separação de funções e a alçada não valem para ele: aprova em qualquer nível, de uma vez, e pode aprovar, comprar e pagar o mesmo pedido.
 
 ## Concorrência
 

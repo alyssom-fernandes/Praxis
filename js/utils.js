@@ -230,14 +230,15 @@ export function arquivoIndisponivel(err) {
 
 // Separação de funções, como nas regras do Firestore: quem abriu ou cotou o
 // pedido não decide sobre ele (aprovar ou reprovar), e quem o aprovou não
-// registra a compra nem o pagamento. Vale para todos os perfis, o supremo
-// inclusive. Com alçada (js/alcadas.js), decide só quem está no nível atual e
-// ainda não votou, e quem votou em qualquer nível conta como quem aprovou.
+// registra a compra nem o pagamento. Com alçada (js/alcadas.js), decide só
+// quem está no nível atual e ainda não votou, e quem votou em qualquer nível
+// conta como quem aprovou. O supremo (usuário máximo, da equipe que desenvolve
+// o sistema) fica livre dessas travas, como nas regras.
 // Devolve o motivo ('abriu', 'cotou', 'votou', 'foraDoNivel' ou 'aprovou')
 // ou null.
 //   acao: 'decidir' | 'comprar' | 'pagar'
 export function impedimentoDeFuncao(pedido, usuario, acao) {
-  if (!pedido || !usuario?.id) return null
+  if (!pedido || !usuario?.id || usuario.perfil === 'supremo') return null
   if (acao === 'decidir') {
     if (pedido.solicitanteId === usuario.id) return 'abriu'
     if (pedido.compradorId === usuario.id) return 'cotou'

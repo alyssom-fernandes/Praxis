@@ -359,7 +359,9 @@ service cloud.firestore {
       // Cada passo do caminho, com quem pode dá-lo e o que pode mudar
       // (o mesmo que o app mostra em js/pedido-detalhe.js e js/pedidos.js).
       // Vale para todos os perfis, o supremo inclusive: ele age como um gestor
-      // de todas as empresas, sem pular etapas
+      // de todas as empresas, sem pular etapas. Só a separação de funções e a
+      // alçada não valem para ele (livre(), abaixo): é o usuário máximo, da
+      // equipe que desenvolve o sistema
       function de(st0, st1) {
         return resource.data.status == st0 && request.resource.data.status == st1;
       }
@@ -368,7 +370,9 @@ service cloud.firestore {
       }
       function oSolicitante() { return resource.data.get('solicitanteId', null) == eu(); }
       // Separação de funções: quem abriu ou cotou o pedido não decide sobre
-      // ele, e quem o aprovou não registra a compra nem o pagamento
+      // ele, e quem o aprovou não registra a compra nem o pagamento. O supremo
+      // fica livre dessas travas e da alçada
+      function livre()   { return eSupremo(); }
       function cotou()   { return resource.data.get('compradorId', null) == eu(); }
       // Aprovou: decidiu sozinho ou votou em algum nível da alçada
       function aprovou() {
@@ -400,32 +404,34 @@ service cloud.firestore {
       }
       function temAlcada() { return resource.data.get('aprovacao', null) != null; }
       // Vota no nível atual quem está nele (pelo perfil ou pelo nome), não abriu
-      // nem cotou o pedido e não votou em nenhum nível
+      // nem cotou o pedido e não votou em nenhum nível; o supremo, sempre
       function noNivelAtual() {
         let a = resource.data.aprovacao;
         let nv = a.niveis[a.nivelAtual];
-        return eAprovador() && !oSolicitante() && !cotou() && !aprovou() &&
-          (eu() in nv.usuarios || perfil() in nv.perfis);
+        return livre() || (eAprovador() && !oSolicitante() && !cotou() && !aprovou() &&
+          (eu() in nv.usuarios || perfil() in nv.perfis));
       }
       // O voto entra na lista do nível. Se o nível completa, o pedido passa ao
-      // seguinte (com a fila dele) ou, no último, fica aprovado
+      // seguinte (com a fila dele) ou, no último, fica aprovado. O voto do
+      // supremo aprova o pedido de uma vez, em qualquer nível
       function votar() {
         let a0 = resource.data.aprovacao;
         let a1 = request.resource.data.get('aprovacao', {});
         let n = a0.nivelAtual;
         let k = string(n);
         let votos = a0.votos.get(k, []).concat([eu()]);
-        let completo = votos.size() >= a0.niveis[n].minimo;
+        let completo = votos.size() >= a0.niveis[n].minimo && !livre();
         let ultimo = n == a0.niveis.size() - 1;
+        let fecha = livre() || (votos.size() >= a0.niveis[n].minimo && ultimo);
         return resource.data.status == 'em_aprovacao' && noNivelAtual() &&
           a1.diff(a0).affectedKeys().hasOnly(['votos', 'nivelAtual']) &&
           a1.votos.diff(a0.votos).affectedKeys().hasOnly([k]) && a1.votos[k] == votos && (
-            (!completo && a1.nivelAtual == n && request.resource.data.status == 'em_aprovacao' &&
+            (!completo && !fecha && a1.nivelAtual == n && request.resource.data.status == 'em_aprovacao' &&
               mudouSo(['aprovacao', 'atualizadoEm'])) ||
             (completo && !ultimo && a1.nivelAtual == n + 1 && request.resource.data.status == 'em_aprovacao' &&
               request.resource.data.get('aprovadorIds', []) == a0.niveis[n + 1].usuarios &&
               mudouSo(['aprovacao', 'aprovadorIds', 'atualizadoEm'])) ||
-            (completo && ultimo && a1.nivelAtual == n && request.resource.data.status == 'aprovado' &&
+            (fecha && a1.nivelAtual == n && request.resource.data.status == 'aprovado' &&
               request.resource.data.aprovadoPor == eu() &&
               mudouSo(['status', 'aprovacao', 'aprovadorIds', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']))
           );
@@ -502,12 +508,13 @@ service cloud.firestore {
       // Quem abriu ou cotou o pedido não decide sobre ele. Com alçada, a
       // aprovação é por votos (votar); reprovar, quem está no nível atual
       function aprovar() {
-        return de('em_aprovacao', 'aprovado') && !temAlcada() && eAprovador() && !oSolicitante() && !cotou() &&
+        return de('em_aprovacao', 'aprovado') && !temAlcada() && eAprovador() &&
+          (livre() || (!oSolicitante() && !cotou())) &&
           request.resource.data.aprovadoPor == eu() &&
           mudouSo(['status', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']);
       }
       function reprovar() {
-        return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() && !cotou() &&
+        return de('em_aprovacao', 'reprovado') && eAprovador() && (livre() || (!oSolicitante() && !cotou())) &&
           (!temAlcada() || noNivelAtual()) &&
           request.resource.data.reprovadoPor == eu() &&
           motivoDado('motivoReprovacao', 'motivoReprovacaoOutros') &&
@@ -516,7 +523,7 @@ service cloud.firestore {
       }
       // Quem aprovou não registra a compra nem o pagamento
       function comprar() {
-        return de('aprovado', 'comprado') && eComprador() && oComprador() && !aprovou() &&
+        return de('aprovado', 'comprado') && eComprador() && oComprador() && (livre() || !aprovou()) &&
           mudouSo(['status', 'fornecedorId', 'fornecedorNome', 'valorFinal',
                    'condicaoPagamento', 'dataCompra', 'atualizadoEm']);
       }
@@ -526,7 +533,7 @@ service cloud.firestore {
           mudouSo(['status', 'dataEntrega', 'atualizadoEm']);
       }
       function pagar() {
-        return de('entregue', 'pago') && eFinanceiro() && !aprovou() &&
+        return de('entregue', 'pago') && eFinanceiro() && (livre() || !aprovou()) &&
           mudouSo(['status', 'atualizadoEm']);
       }
       function cancelar() {
@@ -586,7 +593,10 @@ service cloud.firestore {
           alcancaEmpresa(resource.data.empresaId) &&
           request.resource.data.empresaId == resource.data.empresaId && (
             visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
-            aprovar() || (temAlcada() && votar()) || reprovar() || comprar() || receber() || pagar() ||
+            // O voto só é avaliado quando o pedido fica em aprovação ou é
+            // aprovado: poupa expressões dos outros passos (limite de 1.000)
+            aprovar() || (temAlcada() && request.resource.data.status in ['em_aprovacao', 'aprovado'] && votar()) ||
+            reprovar() || comprar() || receber() || pagar() ||
             cancelar() || editar() || reabrir()
           ))
       );
@@ -673,13 +683,13 @@ service cloud.firestore {
 
       // ── Parcelas ──────────────────────────────────────────────
       // O financeiro registra o pagamento (pago, pagoEm) e anexa o comprovante,
-      // menos quem aprovou o pedido; o comprovante vem com a entrada do
-      // histórico, no mesmo lote
+      // menos quem aprovou o pedido (o supremo, sim); o comprovante vem com a
+      // entrada do histórico, no mesmo lote
       match /parcelas/{parcelaId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
         allow create: if areaDemo() || (temPerfil() && eComprador() && daEmpresa());
         allow update: if areaDemo() || (temPerfil() &&
-          eFinanceiro() && daEmpresa() && pai().get('aprovadoPor', null) != eu() && (
+          eFinanceiro() && daEmpresa() && (eSupremo() || pai().get('aprovadoPor', null) != eu()) && (
             mudouSo(['pago', 'pagoEm']) ||
             (mudouSo(['comprovante', 'comprovanteEventoId']) &&
               registraNoHistorico(request.resource.data.get('comprovanteEventoId', ''), 'comprovante'))

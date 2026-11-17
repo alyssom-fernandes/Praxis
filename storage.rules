@@ -59,10 +59,10 @@ service firebase.storage {
           (perfil() == 'comprador' && pedido(pedidoId).get('compradorId', null) == request.auth.uid));
     }
     // Comprovante: o financeiro ou um gestor da empresa, menos quem aprovou o
-    // pedido (separação de funções)
+    // pedido (separação de funções); o supremo fica livre dessa trava
     function pagaOPedido(pedidoId) {
       return perfil() in ['supremo', 'gestor', 'financeiro'] && daEmpresa(pedidoId) &&
-        pedido(pedidoId).get('aprovadoPor', null) != request.auth.uid;
+        (perfil() == 'supremo' || pedido(pedidoId).get('aprovadoPor', null) != request.auth.uid);
     }
 
     function arquivoValido(tipos) {

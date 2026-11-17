@@ -60,9 +60,11 @@ export function situacaoAprovacao(pedido) {
     votos, faltam: Math.max(0, nivel.minimo - votos.length), nivel }
 }
 
-// A pessoa está no nível atual (pelo perfil ou pelo nome)?
+// A pessoa está no nível atual (pelo perfil ou pelo nome)? O supremo está em
+// todos, e o voto dele aprova o pedido de uma vez (aplicarVoto)
 export function estaNoNivel(nivel, usuario) {
   if (!nivel || !usuario?.id) return false
+  if (usuario.perfil === 'supremo') return true
   if (!PERFIS_QUE_APROVAM.includes(usuario.perfil)) return false
   return (nivel.perfis || []).includes(usuario.perfil) || (nivel.usuarios || []).includes(usuario.id)
 }
@@ -70,9 +72,10 @@ export function estaNoNivel(nivel, usuario) {
 // Por que a pessoa não vota agora neste pedido com alçada: 'votou' (já votou
 // em algum nível) ou 'foraDoNivel'; null se pode. A separação de funções
 // (quem abriu ou cotou) é conferida antes, em utils.impedimentoDeFuncao.
+// O supremo sempre pode.
 export function impedimentoNaAlcada(pedido, usuario) {
   const s = situacaoAprovacao(pedido)
-  if (!s) return null
+  if (!s || usuario?.perfil === 'supremo') return null
   if (votouNoPedido(pedido, usuario?.id)) return 'votou'
   if (!estaNoNivel(s.nivel, usuario)) return 'foraDoNivel'
   return null
@@ -80,12 +83,14 @@ export function impedimentoNaAlcada(pedido, usuario) {
 
 // O voto de uid no nível atual: os campos a gravar no pedido e o que
 // aconteceu ('voto', 'avancou' para o próximo nível ou 'aprovado').
+// O voto do supremo (supremo: true) aprova o pedido de uma vez.
 // Quem chama acrescenta os dados de quem aprovou e as datas.
-export function aplicarVoto(pedido, uid) {
+export function aplicarVoto(pedido, uid, { supremo = false } = {}) {
   const a = pedido.aprovacao
   const n = a.nivelAtual || 0
   const votos = [..._votos(a, n), uid]
   const nova = { ...a, votos: { ...(a.votos || {}), [String(n)]: votos } }
+  if (supremo) return { campos: { aprovacao: nova, aprovadorIds: [] }, resultado: 'aprovado' }
   const completo = votos.length >= a.niveis[n].minimo
   if (!completo) return { campos: { aprovacao: nova }, resultado: 'voto' }
   if (n < a.niveis.length - 1) {
