@@ -25,6 +25,7 @@ import {
 import {
   segmentosDoPedido, marcosDoPedido, formatarDuracao, percentil, resumoDoProcesso,
 } from '../js/processo.js'
+import { montarExportacao, paraJSON, nomeDoArquivo, COLECOES, SUBCOLECOES_PEDIDO, FORMATO } from '../js/exportacao.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -555,6 +556,42 @@ test('processo: ciclo, mediana por etapa, gargalo e compradores na janela', () =
   assert.equal(tarde.ciclo.pagamento.n, 1)
   assert.equal(tarde.gargalo, null)
   assert.deepEqual(tarde.etapas.filter(x => x.n).map(x => x.status), ['comprado', 'entregue'])
+})
+
+test('cópia dos dados: datas em ISO, ordem estável, subcoleções no pedido e contagens', () => {
+  // Um Timestamp do Firestore tem toDate(); uma referência, path e firestore
+  const ts = iso => ({ toDate: () => new Date(iso) })
+  assert.deepEqual(paraJSON({ a: ts('2026-11-17T12:00:00Z'), b: [new Date('2026-01-02T00:00:00Z'), 3, 'x'], c: null, d: undefined, r: { path: 'empresas/e1', firestore: {} } }),
+    { a: '2026-11-17T12:00:00.000Z', b: ['2026-01-02T00:00:00.000Z', 3, 'x'], c: null, d: null, r: 'empresas/e1' })
+  const pacote = montarExportacao({
+    geradoEm: new Date('2026-11-17T15:00:00Z'),
+    geradoPor: { id: 'u1', nome: 'Beatriz', perfil: 'gestor' },
+    empresaIds: ['e2', 'e1'],
+    colecoes: { empresas: [{ id: 'e2', nome: 'B' }, { id: 'e1', nome: 'A', criadoEm: ts('2026-01-01T00:00:00Z') }], usuarios: [{ id: 'u1' }] },
+    pedidos: [{ id: 'p1', titulo: 'Cadeiras', criadoEm: ts('2026-11-01T10:00:00Z'),
+      historico: [{ id: 'h2', status: 'ag_cotacao' }, { id: 'h1', status: 'solicitado' }], parcelas: [{ id: 'x', valor: 10 }] }],
+    faltas: ['convites'],
+  })
+  assert.equal(pacote.formato, FORMATO)
+  assert.equal(pacote.geradoEm, '2026-11-17T15:00:00.000Z')
+  assert.deepEqual(pacote.empresaIds, ['e1', 'e2'])
+  assert.deepEqual(pacote.empresas.map(e => e.id), ['e1', 'e2'])
+  assert.equal(pacote.empresas[0].criadoEm, '2026-01-01T00:00:00.000Z')
+  // Toda coleção e toda subcoleção aparecem, mesmo vazias
+  for (const c of COLECOES) assert.ok(Array.isArray(pacote[c]), c)
+  const p = pacote.pedidos[0]
+  for (const s of SUBCOLECOES_PEDIDO) assert.ok(Array.isArray(p[s]), s)
+  assert.deepEqual(p.historico.map(h => h.id), ['h1', 'h2'])
+  assert.equal(p.criadoEm, '2026-11-01T10:00:00.000Z')
+  assert.equal(pacote.contagens.empresas, 2)
+  assert.equal(pacote.contagens.pedidos, 1)
+  assert.equal(pacote.contagens.historico, 2)
+  assert.equal(pacote.contagens.parcelas, 1)
+  assert.equal(pacote.contagens.convites, 0)
+  assert.deepEqual(pacote.faltas, ['convites'])
+  // O arquivo volta igual pelo JSON
+  assert.deepEqual(JSON.parse(JSON.stringify(pacote)), pacote)
+  assert.equal(nomeDoArquivo(new Date(2026, 10, 7)), 'praxis-dados-2026-11-07.json')
 })
 
 test('alçada: o editor confere faixas e níveis antes de gravar', () => {

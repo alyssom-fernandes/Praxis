@@ -333,7 +333,10 @@ export function csvNumero(n) {
 // Monta o arquivo (cabeçalho + linhas) e entrega para baixar
 export function baixarCSV(nomeArquivo, cabecalho, linhas) {
   const csv = [cabecalho, ...linhas].map(l => l.map(csvCampo).join(';')).join('\r\n') + '\r\n'
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+  baixarArquivo(nomeArquivo, new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }))
+}
+// Entrega um arquivo gerado no navegador para baixar
+export function baixarArquivo(nomeArquivo, blob) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -341,5 +344,5 @@ export function baixarCSV(nomeArquivo, cabecalho, linhas) {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
 }

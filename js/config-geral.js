@@ -1,14 +1,15 @@
 import { db, collection, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
-import { abrirTour, definirTema, preferenciaTema, atalhosLigados, definirAtalhos } from './ui.js'
+import { abrirTour, definirTema, preferenciaTema, atalhosLigados, definirAtalhos, btnComLoading, exigirConexao, prxToast } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { t } from './constants.js'
-import { empresasDoUsuario } from './utils.js'
+import { empresasDoUsuario, mensagemDeErro } from './utils.js'
 import { ICO, cabecalho, perfilHtml, iniciais, revelarItemLateral, completarContagensLateral, esc } from './config-comum.js'
 
-// Ajustes: quem é você no Praxis e as preferências deste navegador. Restaurar
-// os dados de demonstração fica na faixa do modo demo, no alto de toda tela.
+// Ajustes: quem é você no Praxis, as preferências deste navegador e a cópia
+// dos dados (js/exportar-dados.js). Restaurar os dados de demonstração fica na
+// faixa do modo demo, no alto de toda tela.
 const _OPCOES_TEMA = ['auto', 'dark', 'light']
 
 export async function renderConfigGeral() {
@@ -80,6 +81,19 @@ export async function renderConfigGeral() {
               </div>
               <button class="btn-secondary btn-sm cfg-item-acao" id="btn-ver-tour">${ICO.play(12)}<span>${t('btnVerTour')}</span></button>
             </div>`}
+          </div>
+        </section>
+
+        <section class="cfg-secao" aria-labelledby="sec-dados">
+          <h2 class="rotulo-secao" id="sec-dados">${t('cfgDados')}</h2>
+          <div class="cfg-lista">
+            <div class="cfg-item">
+              <div class="cfg-item-texto">
+                <div class="cfg-item-titulo">${t('cfgCopiaTitulo')}</div>
+                <p class="cfg-item-desc">${t(u.perfil === 'supremo' ? 'cfgCopiaDescTodas' : 'cfgCopiaDesc')}</p>
+              </div>
+              <button class="btn-secondary btn-sm cfg-item-acao" id="btn-exportar-dados" type="button">${ICO.baixar(12)}<span>${t('cfgCopiaBotao')}</span></button>
+            </div>
           </div>
         </section>
       </main>
@@ -170,4 +184,21 @@ function _bindEvents() {
 
   // abrirTour leva ao quadro de pedidos e começa o tour lá
   document.getElementById('btn-ver-tour')?.addEventListener('click', () => abrirTour())
+
+  // Cópia dos dados: lê tudo o que a pessoa alcança e baixa um JSON
+  const btnCopia = document.getElementById('btn-exportar-dados')
+  btnCopia?.addEventListener('click', () => {
+    if (!exigirConexao()) return
+    btnComLoading(btnCopia, async () => {
+      try {
+        const { exportarDados } = await import('./exportar-dados.js')
+        const pacote = await exportarDados()
+        const c = pacote.contagens
+        prxToast(t(pacote.faltas.length ? 'cfgCopiaFaltas' : 'cfgCopiaPronta',
+          { pedidos: c.pedidos, empresas: c.empresas, n: pacote.faltas.length }), pacote.faltas.length ? 'warning' : 'success')
+      } catch (err) {
+        prxToast(mensagemDeErro(err, t('cfgCopiaErro')), 'error')
+      }
+    })
+  })
 }

@@ -64,6 +64,7 @@ Captured from the demo.
 - **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
 - **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
 - **Command palette** (Ctrl+K), guided tour, installable PWA, light and dark themes and a dedicated phone layout.
+- **Data copy.** In Settings, a manager downloads a JSON file with everything from their companies (the Supreme user, from all of them): orders with history, quotes, installments, comments and notes, records, users, invitations, approval tiers and audit log, with counts to check against.
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
 
 ## How an order moves

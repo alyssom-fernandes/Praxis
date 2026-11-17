@@ -5,7 +5,7 @@ import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
 import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline, estadoVazio } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario, baixarArquivo } from './utils.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 import { resumoDoProcesso, formatarDuracao } from './processo.js'
 
@@ -983,14 +983,6 @@ function _esconderDica() {
 // ── Exportações ───────────────────────────────────────────────
 const _hex = rgb => 'FF' + rgb.map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase()
 
-function _baixar(blob, nome) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = nome
-  document.body.appendChild(a); a.click(); a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
-}
-
 function _nomeArquivo(ext) {
   const iv = _intervalo()
   return `praxis-relatorio-${iv.ini}_a_${iv.fim}.${ext}`
@@ -1192,7 +1184,7 @@ async function _exportarExcel() {
     })
 
     const buf = await wb.xlsx.writeBuffer()
-    _baixar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), _nomeArquivo('xlsx'))
+    baixarArquivo(_nomeArquivo('xlsx'), new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
   })
 }
 
