@@ -399,6 +399,8 @@ input[type="checkbox"], input[type="radio"] {
   .sk-linha { height: 92px; padding: 0 var(--esp-200); margin-bottom: var(--esp-100); border: none; background: var(--card2); border-radius: var(--radius-card); }
   .table-card-mobile.pedidos-tabela tbody tr {
     display: grid;
+    /* A linha do computador tem 44 px fixos; o cartão cresce com o conteúdo */
+    height: auto;
     grid-template-columns: 28px minmax(0, 1fr) auto;
     grid-template-areas:
       "cb pedido  pedido"
