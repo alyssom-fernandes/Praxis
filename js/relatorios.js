@@ -7,6 +7,7 @@ import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor } from './constants.js'
 import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
+import { resumoDoProcesso, formatarDuracao } from './processo.js'
 
 // ── Textos da tela (PT e EN): js/textos-relatorios.js ─────────
 const TXT = TEXTOS_RELATORIOS
@@ -38,6 +39,7 @@ const ICONE = {
 let _todos      = []   // todos os pedidos visíveis ao usuário
 let _parcelas   = []   // { id, pedidoId, ...parcela }
 let _cotacoes   = {}   // { pedidoId: [cotacao] }
+let _historicos = {}   // { pedidoId: [entrada do histórico] }, para o tempo do processo
 let _empresas   = []
 let _categorias = []
 let _filtroPer  = '30d'
@@ -387,6 +389,14 @@ async function _carregarDados() {
   _todos      = pedSnap ? pedSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
   _parcelas   = []
   _cotacoes   = {}
+  _historicos = {}
+
+  // Histórico de cada pedido: o tempo do processo sai das mudanças de etapa
+  // (js/processo.js). Uma leitura por pedido, como as cotações e as parcelas
+  await Promise.all(_todos.map(async p => {
+    const hSnap = await getDocs(collection(db, 'pedidos', p.id, 'historico')).catch(() => null)
+    _historicos[p.id] = hSnap ? hSnap.docs.map(d => d.data()) : []
+  }))
   if (!fin) return
 
   // Parcelas e cotações só existem em pedidos com valor final
@@ -491,8 +501,13 @@ function _calcular() {
     } else { m.qtd++; m.valor++ }
   })
 
+  // Tempo do processo: passagens concluídas no período, de todos os pedidos da
+  // empresa (a data que conta é a do fim, não a da abertura)
+  const janela = { ini: _deIso(iv.ini).getTime(), fim: _somaDias(_deIso(iv.fim), 1).getTime() - 1 }
+  const processo = resumoDoProcesso(base.map(p => ({ pedido: p, historico: _historicos[p.id] || [] })), janela)
+
   return {
-    iv, ped, ant, gasto, gastoAnt, emAprov, urgentes, economia, nEconomia,
+    iv, ped, ant, gasto, gastoAnt, emAprov, urgentes, economia, nEconomia, processo,
     abertas, vencer7, vencidas, proximas, porStatus, valorStatus, decididos, aprovados,
     porCategoria: agrupar('categoriaId'), porEmpresa: agrupar('empresaId'), porFornecedor: _porFornecedor(comGasto(ped)), meses,
     compras: comGasto(ped).length,
@@ -538,7 +553,8 @@ function _renderDash() {
         tr('vazioTxt', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) }),
         _filtroPer !== 'ano' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="ano">${tr('verAno')}</button>` : '') })}
       ${_blocoMensal(D)}
-      ${fin ? _blocoParcelas(D, 12) : ''}`
+      ${fin ? _blocoParcelas(D, 12) : ''}
+      ${_blocoProcesso(D)}`
   } else if (fin) {
     const semCompras = !D.maiores.length
     const acao = _filtroPer !== '30d' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="30d">${tr('ver30')}</button>` : ''
@@ -550,13 +566,15 @@ function _renderDash() {
         : _blocoDinheiro(D)}
       ${_blocoParcelas(D, semCompras ? 12 : 6)}
       ${semCompras ? '' : _blocoMaiores(D)}
-      ${_blocoEtapas(D)}`
+      ${_blocoEtapas(D)}
+      ${_blocoProcesso(D)}`
   } else {
     grade = `
       ${_blocoMensal(D)}
       ${_blocoDinheiro(D)}
       ${_blocoFila(D)}
-      ${_blocoEtapas(D)}`
+      ${_blocoEtapas(D)}
+      ${_blocoProcesso(D)}`
   }
   container.innerHTML = `
     <div class="rel-dash" data-pronto="1" data-per="${_filtroPer}">
@@ -847,6 +865,61 @@ function _blocoFila(D) {
     </button></li>`
   }).join('')
   return _secao({ id: 'bloco-fila', larg: 12, titulo: tr('tFila'), meta: `<span class="num">${_plural(fila.length, tr('pedido'), tr('pedidos'))}</span> · ${tr('agoraSub').toLowerCase()}`, corpo: `<ul class="rel-linhas">${linhas}</ul>` })
+}
+
+// Tempo do processo: ciclo (da abertura à compra e ao pagamento) à esquerda,
+// mediana de cada etapa à direita, com o gargalo em tinta; depois, para quem
+// gere a equipe, a cotação e a compra de cada comprador
+function _blocoProcesso(D) {
+  const P = D.processo
+  const meta = tr('processoMeta', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) })
+  const temDados = P.ciclo.compra.n || P.ciclo.pagamento.n || P.etapas.some(e => e.n || e.agora)
+  if (!temDados) {
+    return _secao({ id: 'bloco-processo', larg: 12, titulo: tr('tProcesso'), meta,
+      corpo: _vazio(tr('semProcessoTit'), tr('semProcessoTxt', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) })) })
+  }
+  const ciclo = (rotulo, r) => `
+    <div class="rel-ciclo-item">
+      <span class="rel-ciclo-valor">${r.n ? formatarDuracao(r.mediana) : '—'}</span>
+      <span class="rel-ciclo-rot">${rotulo}</span>
+      <span class="rel-ciclo-sub">${r.n
+        ? `${r.n === 1 ? tr('medianaDe1') : tr('medianaDeN', { n: r.n })}${r.n > 1 ? ` · ${tr('ate85', { p: formatarDuracao(r.p85) })}` : ''}`
+        : tr('semCiclo')}</span>
+    </div>`
+  const maior = Math.max(0, ...P.etapas.map(e => e.mediana || 0))
+  const linhas = P.etapas.map((e, i) => {
+    const gargalo = e.status === P.gargalo
+    const larg = maior && e.mediana ? Math.max(e.mediana / maior * 100, 2) : 0
+    const partes = []
+    if (e.n) partes.push(e.n === 1 ? tr('etapaPassagens1') : tr('etapaPassagensN', { n: e.n }))
+    if (e.n > 1) partes.push(tr('ate85', { p: formatarDuracao(e.p85) }))
+    if (e.agora) partes.push(e.agora === 1 ? tr('etapaAgora1', { d: formatarDuracao(e.maisAntigo) }) : tr('etapaAgoraN', { n: e.agora, d: formatarDuracao(e.maisAntigo) }))
+    return `
+      <li class="tempo-item rel-tempo${gargalo ? ' maior' : ''}${e.n ? '' : ' vazio'}">
+        <span class="tempo-num" aria-hidden="true">${_pad(i + 1)}</span>
+        <span class="tempo-nome">${STATUS_LABEL[e.status]}${gargalo ? `<span class="rel-gargalo" title="${tr('gargaloTitle')}">${tr('gargalo')}</span>` : ''}</span>
+        <span class="tempo-dur">${e.n ? formatarDuracao(e.mediana) : '—'}</span>
+        <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
+        <span class="rel-tempo-sub">${partes.length ? partes.join(' · ') : tr('etapaSem')}</span>
+      </li>`
+  }).join('')
+  const corpo = `
+    <div class="rel-processo">
+      <div class="rel-ciclo">${ciclo(tr('cicloCompra'), P.ciclo.compra)}${ciclo(tr('cicloPago'), P.ciclo.pagamento)}</div>
+      <ol class="tempo-lista rel-tempos" aria-label="${tr('temposAria')}">${linhas}</ol>
+    </div>`
+  const gere = [PERFIS.SUPREMO, PERFIS.GESTOR].includes(sessao.usuario?.perfil)
+  return _secao({ id: 'bloco-processo', larg: 12, titulo: tr('tProcesso'), meta, corpo }) +
+    (gere && P.compradores.length ? _blocoCompradores(P.compradores) : '')
+}
+
+function _blocoCompradores(lista) {
+  const med = r => r.n ? formatarDuracao(r.mediana) : '—'
+  const corpo = `<div class="rel-tabela-wrap"><table class="rel-tabela">
+    <thead><tr><th>${tr('colComprador')}</th><th class="dir">${tr('colCotacoes')}</th><th class="dir">${tr('colMedCotacao')}</th><th class="dir">${tr('colCompras')}</th><th class="dir">${tr('colMedCompra')}</th></tr></thead>
+    <tbody>${lista.map(c => `<tr><td>${esc(c.nome)}</td><td class="dir num">${c.cotacao.n}</td><td class="dir num">${med(c.cotacao)}</td><td class="dir num">${c.compra.n}</td><td class="dir num">${med(c.compra)}</td></tr>`).join('')}</tbody>
+  </table></div>`
+  return _secao({ id: 'bloco-compradores', larg: 12, titulo: tr('tCompradores'), meta: tr('compradoresMeta'), corpo })
 }
 
 // Régua das sete etapas, como o cabeçalho do quadro: numeral por etapa

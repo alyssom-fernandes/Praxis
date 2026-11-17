@@ -23,6 +23,7 @@ import {
 import { agendarDuplicar } from './pedidos.js'
 import { retratoAprovacao, situacaoAprovacao, estaNoNivel, aplicarVoto } from './alcadas.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
+import { ETAPAS_CAMINHO, TERMINAIS, msDe, transicoes, entradas, segmentosDoPedido, formatarDuracao } from './processo.js'
 
 let _unsubPedido    = null
 let _unsubHistorico = null
@@ -292,7 +293,7 @@ const ICO = {
   conversa:  _svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>', 18),
 }
 
-const _TERMINAIS = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
+const _TERMINAIS = TERMINAIS
 
 // Nome de um usuário: lista de usuários (gestor+), sessão, ou autoria registrada no histórico/comentários
 function _nomePorId(id) {
@@ -347,27 +348,16 @@ function _modalShell(id, titulo, corpo, rodape, largura = 520) {
 
 // ── Caminho do pedido ─────────────────────────────────────────
 // As sete etapas, com os mesmos nomes e numerais do quadro de pedidos
-const _ETAPAS = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
+const _ETAPAS = ETAPAS_CAMINHO
 const _dois = n => String(n).padStart(2, '0')
 // Vencimento de uma parcela em palavras (dias que faltam; negativo: atraso)
 const _textoVencimento = d => d < 0 ? (d === -1 ? t('parcVencida1') : t('parcVencida', { n: -d }))
   : d === 0 ? t('prazoVenceHoje') : d === 1 ? t('parcVenceEm1') : t('parcVenceEm', { n: d })
 const _pct = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`
 
-// Mudanças de status registradas no histórico, da mais antiga para a mais nova
-function _transicoes() {
-  return _historico
-    .filter(h => h.status && (!h.tipo || h.tipo === 'status'))
-    .sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
-}
-
-// Quando o pedido entrou em cada etapa (vale a última entrada: um pedido liberado volta a Solicitado)
-function _entradas() {
-  const m = {}
-  _transicoes().forEach(h => { m[h.status] = h.criadoEm })
-  if (!m[STATUS.SOLICITADO] && _pedido.criadoEm) m[STATUS.SOLICITADO] = _pedido.criadoEm
-  return m
-}
+// Mudanças de status do histórico e a entrada em cada etapa (js/processo.js)
+const _transicoes = () => transicoes(_historico)
+const _entradas = () => entradas(_pedido, _historico)
 
 // Etapa atual; em pedido reprovado ou cancelado, a etapa em que ele parou
 function _posicaoCaminho() {
@@ -2958,10 +2948,7 @@ function _textoNota(h) {
   return h.nota ? rotuloNota(h.nota) : ''
 }
 
-function _tsMs(ts) {
-  if (!ts) return 0
-  return ts.toDate ? ts.toDate().getTime() : new Date(ts).getTime()
-}
+const _tsMs = msDe
 
 // ── Anexos gerais (4.10) ──────────────────────────────────────
 function _renderAnexos() {
@@ -3079,23 +3066,9 @@ function _bindAnexosEvents() {
 
 // ── SLA timeline (4.11) ───────────────────────────────────────
 function _renderSLATimeline() {
-  const transicoes = _transicoes()
-  if (transicoes.length < 2) return ''
-
+  // Em pedido encerrado, a última transição marca o fim (js/processo.js)
   const terminal = _TERMINAIS.includes(_pedido.status)
-  const agora = Date.now()
-
-  // Em pedido encerrado, a última transição marca o fim — não conta tempo depois dela
-  const base = terminal ? transicoes.slice(0, -1) : transicoes
-  const segmentos = base.map((h, i) => {
-    const inicio = _tsMs(h.criadoEm)
-    const fim    = i < transicoes.length - 1 ? _tsMs(transicoes[i + 1].criadoEm) : agora
-    return {
-      status:      h.status,
-      durMs:       Math.max(0, fim - inicio),
-      emAndamento: !terminal && i === base.length - 1,
-    }
-  })
+  const segmentos = segmentosDoPedido(_pedido, _historico)
   if (!segmentos.length) return ''
 
   const totalMs  = segmentos.reduce((s, seg) => s + seg.durMs, 0)
@@ -3110,7 +3083,7 @@ function _renderSLATimeline() {
       <li class="tempo-item ${cls}">
         <span class="tempo-num" aria-hidden="true">${i >= 0 ? _dois(i + 1) : '·'}</span>
         <span class="tempo-nome">${STATUS_LABEL[seg.status] || esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
-        <span class="tempo-dur">${_formatDuracao(seg.durMs)}</span>
+        <span class="tempo-dur">${formatarDuracao(seg.durMs)}</span>
         <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
       </li>`
   }).join('')
@@ -3119,20 +3092,10 @@ function _renderSLATimeline() {
     <section class="dt-bloco ord-sla" aria-labelledby="sec-sla">
       <div class="dt-card-head">
         <h2 class="dt-secao" id="sec-sla">${t('dtTempoPorEtapa')}</h2>
-        <span class="tempo-total" title="${terminal ? '' : t('dtAteAgora')}"><span class="dt-numeral">${_formatDuracao(totalMs)}</span></span>
+        <span class="tempo-total" title="${terminal ? '' : t('dtAteAgora')}"><span class="dt-numeral">${formatarDuracao(totalMs)}</span></span>
       </div>
       <ol class="tempo-lista">${linhas}</ol>
     </section>
   `
 }
 
-function _formatDuracao(ms) {
-  if (!ms || ms < 0) return '—'
-  const minutos = Math.floor(ms / 60000)
-  const horas   = Math.floor(minutos / 60)
-  const dias    = Math.floor(horas / 24)
-  const h       = horas % 24
-  if (dias > 0) return h > 0 ? `${dias}d ${h}h` : `${dias}d`
-  if (horas > 0) return `${horas}h`
-  return `${minutos}min`
-}

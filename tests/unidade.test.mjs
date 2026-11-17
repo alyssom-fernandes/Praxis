@@ -22,6 +22,9 @@ import {
 import {
   faixaDoValor, retratoAprovacao, situacaoAprovacao, aplicarVoto, votouNoPedido, estaNoNivel, problemasDaAlcada, limparAlcada,
 } from '../js/alcadas.js'
+import {
+  segmentosDoPedido, marcosDoPedido, formatarDuracao, percentil, resumoDoProcesso,
+} from '../js/processo.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -491,6 +494,67 @@ test('alçada: o supremo está em todo nível e aprova de uma vez', () => {
   p = { ...p, ...v.campos, aprovadoPor: 'u-sup' }
   assert.equal(impedimentoDeFuncao(p, sup, 'comprar'), null)
   assert.equal(impedimentoDeFuncao(p, sup, 'pagar'), null)
+})
+
+// ── Tempo do processo (js/processo.js) ────────────────────────
+const DIA = 86400000, HORA = 3600000, T0 = Date.UTC(2026, 10, 1, 12)
+const em = ms => new Date(T0 + ms)
+const passos = (...pares) => pares.map(([status, ms]) => ({ status, tipo: 'status', criadoEm: em(ms) }))
+// A: pago, sem voltas; B: em aprovação agora; C: liberado de volta a Solicitado e reprovado
+const PED_A = { pedido: { status: 'pago', criadoEm: em(0), compradorId: 'c1', compradorNome: 'Diana' },
+  historico: [...passos(['solicitado', 0], ['ag_cotacao', DIA], ['em_aprovacao', 3 * DIA], ['aprovado', 4 * DIA],
+    ['comprado', 4 * DIA + 12 * HORA], ['entregue', 6 * DIA], ['pago', 7 * DIA]),
+  { tipo: 'comentario', criadoEm: em(2 * DIA) }] }
+const PED_B = { pedido: { status: 'em_aprovacao', criadoEm: em(2 * DIA), compradorId: 'c1', compradorNome: 'Diana' },
+  historico: passos(['solicitado', 2 * DIA], ['ag_cotacao', 2 * DIA + 6 * HORA], ['em_aprovacao', 5 * DIA + 6 * HORA]) }
+const PED_C = { pedido: { status: 'reprovado', criadoEm: em(0), compradorId: 'c2', compradorNome: 'Beatriz' },
+  historico: passos(['solicitado', 0], ['ag_cotacao', DIA], ['solicitado', 2 * DIA], ['ag_cotacao', 3 * DIA],
+    ['em_aprovacao', 4 * DIA], ['reprovado', 5 * DIA]) }
+const AGORA = T0 + 8 * DIA
+
+test('processo: passagens por etapa, marcos e duração em texto', () => {
+  const a = segmentosDoPedido(PED_A.pedido, PED_A.historico, AGORA)
+  // Pago encerra: a última transição só marca o fim; o comentário não conta
+  assert.deepEqual(a.map(s => [s.status, s.durMs, s.emAndamento]), [
+    ['solicitado', DIA, false], ['ag_cotacao', 2 * DIA, false], ['em_aprovacao', DIA, false],
+    ['aprovado', 12 * HORA, false], ['comprado', DIA + 12 * HORA, false], ['entregue', DIA, false]])
+  const b = segmentosDoPedido(PED_B.pedido, PED_B.historico, AGORA)
+  assert.deepEqual(b.at(-1), { status: 'em_aprovacao', inicio: T0 + 5 * DIA + 6 * HORA, fim: AGORA, durMs: 2 * DIA + 18 * HORA, emAndamento: true })
+  assert.deepEqual(segmentosDoPedido({ status: 'solicitado' }, passos(['solicitado', 0]), AGORA), [])
+  assert.deepEqual(marcosDoPedido(PED_A.pedido, PED_A.historico), { aberto: T0, comprado: T0 + 4 * DIA + 12 * HORA, pago: T0 + 7 * DIA })
+  assert.deepEqual(marcosDoPedido(PED_B.pedido, PED_B.historico), { aberto: T0 + 2 * DIA, comprado: 0, pago: 0 })
+  assert.equal(formatarDuracao(4 * DIA + 12 * HORA), '4d 12h')
+  assert.equal(formatarDuracao(2 * DIA), '2d')
+  assert.equal(formatarDuracao(5 * HORA), '5h')
+  assert.equal(formatarDuracao(90000), '1min')
+  assert.equal(formatarDuracao(0), '—')
+  assert.equal(percentil([4, 1, 3, 2], 0.5), 2.5)
+  assert.ok(Math.abs(percentil([1, 2, 3, 4], 0.85) - 3.55) < 1e-9)
+  assert.equal(percentil([], 0.5), null)
+})
+
+test('processo: ciclo, mediana por etapa, gargalo e compradores na janela', () => {
+  const r = resumoDoProcesso([PED_A, PED_B, PED_C], { ini: T0, fim: T0 + 10 * DIA }, AGORA)
+  assert.deepEqual(r.ciclo.compra, { n: 1, mediana: 4 * DIA + 12 * HORA, p85: 4 * DIA + 12 * HORA })
+  assert.deepEqual(r.ciclo.pagamento, { n: 1, mediana: 7 * DIA, p85: 7 * DIA })
+  const e = Object.fromEntries(r.etapas.map(x => [x.status, x]))
+  assert.deepEqual(r.etapas.map(x => x.status), ['solicitado', 'ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue'])
+  // C passou duas vezes por Solicitado e por Ag. cotação: conta a soma (2 dias em cada)
+  assert.equal(e.solicitado.n, 3); assert.equal(e.solicitado.mediana, DIA)
+  assert.equal(e.ag_cotacao.n, 3); assert.equal(e.ag_cotacao.mediana, 2 * DIA)
+  // B ainda está em aprovação: fica fora da mediana e entra em "agora"
+  assert.equal(e.em_aprovacao.n, 2); assert.equal(e.em_aprovacao.agora, 1)
+  assert.equal(e.em_aprovacao.maisAntigo, 2 * DIA + 18 * HORA)
+  assert.equal(e.aprovado.n, 1)
+  assert.equal(r.gargalo, 'ag_cotacao')
+  assert.deepEqual(r.compradores.map(c => [c.nome, c.cotacao.n, c.cotacao.mediana, c.compra.n]), [
+    ['Diana', 2, 2.5 * DIA, 1], ['Beatriz', 1, 2 * DIA, 0]])
+  // A data que conta é a do fim: comprado antes da janela fica de fora, pago dentro entra
+  const tarde = resumoDoProcesso([PED_A], { ini: T0 + 5 * DIA, fim: T0 + 10 * DIA }, AGORA)
+  assert.equal(tarde.ciclo.compra.n, 0)
+  assert.equal(tarde.ciclo.pagamento.n, 1)
+  assert.equal(tarde.gargalo, null)
+  assert.deepEqual(tarde.etapas.filter(x => x.n).map(x => x.status), ['comprado', 'entregue'])
 })
 
 test('alçada: o editor confere faixas e níveis antes de gravar', () => {

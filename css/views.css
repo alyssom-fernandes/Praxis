@@ -1436,6 +1436,28 @@
 .rel-etapa.fora.zero .rel-etapa-num { color: var(--border-strong); }
 .rel-etapas-sep { background: var(--line); }
 
+/* Tempo do processo: o ciclo à esquerda (dois numerais) e a mediana de cada
+   etapa à direita, na mesma lista do detalhe (.tempo-lista); o gargalo em tinta */
+.rel-processo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--esp-500); align-items: start; }
+.rel-ciclo { display: flex; flex-direction: column; gap: var(--esp-300); }
+.rel-ciclo-item { display: flex; flex-direction: column; padding-top: var(--esp-150); border-top: 1px solid var(--line); }
+.rel-ciclo-valor {
+  font-family: var(--display);
+  font-size: var(--t-display-m);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.rel-ciclo-rot { margin-top: var(--esp-100); font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
+.rel-ciclo-sub { margin-top: var(--esp-025); font-size: var(--t-pequeno); color: var(--text3); }
+.rel-tempo { row-gap: var(--esp-050); }
+.rel-tempo .tempo-nome { color: var(--text); }
+.rel-tempo-sub { grid-column: 2 / -1; font-size: var(--t-pequeno); color: var(--text3); }
+.rel-tempo.vazio .tempo-num, .rel-tempo.vazio .tempo-dur { color: var(--border-strong); }
+.rel-gargalo { font-size: var(--t-pequeno); font-weight: 700; color: var(--text); }
+
 /* Estado vazio de um bloco (o componente .vazio): centrado na altura do bloco */
 .rel-vazio { flex: 1; justify-content: center; min-height: 150px; }
 
@@ -1455,6 +1477,8 @@
   .rel-etapas { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--esp-300) var(--esp-200); }
   /* O separador vira quebra de linha: reprovados e cancelados numa linha própria */
   .rel-etapas-sep { grid-column: 1 / -1; height: 0; margin-bottom: calc(var(--esp-100) * -1); background: none; }
+  .rel-processo { grid-template-columns: minmax(0, 1fr); gap: var(--esp-400); }
+  .rel-ciclo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-250); }
 }
 @media screen and (max-width: 767px) {
   .rel-head { margin-bottom: var(--esp-200); }
