@@ -43,8 +43,9 @@ let _comentarios = []
 let _comentEditando = null  // { id, rascunho }: o comentário aberto para edição
 let _notaInterna = false     // seletor "Só equipe de compras" do compositor
 const _versoesAbertas = new Set() // comentários com as versões anteriores à mostra
-// Celular: Dados do pedido, Tempo por etapa e Anexos sem nada começam
-// recolhidos; o que a pessoa abre ou fecha vale até sair do pedido. No
+// Celular: Dados do pedido, Pessoas, Tempo por etapa, Anexos sem nada e as
+// Cotações depois da aprovação começam recolhidos; a atividade mostra as
+// três últimas entradas; o que a pessoa abre ou fecha vale até sair do pedido. No
 // computador o botão não aparece e a classe não muda nada (css/themes.css)
 let _secoesAlternadas = {}
 const _secaoAberta = (chave, padrao) => (chave in _secoesAlternadas ? _secoesAlternadas[chave] : padrao)
@@ -515,6 +516,10 @@ function _renderDetalhe() {
   const nCot = _cotacoes.length
   const nCotValor = _cotacoes.filter(c => !c.semProduto).length
   const dadosAbertos = _secaoAberta('dados', false)
+  const cotAbertas = _secaoAberta('cotacoes', [STATUS.AG_COTACAO, STATUS.EM_APROVACAO].includes(p.status))
+  const pessoasAbertas = _secaoAberta('pessoas', false)
+  const nFeed = _historico.length + _comentarios.length + (p.lancamento ? 1 : 0)
+  const feedTodo = _secaoAberta('atividade', false) || nFeed <= 3
   const anexosAbertos = _secaoAberta('anexos', _anexos.length > 0)
   const cotInd = _cotacoes.find(c => c.indicada)
 
@@ -537,7 +542,7 @@ function _renderDetalhe() {
               <div class="detalhe-descricao"><p>${esc(p.descricao)}</p></div>
             </section>` : ''}
 
-          ${p.lancamento ? '' : `<section class="dt-bloco ord-cotacoes" aria-labelledby="sec-cot">
+          ${p.lancamento ? '' : `<section class="dt-bloco ord-cotacoes recolhivel${cotAbertas ? '' : ' recolhida'}" aria-labelledby="sec-cot">
             <div class="dt-card-head">
               <h2 class="dt-secao" id="sec-cot">${t('secaoCotacoes')}${nCot ? `<span class="dt-contagem">${nCot}</span>` : ''}</h2>
               ${nCotValor >= 2 ? `
@@ -545,6 +550,7 @@ function _renderDetalhe() {
                   <span class="dt-legenda">${cotInd ? t('dtComparadasIndicada') : t('dtComparadasMenor')}</span>
                   <button class="btn-ghost btn-sm" id="btn-comparar-cotacoes" title="${t('dtLadoALadoTitulo')}">${ICO.comparar}${t('dtLadoALado')}</button>
                 </div>` : ''}
+              ${_botaoRecolher('cotacoes', 'sec-cot', 'cotacoes-list', cotAbertas)}
             </div>
             <div id="cotacoes-list" class="cotacoes-list">${_renderCotacoes()}</div>
           </section>`}
@@ -586,7 +592,8 @@ function _renderDetalhe() {
                 </div>
               </div>
             </div>
-            <ol class="activity-feed" id="activity-feed">${_renderActivityFeed()}</ol>
+            <ol class="activity-feed${feedTodo ? '' : ' curta'}" id="activity-feed">${_renderActivityFeed()}</ol>
+            ${feedTodo ? '' : `<button type="button" class="btn-ghost btn-sm dt-feed-mais" id="btn-feed-mais" aria-controls="activity-feed">${t('dtAtividadeTudo', { n: nFeed })}</button>`}
           </section>
         </div>
 
@@ -600,9 +607,9 @@ function _renderDetalhe() {
             </dl>
           </section>
 
-          ${p.lancamento ? '' : `<section class="dt-bloco ord-pessoas" aria-labelledby="sec-pessoas">
-            <div class="dt-card-head"><h2 class="dt-secao" id="sec-pessoas">${t('pessoasEnvolvidas')}</h2></div>
-            <div class="pessoas-lista">
+          ${p.lancamento ? '' : `<section class="dt-bloco ord-pessoas recolhivel${pessoasAbertas ? '' : ' recolhida'}" aria-labelledby="sec-pessoas">
+            <div class="dt-card-head"><h2 class="dt-secao" id="sec-pessoas">${t('pessoasEnvolvidas')}</h2>${_botaoRecolher('pessoas', 'sec-pessoas', 'corpo-pessoas', pessoasAbertas)}</div>
+            <div class="pessoas-lista" id="corpo-pessoas">
               ${_renderPessoa(t('solicitanteLabel'), solicNome, t('criouPedido'))}
               ${_renderPessoaComprador()}
               ${_renderPessoaAprovadores()}
@@ -1668,6 +1675,11 @@ function _bindDetalheEvents() {
   })
   document.getElementById('btn-confirmar-reprovar')?.addEventListener('click', _reprovarPedido)
 
+  document.getElementById('btn-feed-mais')?.addEventListener('click', e => {
+    _secoesAlternadas.atividade = true
+    document.getElementById('activity-feed')?.classList.remove('curta')
+    e.currentTarget.remove()
+  })
   document.querySelectorAll('#detalhe-root .dt-recolher').forEach(b => b.addEventListener('click', () => {
     const secao = b.closest('.dt-bloco')
     const abrir = secao.classList.contains('recolhida')

@@ -689,8 +689,8 @@
   overflow: hidden;
 }
 .view-toggle button {
-  width: 36px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   min-height: 0;
   padding: 0;
   border: none;
@@ -1129,8 +1129,8 @@
   font-variant-numeric: tabular-nums lining-nums;
 }
 .rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 14cqi, var(--t-display-g)); color: var(--text); }
-.rel-moeda { margin-right: 0.16em; font-size: 0.5em; letter-spacing: 0.02em; }
-.rel-cent { font-size: 0.5em; }
+.rel-moeda { margin-right: 0.16em; font-size: clamp(var(--t-pequeno), 0.5em, 1em); letter-spacing: 0.02em; }
+.rel-cent { font-size: clamp(var(--t-pequeno), 0.5em, 1em); }
 .rel-kpi-rotulo { margin-top: var(--esp-100); font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
 .rel-kpi-sub {
   display: flex;
@@ -1498,12 +1498,14 @@
   .rel-frase-emp { display: none; }   /* a empresa aparece no seletor logo abaixo */
   .rel-barra { gap: var(--esp-100); margin-bottom: var(--esp-400); }
   .rel-seg { display: flex; width: 100%; }
-  .rel-seg-btn { flex: 1; min-width: 0; padding: 0 var(--esp-025); font-size: var(--t-pequeno); }
+  .rel-seg-btn { flex: 1; min-width: 0; height: 44px; min-height: 44px; padding: 0 var(--esp-025); font-size: var(--t-pequeno); }
   .rel-datas { width: 100%; }
   .rel-datas .campo-data-texto { flex: 1; width: auto; min-width: 0; }
   .rel-barra-fim { width: 100%; margin-left: 0; gap: var(--esp-100); }
-  .rel-empresa { flex: 1; width: auto; min-width: 0; }
-  .rel-btn-exportar { width: 40px; min-width: 40px; padding: 0; }
+  .rel-empresa { flex: 1; width: auto; min-width: 0; min-height: 48px; }
+  .rel-btn-exportar { width: 48px; min-width: 48px; min-height: 48px; padding: 0; }
+  .rel-mini-seg button { width: 44px; height: 44px; }
+  .rel-datas .campo-data-texto { min-height: 48px; }
   .rel-btn-rot, .rel-btn-seta { display: none !important; }
   .rel-menu { min-width: 264px; }
 
@@ -1811,7 +1813,7 @@
 .decisao-valor { font-size: var(--t-titulo-3); font-weight: 600; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
 .decisao-valor .dt-numeral { font-size: 1.55rem; line-height: 1.05; }
 .decisao-valor .dt-de { font-size: var(--t-corpo); font-weight: 500; color: var(--text3); }
-.decisao-sub { font-size: var(--t-pequeno); color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.decisao-sub { font-size: var(--t-pequeno); color: var(--text3); overflow-wrap: anywhere; }
 .decisao-fato.acima .dt-numeral { color: var(--amber); }
 .decisao-fato.abaixo .dt-numeral { color: var(--green); }
 .decisao-fato.prazo-perto .decisao-sub { color: var(--text); font-weight: 700; }
@@ -1925,6 +1927,7 @@
 .dt-upload { font-size: var(--t-pequeno); padding: 0 var(--esp-150); min-height: 32px; }
 /* Recolher a seção: só no celular (css/themes.css); no computador tudo fica aberto */
 .dt-recolher { display: none; }
+@media (min-width: 768px) { .dt-feed-mais { display: none; } }
 
 /* Dados: rótulos espaçados sobre os valores */
 .detalhe-meta-grid {
@@ -2852,9 +2855,13 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .cfg-item { flex-direction: column; align-items: stretch; gap: var(--esp-150); padding: var(--esp-200) 0; }
   .cfg-item-conta { flex-direction: row; }
   .cfg-fatos > div { grid-template-columns: 1fr; }
-  .cfg-item-acao { align-self: flex-start; min-height: 38px; }
+  .cfg-item-acao { align-self: flex-start; min-height: 44px; }
   .cfg-seg { align-self: flex-start; }
-  .cfg-seg-op { min-height: 34px; }
+  .cfg-seg-op { min-height: 44px; }
+  /* Toques de 44 px na administração: filtros e, nos links de texto, a área em volta */
+  .cfg-filtro { min-height: 44px; }
+  .cfg-link, .reaberto-link { position: relative; }
+  .cfg-link::after, .reaberto-link::after { content: ''; position: absolute; inset: -15px -6px; }
 }
 
 /* ── Catálogo do sistema visual (?tela=sistema, js/sistema.js) ── */

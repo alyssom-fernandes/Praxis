@@ -228,7 +228,10 @@ input[type="checkbox"], input[type="radio"] {
   .dt-recolher svg { transition: transform var(--transition-fast); }
   .dt-recolher[aria-expanded="true"] svg { transform: rotate(180deg); }
   .dt-recolher:active:not(:disabled) { transform: none; }
-  .dt-bloco.recolhivel .dt-upload { position: relative; z-index: 1; }
+  .dt-bloco.recolhivel :is(.dt-upload, .dt-card-acoes) { position: relative; z-index: 1; }
+  /* Atividade: as três últimas entradas; o resto com "Ver toda a atividade" */
+  .activity-feed.curta > li:nth-child(n+4) { display: none; }
+  .dt-feed-mais { align-self: flex-start; min-height: 44px; margin-top: var(--esp-100); }
   .dt-bloco.recolhida > :not(.dt-card-head) { display: none; }
   .dt-bloco.recolhida > .dt-card-head { margin-bottom: 0; }
   .dt-modal-pedido { display: none; }
@@ -276,7 +279,7 @@ input[type="checkbox"], input[type="radio"] {
   .lateral[data-mode="config"] .lateral-n { display: none; }
   .lateral[data-mode="config"] .lateral-grupo { flex-direction: row; gap: var(--esp-075); margin: 0; padding: 0; border: none; }
   .lateral[data-mode="config"] .lateral-grupo .lateral-item {
-    min-height: 34px;
+    min-height: 44px;
     padding: 0 var(--esp-150);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -324,7 +327,7 @@ input[type="checkbox"], input[type="radio"] {
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
     mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
   }
-  .rapido { font-size: var(--t-corpo); }
+  .rapido { min-height: 44px; font-size: var(--t-corpo); }
 
   /* Painel de filtros vira folha de baixo, acima de tudo */
   .painel-filtros {
@@ -357,7 +360,7 @@ input[type="checkbox"], input[type="radio"] {
   .painel-filtros[data-modo="lista"] .pf-ordem { display: block; }
   .pf-visao-nome { min-height: 52px; }
   .pf-visao-acao { width: 40px; height: 40px; min-height: 40px; }
-  .pf-salvar { min-height: 42px; }
+  .pf-salvar { min-height: 44px; }
   .pf-rodape { padding: var(--esp-150) var(--esp-200) calc(var(--esp-150) + env(safe-area-inset-bottom, 0px)); }
   .pf-resultado { display: none; }
   .pf-ver { display: inline-flex; width: 100%; min-height: 46px; }
@@ -400,7 +403,8 @@ input[type="checkbox"], input[type="radio"] {
   }
   .regua-item:active:not(:disabled) { transform: none; }
   .regua-item .regua-n { margin-bottom: 0; font-size: 1.5rem; color: var(--text2); }
-  .regua-item .regua-nome { font-family: var(--display); font-size: var(--t-pequeno); font-weight: 700; line-height: 1.1; }
+  /* O nome inteiro, em até duas linhas ("Em / aprovação"), no lugar das reticências */
+  .regua-item .regua-nome { font-family: var(--display); font-size: var(--t-pequeno); font-weight: 700; line-height: 1.1; white-space: normal; overflow: visible; text-overflow: clip; min-height: 2.2em; }
   .regua-item.zero .regua-n { color: var(--text3); opacity: 0.55; }
   .regua-item.ativa .regua-n { opacity: 1; }
   .regua-item.eh-fila:not(.zero) .regua-n { color: var(--gold); opacity: 1; }
@@ -627,7 +631,8 @@ input[type="checkbox"], input[type="radio"] {
    folha "Filtros" (js/pedidos.js move o elemento), para o primeiro pedido
    aparecer mais cedo */
 @media (max-width: 767px) {
-  .pedidos-resumo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Até duas linhas, sem cortar a frase no meio */
+  .pedidos-resumo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .pf-corpo > .pedidos-rapidos { order: -1; flex-wrap: wrap; align-self: stretch; overflow: visible; }
 }
 
@@ -666,6 +671,12 @@ input[type="checkbox"], input[type="radio"] {
 
   /* O "+" da barra inferior faz o "Novo pedido" e o "Lançar compra" */
   .pedidos-head-acoes { display: none; }
+
+  /* Janelas: sobem de baixo como folha e descem ao fechar, como os diálogos
+     (no computador, o surgir de janela fica como está) */
+  .modal-overlay .modal { animation: folhaSobe 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .modal-overlay.closing .modal { animation: folhaDesce 0.18s ease-in forwards; }
+  .dialog-overlay.saindo .dialog { animation: folhaDesce 0.15s ease-in forwards; }
 
   /* Compra já feita: tela inteira, como o formulário de um app */
   #modal-lancamento .modal { height: 100%; max-height: 100%; border-top: none; }

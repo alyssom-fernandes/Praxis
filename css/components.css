@@ -1519,6 +1519,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .notif-fundo[hidden] { display: none; }
 @media (min-width: 768px) { .notif-fundo { display: none; } }
 @keyframes folhaSobe { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes folhaDesce { from { transform: none; } to { transform: translateY(100%); } }
 
 /* ── Skeleton loading (2.2) ──────────────────────────── */
 .skeleton {
@@ -1995,7 +1996,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
 .cmd-esc-x { display: none; }
 /* Toque: no lugar da tecla Esc, um X com área de toque confortável */
 @media (hover: none) {
-  .cmd-esc { width: 40px; height: 40px; min-height: 40px; margin-right: calc(var(--esp-075) * -1); align-items: center; justify-content: center; color: var(--text2); border-radius: var(--radius-sm); }
+  .cmd-esc { width: 44px; height: 44px; min-height: 44px; margin-right: calc(var(--esp-075) * -1); align-items: center; justify-content: center; color: var(--text2); border-radius: var(--radius-sm); }
   .cmd-esc kbd { display: none; }
   .cmd-esc-x { display: block; }
 }
@@ -2174,7 +2175,7 @@ button:active:not(:disabled) { transform: scale(0.98); }
 .tour-actions .btn-ghost { border-color: transparent; padding-left: var(--esp-100); padding-right: var(--esp-100); margin-left: calc(var(--esp-100) * -1); color: var(--text3); }
 .tour-actions .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: transparent; }
 @media (max-width: 767px) {
-  .tour-actions .btn-sm { min-height: 38px; }
+  .tour-actions .btn-sm { min-height: 44px; }
 }
 
 /* ── Lista: barra da seleção em lote ─────────────────── */
@@ -2450,6 +2451,7 @@ details.np-mais > summary::before, details.lanc-mais > summary::before {
 }
 details.np-mais[open] > summary::before, details.lanc-mais[open] > summary::before { transform: rotate(45deg); }
 details.np-mais > summary:hover, details.lanc-mais > summary:hover { color: var(--text); }
+details[open] > .np-mais-corpo, details[open] > .lanc-mais-corpo { animation: pfEntra 0.16s ease; }
 .np-mais-corpo, .lanc-mais-corpo { display: flex; flex-direction: column; gap: var(--esp-200); padding: var(--esp-100) 0 var(--esp-050); }
 
 /* Compra já feita: as pessoas num resumo de uma linha ("Pedido e comprado por
@@ -2490,6 +2492,7 @@ details.np-mais > summary:hover, details.lanc-mais > summary:hover { color: var(
   box-shadow: var(--shadow-lg);
 }
 .autocompletar-lista[hidden] { display: none; }
+.autocompletar-lista:not([hidden]) { animation: dropIn 0.14s ease; }
 .autocompletar-lista li {
   display: flex;
   align-items: center;

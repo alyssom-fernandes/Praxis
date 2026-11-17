@@ -77,7 +77,9 @@ export function autocompletar(input, opcoes, { limite = 8, aoEscolher } = {}) {
     aoEscolher?.(o)
   }
 
-  input.addEventListener('focus', abrir)
+  // Abre quando a pessoa toca no campo ou digita; o foco que a janela põe
+  // sozinha ao abrir não abre a lista (ela cobriria o formulário)
+  input.addEventListener('click', () => { if (lista.hidden) abrir() })
   input.addEventListener('input', e => { if (e.isTrusted) abrir() })
   input.addEventListener('blur', () => setTimeout(fechar, 150))
   input.addEventListener('keydown', e => {
