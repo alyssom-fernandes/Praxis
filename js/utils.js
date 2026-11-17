@@ -1,4 +1,5 @@
 import { t } from './constants.js'
+import { impedimentoNaAlcada, votouNoPedido } from './alcadas.js'
 
 export function formatCurrency(value) {
   if (value == null || isNaN(value)) return '—'
@@ -230,15 +231,20 @@ export function arquivoIndisponivel(err) {
 // Separação de funções, como nas regras do Firestore: quem abriu ou cotou o
 // pedido não decide sobre ele (aprovar ou reprovar), e quem o aprovou não
 // registra a compra nem o pagamento. Vale para todos os perfis, o supremo
-// inclusive. Devolve o motivo ('abriu', 'cotou' ou 'aprovou') ou null.
+// inclusive. Com alçada (js/alcadas.js), decide só quem está no nível atual e
+// ainda não votou, e quem votou em qualquer nível conta como quem aprovou.
+// Devolve o motivo ('abriu', 'cotou', 'votou', 'foraDoNivel' ou 'aprovou')
+// ou null.
 //   acao: 'decidir' | 'comprar' | 'pagar'
 export function impedimentoDeFuncao(pedido, usuario, acao) {
   if (!pedido || !usuario?.id) return null
   if (acao === 'decidir') {
     if (pedido.solicitanteId === usuario.id) return 'abriu'
     if (pedido.compradorId === usuario.id) return 'cotou'
+    return impedimentoNaAlcada(pedido, usuario)
   }
-  if ((acao === 'comprar' || acao === 'pagar') && pedido.aprovadoPor === usuario.id) return 'aprovou'
+  if ((acao === 'comprar' || acao === 'pagar') &&
+      (pedido.aprovadoPor === usuario.id || votouNoPedido(pedido, usuario.id))) return 'aprovou'
   return null
 }
 

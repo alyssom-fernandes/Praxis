@@ -2355,6 +2355,73 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .imp-tabela tr.is-erro    { --cor: var(--red); }
 .imp-tabela tr.is-neutro .cfg-ponto { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text3); }
 
+/* Alçadas: uma seção por empresa, sob o fio de tinta; faixas em linhas e os
+   níveis numerados em sequência, como a régua do pedido */
+.alc-lista { display: grid; gap: var(--esp-400); }
+.alc-empresa { border-top: 2px solid var(--tinta); padding-top: var(--esp-200); }
+.alc-empresa.is-esqueleto { min-height: 120px; }
+.alc-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-200); margin-bottom: var(--esp-150); }
+.alc-emp-nome { min-width: 0; font-size: var(--t-titulo-3); font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alc-cab .btn-sm { flex-shrink: 0; gap: var(--esp-075); }
+.alc-sem { font-size: var(--t-corpo); color: var(--text3); }
+.alc-faixas, .alc-niveis, .alc-ed-faixas, .alc-ed-niveis, .alc-erros ul { list-style: none; }
+.alc-faixas { display: grid; }
+.alc-faixa {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: var(--esp-100) var(--esp-300);
+  padding: var(--esp-150) 0;
+  border-top: 1px solid var(--line);
+}
+.alc-faixa-valor { font-size: var(--t-corpo); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+.alc-niveis { display: flex; flex-wrap: wrap; gap: var(--esp-150) var(--esp-300); }
+.alc-nivel { display: flex; align-items: flex-start; gap: var(--esp-100); min-width: 0; }
+.alc-nivel-n {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--display);
+  font-size: var(--t-pequeno);
+  font-weight: 700;
+  color: var(--text2);
+}
+.alc-nivel-corpo { display: grid; gap: var(--esp-025); min-width: 0; }
+.alc-nivel-nome { font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
+.alc-nivel-quem { font-size: var(--t-pequeno); color: var(--text3); }
+
+/* Editor da alçada */
+.cfg-modal.alc-modal { max-width: 760px; }
+.alc-ajuda { margin-bottom: var(--esp-250); font-size: var(--t-corpo); line-height: 1.55; color: var(--text2); }
+.alc-erros { margin-bottom: var(--esp-200); padding: var(--esp-150) var(--esp-200); border-left: 2px solid var(--red); font-size: var(--t-corpo); color: var(--text); }
+.alc-erros[hidden] { display: none; }
+.alc-erros ul { display: grid; gap: var(--esp-050); }
+.alc-ed-faixas { display: grid; gap: var(--esp-300); }
+.alc-ed-faixa { padding-top: var(--esp-200); border-top: 2px solid var(--tinta); }
+.alc-ed-faixa-cab { display: flex; align-items: center; flex-wrap: wrap; gap: var(--esp-100) var(--esp-200); margin-bottom: var(--esp-150); }
+.alc-ed-faixa-titulo { font-size: var(--t-titulo-3); font-weight: 700; color: var(--text); }
+.alc-ed-faixa-valor { font-size: var(--t-corpo); color: var(--text2); }
+.alc-ed-teto { display: inline-flex; align-items: center; gap: var(--esp-100); font-size: var(--t-corpo); color: var(--text2); }
+.alc-ed-teto input { width: 9rem; }
+.alc-ed-tirar { margin-left: auto; border-color: transparent; }
+.alc-ed-niveis { display: grid; gap: var(--esp-150); }
+.alc-ed-nivel { padding: var(--esp-150) 0 var(--esp-150) var(--esp-150); border-left: 1px solid var(--line); }
+.alc-ed-nivel-cab { display: flex; align-items: flex-end; gap: var(--esp-150); }
+.alc-ed-nivel-cab .alc-nivel-n { margin-bottom: var(--esp-100); }
+.alc-ed-nome { flex: 1; min-width: 0; margin: 0; }
+.alc-ed-min { width: 7rem; margin: 0; }
+.alc-ed-nivel-cab .alc-ed-tirar { margin-left: 0; margin-bottom: var(--esp-050); }
+.alc-ed-quem { margin-top: var(--esp-150); padding: 0; border: none; }
+.alc-ed-quem legend { margin-bottom: var(--esp-075); font-size: var(--t-pequeno); font-weight: 600; color: var(--text3); }
+.alc-ed-opcoes { display: flex; flex-wrap: wrap; gap: var(--esp-075) var(--esp-200); }
+.alc-ed-opcao { display: inline-flex; align-items: center; gap: var(--esp-075); min-height: 32px; font-size: var(--t-corpo); color: var(--text); cursor: pointer; }
+.alc-ed-perfil { font-weight: 600; }
+.alc-ed-mais { margin-top: var(--esp-100); gap: var(--esp-075); }
+.alc-ed-mais-faixa { margin-top: var(--esp-250); gap: var(--esp-075); }
+
 /* Modais de configurações: fio de tinta no alto e o título na voz da inscrição */
 .cfg-modal { max-width: 540px; border-top: 2px solid var(--tinta); border-radius: 0 0 var(--radius) var(--radius); }
 .cfg-modal-sm { max-width: 460px; }
@@ -2589,7 +2656,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 /* ── Configurações no celular ── */
 @media (max-width: 767px) {
   /* Folha do modal fica sobre a barra inferior (sem ela, Salvar ficaria coberto) */
-  body:has(#modal-usuario.visible, #modal-empresa.visible, #modal-categoria.visible, #modal-forn-edit.visible, #modal-importar.visible) .bottom-nav { display: none; }
+  body:has(#modal-usuario.visible, #modal-empresa.visible, #modal-categoria.visible, #modal-forn-edit.visible, #modal-importar.visible, #modal-alcada.visible) .bottom-nav { display: none; }
 
   /* Cabeçalho: título e ação na mesma linha; a frase embaixo, na largura toda */
   .cfg-head {
@@ -2635,6 +2702,16 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .imp-modal .modal-footer { flex-wrap: wrap; }
   .imp-modal .modal-footer > * { flex: 1 1 0; min-height: 44px; }
   .imp-modal .modal-footer > .cfg-acao-esquerda { flex-basis: 100%; margin-right: 0; }
+
+  /* Alçadas: a faixa em cima dos níveis; o editor com o rodapé na largura */
+  .alc-faixa { grid-template-columns: 1fr; }
+  .alc-niveis { flex-direction: column; }
+  .alc-ed-nivel-cab { flex-wrap: wrap; }
+  .alc-ed-nome { flex-basis: calc(100% - 60px); }
+  .alc-ed-min { width: auto; flex: 1; }
+  .alc-modal .modal-footer { flex-wrap: wrap; }
+  .alc-modal .modal-footer > * { flex: 1 1 0; min-height: 44px; }
+  .alc-modal .modal-footer > .cfg-acao-esquerda { flex-basis: 100%; margin-right: 0; }
 
   .cfg-toolbar { flex-direction: column; align-items: stretch; gap: var(--esp-100); }
   .cfg-filtros { gap: 0 var(--esp-300); }

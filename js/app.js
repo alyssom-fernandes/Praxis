@@ -173,7 +173,7 @@ window.addEventListener('popstate', () => {
   if (sessao.usuario) _rotear()
 })
 
-const TELAS_CONFIG = ['config-usuarios', 'config-cadastros', 'config-geral', 'config-auditoria']
+const TELAS_CONFIG = ['config-usuarios', 'config-cadastros', 'config-geral', 'config-auditoria', 'config-alcadas']
 
 // Quem pode ver o quê (usado na guarda de rota, na topbar e na barra inferior)
 function _acessos(perfil = sessao.usuario?.perfil) {
@@ -223,6 +223,7 @@ const _TELAS = {
   'relatorios':       ['./relatorios.js',       'renderRelatorios'],
   'config-usuarios':  ['./config-usuarios.js',  'renderConfigUsuarios'],
   'config-auditoria': ['./config-auditoria.js', 'renderConfigAuditoria'],
+  'config-alcadas':   ['./config-alcadas.js',   'renderConfigAlcadas'],
   'config-cadastros': ['./config-cadastros.js', 'renderConfigCadastros'],
   'config-geral':     ['./config-geral.js',     'renderConfigGeral'],
   // Catálogo do sistema visual, fora da navegação (docs/sistema.md)
@@ -298,6 +299,7 @@ function _itemAtivo(telaAtiva) {
   if (telaAtiva === 'config-cadastros') return `cad-${params.get('aba') || 'empresas'}`
   if (telaAtiva === 'config-usuarios') return 'usuarios'
   if (telaAtiva === 'config-auditoria') return 'auditoria'
+  if (telaAtiva === 'config-alcadas') return 'alcadas'
   return telaAtiva
 }
 
@@ -354,6 +356,7 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
           ${item('cad-categorias', 'config-cadastros', t('secaoCategorias'), { aba: 'categorias' })}
           ${item('cad-fornecedores', 'config-cadastros', t('secaoFornecedores'), { aba: 'fornecedores' })}
           ${item('usuarios', 'config-usuarios', t('configUsuarios'))}
+          ${item('alcadas', 'config-alcadas', t('alcTitulo'))}
           ${item('auditoria', 'config-auditoria', t('audTitulo'))}
         </div>` : ''}
       </nav>

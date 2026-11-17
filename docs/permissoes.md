@@ -21,8 +21,9 @@
 | Liberar claim (reatribuir) | ✅ | ✅ | — | — | — | — |
 | Anexar cotações | ✅ | ✅ | — | ✅ | — | — |
 | Indicar cotação preferida | ✅ | ✅ | — | ✅ | — | — |
-| Aprovar pedido (menos o que abriu ou cotou) | ✅ | ✅ | ✅ | — | — | — |
-| Reprovar pedido (menos o que abriu ou cotou) | ✅ | ✅ | ✅ | — | — | — |
+| Aprovar pedido (menos o que abriu ou cotou; com alçada, só no nível atual e uma vez por pedido) | ✅ | ✅ | ✅ | — | — | — |
+| Reprovar pedido (menos o que abriu ou cotou; com alçada, quem está no nível atual) | ✅ | ✅ | ✅ | — | — | — |
+| Definir a alçada de aprovação da empresa | ✅ | ⚠️ das empresas dele | — | — | — | — |
 | Executar compra (menos a do pedido que aprovou) | ✅ | ✅ | — | ✅ | — | — |
 | Confirmar entrega | ✅ | ✅ | — | ⚠️ só o responsável | — | ✅ |
 | Registrar parcela / comprovante (menos do pedido que aprovou) | ✅ | ✅ | — | — | ✅ | — |
@@ -51,6 +52,7 @@
    - separação de funções: quem abriu ou cotou o pedido (o comprador responsável) não o aprova nem reprova, e quem o aprovou não registra a compra nem o pagamento (parcelas, comprovante e conclusão). Vale para todos, o supremo inclusive, e a tela usa a mesma conferência (`impedimentoDeFuncao`, em `js/utils.js`) para esconder a ação e dizer por quê;
    - o supremo segue as etapas como um gestor de todas as empresas: não pula etapas nem abre pedido já adiantado, grava com a entrada do histórico e assina com o próprio UID. O poder a mais dele fica na administração: usuários, convites, empresas, categorias e o contador dos números;
    - motivo e cotação: reprovar e cancelar exigem o motivo da lista e, em "Outros", o texto; o pedido reaberto traz a justificativa; o pedido só vai a "Em aprovação" apontando, em `cotacaoIndicadaId`, uma cotação que já existia e sai do lote marcada como indicada;
+   - alçada (`/alcadas/{empresaId}`, `js/alcadas.js`): o gestor da empresa ou o supremo define faixas de valor com até 3 níveis (quem aprova, por perfil ou por pessoa, e quantas aprovações), com o registro da auditoria. Ao entrar em aprovação, o pedido guarda o retrato da faixa em que cai o valor da cotação indicada, e as regras conferem faixa, valor e níveis contra a alçada. Daí em diante cada voto entra na lista do nível atual, só de quem está nele e não votou em nenhum nível; o nível completo passa ao seguinte e o último aprova. Quem votou em qualquer nível conta como quem aprovou (não compra nem paga). Mudar a alçada não mexe nos pedidos que já estão em aprovação. As regras conferem a forma das faixas; o conteúdo de cada nível fica com o app, porque conferi-lo nível a nível passa das 1.000 expressões por gravação;
    - a marca `isDemo` nasce com o pedido e não muda: ninguém transforma um pedido real em pedido da demo;
    - cotações e parcelas: escrita pelo perfil certo e só em pedidos da empresa (cotações, só pelo comprador que assumiu o pedido ou por um gestor, e só enquanto o pedido está em cotação: depois, nada muda nelas); comentários, histórico e anexos assinados por quem escreve; editar um comentário muda só o texto (com `editadoEm`: na tela, o autor edita o próprio, que fica marcado como editado), e editar ou apagar vale só dentro da empresa do pedido; apagar um comentário fica com o gestor da empresa e o supremo, não com o autor (o anexo, apaga quem o enviou ou um gestor da empresa);
    - nada muda sem registro: a edição do pedido, a cotação, o anexo e o comprovante só são aceitos com a entrada do histórico gravada no mesmo lote, do tipo certo e assinada por quem grava (a edição e o comprovante apontam para ela em `ultimaEdicaoId` e `comprovanteEventoId`; a cotação e o anexo usam o próprio ID na entrada);

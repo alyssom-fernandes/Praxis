@@ -19,6 +19,9 @@ import {
 import {
   MAX_LINHAS, MAX_NOME, lerCSV, decodificarArquivo, classificarFornecedores, contarSituacoes,
 } from '../js/fornecedores-csv.js'
+import {
+  faixaDoValor, retratoAprovacao, situacaoAprovacao, aplicarVoto, votouNoPedido, problemasDaAlcada, limparAlcada,
+} from '../js/alcadas.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -413,4 +416,75 @@ test('importação: o mesmo arquivo duas vezes não cria nada na segunda', () =>
   // As linhas que não entraram continuam de fora pelo mesmo motivo
   assert.deepEqual(segunda.filter(i => i.situacao === 'recusada' || i.situacao === 'conflito').map(i => i.motivo.chave),
     primeira.filter(i => i.situacao === 'recusada' || i.situacao === 'conflito').map(i => i.motivo.chave))
+})
+
+// ── Alçadas de aprovação ───────────────────────────────────────
+const NV1 = { nome: 'Aprovação', perfis: ['aprovador', 'gestor'], usuarios: [], minimo: 1 }
+const NV2 = { nome: 'Diretoria', perfis: [], usuarios: ['u-dir1', 'u-dir2'], minimo: 2 }
+const ALCADA = { faixas: [{ ate: 1000, niveis: [NV1] }, { ate: 50000, niveis: [NV1, NV2] }, { ate: null, niveis: [NV2] }] }
+
+test('alçada: o valor cai na faixa certa, com o teto incluído', () => {
+  assert.equal(faixaDoValor(ALCADA.faixas, 0), 0)
+  assert.equal(faixaDoValor(ALCADA.faixas, 1000), 0)
+  assert.equal(faixaDoValor(ALCADA.faixas, 1000.01), 1)
+  assert.equal(faixaDoValor(ALCADA.faixas, 50000), 1)
+  assert.equal(faixaDoValor(ALCADA.faixas, 1e9), 2)
+  assert.equal(retratoAprovacao(null, 10), null)
+  assert.deepEqual(retratoAprovacao(ALCADA, 5000), {
+    aprovacao: { faixa: 1, valor: 5000, niveis: [NV1, NV2], nivelAtual: 0, votos: {} },
+    aprovadorIds: [],
+  })
+  assert.deepEqual(retratoAprovacao(ALCADA, 90000).aprovadorIds, ['u-dir1', 'u-dir2'])
+})
+
+test('alçada: vota quem está no nível, uma vez; o nível completo avança e o último aprova', () => {
+  const aprovador = { id: 'u-apr', perfil: 'aprovador' }
+  const dir1 = { id: 'u-dir1', perfil: 'gestor' }
+  const dir2 = { id: 'u-dir2', perfil: 'supremo' }
+  let p = { solicitanteId: 'u-sol', compradorId: 'u-com', ...retratoAprovacao(ALCADA, 5000) }
+  // Quem abriu ou cotou não decide; o comprador não está em nenhum nível
+  assert.equal(impedimentoDeFuncao(p, { id: 'u-sol', perfil: 'gestor' }, 'decidir'), 'abriu')
+  assert.equal(impedimentoDeFuncao(p, { id: 'u-com', perfil: 'comprador' }, 'decidir'), 'cotou')
+  assert.equal(impedimentoDeFuncao(p, { id: 'u-fin', perfil: 'financeiro' }, 'decidir'), 'foraDoNivel')
+  assert.equal(impedimentoDeFuncao(p, aprovador, 'decidir'), null)
+  assert.deepEqual(situacaoAprovacao(p), { numero: 1, total: 2, nome: 'Aprovação', minimo: 1, votos: [], faltam: 1, nivel: NV1 })
+
+  let v = aplicarVoto(p, 'u-apr')
+  assert.equal(v.resultado, 'avancou')
+  assert.deepEqual(v.campos.aprovadorIds, ['u-dir1', 'u-dir2'])
+  p = { ...p, ...v.campos }
+  assert.equal(p.aprovacao.nivelAtual, 1)
+  // Quem votou não vota de novo, nem em outro nível, e não compra nem paga
+  assert.equal(impedimentoDeFuncao(p, aprovador, 'decidir'), 'votou')
+  assert.equal(impedimentoDeFuncao(p, aprovador, 'comprar'), 'aprovou')
+  assert.equal(impedimentoDeFuncao(p, aprovador, 'pagar'), 'aprovou')
+  // No nível 2 só as pessoas da diretoria, pelo nome
+  assert.equal(impedimentoDeFuncao(p, { id: 'u-ges', perfil: 'gestor' }, 'decidir'), 'foraDoNivel')
+  assert.equal(impedimentoDeFuncao(p, dir1, 'decidir'), null)
+
+  v = aplicarVoto(p, 'u-dir1')
+  assert.equal(v.resultado, 'voto')
+  p = { ...p, ...v.campos }
+  assert.equal(situacaoAprovacao(p).faltam, 1)
+  v = aplicarVoto(p, 'u-dir2')
+  assert.equal(v.resultado, 'aprovado')
+  assert.deepEqual(v.campos.aprovacao.votos, { 0: ['u-apr'], 1: ['u-dir1', 'u-dir2'] })
+  assert.ok(votouNoPedido({ ...p, ...v.campos }, 'u-dir2'))
+  assert.equal(impedimentoDeFuncao({ ...p, ...v.campos }, dir2, 'comprar'), 'aprovou')
+  // Sem alçada, tudo como antes
+  assert.equal(impedimentoDeFuncao({ solicitanteId: 'x' }, aprovador, 'decidir'), null)
+})
+
+test('alçada: o editor confere faixas e níveis antes de gravar', () => {
+  assert.deepEqual(problemasDaAlcada(ALCADA.faixas), [])
+  assert.deepEqual(problemasDaAlcada([]), [{ chave: 'alcErroSemFaixa' }])
+  const chaves = f => problemasDaAlcada(f).map(p => `${p.chave}@${p.faixa || ''}.${p.nivel || ''}`)
+  assert.deepEqual(chaves([{ ate: 5000, niveis: [NV1] }, { ate: 1000, niveis: [NV1] }, { ate: null, niveis: [NV1] }]), ['alcErroOrdem@2.'])
+  assert.deepEqual(chaves([{ ate: null, niveis: [] }]), ['alcErroNiveis@1.'])
+  assert.deepEqual(chaves([{ ate: null, niveis: [{ ...NV1, nome: ' ', perfis: [] }] }]), ['alcErroNomeNivel@1.1', 'alcErroQuem@1.1', 'alcErroMinimo@1.1'])
+  assert.deepEqual(chaves([{ ate: null, niveis: [{ ...NV2, minimo: 3 }] }]), ['alcErroMinimo@1.1'])
+  assert.deepEqual(chaves([{ ate: 0, niveis: [NV1] }, { ate: null, niveis: [NV1] }]), ['alcErroTeto@1.'])
+  // No formato gravado: a última faixa sem teto, perfis em ordem e nomes aparados
+  assert.deepEqual(limparAlcada([{ ate: '1000', niveis: [{ nome: ' Dir ', perfis: ['gestor', 'aprovador'], usuarios: ['a', 'a'], minimo: '1' }] }]),
+    [{ ate: null, niveis: [{ nome: 'Dir', perfis: ['aprovador', 'gestor'], usuarios: ['a'], minimo: 1 }] }])
 })

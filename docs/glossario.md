@@ -12,6 +12,8 @@ Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos 
 | Cotação | Quote | Uma proposta de fornecedor registrada pelo comprador, com valor, prazo e condições | Orçamento (no sentido de proposta) |
 | Cotação indicada | Selected quote | A cotação que o comprador recomenda; indicar leva o pedido para "Em aprovação" | Cotação escolhida, vencedora |
 | Fornecedor | Supplier | Quem vende; nasce na primeira cotação ou na importação de um CSV | Vendedor |
+| Alçada | Approval limits | Quem aprova cada pedido da empresa, por faixa de valor da cotação indicada: de 1 a 3 níveis em sequência, cada um com quem aprova (perfil ou pessoa) e quantas aprovações. Sem alçada, um aprovador decide | Workflow de aprovação, matriz |
+| Nível | Level | Uma etapa da alçada ("Diretoria"); o pedido passa ao nível seguinte quando o atual tem as aprovações pedidas | Passo, estágio |
 | Importar CSV | Import CSV | Trazer fornecedores de uma planilha (cabeçalho com "nome" e, se houver, "CNPJ"), com prévia de cada linha (novo, já cadastrado, completa o CNPJ, conflito, recusada) antes de gravar. Exemplo em `docs/exemplos/fornecedores.csv` | Upload, carga |
 | Parcela | Installment | Cada pagamento da compra, com vencimento e comprovante | Prestação |
 | Centro de custo | Cost center | Código interno de quem paga a compra, opcional | |

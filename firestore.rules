@@ -125,7 +125,7 @@ service cloud.firestore {
         return d.keys().hasOnly(['autorId', 'autorNome', 'em', 'entidade', 'entidadeId', 'nome', 'acao',
             'antes', 'depois', 'empresaIds', 'isDemo']) &&
           d.autorId == eu() && d.em is timestamp && (!horaDoServidor || d.em == request.time) &&
-          d.entidade in ['usuario', 'convite', 'empresa', 'categoria', 'fornecedor'] &&
+          d.entidade in ['usuario', 'convite', 'empresa', 'categoria', 'fornecedor', 'alcada'] &&
           d.entidadeId is string && d.acao in ['criar', 'editar', 'apagar'] &&
           d.empresaIds is list && d.empresaIds.size() <= 30 &&
           (!registroId.matches('apagou-.*') ||
@@ -279,6 +279,43 @@ service cloud.firestore {
       allow delete: if temPerfil() && eSupremo() && auditadaAoApagar('empresa', empresaId);
     }
 
+    // ── Alçadas de aprovação ───────────────────────────────────
+    // Uma por empresa (o ID é o da empresa): faixas de valor em ordem, a
+    // última sem teto, cada uma com 1 a 3 níveis em sequência (quem aprova,
+    // por perfil ou por pessoa, e quantas aprovações o nível pede). Muda só
+    // o gestor da empresa ou o supremo, com o registro da auditoria. Os
+    // pedidos guardam o retrato da faixa ao entrar em aprovação (abaixo).
+    match /alcadas/{empresaId} {
+      // Faixa i de n: de 1 a 3 níveis; a última sem teto, as outras com teto
+      // acima da anterior. O conteúdo de cada nível (nome, perfis, pessoas e
+      // aprovações) é conferido pelo app (js/alcadas.js): conferir nível a
+      // nível passa das 1.000 expressões que as regras avaliam por gravação
+      // (medido no emulador: três faixas de três níveis já não cabem). Um nível
+      // malformado não abre brecha: o voto confere perfil, pessoa e número de
+      // aprovações no retrato, e o gestor ainda cancela o pedido
+      function faixaOk(fs, i) {
+        return fs.size() <= i || (
+          fs[i].keys().hasOnly(['ate', 'niveis']) && fs[i].niveis is list &&
+          fs[i].niveis.size() >= 1 && fs[i].niveis.size() <= 3 &&
+          (i == fs.size() - 1 ? fs[i].ate == null :
+            ((fs[i].ate is int || fs[i].ate is float) && fs[i].ate > 0 && (i == 0 || fs[i].ate > fs[i - 1].ate))));
+      }
+      function alcadaValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['faixas', 'auditoriaId', 'atualizadoEm', 'isDemo']) &&
+          d.faixas is list && d.faixas.size() >= 1 && d.faixas.size() <= 6 &&
+          faixaOk(d.faixas, 0) && faixaOk(d.faixas, 1) && faixaOk(d.faixas, 2) &&
+          faixaOk(d.faixas, 3) && faixaOk(d.faixas, 4) && faixaOk(d.faixas, 5);
+      }
+      function daEmpresaDaAlcada() {
+        return temPerfil() && (eSupremo() || (eGestor() && temAcessoEmpresa(empresaId)));
+      }
+      allow read:   if temPerfil() || leDemo();
+      allow create, update: if (daEmpresaDaAlcada() && alcadaValida() && !marcadoDemo(request.resource.data) &&
+        auditada('alcada', empresaId)) || gravaDemo(empresaId);
+      allow delete: if (daEmpresaDaAlcada() && auditadaAoApagar('alcada', empresaId)) || leDemo();
+    }
+
     // ── Categorias ─────────────────────────────────────────────
     match /categorias/{catId} {
       allow read:   if temPerfil() || leDemo();
@@ -333,7 +370,66 @@ service cloud.firestore {
       // Separação de funções: quem abriu ou cotou o pedido não decide sobre
       // ele, e quem o aprovou não registra a compra nem o pagamento
       function cotou()   { return resource.data.get('compradorId', null) == eu(); }
-      function aprovou() { return resource.data.get('aprovadoPor', null) == eu(); }
+      // Aprovou: decidiu sozinho ou votou em algum nível da alçada
+      function aprovou() {
+        return resource.data.get('aprovadoPor', null) == eu() ||
+          eu() in resource.data.get(['aprovacao', 'votos', '0'], []) ||
+          eu() in resource.data.get(['aprovacao', 'votos', '1'], []) ||
+          eu() in resource.data.get(['aprovacao', 'votos', '2'], []);
+      }
+
+      // ── Alçada (ver /alcadas) ──
+      // Ao entrar em aprovação, o pedido de empresa com alçada guarda o retrato
+      // da faixa em que cai o valor da cotação indicada: a faixa, o valor, os
+      // níveis iguais aos da alçada, o primeiro nível e nenhum voto; e a fila
+      // (aprovadorIds) com as pessoas do primeiro nível. Sem alçada, nada disso
+      function caminhoAlcada() {
+        return /databases/$(database)/documents/alcadas/$(resource.data.empresaId);
+      }
+      function retratoDaAlcada() {
+        let d = request.resource.data;
+        let a = d.get('aprovacao', null);
+        let fs = get(caminhoAlcada()).data.faixas;
+        let valor = getAfter(caminhoCotacao(d.cotacaoIndicadaId)).data.valor;
+        return a is map && a.keys().hasOnly(['faixa', 'valor', 'niveis', 'nivelAtual', 'votos']) &&
+          a.faixa is int && a.faixa >= 0 && a.faixa < fs.size() && a.valor == valor &&
+          (fs[a.faixa].ate == null || valor <= fs[a.faixa].ate) &&
+          (a.faixa == 0 || valor > fs[a.faixa - 1].ate) &&
+          a.niveis == fs[a.faixa].niveis && a.nivelAtual == 0 && a.votos == {} &&
+          d.get('aprovadorIds', []) == fs[a.faixa].niveis[0].usuarios;
+      }
+      function temAlcada() { return resource.data.get('aprovacao', null) != null; }
+      // Vota no nível atual quem está nele (pelo perfil ou pelo nome), não abriu
+      // nem cotou o pedido e não votou em nenhum nível
+      function noNivelAtual() {
+        let a = resource.data.aprovacao;
+        let nv = a.niveis[a.nivelAtual];
+        return eAprovador() && !oSolicitante() && !cotou() && !aprovou() &&
+          (eu() in nv.usuarios || perfil() in nv.perfis);
+      }
+      // O voto entra na lista do nível. Se o nível completa, o pedido passa ao
+      // seguinte (com a fila dele) ou, no último, fica aprovado
+      function votar() {
+        let a0 = resource.data.aprovacao;
+        let a1 = request.resource.data.get('aprovacao', {});
+        let n = a0.nivelAtual;
+        let k = string(n);
+        let votos = a0.votos.get(k, []).concat([eu()]);
+        let completo = votos.size() >= a0.niveis[n].minimo;
+        let ultimo = n == a0.niveis.size() - 1;
+        return resource.data.status == 'em_aprovacao' && noNivelAtual() &&
+          a1.diff(a0).affectedKeys().hasOnly(['votos', 'nivelAtual']) &&
+          a1.votos.diff(a0.votos).affectedKeys().hasOnly([k]) && a1.votos[k] == votos && (
+            (!completo && a1.nivelAtual == n && request.resource.data.status == 'em_aprovacao' &&
+              mudouSo(['aprovacao', 'atualizadoEm'])) ||
+            (completo && !ultimo && a1.nivelAtual == n + 1 && request.resource.data.status == 'em_aprovacao' &&
+              request.resource.data.get('aprovadorIds', []) == a0.niveis[n + 1].usuarios &&
+              mudouSo(['aprovacao', 'aprovadorIds', 'atualizadoEm'])) ||
+            (completo && ultimo && a1.nivelAtual == n && request.resource.data.status == 'aprovado' &&
+              request.resource.data.aprovadoPor == eu() &&
+              mudouSo(['status', 'aprovacao', 'aprovadorIds', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']))
+          );
+      }
 
       // Reprovar e cancelar exigem o motivo da lista e, em "Outros", o texto
       function motivoDado(campo, campoOutros) {
@@ -397,17 +493,22 @@ service cloud.firestore {
       }
       function indicarCotacao() {
         return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
-          cotacaoIndicadaValida() &&
-          mudouSo(['status', 'cotacaoIndicadaId', 'atualizadoEm']);
+          cotacaoIndicadaValida() && (
+            (!exists(caminhoAlcada()) && mudouSo(['status', 'cotacaoIndicadaId', 'atualizadoEm'])) ||
+            (exists(caminhoAlcada()) && retratoDaAlcada() &&
+              mudouSo(['status', 'cotacaoIndicadaId', 'aprovacao', 'aprovadorIds', 'atualizadoEm']))
+          );
       }
-      // Quem abriu ou cotou o pedido não decide sobre ele
+      // Quem abriu ou cotou o pedido não decide sobre ele. Com alçada, a
+      // aprovação é por votos (votar); reprovar, quem está no nível atual
       function aprovar() {
-        return de('em_aprovacao', 'aprovado') && eAprovador() && !oSolicitante() && !cotou() &&
+        return de('em_aprovacao', 'aprovado') && !temAlcada() && eAprovador() && !oSolicitante() && !cotou() &&
           request.resource.data.aprovadoPor == eu() &&
           mudouSo(['status', 'aprovadoPor', 'aprovadoPorNome', 'aprovadoEm', 'atualizadoEm']);
       }
       function reprovar() {
         return de('em_aprovacao', 'reprovado') && eAprovador() && !oSolicitante() && !cotou() &&
+          (!temAlcada() || noNivelAtual()) &&
           request.resource.data.reprovadoPor == eu() &&
           motivoDado('motivoReprovacao', 'motivoReprovacaoOutros') &&
           mudouSo(['status', 'reprovadoPor', 'reprovadoPorNome', 'reprovadoEm',
@@ -485,7 +586,7 @@ service cloud.firestore {
           alcancaEmpresa(resource.data.empresaId) &&
           request.resource.data.empresaId == resource.data.empresaId && (
             visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
-            aprovar() || reprovar() || comprar() || receber() || pagar() ||
+            aprovar() || (temAlcada() && votar()) || reprovar() || comprar() || receber() || pagar() ||
             cancelar() || editar() || reabrir()
           ))
       );

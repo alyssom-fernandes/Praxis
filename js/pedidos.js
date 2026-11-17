@@ -1112,6 +1112,8 @@ function _aplicarPill(lista, filtro) {
         return lista.filter(p => {
           if (_TERMINAIS.includes(p.status)) return false
           if (p.urgente) return true
+          // Com alçada, o que espera o voto desta pessoa no nível atual
+          if (p.status === STATUS.EM_APROVACAO && p.aprovacao && !impedimentoDeFuncao(p, sessao.usuario, 'decidir')) return true
           const ts = _tsDate(p.atualizadoEm)
           return ts && (agora - ts.getTime()) > h48
         })
@@ -1556,7 +1558,12 @@ async function _tentarMoverPedido(id, statusOrigem, statusDestino) {
   const uid = sessao.usuario.id
   const impedeDecidir = p && statusDestino === STATUS.APROVADO && impedimentoDeFuncao(p, sessao.usuario, 'decidir')
   if (impedeDecidir) {
-    prxToast(impedeDecidir === 'abriu' ? t('semDecidirProprio') : t('semDecidirCotou'), 'error')
+    prxToast({ abriu: t('semDecidirProprio'), cotou: t('semDecidirCotou'), votou: t('semDecidirVotou') }[impedeDecidir] || t('semDecidirNivel'), 'error')
+    return
+  }
+  // Com alçada, a aprovação é por nível, com o voto registrado: no detalhe
+  if (p?.aprovacao && statusDestino === STATUS.APROVADO) {
+    prxToast(t('alcadaNoDetalhe'), 'info', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id }) }] })
     return
   }
   if (p && statusDestino === STATUS.PAGO && impedimentoDeFuncao(p, sessao.usuario, 'pagar')) {

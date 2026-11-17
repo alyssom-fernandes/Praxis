@@ -107,7 +107,7 @@ function planoDoPedido(antes, depois) {
         { email: true, ids: [depois.solicitanteId, depois.compradorId], excluir: [depois.reprovadoPor] }))
       break
     case 'cancelado':
-      // aprovadorIds fica reservado para a alçada por valor (C07); hoje vem vazio
+      // aprovadorIds: com alçada (js/alcadas.js), as pessoas do nível atual
       avisos.push(_aviso('pedido_cancelado', 'Pedido cancelado',
         _comMotivo(`${nome} foi cancelado.`, motivoDe(depois, 'motivoCancelamento')),
         { email: true,

@@ -1,5 +1,5 @@
 // Auditoria administrativa: quem mudou usuário, perfil, convite, empresa,
-// categoria e fornecedor (pelo cadastro), e quando.
+// categoria, fornecedor (pelo cadastro) e alçada de aprovação, e quando.
 //
 // Cada mudança vai num lote com o seu registro em /auditoria. As regras
 // (firestore.rules, "auditada") recusam a mudança sem um registro novo que
@@ -13,7 +13,7 @@
 import { auth, db, doc, collection, writeBatch, serverTimestamp, eContaDemo } from './firebase.js'
 import { sessao } from './estado.js'
 
-export const ENTIDADES = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor' }
+export const ENTIDADES = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor', alcadas: 'alcada' }
 
 // Campos que não contam como mudança: datas de controle e a própria ligação
 const _IGNORADOS = new Set(['auditoriaId', 'atualizadoEm', 'criadoEm', 'criadaEm', 'ultimoAcesso', 'criadoPor', 'criadoPorNome', 'isDemo'])

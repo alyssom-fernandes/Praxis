@@ -13,6 +13,7 @@ import { prxToast } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { dataEHora, empresasDoUsuario, hojeISO, baixarCSV } from './utils.js'
+import { textoAlcada } from './config-alcadas.js'
 import { ICO, tf, cabecalho, linhaVazia, linhasEsqueleto, esc, revelarItemLateral, completarContagensLateral } from './config-comum.js'
 
 const COLUNAS = 4
@@ -23,13 +24,13 @@ let _filtro = { pessoa: '', entidade: '', periodo: '90' }
 
 const _ENTIDADE_ROTULO = () => ({
   usuario: t('audUsuario'), convite: t('audConvite'), empresa: t('audEmpresa'),
-  categoria: t('audCategoria'), fornecedor: t('audFornecedor'),
+  categoria: t('audCategoria'), fornecedor: t('audFornecedor'), alcada: t('audAlcada'),
 })
 const _ACAO_ROTULO = () => ({ criar: t('audCriou'), editar: t('audEditou'), apagar: t('audApagou') })
 const _CAMPO_ROTULO = () => ({
   nome: t('cfgNome'), email: t('cfgEmail'), perfil: t('cfgColPerfil'), empresas: t('cfgColEmpresas'),
   ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), cor: t('audCor'),
-  expiraEm: t('audExpira'), tipo: t('audTipo'),
+  expiraEm: t('audExpira'), tipo: t('audTipo'), faixas: t('alcFaixas'),
 })
 // Campos que repetem outro no registro (o fornecedor guarda o nome em três formas)
 const _CAMPOS_OCULTOS = new Set(['nomeOriginal', 'nomeExibicao'])
@@ -40,6 +41,7 @@ function _valor(campo, v) {
   if (v == null || v === '') return '—'
   if (campo === 'perfil') return PERFIS_LABEL[v] || v
   if (campo === 'empresas' && Array.isArray(v)) return v.map(id => _empresas[id] || id).join(', ') || '—'
+  if (campo === 'faixas') return textoAlcada(v)
   if (typeof v === 'boolean') return v ? t('sim') : t('nao')
   if (campo === 'expiraEm' || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v))) return dataEHora(v)
   if (typeof v === 'object') return JSON.stringify(v)

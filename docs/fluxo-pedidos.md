@@ -47,8 +47,8 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 |---|---|---|---|
 | Solicitado | Ag. cotação | Comprador, Gestor, Supremo | Claim via `runTransaction` — o primeiro vence |
 | Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada: o pedido guarda a indicada em `cotacaoIndicadaId`, e as regras conferem que ela existe e saiu do lote marcada. Daí em diante as cotações não mudam |
-| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova |
-| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto), conferido pelas regras; quem abriu ou cotou o pedido não reprova |
+| Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova. Com alçada na empresa (Administração › Alçadas), o pedido entra com o retrato da faixa do valor da cotação indicada e passa pelos níveis em ordem: cada voto conta no nível atual, o nível completo passa ao seguinte e o último aprova; cada pessoa vota uma vez por pedido |
+| Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto), conferido pelas regras; quem abriu ou cotou o pedido não reprova; com alçada, reprova quem está no nível atual |
 | Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas; quem aprovou não registra a compra |
 | Comprado | Entregue | Comprador que assumiu, Solicitante, Gestor, Supremo | Data de entrega real |
 | Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão |

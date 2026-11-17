@@ -1,6 +1,6 @@
 import {
   auth, db, storage,
-  doc, collection, where, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
+  doc, collection, where, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
   runTransaction, writeBatch, serverTimestamp, increment,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, eContaDemo,
@@ -21,6 +21,7 @@ import {
   empresasDoUsuario, textoPrazo, mensagemDeErro, dataEHora,
 } from './utils.js'
 import { agendarDuplicar } from './pedidos.js'
+import { retratoAprovacao, situacaoAprovacao, estaNoNivel, aplicarVoto } from './alcadas.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 
 let _unsubPedido    = null
@@ -853,6 +854,12 @@ function _renderDecisao(acoes) {
           if (maior > ind.valor) fatos.push([t('economiaLabel'), dinheiro(maior - ind.valor), t('dtFrenteMaisCara')])
         }
       } else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
+      // Alçada: o nível em que o pedido está e quantas aprovações faltam nele
+      const alc = situacaoAprovacao(p)
+      if (alc) {
+        fatos.push([t('dtAlcada'), `<span class="dt-numeral">${t('dtAlcadaNumero', { nivel: alc.numero, total: alc.total })}</span>`,
+          t(alc.faltam === 1 ? 'dtAlcadaFalta1' : 'dtAlcadaFaltam', { nome: esc(alc.nome), n: alc.faltam })])
+      }
       resp = _respAprovadores()
       break
     }
@@ -985,14 +992,18 @@ function _renderDecisao(acoes) {
     </section>`
 }
 
-// Quem pode decidir este pedido: os aprovadores do pedido ou da empresa, menos
-// quem o abriu ou cotou (separação de funções)
+// Quem pode decidir este pedido: com alçada, quem está no nível atual (pelo
+// perfil ou pelo nome); sem ela, os aprovadores da empresa. Menos quem abriu,
+// cotou ou já votou (separação de funções)
 function _aprovadoresDoPedido() {
   const p = _pedido
-  return (p.aprovadorIds?.length
-    ? p.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
-    : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && u.ativo !== false &&
-        empresasDoUsuario(u).includes(p.empresaId)))
+  const s = situacaoAprovacao(p)
+  const daEmpresa = u => u.ativo !== false && (u.perfil === PERFIS.SUPREMO || empresasDoUsuario(u).includes(p.empresaId))
+  return (s
+    ? _usuarios.filter(u => daEmpresa(u) && estaNoNivel(s.nivel, u))
+    : p.aprovadorIds?.length
+      ? p.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
+      : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && daEmpresa(u)))
     .filter(u => !impedimentoDeFuncao(p, u, 'decidir'))
 }
 
@@ -1008,7 +1019,9 @@ function _respAprovadores() {
   const lista = _aprovadoresDoPedido()
   if (!lista.length) {
     const souAprov = _souAprovadorLivre()
-    return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null, vazio: t('dtAprovadoresEmpresa') }
+    // Com alçada, o nome do nível ("Diretoria") no lugar de "aprovadores da empresa"
+    return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null,
+      vazio: situacaoAprovacao(_pedido)?.nome || t('dtAprovadoresEmpresa') }
   }
   const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` ${t('dtEMais', { n: lista.length - 2 })}` : '')
   return { papel: t('aprovadoresLabel'), nome: nomes, pessoas: lista.slice(0, 2) }
@@ -1076,7 +1089,9 @@ function _renderPessoaAprovadores() {
     return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, em ? t('dtReprovouEm', { d: dataAbsoluta(em) }) : t('dtReprovou'), '', 'text-red')
   }
   const lista = _aprovadoresDoPedido()
-  const status = p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
+  const alc = p.status === STATUS.EM_APROVACAO ? situacaoAprovacao(p) : null
+  const status = alc ? t('dtAlcadaPessoa', { nivel: alc.numero, total: alc.total, nome: esc(alc.nome) })
+    : p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
     : [STATUS.SOLICITADO, STATUS.AG_COTACAO].includes(p.status) ? t('dtEntraAposCotacoes')
     : p.status === STATUS.CANCELADO ? t('dtNaoChegouAprovacao') : ''
   if (!lista.length) {
@@ -1277,6 +1292,13 @@ function _renderActivityFeed() {
       return evento(icone('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
         `${t('feedAlterou', { quem: quem || t('feedAlguem'), campo: `<strong>${esc(_rotuloCampo(item))}</strong>` })}
          <div class="feed-nota"><span class="feed-antes">${esc(_valorEdicao(item, item.valorAnterior))}</span> → ${esc(_valorEdicao(item, item.valorNovo))}</div>`, ts)
+    }
+
+    // Voto num nível da alçada (o último voto vira a entrada "Aprovado")
+    if (item._feedTipo === 'voto') {
+      return evento(icone('<polyline points="20 6 9 17 4 12"/>'),
+        `${t('feedVotou', { quem: quem || t('feedAlguem'), nivel: item.nivel, total: item.nivelTotal, nome: `<strong>${esc(item.nivelNome || '')}</strong>` })}${item.avancou
+          ? `<div class="feed-nota">${t('feedVotoAvancou', { nivel: item.nivel + 1 })}</div>` : ''}`, ts)
     }
 
     if (item._feedTipo === 'anexo') {
@@ -1586,6 +1608,7 @@ async function _liberarClaim() {
 }
 
 async function _aprovarPedido() {
+  if (situacaoAprovacao(_pedido)) return _votarNaAlcada()
   const ind = _cotacoes.find(c => c.indicada)
   const ok = await prxConfirm(t('dlgAprovarTitulo'),
     ind ? t('dlgAprovarTextoInd', { fornecedor: ind.fornecedorNome, valor: formatCurrency(ind.valor) }) : t('dlgAprovarTexto'),
@@ -1608,6 +1631,58 @@ async function _aprovarPedido() {
       _historicoJunto(tx, STATUS.APROVADO)
     })
     prxToast(t('pedidoAprovado'), 'success')
+  } catch (err) {
+    prxToast(mensagemDeErro(err, t('erroAprovar')), 'error')
+  } finally {
+    esconderSpinner()
+  }
+}
+
+// Com alçada: a aprovação conta para o nível atual. Quando o nível completa,
+// o pedido passa ao seguinte ou, no último, fica aprovado; tudo numa
+// transação, com a entrada do histórico (firestore.rules, votar)
+async function _votarNaAlcada() {
+  const s = situacaoAprovacao(_pedido)
+  const ultimo = s.numero === s.total
+  const fecha = s.faltam <= 1
+  const ok = await prxConfirm(t('dlgVotoTitulo'),
+    t(fecha ? (ultimo ? 'dlgVotoAprova' : 'dlgVotoAvanca') : 'dlgVotoConta',
+      { nivel: s.numero, total: s.total, nome: s.nome, faltam: s.faltam - 1 }),
+    t('btnAprovar'), t('btnCancelar'))
+  if (!ok) return
+  if (!exigirConexao()) return
+  mostrarSpinner()
+  try {
+    const resultado = await runTransaction(db, async (tx) => {
+      const ref  = doc(db, 'pedidos', _pedidoId)
+      const snap = await tx.get(ref)
+      const atual = snap.data()
+      if (atual.status !== STATUS.EM_APROVACAO) throw new Error(t('pedidoJaProcessado'))
+      if (impedimentoDeFuncao(atual, sessao.usuario, 'decidir')) throw new Error(t('votoJaContado'))
+      const agora = situacaoAprovacao(atual)
+      const { campos, resultado } = aplicarVoto(atual, sessao.usuario.id)
+      tx.update(ref, {
+        ...campos,
+        ...(resultado === 'aprovado' ? {
+          status: STATUS.APROVADO,
+          aprovadoPor: sessao.usuario.id,
+          aprovadoPorNome: sessao.usuario.nome || null,
+          aprovadoEm: serverTimestamp(),
+        } : {}),
+        atualizadoEm: serverTimestamp(),
+      })
+      const dados = { nivel: agora.numero, total: agora.total, nome: agora.nome }
+      if (resultado === 'aprovado') _historicoJunto(tx, STATUS.APROVADO, { chave: 'notaAprovouAlcada', dados })
+      else {
+        tx.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
+          tipo: 'voto', nivel: agora.numero, nivelTotal: agora.total, nivelNome: agora.nome,
+          avancou: resultado === 'avancou',
+          autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || null, criadoEm: serverTimestamp(),
+        })
+      }
+      return resultado
+    })
+    prxToast(t(resultado === 'aprovado' ? 'pedidoAprovado' : resultado === 'avancou' ? 'votoAvancou' : 'votoContado'), 'success')
   } catch (err) {
     prxToast(mensagemDeErro(err, t('erroAprovar')), 'error')
   } finally {
@@ -2222,7 +2297,10 @@ async function _indicarCotacao(cotacaoId) {
   try {
     // Troca a indicação e, se ainda em cotação, avança para aprovação: tudo
     // num lote só, com a entrada do histórico. O pedido guarda qual cotação
-    // foi indicada, e as regras só o deixam seguir com ela (firestore.rules)
+    // foi indicada, e as regras só o deixam seguir com ela (firestore.rules).
+    // Com alçada na empresa, o pedido guarda também o retrato da faixa em que
+    // cai o valor da cotação (js/alcadas.js), conferido pelas regras
+    const retrato = _pedido.status === STATUS.AG_COTACAO && c ? retratoAprovacao(await _alcadaDaEmpresa(), c.valor) : null
     const lote = writeBatch(db)
     for (const c of _cotacoes) {
       if (c.indicada && c.id !== cotacaoId) lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
@@ -2232,6 +2310,7 @@ async function _indicarCotacao(cotacaoId) {
       lote.update(doc(db, 'pedidos', _pedidoId), {
         status: STATUS.EM_APROVACAO,
         cotacaoIndicadaId: cotacaoId,
+        ...(retrato || {}),
         atualizadoEm: serverTimestamp(),
       })
       _historicoJunto(lote, STATUS.EM_APROVACAO, { chave: 'notaIndicada' })
@@ -2242,6 +2321,18 @@ async function _indicarCotacao(cotacaoId) {
     prxToast(t('erroIndicarCotacao'), 'error')
   } finally {
     esconderSpinner()
+  }
+}
+
+// A alçada da empresa do pedido, ou null quando ela não tem (na demo, a
+// leitura de um documento que não existe é negada: também vale como sem)
+async function _alcadaDaEmpresa() {
+  try {
+    const snap = await getDoc(doc(db, 'alcadas', _pedido.empresaId))
+    return snap.exists() ? snap.data() : null
+  } catch (err) {
+    if (!eContaDemo()) console.warn('Alçada indisponível:', err?.code || err?.message)
+    return null
   }
 }
 
@@ -2455,7 +2546,11 @@ function _avisoDeFuncao(acao, perfisDoPasso) {
   if (!perfisDoPasso.includes(sessao.usuario.perfil)) return ''
   const motivo = impedimentoDeFuncao(_pedido, sessao.usuario, acao)
   if (!motivo) return ''
-  if (acao === 'decidir') return motivo === 'abriu' ? t('dtNaoDecideAbriu') : t('dtNaoDecideCotou')
+  if (acao === 'decidir') {
+    if (motivo === 'votou') return t('dtJaVotou')
+    if (motivo === 'foraDoNivel') return t('dtForaDoNivel', { nome: esc(situacaoAprovacao(_pedido)?.nome || '') })
+    return motivo === 'abriu' ? t('dtNaoDecideAbriu') : t('dtNaoDecideCotou')
+  }
   return acao === 'comprar' ? t('dtNaoCompraAprovou') : t('dtNaoPagaAprovou')
 }
 
@@ -2705,6 +2800,7 @@ async function _exportarPedidoPDF() {
                      : h.tipo === 'comprovante' ? t('pdfEvComprovante', { parcela: h.parcelaNumero || '' })
                      : h.tipo === 'edicao'      ? t('pdfEvEdicao', { campo: _rotuloCampo(h) })
                      : h.tipo === 'anexo'       ? t('pdfEvAnexo', { arquivo: h.nomeArquivo || '—' })
+                     : h.tipo === 'voto'        ? t('pdfEvVoto', { nivel: h.nivel, total: h.nivelTotal, nome: h.nivelNome || '' })
                      : t('pdfEvStatus', { etapa: STATUS_LABEL[h.status] || h.status || '—' })
         const obs = h.tipo === 'edicao'
           ? t('pdfDePara', { de: _valorEdicao(h, h.valorAnterior), para: _valorEdicao(h, h.valorNovo) })

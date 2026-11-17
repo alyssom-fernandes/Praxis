@@ -47,7 +47,7 @@ const db = quem => env.authenticatedContext(...conta[quem]).firestore()
 
 // Gravação administrativa como o app faz (js/auditoria.js): no mesmo lote, o
 // registro novo na auditoria e o documento com auditoriaId
-const ENTIDADE = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor' }
+const ENTIDADE = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor', alcadas: 'alcada' }
 let _seqAud = 0
 function registro(quem, entidade, entidadeId, acao, extra = {}) {
   return { autorId: conta[quem][0], autorNome: 'Teste', em: serverTimestamp(), entidade, entidadeId, acao,
@@ -1080,4 +1080,128 @@ test('auditoria na demo: grava e lê só o que é da demo, e a renovação apaga
   await assertSucceeds(deleteDoc(doc(d, 'auditoria/demo-reg')))
   // O gestor não grava registro marcado como demo
   await assertFails(setDoc(doc(db('gestor'), 'auditoria/falso'), registro('gestor', 'categoria', 'cat1', 'editar', { isDemo: true })))
+})
+
+// ── Alçadas de aprovação (C07) ─────────────────────────────────
+// Até R$ 1.000, um aprovador ou gestor; acima, o mesmo nível e depois a
+// diretoria (duas pessoas)
+const N1 = { nome: 'Aprovação', perfis: ['aprovador', 'gestor'], usuarios: [], minimo: 1 }
+const N2 = { nome: 'Diretoria', perfis: [], usuarios: ['u-sup', 'u-ges'], minimo: 2 }
+const FAIXAS = [{ ate: 1000, niveis: [N1] }, { ate: null, niveis: [N1, N2] }]
+const retrato = (extra = {}) => ({ faixa: 1, valor: 5000, niveis: [N1, N2], nivelAtual: 0, votos: {}, ...extra })
+
+async function comAlcada(faixas = FAIXAS) {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'alcadas/e1'), { faixas })
+  })
+}
+
+test('alçada: só o gestor da empresa ou o supremo grava, com o registro e faixas válidas', async () => {
+  await assertSucceeds(auditado('gestor', 'alcadas/e1', { faixas: FAIXAS }, { tipo: 'set' }))
+  await assertFails(auditado('gestorE2', 'alcadas/e1', { faixas: FAIXAS }))
+  await assertFails(auditado('aprovador', 'alcadas/e1', { faixas: FAIXAS }))
+  await assertFails(setDoc(doc(db('gestor'), 'alcadas/e1'), { faixas: FAIXAS }))
+  await assertSucceeds(auditado('supremo', 'alcadas/e1', { faixas: [{ ate: null, niveis: [N1] }] }))
+  // Todo perfil lê (o comprador precisa dela para indicar a cotação)
+  await assertSucceeds(getDoc(doc(db('comprador'), 'alcadas/e1')))
+  await assertFails(getDoc(doc(db('semPerfil'), 'alcadas/e1')))
+  // Faixas fora do formato
+  const ruim = faixas => auditado('gestor', 'alcadas/e1', { faixas })
+  await assertFails(ruim([]))
+  await assertFails(ruim([{ ate: 1000, niveis: [N1] }]))                                   // a última com teto
+  await assertFails(ruim([{ ate: 5000, niveis: [N1] }, { ate: 1000, niveis: [N1] }, { ate: null, niveis: [N1] }]))
+  await assertFails(ruim([{ ate: null, niveis: [N1, N1, N1, N1] }]))                       // quatro níveis
+  await assertFails(ruim([{ ate: null, niveis: [] }]))                                     // faixa sem nível
+  await assertFails(ruim([{ ate: null, niveis: [N1], extra: 1 }]))
+  // O conteúdo de cada nível fica com o app: conferi-lo aqui passa das
+  // 1.000 expressões por gravação (três faixas de três níveis já não cabem)
+  await assertFails(ruim(Array.from({ length: 7 }, (_, i) => ({ ate: i === 6 ? null : (i + 1) * 100, niveis: [N1] }))))
+  await assertSucceeds(ruim(Array.from({ length: 6 }, (_, i) => ({ ate: i === 5 ? null : (i + 1) * 100, niveis: [N1, N2, N1] }))))
+  // Apagar: só com o registro de ID fixo
+  await assertFails(deleteDoc(doc(db('gestor'), 'alcadas/e1')))
+  await assertSucceeds(apagarAuditado('gestor', 'alcadas/e1'))
+})
+
+test('alçada: o pedido entra em aprovação com o retrato da faixa em que cai o valor', async () => {
+  await comAlcada()
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/cotDoc'), pedido({ status: 'ag_cotacao', compradorId: 'u-doc' }))
+    await setDoc(doc(f, 'pedidos/cotDoc/cotacoes/q1'), { valor: 5000, fornecedorNome: 'Fornecedor', indicada: false })
+  })
+  // Como o app grava, por quem não tem claims (o caso com mais leituras nas regras)
+  const indicar = (extra) => {
+    const c = db('semClaims')
+    const lote = writeBatch(c)
+    lote.update(doc(c, 'pedidos/cotDoc/cotacoes/q1'), { indicada: true })
+    lote.update(doc(c, 'pedidos/cotDoc'), { status: 'em_aprovacao', cotacaoIndicadaId: 'q1', ...extra })
+    lote.set(doc(collection(c, 'pedidos/cotDoc/historico')), { status: 'em_aprovacao', autorId: 'u-doc', criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(indicar({}))                                                            // sem o retrato
+  await assertFails(indicar({ aprovacao: retrato({ faixa: 0, niveis: [N1] }), aprovadorIds: [] })) // a faixa mais fácil
+  await assertFails(indicar({ aprovacao: retrato({ niveis: [N1, { ...N2, minimo: 1 }] }), aprovadorIds: [] }))
+  await assertFails(indicar({ aprovacao: retrato({ valor: 900 }), aprovadorIds: [] }))
+  await assertFails(indicar({ aprovacao: retrato({ nivelAtual: 1 }), aprovadorIds: [] }))
+  await assertFails(indicar({ aprovacao: retrato({ votos: { 0: ['u-apr'] } }), aprovadorIds: [] }))
+  await assertFails(indicar({ aprovacao: retrato(), aprovadorIds: ['u-apr'] }))             // fila que não é a do nível
+  await assertSucceeds(indicar({ aprovacao: retrato(), aprovadorIds: [] }))
+  // Sem alçada na empresa, o retrato não entra
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/cotando/cotacoes/q1'), { valor: 10, fornecedorNome: 'F', indicada: false })
+    await deleteDoc(doc(f, 'alcadas/e1'))
+  })
+  const semAlcada = extra => {
+    const c = db('comprador')
+    const lote = writeBatch(c)
+    lote.update(doc(c, 'pedidos/cotando/cotacoes/q1'), { indicada: true })
+    lote.update(doc(c, 'pedidos/cotando'), { status: 'em_aprovacao', cotacaoIndicadaId: 'q1', ...extra })
+    return lote.commit()
+  }
+  await assertFails(semAlcada({ aprovacao: retrato({ faixa: 0, valor: 10, niveis: [N1] }), aprovadorIds: [] }))
+  await assertSucceeds(semAlcada({}))
+})
+
+test('alçada: cada nível com os seus votos, sem pular nível nem votar duas vezes', async () => {
+  await comAlcada()
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/alc'), pedido({ status: 'em_aprovacao', compradorId: 'u-com', aprovacao: retrato(), aprovadorIds: [] }))
+  })
+  const votar = (quem, campos) => updateDoc(doc(db(quem), 'pedidos/alc'), campos)
+  const nivel1 = votos => ({ 'aprovacao.votos': { 0: votos }, 'aprovacao.nivelAtual': 1, aprovadorIds: N2.usuarios })
+  // Com alçada, ninguém aprova sozinho
+  await assertFails(votar('aprovador', { status: 'aprovado', aprovadoPor: 'u-apr' }))
+  // Nível 1: um aprovador ou gestor; o solicitante, não
+  await assertFails(votar('solicitante', nivel1(['u-sol'])))
+  await assertFails(votar('aprovador', { ...nivel1(['u-apr']), 'aprovacao.nivelAtual': 2 }))  // pula nível
+  await assertFails(votar('aprovador', { ...nivel1(['u-apr']), aprovadorIds: [] }))           // fila errada
+  await assertFails(votar('aprovador', nivel1(['u-ges'])))                                    // voto de outra pessoa
+  await assertSucceeds(votar('aprovador', nivel1(['u-apr'])))
+  // Nível 2: só as duas pessoas da diretoria, uma de cada vez
+  await assertFails(votar('aprovador', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-apr'] } }))
+  await assertFails(votar('gestor', { status: 'aprovado', aprovadoPor: 'u-ges', 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges'] } }))
+  await assertSucceeds(votar('gestor', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges'] } }))
+  await assertFails(votar('gestor', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-ges'] } }))
+  // O último voto completa o nível: o pedido fica aprovado no mesmo passo
+  await assertFails(votar('supremo', { 'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-sup'] } }))
+  await assertSucceeds(votar('supremo', { status: 'aprovado', aprovadoPor: 'u-sup', aprovadoPorNome: 'Sup', aprovadorIds: [],
+    'aprovacao.votos': { 0: ['u-apr'], 1: ['u-ges', 'u-sup'] } }))
+  // Quem votou em qualquer nível não compra nem paga
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/alc'), { status: 'comprado', valorFinal: 5000 }))
+  await assertSucceeds(updateDoc(doc(db('comprador'), 'pedidos/alc'), { status: 'comprado', valorFinal: 5000 }))
+})
+
+test('alçada: reprova quem está no nível atual; o pedido de antes segue com um aprovador', async () => {
+  await comAlcada()
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/alc'), pedido({ status: 'em_aprovacao', compradorId: 'u-com',
+      aprovacao: retrato({ nivelAtual: 1, votos: { 0: ['u-apr'] } }), aprovadorIds: N2.usuarios }))
+  })
+  const reprovar = quem => updateDoc(doc(db(quem), 'pedidos/alc'),
+    { status: 'reprovado', reprovadoPor: conta[quem][0], motivoReprovacao: 'Valor acima do mercado' })
+  await assertFails(reprovar('aprovador'))     // já votou e não está no nível 2
+  await assertSucceeds(reprovar('gestor'))
+  // O pedido que entrou em aprovação antes da alçada: decide um aprovador
+  await assertSucceeds(updateDoc(doc(db('aprovador'), 'pedidos/emAprov'), { status: 'aprovado', aprovadoPor: 'u-apr' }))
 })

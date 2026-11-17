@@ -28,6 +28,20 @@ import {
   serverTimestamp, Timestamp,
 } from './firebase.js'
 import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
+import { retratoAprovacao } from './alcadas.js'
+
+// Alçada de exemplo na Nexara e na Veltora (as empresas da Beatriz): até
+// R$ 10 mil, um aprovador ou gestor; acima, também a diretoria (o Artur).
+// Os pedidos em cotação acima de R$ 10 mil mostram os dois níveis quando a
+// Diana indica a cotação
+const EMPRESAS_COM_ALCADA = ['nexara', 'veltora']
+function _alcadaDaDemo(P) {
+  const aprovacao = { nome: 'Aprovação', perfis: ['aprovador', 'gestor'], usuarios: [], minimo: 1 }
+  return { faixas: [
+    { ate: 10000, niveis: [aprovacao] },
+    { ate: null, niveis: [aprovacao, { nome: 'Diretoria', perfis: [], usuarios: [P.supremo], minimo: 1 }] },
+  ] }
+}
 
 const SUBCOLECOES = ['cotacoes', 'comentarios', 'notasInternas', 'parcelas', 'historico', 'anexos']
 const CATEGORIAS_BASE = [
@@ -190,6 +204,16 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     })
   }
   const colegaDa = Object.fromEntries(COLEGAS_DEMO.map(c => [c.empresas[0], c.id]))
+
+  // Alçadas (o ID é o da empresa)
+  const alcada = _alcadaDaDemo(P)
+  const alcadaDe = {}
+  for (const key of EMPRESAS_COM_ALCADA) {
+    const id = empresaMap[key]
+    if (!id) continue
+    lote.set(doc(db, 'alcadas', id), { ...alcada, isDemo: true, atualizadoEm: agoraTs })
+    alcadaDe[id] = alcada
+  }
   const resumo = []
 
   // 3. Categorias: reaproveita as da demo pelo nome; cria as que faltarem
@@ -250,10 +274,13 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
       entregue: P.comprador, pago: P.financeiro, cancelado: solicitante,
     }
     const comentaristas = [solicitante, temComprador ? P.comprador : P.gestor, P.aprovador]
+    // Em aprovação numa empresa com alçada: o retrato da faixa, como o app grava
+    const empresaId = empresaMap[empresaKey] || empresasIds[0] || ''
+    const retrato = dados.status === 'em_aprovacao' && indicada ? retratoAprovacao(alcadaDe[empresaId], indicada.valor) : null
 
     lote.set(pedRef, {
       ...dados,
-      empresaId:          empresaMap[empresaKey] || empresasIds[0] || '',
+      empresaId,
       categoriaId:        categoriaMap[categoriaKey] || '',
       solicitanteId:      solicitante,
       solicitanteNome:    nomeDe[solicitante],
@@ -273,6 +300,7 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
       motivoReprovacaoOutros:   dados.motivoReprovacaoOutros || null,
       fornecedorId:       indicada ? (fornMap[_normalizar(indicada.fornecedorNome)] || null) : null,
       cotacaoIndicadaId:  iIndicada >= 0 ? refsCotacao[iIndicada].id : null,
+      ...(retrato || {}),
       numeroPedido,
       isDemo:             true,
       criadoEm:           hist.length ? tsHist[0] : agoraTs,
@@ -374,6 +402,11 @@ function _auditoriaDaDemo({ seed, P, nomeDe, empresaMap, categoriaMap, fornMap, 
       antes: null, depois: { nome: 'Júlia Reis', perfil: 'comprador', empresas: [empresaMap.nexara].filter(Boolean) },
       empresaIds: [empresaMap.nexara].filter(Boolean) },
   ]
+  if (empresaMap.nexara) {
+    const nexara = (seed.empresas || []).find(e => e.key === 'nexara')
+    lista.push({ horas: 24 * 12, autor: P.gestor, entidade: 'alcada', entidadeId: empresaMap.nexara, nome: nexara?.nome || '',
+      acao: 'criar', antes: null, depois: _alcadaDaDemo(P), empresaIds: [empresaMap.nexara] })
+  }
   if (forn) {
     lista.push({ horas: 6, autor: P.supremo, entidade: 'fornecedor', entidadeId: fornMap[_normalizar(forn.nome)], nome: forn.nome,
       acao: 'editar', antes: { cnpj: '' }, depois: { cnpj: forn.cnpj }, empresaIds: [] })
