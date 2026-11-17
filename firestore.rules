@@ -453,7 +453,13 @@ service cloud.firestore {
       function cotacaoIndicadaValida() {
         let id = request.resource.data.get('cotacaoIndicadaId', null);
         return id is string && id.size() > 0 && exists(caminhoCotacao(id)) &&
-          getAfter(caminhoCotacao(id)).data.get('indicada', false) == true;
+          getAfter(caminhoCotacao(id)).data.get('indicada', false) == true &&
+          getAfter(caminhoCotacao(id)).data.get('semProduto', false) != true;
+      }
+      // Com uma cotação só, o comprador diz por quê (o app pede; aqui, o formato)
+      function motivoCotacaoUnicaOk() {
+        let m = request.resource.data.get('motivoCotacaoUnica', null);
+        return m == null || (m is string && m.size() <= 300);
       }
 
       // O pedido reaberto traz a justificativa de quem o reabriu
@@ -499,10 +505,10 @@ service cloud.firestore {
       }
       function indicarCotacao() {
         return de('ag_cotacao', 'em_aprovacao') && eComprador() && oComprador() &&
-          cotacaoIndicadaValida() && (
-            (!exists(caminhoAlcada()) && mudouSo(['status', 'cotacaoIndicadaId', 'atualizadoEm'])) ||
+          cotacaoIndicadaValida() && motivoCotacaoUnicaOk() && (
+            (!exists(caminhoAlcada()) && mudouSo(['status', 'cotacaoIndicadaId', 'motivoCotacaoUnica', 'atualizadoEm'])) ||
             (exists(caminhoAlcada()) && retratoDaAlcada() &&
-              mudouSo(['status', 'cotacaoIndicadaId', 'aprovacao', 'aprovadorIds', 'atualizadoEm']))
+              mudouSo(['status', 'cotacaoIndicadaId', 'motivoCotacaoUnica', 'aprovacao', 'aprovadorIds', 'atualizadoEm']))
           );
       }
       // Quem abriu ou cotou o pedido não decide sobre ele. Com alçada, a
@@ -524,13 +530,80 @@ service cloud.firestore {
       // Quem aprovou não registra a compra nem o pagamento
       function comprar() {
         return de('aprovado', 'comprado') && eComprador() && oComprador() && (livre() || !aprovou()) &&
+          notaFiscalOk() &&
           mudouSo(['status', 'fornecedorId', 'fornecedorNome', 'valorFinal',
-                   'condicaoPagamento', 'dataCompra', 'atualizadoEm']);
+                   'condicaoPagamento', 'dataCompra', 'notaFiscal', 'atualizadoEm']);
       }
-      // Recebe o comprador responsável (ou um gestor) ou quem pediu
+      // Recebe o comprador responsável (ou um gestor) ou quem pediu. A compra
+      // já feita que foi paga antes de chegar fecha o pedido ao ser recebida
       function receber() {
-        return de('comprado', 'entregue') && ((eComprador() && oComprador()) || oSolicitante()) &&
+        let jaPago = resource.data.get(['lancamento', 'pago'], false) == true;
+        return ((!jaPago && de('comprado', 'entregue')) || (jaPago && de('comprado', 'pago'))) &&
+          ((eComprador() && oComprador()) || oSolicitante()) &&
           mudouSo(['status', 'dataEntrega', 'atualizadoEm']);
+      }
+      // Número ou chave de acesso da nota (até 60 caracteres)
+      function notaFiscalOk() {
+        let n = request.resource.data.get('notaFiscal', null);
+        return n == null || (n is string && n.size() <= 60);
+      }
+      // A nota que chega depois da compra: quem comprou, quem pediu, o
+      // financeiro ou um gestor informam, com a entrada do histórico
+      function informarNota() {
+        return resource.data.status in ['comprado', 'entregue', 'pago'] &&
+          ((eComprador() && oComprador()) || oSolicitante() || eFinanceiro()) &&
+          notaFiscalOk() && request.resource.data.get('notaFiscal', null) != null &&
+          mudouSo(['notaFiscal', 'atualizadoEm', 'ultimaEdicaoId']) &&
+          registraNoHistorico(request.resource.data.get('ultimaEdicaoId', ''), 'edicao');
+      }
+
+      // ── Compra já feita (lançamento) ──
+      // Quem tem acesso à empresa registra uma compra que já aconteceu: o
+      // pedido nasce em "Comprado" (ainda não chegou), "Entregue" (chegou, a
+      // pagar) ou "Pago", em nome de quem lança, com quem pediu, quem
+      // autorizou e quem comprou (pessoas do Praxis ou só o nome) e o motivo.
+      // A autorização fica confirmada quando quem lança é quem autorizou; se
+      // não, fica pendente até a pessoa (ou um gestor da empresa que não lançou)
+      // confirmar ou negar. Nada de aprovação, alçada ou cotação nesse caminho
+      function pessoaOk(p) {
+        return p is map && p.keys().hasOnly(['id', 'nome']) &&
+          p.nome is string && p.nome.trim().size() > 0 && p.nome.size() <= 120 &&
+          (p.get('id', null) == null || p.id is string);
+      }
+      function lancamentoValido() {
+        let d = request.resource.data;
+        let l = d.get('lancamento', null);
+        // Só o gestor (ou o supremo) que autorizou a própria compra a lança
+        // confirmada; os outros perfis passam pela revisão
+        let euAutorizei = l.autorizadoPor.get('id', null) == eu() && eGestor();
+        return l.keys().hasOnly(['lancadoPor', 'lancadoPorNome', 'pedidoPor', 'autorizadoPor', 'compradoPor',
+            'motivo', 'recebido', 'pago', 'autorizacao', 'autorizacaoEm', 'autorizacaoPor', 'autorizacaoPorNome']) &&
+          l.lancadoPor == eu() && d.solicitanteId == eu() &&
+          pessoaOk(l.pedidoPor) && pessoaOk(l.autorizadoPor) && pessoaOk(l.compradoPor) &&
+          l.motivo is string && l.motivo.trim().size() > 0 && l.motivo.size() <= 500 &&
+          l.recebido is bool && l.pago is bool &&
+          d.status == (l.recebido ? (l.pago ? 'pago' : 'entregue') : 'comprado') &&
+          ((euAutorizei && l.autorizacao == 'confirmada' && l.autorizacaoEm == request.time && l.autorizacaoPor == eu()) ||
+           (!euAutorizei && l.autorizacao == 'pendente' && l.autorizacaoEm == null && l.autorizacaoPor == null)) &&
+          d.valorFinal is number && d.valorFinal > 0 &&
+          d.fornecedorNome is string && d.fornecedorNome.trim().size() > 0 &&
+          d.get('compradorId', null) == l.compradoPor.get('id', null) &&
+          d.get('aprovadoPor', null) == null && d.get('aprovacao', null) == null &&
+          d.get('cotacaoIndicadaId', null) == null && d.get('reabertoDe', null) == null &&
+          notaFiscalOk();
+      }
+      // Quem foi apontado como autorizador, ou um gestor da empresa, confirma
+      // ou nega, uma vez, com a entrada do histórico; nunca quem lançou
+      function revisarAutorizacao() {
+        let l0 = resource.data.get('lancamento', null);
+        let l1 = request.resource.data.get('lancamento', {});
+        return l0 != null && l0.autorizacao == 'pendente' && l0.lancadoPor != eu() &&
+          (l0.autorizadoPor.get('id', null) == eu() || eGestor()) &&
+          l1.diff(l0).affectedKeys().hasOnly(['autorizacao', 'autorizacaoEm', 'autorizacaoPor', 'autorizacaoPorNome']) &&
+          l1.autorizacao in ['confirmada', 'negada'] && l1.autorizacaoEm == request.time &&
+          l1.autorizacaoPor == eu() &&
+          mudouSo(['lancamento', 'atualizadoEm', 'autorizacaoEventoId']) &&
+          registraNoHistorico(request.resource.data.get('autorizacaoEventoId', ''), 'autorizacao');
       }
       function pagar() {
         return de('entregue', 'pago') && eFinanceiro() && (livre() || !aprovou()) &&
@@ -578,15 +651,19 @@ service cloud.firestore {
         eSupremo() || resource.data.empresaId in empresasDoUsuario() ||
         resource.data.solicitanteId == eu()
       ));
-      // Todo pedido nasce em "Solicitado", aberto em nome próprio (o gestor e o
-      // supremo também abrem em nome de outra pessoa)
+      // O pedido nasce em "Solicitado", aberto em nome próprio (o gestor e o
+      // supremo também abrem em nome de outra pessoa), ou como compra já feita
+      // (lancamentoValido, acima)
       allow create: if pedidoValido() && (
         (eDemo() && idDemo(pedidoId) && marcadoDemo(request.resource.data)) ||
         (temPerfil() && !idDemo(pedidoId) && !marcadoDemo(request.resource.data) &&
-          alcancaEmpresa(request.resource.data.empresaId) &&
-          request.resource.data.status == 'solicitado' &&
-          (request.resource.data.solicitanteId == eu() || eGestor()) &&
-          reaberturaJustificada())
+          alcancaEmpresa(request.resource.data.empresaId) && (
+            (request.resource.data.get('lancamento', null) == null &&
+              request.resource.data.status == 'solicitado' &&
+              (request.resource.data.solicitanteId == eu() || eGestor()) &&
+              reaberturaJustificada()) ||
+            (request.resource.data.get('lancamento', null) is map && lancamentoValido())
+          ))
       );
       allow update: if pedidoValido() && mesmaMarcaDemo() && (
         leDemo() || (temPerfil() &&
@@ -597,7 +674,7 @@ service cloud.firestore {
             // aprovado: poupa expressões dos outros passos (limite de 1.000)
             aprovar() || (temAlcada() && request.resource.data.status in ['em_aprovacao', 'aprovado'] && votar()) ||
             reprovar() || comprar() || receber() || pagar() ||
-            cancelar() || editar() || reabrir()
+            cancelar() || editar() || reabrir() || informarNota() || revisarAutorizacao()
           ))
       );
       // Pedidos nunca são deletados (apenas cancelados), exceto os da demo na renovação
@@ -685,9 +762,16 @@ service cloud.firestore {
       // O financeiro registra o pagamento (pago, pagoEm) e anexa o comprovante,
       // menos quem aprovou o pedido (o supremo, sim); o comprovante vem com a
       // entrada do histórico, no mesmo lote
+      // A compra já feita grava as parcelas na mesma transação em que o pedido
+      // nasce, por quem lança (o pedido ainda não existe para as outras regras)
+      function parcelaDoLancamento() {
+        let caminho = /databases/$(database)/documents/pedidos/$(pedidoId);
+        return temPerfil() && !exists(caminho) && existsAfter(caminho) &&
+          getAfter(caminho).data.get(['lancamento', 'lancadoPor'], null) == eu();
+      }
       match /parcelas/{parcelaId} {
         allow read: if areaDemo() || (temPerfil() && veOPedido());
-        allow create: if areaDemo() || (temPerfil() && eComprador() && daEmpresa());
+        allow create: if parcelaDoLancamento() || areaDemo() || (temPerfil() && eComprador() && daEmpresa());
         allow update: if areaDemo() || (temPerfil() &&
           eFinanceiro() && daEmpresa() && (eSupremo() || pai().get('aprovadoPor', null) != eu()) && (
             mudouSo(['pago', 'pagoEm']) ||

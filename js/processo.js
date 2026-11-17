@@ -95,6 +95,8 @@ export function resumoDoProcesso(itens, janela, agora = Date.now()) {
   const compradores = {}
 
   for (const { pedido, historico } of itens || []) {
+    // A compra já feita não passou pelas etapas: fica fora do tempo do processo
+    if (pedido?.lancamento) continue
     const marcos = marcosDoPedido(pedido, historico)
     if (marcos.aberto && dentro(marcos.comprado)) ateCompra.push(marcos.comprado - marcos.aberto)
     if (marcos.aberto && dentro(marcos.pago)) atePago.push(marcos.pago - marcos.aberto)

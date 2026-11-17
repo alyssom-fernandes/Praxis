@@ -15,6 +15,7 @@ import {
   doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, writeBatch, increment, serverTimestamp,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getBytes, deleteObject, listAll } from 'firebase/storage'
+import { montarLancamento, revisaoDaAutorizacao } from '../js/lancamento.js'
 
 const PROJETO = 'demo-praxis'
 let env
@@ -1222,4 +1223,154 @@ test('alçada: o supremo aprova de uma vez, em qualquer nível, mesmo tendo cota
     'aprovacao.votos': { 0: ['u-sup'] } }))
   // E registra a compra do que aprovou
   await assertSucceeds(updateDoc(doc(db('supremo'), 'pedidos/alcSup'), { status: 'comprado', valorFinal: 5000 }))
+})
+
+// ── Compra já feita (lançamento) ───────────────────────────────
+// Como o app grava (js/lancamento.js): o pedido já na etapa certa e as
+// parcelas no mesmo lote, por quem lança
+let _seqLanc = 0
+const compraFeita = (extra = {}) => ({
+  titulo: 'Lâmpadas da pista', empresaId: 'e1', fornecedorNome: 'Casa do Construtor', valorFinal: 120.5,
+  dataCompra: '2026-11-15', pedidoPor: { id: 'u-ges', nome: 'Ges' }, autorizadoPor: { id: null, nome: 'Gerente do posto' },
+  compradoPor: { id: null, nome: 'José, serviços gerais' }, motivo: 'urgente', recebido: true, pago: true, ...extra,
+})
+function lancar(quem, v, { id = `lanc-${++_seqLanc}`, mexer = x => x, parcelasDe = null } = {}) {
+  const f = db(quem)
+  const [uid, claims] = conta[quem]
+  const { pedido: ped, parcelas } = montarLancamento(v, { id: uid, nome: 'Quem lança', perfil: claims.perfil }, serverTimestamp())
+  const lote = writeBatch(f)
+  lote.set(doc(f, `pedidos/${id}`), mexer({ ...ped, numeroPedido: 'PRX-0100' }))
+  parcelas.forEach((p, i) => lote.set(doc(f, `pedidos/${parcelasDe || id}/parcelas/p${i}`), p))
+  return lote.commit()
+}
+const lancamentoDe = async id => {
+  let d
+  await env.withSecurityRulesDisabled(async ctx => { d = (await getDoc(doc(ctx.firestore(), `pedidos/${id}`))).data() })
+  return d
+}
+
+test('compra já feita: quem é da empresa lança, já na etapa certa, com as parcelas no mesmo lote', async () => {
+  // Chegou e foi paga; chegou e falta pagar (3 parcelas); ainda não chegou
+  await assertSucceeds(lancar('solicitante', compraFeita(), { id: 'lancPago' }))
+  await assertSucceeds(lancar('solicitante', compraFeita({ pago: false, parcelas: 3, vencimento: '2026-12-10' }), { id: 'lancAPagar' }))
+  await assertSucceeds(lancar('comprador', compraFeita({ recebido: false }), { id: 'lancACaminho' }))
+  // Pela conta sem claims (perfil lido do documento), dentro do limite de expressões
+  await assertSucceeds(lancar('semClaims', compraFeita()))
+  const [pago, aPagar, aCaminho] = await Promise.all(['lancPago', 'lancAPagar', 'lancACaminho'].map(lancamentoDe))
+  assert.equal(pago.status, 'pago')
+  assert.equal(aPagar.status, 'entregue')
+  assert.equal(aCaminho.status, 'comprado')
+  // Quem não é gestor fica com a autorização pendente, mesmo dizendo que autorizou
+  assert.equal(pago.lancamento.autorizacao, 'pendente')
+  await assertFails(lancar('solicitante', compraFeita({ autorizadoPor: { id: 'u-sol', nome: 'Sol' } }), {
+    mexer: x => ({ ...x, lancamento: { ...x.lancamento, autorizacao: 'confirmada', autorizacaoEm: serverTimestamp(), autorizacaoPor: 'u-sol', autorizacaoPorNome: 'Sol' } }),
+  }))
+  // O gestor que autorizou a própria compra a lança confirmada
+  await assertSucceeds(lancar('gestor', compraFeita({ autorizadoPor: { id: 'u-ges', nome: 'Ges' } }), { id: 'lancGes' }))
+  assert.equal((await lancamentoDe('lancGes')).lancamento.autorizacao, 'confirmada')
+})
+
+test('compra já feita: sem forjar etapa, comprador, aprovação, empresa nem autor', async () => {
+  // Etapa que não bate com recebido e pago
+  await assertFails(lancar('solicitante', compraFeita({ recebido: false }), { mexer: x => ({ ...x, status: 'pago' }) }))
+  // Comprador do Praxis diferente de quem comprou
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, compradorId: 'u-com' }) }))
+  // Aprovação, cotação indicada ou alçada forjadas
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, aprovadoPor: 'u-apr' }) }))
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, cotacaoIndicadaId: 'q1' }) }))
+  // Empresa que não é da pessoa, ou em nome de outra pessoa
+  await assertFails(lancar('solicitante', compraFeita({ empresaId: 'e2' })))
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, solicitanteId: 'u-com' }) }))
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, lancamento: { ...x.lancamento, lancadoPor: 'u-com' } }) }))
+  // Sem motivo, sem valor, sem fornecedor, sem quem comprou
+  await assertFails(lancar('solicitante', compraFeita({ motivo: ' ' })))
+  await assertFails(lancar('solicitante', compraFeita({ valorFinal: 0 })))
+  await assertFails(lancar('solicitante', compraFeita({ fornecedorNome: ' ' })))
+  await assertFails(lancar('solicitante', compraFeita({ compradoPor: { id: null, nome: '' } })))
+  // Campo a mais no lançamento
+  await assertFails(lancar('solicitante', compraFeita(), { mexer: x => ({ ...x, lancamento: { ...x.lancamento, extra: 1 } }) }))
+  // A parcela "de lançamento" não entra em pedido que já existe
+  await assertFails(lancar('solicitante', compraFeita({ pago: false, parcelas: 1, vencimento: '2026-12-10' }), { parcelasDe: 'p1' }))
+  // O pedido comum continua nascendo só em "Solicitado", sem lançamento
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/novoComum'), pedido({ status: 'pago' })))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/novoComum'), pedido({ lancamento: 'x' })))
+  await assertSucceeds(setDoc(doc(db('solicitante'), 'pedidos/novoComum'), pedido()))
+})
+
+test('compra já feita: a autorização é revisada por quem foi apontado ou por um gestor, nunca por quem lançou', async () => {
+  await lancar('solicitante', compraFeita({ autorizadoPor: { id: 'u-apr', nome: 'Apr' } }), { id: 'lancA' })
+  await lancar('solicitante', compraFeita(), { id: 'lancB' })
+  const revisar = async (quem, id, resultado = 'confirmada', { historico = true } = {}) => {
+    const atual = await lancamentoDe(id)
+    const f = db(quem)
+    const ev = doc(collection(f, `pedidos/${id}/historico`))
+    const lote = writeBatch(f)
+    lote.update(doc(f, `pedidos/${id}`), revisaoDaAutorizacao(atual, { id: conta[quem][0], nome: 'Revisor' }, resultado, serverTimestamp(), ev.id))
+    if (historico) lote.set(ev, { tipo: 'autorizacao', resultado, autorId: conta[quem][0], autorNome: 'Revisor', criadoEm: serverTimestamp() })
+    return lote.commit()
+  }
+  await assertFails(revisar('solicitante', 'lancA'))            // quem lançou
+  await assertFails(revisar('comprador', 'lancA'))              // nem apontado nem gestor
+  await assertFails(revisar('aprovador', 'lancA', 'confirmada', { historico: false }))
+  await assertFails(revisar('aprovador', 'lancA', 'aprovada'))  // só confirmar ou negar
+  await assertSucceeds(revisar('aprovador', 'lancA'))           // a pessoa apontada
+  await assertFails(revisar('gestor', 'lancA', 'negada'))       // uma vez só
+  await assertFails(revisar('gestorE2', 'lancB'))               // gestor de outra empresa
+  await assertSucceeds(revisar('gestor', 'lancB', 'negada'))    // nome digitado: um gestor da empresa
+  assert.equal((await lancamentoDe('lancA')).lancamento.autorizacao, 'confirmada')
+  assert.equal((await lancamentoDe('lancB')).lancamento.autorizacao, 'negada')
+})
+
+test('compra já feita paga antes de chegar: ao receber, o pedido fecha em "Pago"', async () => {
+  await lancar('solicitante', compraFeita({ recebido: false }), { id: 'lancC' })
+  const receber = (quem, id, status) => {
+    const f = db(quem)
+    const lote = writeBatch(f)
+    lote.update(doc(f, `pedidos/${id}`), { status, dataEntrega: '2026-11-17' })
+    lote.set(doc(collection(f, `pedidos/${id}/historico`)), { status, autorId: conta[quem][0], criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(receber('solicitante', 'lancC', 'entregue'))
+  await assertSucceeds(receber('solicitante', 'lancC', 'pago'))
+  // O pedido comum continua: comprado vai para entregue, nunca direto para pago
+  await assertFails(receber('comprador', 'comprado', 'pago'))
+  await assertSucceeds(receber('comprador', 'comprado', 'entregue'))
+})
+
+test('cotação única com motivo, cotação sem o produto e a nota fiscal da compra', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    const f = ctx.firestore()
+    await setDoc(doc(f, 'pedidos/cotando/cotacoes/q1'), { valor: 10, fornecedorNome: 'Fornecedor', indicada: false })
+    await setDoc(doc(f, 'pedidos/cotando/cotacoes/q2'), { valor: null, fornecedorNome: 'Loja sem estoque', semProduto: true, indicada: false })
+    await setDoc(doc(f, 'pedidos/aprovadoX'), pedido({ status: 'aprovado', compradorId: 'u-com', aprovadoPor: 'u-apr' }))
+  })
+  const indicar = (cotacaoId, extra = {}) => {
+    const f = db('comprador')
+    const lote = writeBatch(f)
+    lote.update(doc(f, `pedidos/cotando/cotacoes/${cotacaoId}`), { indicada: true })
+    lote.update(doc(f, 'pedidos/cotando'), { status: 'em_aprovacao', cotacaoIndicadaId: cotacaoId, ...extra })
+    lote.set(doc(collection(f, 'pedidos/cotando/historico')), { status: 'em_aprovacao', autorId: 'u-com', criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(indicar('q2'))                                         // não tinha o produto
+  await assertFails(indicar('q1', { motivoCotacaoUnica: 'x'.repeat(301) }))
+  await assertSucceeds(indicar('q1', { motivoCotacaoUnica: 'Só ele tem a peça original' }))
+  // A compra leva a nota (até 60 caracteres)
+  const comprar = nota => updateDoc(doc(db('comprador'), 'pedidos/aprovadoX'),
+    { status: 'comprado', fornecedorNome: 'F', valorFinal: 10, condicaoPagamento: 'a_vista', dataCompra: '2026-11-17', notaFiscal: nota })
+  await assertFails(comprar('9'.repeat(61)))
+  await assertSucceeds(comprar('3526 1112 3456 7800 0190 5500 1000 0012 3410 0012 3456'))
+  // A nota que chega depois: com a entrada do histórico, por quem comprou ou pediu
+  const informar = (quem, { historico = true } = {}) => {
+    const f = db(quem)
+    const ev = doc(collection(f, 'pedidos/comprado/historico'))
+    const lote = writeBatch(f)
+    lote.update(doc(f, 'pedidos/comprado'), { notaFiscal: '12345', ultimaEdicaoId: ev.id })
+    if (historico) lote.set(ev, { tipo: 'edicao', campos: ['notaFiscal'], autorId: conta[quem][0], criadoEm: new Date() })
+    return lote.commit()
+  }
+  await assertFails(informar('comprador', { historico: false }))
+  await assertFails(informar('aprovador'))
+  await assertSucceeds(informar('comprador'))
+  await assertSucceeds(informar('solicitante'))
 })

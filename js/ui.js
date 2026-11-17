@@ -520,6 +520,10 @@ function _montarDialogo({ titulo, mensagem, botoes, papel = 'alertdialog', perig
   })
   document.body.appendChild(overlay)
   requestAnimationFrame(() => overlay.classList.add('visible'))
+  overlay._voltar = empilharVoltar(() => {
+    overlay._voltar = null
+    overlay.querySelector('#prx-confirm-cancel, #prx-alert-ok')?.click()
+  })
   return overlay
 }
 
@@ -567,7 +571,9 @@ export function prxEscolha(titulo, mensagem, opcoes, labelCancel = t('btnCancela
       titulo, mensagem, papel: 'dialog',
       botoes: `
         <div class="dialog-opcoes" role="group" aria-label="${esc(titulo)}">
-          ${opcoes.map((o, i) => `<button type="button" class="btn-secondary" data-opcao="${i}">${esc(o.rotulo)}</button>`).join('')}
+          ${opcoes.map((o, i) => o.desc || o.icone
+            ? `<button type="button" class="btn-secondary dialog-opcao-rica" data-opcao="${i}">${o.icone || ''}<span class="dialog-opcao-txt"><span class="dialog-opcao-rot">${esc(o.rotulo)}</span>${o.desc ? `<span class="dialog-opcao-desc">${esc(o.desc)}</span>` : ''}</span></button>`
+            : `<button type="button" class="btn-secondary" data-opcao="${i}">${esc(o.rotulo)}</button>`).join('')}
         </div>
         <button type="button" class="btn-ghost" id="prx-confirm-cancel">${esc(labelCancel)}</button>`,
     })
@@ -598,6 +604,59 @@ export function definirAtalhos(ligados) {
   try { if (ligados) localStorage.removeItem(_CHAVE_ATALHOS); else localStorage.setItem(_CHAVE_ATALHOS, 'off') } catch {}
 }
 
+// ── Voltar do celular ─────────────────────────────────────────
+// Em tela de toque, cada janela ou diálogo aberto ganha uma entrada no
+// histórico (o mesmo endereço): o voltar do Android fecha a janela de cima em
+// vez de sair da tela, como num app. Fechar pela própria janela consome a
+// entrada (history.back), e o roteador ignora esse voltar; uma navegação que
+// chegue nesse meio-tempo espera ele terminar (quandoHistoricoLivre)
+const _pilhaVoltar = []
+let _ignorarVoltar = 0
+let _aposVoltar = []
+const _toque = () => window.matchMedia?.('(pointer: coarse)').matches === true
+
+// `chave` (o id da janela) reaproveita a entrada quando a tela se redesenha
+// com a janela aberta (o detalhe do pedido, em tempo real)
+export function empilharVoltar(fechar, chave = null) {
+  if (!_toque()) return null
+  const existente = chave && _pilhaVoltar.find(i => i.chave === chave)
+  if (existente) { existente.fechar = fechar; return existente }
+  const item = { fechar, chave }
+  _pilhaVoltar.push(item)
+  history.pushState({ ...(history.state || {}), prxCamada: _pilhaVoltar.length }, '')
+  return item
+}
+export function desempilharVoltar(item) {
+  const i = item ? _pilhaVoltar.indexOf(item) : -1
+  if (i < 0) return
+  _pilhaVoltar.splice(i, 1)
+  _ignorarVoltar++
+  history.back()
+  // Se o navegador não avisar (raro), libera depois de um tempo
+  setTimeout(() => { if (_ignorarVoltar > 0) { _ignorarVoltar = 0; _liberarHistorico() } }, 600)
+}
+function _liberarHistorico() {
+  const fns = _aposVoltar
+  _aposVoltar = []
+  fns.forEach(f => f())
+}
+export function quandoHistoricoLivre(fn) {
+  if (_ignorarVoltar > 0) _aposVoltar.push(fn)
+  else fn()
+}
+// O roteador chama no popstate: true quando o voltar era de uma janela
+export function consumirVoltarDeModal() {
+  if (_ignorarVoltar > 0) {
+    _ignorarVoltar--
+    if (_ignorarVoltar === 0) _liberarHistorico()
+    return true
+  }
+  const item = _pilhaVoltar.pop()
+  if (!item) return false
+  item.fechar()
+  return true
+}
+
 // ── Modal genérico ────────────────────────────────────────────
 const _FOCUSAVEIS = 'a[href], button:not(:disabled), input:not(:disabled):not([type=hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
@@ -606,6 +665,7 @@ export function abrirModal(id) {
   if (!overlay) return
   overlay.classList.remove('closing')
   overlay.classList.add('visible')
+  if (!overlay._voltar) overlay._voltar = empilharVoltar(() => { overlay._voltar = null; fecharModal(id) }, id)
 
   // Guarda elemento que abriu para restaurar foco ao fechar
   overlay._focusTrigger = document.activeElement
@@ -639,6 +699,8 @@ export function abrirModal(id) {
 export function fecharModal(id) {
   const overlay = document.getElementById(id)
   if (!overlay || !overlay.classList.contains('visible')) return
+  const voltar = overlay._voltar || _pilhaVoltar.find(i => i.chave === id)
+  if (voltar) { desempilharVoltar(voltar); overlay._voltar = null }
 
   // Remove trap e restaura foco ao elemento que abriu o modal
   if (overlay._trapHandler) {
@@ -693,6 +755,7 @@ function criarDialogOverlay() {
 }
 
 function fecharDialog(overlay) {
+  if (overlay._voltar) { desempilharVoltar(overlay._voltar); overlay._voltar = null }
   overlay.classList.remove('visible')
   overlay.classList.add('saindo')
   const anterior = overlay._focoAnterior

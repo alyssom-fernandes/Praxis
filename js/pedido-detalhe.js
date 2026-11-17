@@ -24,6 +24,7 @@ import { agendarDuplicar } from './pedidos.js'
 import { retratoAprovacao, situacaoAprovacao, estaNoNivel, aplicarVoto } from './alcadas.js'
 import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
 import { ETAPAS_CAMINHO, TERMINAIS, msDe, transicoes, entradas, segmentosDoPedido, formatarDuracao } from './processo.js'
+import { podeRevisarAutorizacao, revisaoDaAutorizacao } from './lancamento.js'
 
 let _unsubPedido    = null
 let _unsubHistorico = null
@@ -493,8 +494,16 @@ function _renderDetalhe() {
   if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), esc(CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento)])
   if (p.dataCompra)  dados.push([t('metaDataCompra'), `<span class="dt-numeral">${formatDate(p.dataCompra)}</span>`])
   if (p.dataEntrega) dados.push([t('metaDataEntrega'), `<span class="dt-numeral">${formatDate(p.dataEntrega)}</span>`])
+  if (p.notaFiscal)  dados.push([t('dtNotaFiscal'), `<span class="mono dt-nota">${esc(_formatarNota(p.notaFiscal))}</span>`])
+  if (p.linkCompra && urlSegura(p.linkCompra)) dados.push([t('dtLinkCompra'), `<a href="${esc(urlSegura(p.linkCompra))}" target="_blank" rel="noopener">${t('dtVerAnuncio')}</a>`])
+
+  // Na compra já feita, as linhas vazias (categoria, necessário até, centro de
+  // custo) não se aplicam
+  const vazio = v => ['—', '<span class="mono">—</span>'].includes(String(v).trim())
+  const dadosVisiveis = p.lancamento ? dados.filter(([, v]) => !vazio(v)) : dados
 
   const nCot = _cotacoes.length
+  const nCotValor = _cotacoes.filter(c => !c.semProduto).length
   const cotInd = _cotacoes.find(c => c.indicada)
 
   root.innerHTML = `
@@ -508,23 +517,25 @@ function _renderDetalhe() {
       <div class="detalhe-cols">
         <div class="detalhe-main">
 
+          ${p.lancamento ? _renderLancamento() : ''}
+
           ${p.descricao ? `
             <section class="dt-bloco ord-descricao" aria-labelledby="sec-desc">
               <div class="dt-card-head"><h2 class="dt-secao" id="sec-desc">${t('dtDescricao')}</h2></div>
               <div class="detalhe-descricao"><p>${esc(p.descricao)}</p></div>
             </section>` : ''}
 
-          <section class="dt-bloco ord-cotacoes" aria-labelledby="sec-cot">
+          ${p.lancamento ? '' : `<section class="dt-bloco ord-cotacoes" aria-labelledby="sec-cot">
             <div class="dt-card-head">
               <h2 class="dt-secao" id="sec-cot">${t('secaoCotacoes')}${nCot ? `<span class="dt-contagem">${nCot}</span>` : ''}</h2>
-              ${nCot >= 2 ? `
+              ${nCotValor >= 2 ? `
                 <div class="dt-card-acoes">
                   <span class="dt-legenda">${cotInd ? t('dtComparadasIndicada') : t('dtComparadasMenor')}</span>
                   <button class="btn-ghost btn-sm" id="btn-comparar-cotacoes" title="${t('dtLadoALadoTitulo')}">${ICO.comparar}${t('dtLadoALado')}</button>
                 </div>` : ''}
             </div>
             <div id="cotacoes-list" class="cotacoes-list">${_renderCotacoes()}</div>
-          </section>
+          </section>`}
 
           ${_parcelas.length ? `
             <section class="dt-bloco ord-parcelas" aria-labelledby="sec-parc">
@@ -572,11 +583,11 @@ function _renderDetalhe() {
           <section class="dt-bloco ord-dados" aria-labelledby="sec-dados">
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-dados">${t('dtDadosPedido')}</h2></div>
             <dl class="detalhe-meta-grid">
-              ${dados.map(([k, v, cls]) => `<div class="meta-item ${cls || ''}"><dt class="meta-label">${k}</dt><dd class="meta-value">${v}</dd></div>`).join('')}
+              ${dadosVisiveis.map(([k, v, cls]) => `<div class="meta-item ${cls || ''}"><dt class="meta-label">${k}</dt><dd class="meta-value">${v}</dd></div>`).join('')}
             </dl>
           </section>
 
-          <section class="dt-bloco ord-pessoas" aria-labelledby="sec-pessoas">
+          ${p.lancamento ? '' : `<section class="dt-bloco ord-pessoas" aria-labelledby="sec-pessoas">
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-pessoas">${t('pessoasEnvolvidas')}</h2></div>
             <div class="pessoas-lista">
               ${_renderPessoa(t('solicitanteLabel'), solicNome, t('criouPedido'))}
@@ -584,7 +595,7 @@ function _renderDetalhe() {
               ${_renderPessoaAprovadores()}
               ${_renderPessoaFinanceiro()}
             </div>
-          </section>
+          </section>`}
 
           ${_renderSLATimeline()}
         </aside>
@@ -701,7 +712,124 @@ function _corpoModalCompra() {
         <input type="date" id="mc-venc1" value="${maisXDiasISO(30)}">
         <div class="form-hint" id="mc-resumo-parcelas"></div>
       </div>
+      <div class="form-group col-span-2">
+        <label for="mc-nota">${t('lancNota')} <span class="np-opcional">${t('opcional')}</span></label>
+        <input type="text" id="mc-nota" inputmode="numeric" maxlength="60" placeholder="${t('lancNotaPlaceholder')}" autocomplete="off">
+      </div>
     </div>`
+}
+
+// Chave de acesso da nota (44 dígitos) em blocos de 4, como no DANFE
+const _formatarNota = n => /^\d{44}$/.test(String(n).replace(/\s/g, '')) ? String(n).replace(/\s/g, '').match(/.{4}/g).join(' ') : n
+
+// ── Compra já feita (js/lancamento.js) ────────────────────────
+// Quem pediu, quem autorizou (com a situação da autorização), quem comprou e
+// por quê; para a pessoa apontada ou um gestor, confirmar ou não reconhecer
+function _renderLancamento() {
+  const l = _pedido.lancamento
+  const aut = l.autorizacao || 'confirmada'
+  const estado = aut === 'confirmada' ? t('lancAutConfirmada', { nome: l.autorizacaoPorNome || '' })
+    : aut === 'negada' ? t('lancAutNegada', { nome: l.autorizacaoPorNome || '' }) : t('lancAutPendente')
+  const linha = (rotulo, valor) => `<div class="lanc-linha"><dt>${rotulo}</dt><dd>${esc(valor || '—')}</dd></div>`
+  const revisa = podeRevisarAutorizacao(_pedido, sessao.usuario)
+  return `
+    <section class="dt-bloco ord-lancamento lanc-bloco lanc-${esc(aut)}" aria-labelledby="sec-lanc">
+      <div class="dt-card-head">
+        <h2 class="dt-secao" id="sec-lanc">${t('lancTitulo')}</h2>
+        <span class="selo-lanc selo-lanc-${esc(aut)}">${esc(estado)}</span>
+      </div>
+      <dl class="lanc-dados">
+        ${linha(t('lancPedidoPor'), l.pedidoPor?.nome)}
+        ${linha(t('lancAutorizadoPor'), l.autorizadoPor?.nome)}
+        ${linha(t('lancCompradoPor'), l.compradoPor?.nome)}
+        ${linha(t('lancMotivo'), t(`lancMotivo_${l.motivo}`))}
+      </dl>
+      <p class="lanc-quem">${esc(t('lancResumo', { quem: l.lancadoPorNome || '', data: dataAbsoluta(_pedido.criadoEm) }))}</p>
+      ${revisa ? `
+      <div class="lanc-revisao">
+        <p>${esc(t('lancRevisarTexto', { quem: l.lancadoPorNome || '', autorizador: l.autorizadoPor?.nome || '' }))}</p>
+        <div class="lanc-revisao-acoes">
+          <button type="button" class="btn-secondary" id="btn-lanc-negar">${t('lancNegar')}</button>
+          <button type="button" class="btn-primary" id="btn-lanc-confirmar">${ICO.check}${t('lancConfirmar')}</button>
+        </div>
+      </div>` : ''}
+    </section>`
+}
+
+async function _revisarAutorizacao(resultado) {
+  if (resultado === 'negada') {
+    const ok = await prxConfirm(t('lancNegarTitulo'), t('lancNegarTexto'), t('lancNegar'), t('btnCancelar'), true)
+    if (!ok) return
+  }
+  if (!exigirConexao()) return
+  mostrarSpinner()
+  try {
+    // A revisão e a entrada do histórico no mesmo lote (as regras exigem)
+    const lote = writeBatch(db)
+    const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
+    lote.update(doc(db, 'pedidos', _pedidoId), revisaoDaAutorizacao(_pedido, sessao.usuario, resultado, serverTimestamp(), entrada.id))
+    lote.set(entrada, {
+      tipo: 'autorizacao', resultado,
+      autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || '',
+      criadoEm: serverTimestamp(),
+    })
+    await lote.commit()
+    prxToast(t(resultado === 'negada' ? 'lancNegada' : 'lancConfirmada'), 'success')
+  } catch (err) {
+    prxToast(mensagemDeErro(err, t('lancErroRevisar')), 'error')
+  } finally {
+    esconderSpinner()
+  }
+}
+
+// A nota fiscal que chega depois da compra
+function _podeInformarNota() {
+  const p = _pedido
+  const u = sessao.usuario
+  if (![STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)) return false
+  const gestorMais = [PERFIS.GESTOR, PERFIS.SUPREMO].includes(u.perfil)
+  return (u.perfil === PERFIS.COMPRADOR && p.compradorId === u.id) || gestorMais ||
+    p.solicitanteId === u.id || u.perfil === PERFIS.FINANCEIRO
+}
+
+function _informarNota() {
+  const { overlay, fechar } = _montarOverlay('modal-nota', `
+    <div class="modal" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="modal-nota-titulo">
+      ${_cabModal('modal-nota-titulo', t('dtNotaTitulo'), 'data-fechar')}
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="nota-numero">${t('lancNota')}</label>
+          <input type="text" id="nota-numero" inputmode="numeric" maxlength="60" placeholder="${t('lancNotaPlaceholder')}" value="${esc(_pedido.notaFiscal || '')}" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
+        <button class="btn-primary" id="salvar-nota">${t('salvar')}</button>
+      </div>
+    </div>`)
+  overlay.querySelector('#salvar-nota')?.addEventListener('click', async () => {
+    const nota = overlay.querySelector('#nota-numero')?.value.trim()
+    if (!nota) { prxToast(t('erroCamposObrigatorios'), 'error'); return }
+    if (!exigirConexao()) return
+    mostrarSpinner()
+    try {
+      const lote = writeBatch(db)
+      const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
+      lote.update(doc(db, 'pedidos', _pedidoId), { notaFiscal: nota, ultimaEdicaoId: entrada.id, atualizadoEm: serverTimestamp() })
+      lote.set(entrada, {
+        tipo: 'edicao', campos: ['notaFiscal'],
+        autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || '',
+        criadoEm: serverTimestamp(),
+      })
+      await lote.commit()
+      fechar()
+      prxToast(t('notaInformada'), 'success')
+    } catch (err) {
+      prxToast(mensagemDeErro(err, t('erroInformarNota')), 'error')
+    } finally {
+      esconderSpinner()
+    }
+  })
 }
 
 // ── Ações ─────────────────────────────────────────────────────
@@ -759,6 +887,7 @@ function _acoesDoPedido() {
     menu.push({ id: 'btn-exportar-pdf', icone: ICO.pdf, label: t('btnExportarPDF') })
   }
   if (_podeLiberar()) menu.push({ id: 'btn-liberar', icone: ICO.liberar, label: t('btnLiberarPedido') })
+  if (_podeInformarNota()) menu.push({ id: 'btn-informar-nota', icone: ICO.editar, label: t('dtInformarNota') })
 
   const podeCanc = (
     (p.solicitanteId === uid && p.status === STATUS.SOLICITADO) ||
@@ -1126,16 +1255,30 @@ function _renderCotacoes() {
         : t('dtCotVazioOutros')
     return estadoVazio({ variante: 'compacto', titulo: t('dtCotVazioTitulo'), texto: sub })
   }
-  const valores = _cotacoes.map(c => c.valor || 0)
-  const menor = Math.min(...valores)
-  const maior = Math.max(...valores)
+  const comValor = _cotacoes.filter(c => !c.semProduto)
+  const valores = comValor.map(c => c.valor || 0)
+  const menor = valores.length ? Math.min(...valores) : 0
+  const maior = valores.length ? Math.max(...valores) : 0
   const ind = _cotacoes.find(c => c.indicada)
-  const ref = ind || _cotacoes.find(c => (c.valor || 0) === menor)
+  const ref = ind || comValor.find(c => (c.valor || 0) === menor)
   const podeIndicar = _podeIndicarCotacao()
-  const varias = _cotacoes.length > 1
-  const ordenadas = [..._cotacoes].sort((a, b) => (a.valor - b.valor) || (b.indicada - a.indicada))
+  const varias = comValor.length > 1
+  const ordenadas = [...comValor.sort((a, b) => (a.valor - b.valor) || (b.indicada - a.indicada)), ..._cotacoes.filter(c => c.semProduto)]
 
   const linhas = ordenadas.map(c => {
+    const anuncio = c.link && urlSegura(c.link)
+      ? `<a href="${esc(urlSegura(c.link))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerAnuncio')}" title="${t('dtVerAnuncio')}">${ICO.externo}</a>` : ''
+    if (c.semProduto) {
+      return `
+      <li class="cotacao-item sem-produto">
+        <div class="cotacao-info">
+          <div class="cotacao-fornecedor">${esc(c.fornecedorNome)}<span class="cotacao-marcas"><span class="cot-marca cot-sem-produto">${t('dtSemProduto')}</span></span></div>
+          ${c.condicoesComerciais ? `<div class="cotacao-sub">${esc(c.condicoesComerciais)}</div>` : ''}
+        </div>
+        <div class="cotacao-lado"><span class="cotacao-valor cotacao-sem-valor">—</span></div>
+        ${anuncio ? `<div class="cotacao-acoes">${anuncio}</div>` : ''}
+      </li>`
+    }
     const eRef = c === ref
     const dif = (c.valor || 0) - (ref.valor || 0)
     let difHtml = ''
@@ -1152,6 +1295,7 @@ function _renderCotacoes() {
     ].join('')
     const largura = maior ? Math.max((c.valor || 0) / maior * 100, 3) : 0
     const acoes = [
+      anuncio,
       c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
       podeIndicar && !c.indicada ? `<button class="btn-ghost btn-sm" data-indicar="${esc(c.id)}" title="${t('dtIndicarTitulo')}">${t('dtIndicar')}</button>` : '',
     ].join('')
@@ -1173,7 +1317,59 @@ function _renderCotacoes() {
   const economia = ind && varias && maior > ind.valor
     ? `<p class="cotacoes-economia">${t('dtEconomiaFrase1')} <span class="dt-numeral">${formatCurrency(maior - ind.valor)}</span> ${t('dtEconomiaFrase2')}</p>`
     : ''
-  return `<ol class="cotacoes-lista">${linhas}</ol>${economia}`
+  const m = _pedido.motivoCotacaoUnica
+  const unica = m ? `<p class="cotacoes-unica">${esc(t('dtCotacaoUnica', { motivo: _rotuloCotacaoUnica(m) }))}</p>` : ''
+  return `<ol class="cotacoes-lista">${linhas}</ol>${economia}${unica}`
+}
+
+// Motivo de uma cotação só: uma das opções (cotUnica_*) ou o texto digitado
+const _MOTIVOS_COT_UNICA = ['habitual', 'exclusivo', 'urgencia', 'negociado']
+const _rotuloCotacaoUnica = m => _MOTIVOS_COT_UNICA.includes(m) ? t(`cotUnica_${m}`) : m
+
+// Pergunta por que há uma cotação só; resolve com o motivo ou null
+function _perguntarCotacaoUnica(c) {
+  return new Promise(resolve => {
+    let resolvido = false
+    const fim = v => { if (!resolvido) { resolvido = true; resolve(v) } }
+    const { overlay, fechar } = _montarOverlay('modal-cot-unica', `
+      <div class="modal" style="max-width:480px" role="dialog" aria-modal="true" aria-labelledby="cot-unica-titulo">
+        ${_cabModal('cot-unica-titulo', t('cotUnicaTitulo'), 'data-fechar')}
+        <div class="modal-body">
+          <p class="modal-intro">${c ? `${esc(c.fornecedorNome)}, ${formatCurrency(c.valor)}. ` : ''}${t('cotUnicaTexto')}</p>
+          <div class="category-chips" id="cot-unica-opcoes" role="radiogroup" aria-labelledby="cot-unica-titulo">
+            ${[..._MOTIVOS_COT_UNICA, 'outro'].map(m => `<button type="button" class="chip" role="radio" aria-checked="false" data-motivo="${m}">${t(`cotUnica_${m}`)}</button>`).join('')}
+          </div>
+          <div class="form-group" id="cot-unica-outro-wrap" hidden>
+            <label for="cot-unica-outro">${t('cotUnicaOutro')}</label>
+            <textarea id="cot-unica-outro" rows="2" maxlength="300"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
+          <button class="btn-primary" id="cot-unica-ok">${t('dtIndicarConfirmaOk')}</button>
+        </div>
+      </div>`)
+    const grupo = overlay.querySelector('#cot-unica-opcoes')
+    grupo.addEventListener('click', e => {
+      const chip = e.target.closest('.chip')
+      if (!chip) return
+      grupo.querySelectorAll('.chip').forEach(x => { x.classList.toggle('selected', x === chip); x.setAttribute('aria-checked', String(x === chip)) })
+      const outro = chip.dataset.motivo === 'outro'
+      overlay.querySelector('#cot-unica-outro-wrap').hidden = !outro
+      if (outro) overlay.querySelector('#cot-unica-outro').focus()
+    })
+    overlay.querySelectorAll('[data-fechar]').forEach(b => b.addEventListener('click', () => fim(null)))
+    overlay.addEventListener('mousedown', e => { if (e.target === overlay) fim(null) })
+    overlay.addEventListener('keydown', e => { if (e.key === 'Escape') fim(null) })
+    overlay.querySelector('#cot-unica-ok').addEventListener('click', () => {
+      const escolha = grupo.querySelector('.chip.selected')?.dataset.motivo
+      const texto = overlay.querySelector('#cot-unica-outro').value.trim()
+      const motivo = escolha === 'outro' ? texto : escolha
+      if (!motivo) { prxToast(t('erroCamposObrigatorios'), 'error'); return }
+      fechar()
+      fim(motivo.slice(0, 300))
+    })
+  })
 }
 
 // ── Atividade ─────────────────────────────────────────────────
@@ -1182,7 +1378,9 @@ function _renderCotacoes() {
 function _renderActivityFeed() {
   const hist = _historico.map(h  => ({ ...h,  _feedTipo: h.tipo || 'status' }))
   const comt = _comentarios.map(c => ({ ...c, _feedTipo: 'comentario' }))
-  const feed = [...hist, ...comt].sort((a, b) => _tsMs(b.criadoEm) - _tsMs(a.criadoEm))
+  const l = _pedido.lancamento
+  const lanc = l ? [{ _feedTipo: 'lancamento', criadoEm: _pedido.criadoEm, autorId: l.lancadoPor, autorNome: l.lancadoPorNome }] : []
+  const feed = [...hist, ...comt, ...lanc].sort((a, b) => _tsMs(b.criadoEm) - _tsMs(a.criadoEm))
 
   if (!feed.length) return estadoVazio({ variante: 'compacto', tag: 'li', titulo: t('dtAtividadeVazia'), texto: t('dtAtividadeVaziaTexto') })
 
@@ -1270,7 +1468,18 @@ function _renderActivityFeed() {
 
     if (item._feedTipo === 'cotacao') {
       return evento(icone('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
-        `${t('feedCotacao', { quem: quem || t('feedAlguem'), fornecedor: `<strong>${esc(item.fornecedorNome || '—')}</strong>` })}${item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
+        `${t('feedCotacao', { quem: quem || t('feedAlguem'), fornecedor: `<strong>${esc(item.fornecedorNome || '—')}</strong>` })}${item.semProduto ? ` <span class="feed-sem-produto">(${t('dtSemProduto')})</span>` : item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
+    }
+
+    if (item._feedTipo === 'lancamento') {
+      return evento(icone('<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>'),
+        t('feedLancou', { quem: quem || t('feedAlguem') }), ts, 'feed-item-etapa')
+    }
+
+    if (item._feedTipo === 'autorizacao') {
+      const negou = item.resultado === 'negada'
+      return evento(icone(negou ? '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' : '<polyline points="20 6 9 17 4 12"/>'),
+        t(negou ? 'feedAutorizacaoNegada' : 'feedAutorizacaoConfirmada', { quem: quem || t('feedAlguem') }), ts, negou ? 'feed-item-neg' : '')
     }
 
     if (item._feedTipo === 'comprovante') {
@@ -1455,6 +1664,9 @@ function _bindDetalheEvents() {
   document.getElementById('btn-confirmar-compra')?.addEventListener('click', _executarCompra)
 
   document.getElementById('btn-confirmar-entrega')?.addEventListener('click', _confirmarEntrega)
+  document.getElementById('btn-lanc-confirmar')?.addEventListener('click', () => _revisarAutorizacao('confirmada'))
+  document.getElementById('btn-lanc-negar')?.addEventListener('click', () => _revisarAutorizacao('negada'))
+  document.getElementById('btn-informar-nota')?.addEventListener('click', _informarNota)
   document.getElementById('btn-confirmar-pagamento')?.addEventListener('click', _confirmarPagamento)
 
   document.getElementById('btn-cancelar')?.addEventListener('click', () => abrirModal('modal-cancelar'))
@@ -1724,6 +1936,7 @@ async function _executarCompra() {
   const dataCompra = document.getElementById('mc-data')?.value
   const numParc    = parseInt(document.getElementById('mc-parcelas')?.value) || 1
   const venc1      = document.getElementById('mc-venc1')?.value
+  const nota       = document.getElementById('mc-nota')?.value.trim()
   const valorFinal = parseMoeda(valorStr)
 
   if (!fornecedor || !valorFinal || !condicao || !dataCompra || !venc1) {
@@ -1744,6 +1957,7 @@ async function _executarCompra() {
       valorFinal,
       condicaoPagamento: condicao,
       dataCompra,
+      ...(nota ? { notaFiscal: nota } : {}),
       atualizadoEm: serverTimestamp(),
     })
     _historicoJunto(lote, STATUS.COMPRADO, { chave: 'notaCompra', dados: { fornecedor, valor: formatCurrency(valorFinal) } })
@@ -1778,12 +1992,13 @@ async function _confirmarEntrega() {
   mostrarSpinner()
   try {
     const lote = writeBatch(db)
+    const fecha = _pedido.lancamento?.pago === true
     lote.update(doc(db, 'pedidos', _pedidoId), {
-      status: STATUS.ENTREGUE,
+      status: fecha ? STATUS.PAGO : STATUS.ENTREGUE,
       dataEntrega: hojeISO(),
       atualizadoEm: serverTimestamp(),
     })
-    _historicoJunto(lote, STATUS.ENTREGUE)
+    _historicoJunto(lote, fecha ? STATUS.PAGO : STATUS.ENTREGUE)
     await lote.commit()
     prxToast(t('entregaConfirmada'), 'success')
   } catch (err) {
@@ -1868,8 +2083,9 @@ function _montarOverlay(id, html) {
 }
 
 function _compararCotacoes() {
-  const menorValor = Math.min(..._cotacoes.map(c => c.valor))
-  const lista = [..._cotacoes].sort((a, b) => a.valor - b.valor)
+  const comValor = _cotacoes.filter(c => !c.semProduto)
+  const menorValor = Math.min(...comValor.map(c => c.valor))
+  const lista = [...comValor].sort((a, b) => a.valor - b.valor)
   _montarOverlay('modal-comparar', `
     <div class="modal modal-comparar" role="dialog" aria-modal="true" aria-labelledby="modal-comparar-titulo">
       ${_cabModal('modal-comparar-titulo', t('dtLadoALadoTitulo'), 'data-fechar')}
@@ -2279,11 +2495,17 @@ async function _apagarComentario(id) {
 
 async function _indicarCotacao(cotacaoId) {
   const c = _cotacoes.find(x => x.id === cotacaoId)
+  let motivoCotacaoUnica = null
   if (_pedido.status === STATUS.AG_COTACAO) {
-    const ok = await prxConfirm(t('dtIndicarConfirmaTitulo'),
-      c ? `${c.fornecedorNome}, ${formatCurrency(c.valor)}. ${t('dtIndicarConfirmaTexto')}` : t('dtIndicarConfirmaTexto'),
-      t('dtIndicarConfirmaOk'), t('btnCancelar'))
-    if (!ok) return
+    if (_cotacoes.filter(x => !x.semProduto).length === 1) {
+      motivoCotacaoUnica = await _perguntarCotacaoUnica(c)
+      if (!motivoCotacaoUnica) return
+    } else {
+      const ok = await prxConfirm(t('dtIndicarConfirmaTitulo'),
+        c ? `${c.fornecedorNome}, ${formatCurrency(c.valor)}. ${t('dtIndicarConfirmaTexto')}` : t('dtIndicarConfirmaTexto'),
+        t('dtIndicarConfirmaOk'), t('btnCancelar'))
+      if (!ok) return
+    }
   }
   if (!exigirConexao()) return
   mostrarSpinner()
@@ -2303,6 +2525,7 @@ async function _indicarCotacao(cotacaoId) {
       lote.update(doc(db, 'pedidos', _pedidoId), {
         status: STATUS.EM_APROVACAO,
         cotacaoIndicadaId: cotacaoId,
+        ...(motivoCotacaoUnica ? { motivoCotacaoUnica } : {}),
         ...(retrato || {}),
         atualizadoEm: serverTimestamp(),
       })
@@ -2401,17 +2624,27 @@ async function _mostrarModalCotacao() {
             <input type="text" id="cot-forn" placeholder="${t('cotFornecedorBusca')}" list="cot-forn-datalist" autocomplete="off">
             <datalist id="cot-forn-datalist">${_fornecedorDatalistOptions()}</datalist>
           </div>
-          <div class="form-group">
+          <div class="form-group col-span-2">
+            <label class="cot-sem-produto-op">
+              <input type="checkbox" id="cot-sem">
+              <span><strong>${t('cotSemProduto')}</strong><small>${t('cotSemProdutoDesc')}</small></span>
+            </label>
+          </div>
+          <div class="form-group cot-com-produto">
             <label for="cot-valor">${t('colValor')} *</label>
             <input type="text" id="cot-valor" inputmode="decimal" placeholder="R$ 0,00">
           </div>
-          <div class="form-group">
+          <div class="form-group cot-com-produto">
             <label for="cot-prazo">${t('cotPrazoEntrega')}</label>
             <input type="text" id="cot-prazo" placeholder="${t('cotPrazoExemplo')}">
           </div>
           <div class="form-group col-span-2">
             <label for="cot-cond">${t('cotCondicoes')}</label>
             <input type="text" id="cot-cond" placeholder="${t('cotCondicoesExemplo')}">
+          </div>
+          <div class="form-group col-span-2">
+            <label for="cot-link">${t('cotLink')} <span class="np-opcional">${t('opcional')}</span></label>
+            <input type="url" id="cot-link" inputmode="url" placeholder="${t('cotLinkPlaceholder')}" autocomplete="off">
           </div>
           ${_enviaArquivos() ? `
           <div class="form-group col-span-2">
@@ -2431,6 +2664,10 @@ async function _mostrarModalCotacao() {
       </div>
     </div>
   `)
+  // Sem o produto: some o valor e o prazo (o lugar fica registrado sem preço)
+  document.getElementById('cot-sem')?.addEventListener('change', e => {
+    document.querySelectorAll('#modal-cotacao .cot-com-produto').forEach(g => { g.hidden = e.target.checked })
+  })
   document.getElementById('cot-arquivo')?.addEventListener('change', e => {
     const f = e.target.files?.[0]
     const el = document.getElementById('cot-arquivo-nome')
@@ -2444,9 +2681,12 @@ async function _mostrarModalCotacao() {
     const cond     = document.getElementById('cot-cond')?.value.trim()
     const arquivoInp = document.getElementById('cot-arquivo')
     const arquivo  = arquivoInp?.files[0]
-    const valor = parseMoeda(valorStr)
+    const semProduto = document.getElementById('cot-sem')?.checked === true
+    const link     = document.getElementById('cot-link')?.value.trim()
+    const valor = semProduto ? null : parseMoeda(valorStr)
 
-    if (!fornNome || !valor) { prxToast(t('fornecedorValorObrig'), 'error'); return }
+    if (!fornNome || (!semProduto && !valor)) { prxToast(t('fornecedorValorObrig'), 'error'); return }
+    if (link && !/^https?:\/\/\S+$/i.test(link)) { prxToast(t('lancLinkInvalido'), 'error'); return }
 
     const btnSalvar = document.getElementById('salvar-cotacao')
     if (btnSalvar) btnSalvar.disabled = true
@@ -2463,7 +2703,8 @@ async function _mostrarModalCotacao() {
         lote.set(cotRef, {
           fornecedorId: f.id,
           fornecedorNome: fornNome,
-          valor, prazoEntrega: prazo, condicoesComerciais: cond,
+          valor, prazoEntrega: semProduto ? '' : prazo, condicoesComerciais: cond,
+          semProduto, link: link || null,
           arquivoUrl: url, arquivoNome: arquivo ? arquivo.name : null,
           indicada: false,
           criadaEm: serverTimestamp(),
@@ -2473,6 +2714,7 @@ async function _mostrarModalCotacao() {
           tipo: 'cotacao',
           fornecedorNome: fornNome,
           valor,
+          semProduto,
           autorId:   sessao.usuario.id,
           autorNome: sessao.usuario.nome,
           criadoEm:  serverTimestamp(),
@@ -2523,7 +2765,7 @@ function _podeAnexarCotacao() {
 }
 
 function _podeIndicarCotacao() {
-  return _podeAnexarCotacao() && _cotacoes.length > 0
+  return _podeAnexarCotacao() && _cotacoes.some(c => !c.semProduto)
 }
 
 // Registra o pagamento (parcelas, comprovante e conclusão) o financeiro ou um

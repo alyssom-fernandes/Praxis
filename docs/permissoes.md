@@ -16,6 +16,9 @@
 | Ação | Supremo | Gestor | Aprovador | Comprador | Financeiro | Solicitante |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | Criar pedido | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Lançar compra já feita (em nome próprio) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Confirmar ou não reconhecer a autorização de uma compra já feita (menos a que lançou) | ✅ | ✅ | ⚠️ se foi apontado | ⚠️ se foi apontado | ⚠️ se foi apontado | ⚠️ se foi apontado |
+| Informar a nota fiscal depois da compra | ✅ | ✅ | — | ⚠️ só o responsável | ✅ | ⚠️ só os seus |
 | Ver todos os pedidos da empresa | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ só os seus |
 | Assumir pedido (claim) | ✅ | ✅ | — | ✅ | — | — |
 | Liberar claim (reatribuir) | ✅ | ✅ | — | — | — | — |

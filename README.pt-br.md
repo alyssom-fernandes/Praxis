@@ -63,6 +63,8 @@ Capturadas do modo demonstração.
 - **Várias empresas.** Cada usuário trabalha só com os pedidos das empresas às quais pertence, e o gestor só vê e edita pessoas e empresas das dele; o supremo vê todas.
 - **Notificações em tempo real** no app. As @menções saem do próprio app; as automáticas (aprovações, entregas, parcelas a vencer) vêm das Cloud Functions, com envio por e-mail via Resend quando a chave é configurada.
 - **Paleta de comandos** (Ctrl+K), tour guiado, PWA instalável, tema claro e escuro e layout próprio para o celular.
+- **Compra já feita.** Para o que foi comprado antes de passar pelo Praxis (alguém foi buscar na loja, algo urgente ou já decidido): lança o que foi, onde, quanto, a nota, quem pediu, quem autorizou e quem comprou, e por que foi direto. A autorização de quem não é gestor fica pendente até a pessoa apontada ou um gestor confirmar.
+- **Celular como app.** Barra inferior com o "+" para pedir ou lançar uma compra, campos de 16 px (sem zoom no iPhone), botões de 44 px e o voltar do Android fechando a janela aberta.
 - **Cópia dos dados.** Em Ajustes, o gestor baixa num arquivo JSON tudo das empresas dele (o supremo, de todas): pedidos com histórico, cotações, parcelas, comentários e notas, cadastros, usuários, convites, alçadas e auditoria, com as contagens para conferir.
 - **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, recriados todo dia.
 

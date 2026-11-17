@@ -1,5 +1,5 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
-import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis } from './ui.js'
+import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, prxEscolha, consumirVoltarDeModal, quandoHistoricoLivre, empilharVoltar, desempilharVoltar } from './ui.js'
 import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada } from './auth.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { gerarIniciais, esc } from './utils.js'
@@ -159,17 +159,23 @@ registrarTrocaDePessoa(trocarPessoaDemo)
 
 // ── Roteamento ────────────────────────────────────────────────
 export function navegar(tela, params = {}, { substituir = false } = {}) {
-  const url = new URL(window.location)
-  url.searchParams.set('tela', tela)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  // Limpa params não fornecidos (são de uma tela só)
-  ;['id', 'aba', 'filtro'].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
-  if (substituir) window.history.replaceState({}, '', url)
-  else window.history.pushState({}, '', url)
-  _rotear()
+  // Se uma janela acabou de fechar no celular, espera o voltar dela terminar
+  quandoHistoricoLivre(() => {
+    const url = new URL(window.location)
+    url.searchParams.set('tela', tela)
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+    // Limpa params não fornecidos (são de uma tela só)
+    ;['id', 'aba', 'filtro'].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
+    if (substituir) window.history.replaceState({}, '', url)
+    else window.history.pushState({}, '', url)
+    _rotear()
+  })
 }
 
+// O voltar do celular (e do navegador) fecha primeiro a janela aberta; só
+// depois volta de tela (ui.js guarda uma entrada no histórico por janela)
 window.addEventListener('popstate', () => {
+  if (consumirVoltarDeModal()) return
   if (sessao.usuario) _rotear()
 })
 
@@ -273,6 +279,11 @@ const ICO = {
   sair:    (n) => _ico('<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>', n),
   setas:   (n) => _ico('<polyline points="7 15 12 20 17 15"/><polyline points="7 9 12 4 17 9"/>', n),
   ajustes: (n) => _ico('<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>', n),
+  mais:    (n) => _ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', n),
+  fila:    (n) => _ico('<path d="M4 6h11"/><path d="M4 12h11"/><path d="M4 18h7"/><polyline points="16 16 18 18 22 14"/>', n),
+  carrinho: (n) => _ico('<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1 1 0 001 .8h9.6a1 1 0 001-.8L21 7H6.2"/>', n),
+  recibo:  (n) => _ico('<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>', n),
+  admin:   (n) => _ico('<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>', n),
   comando: (n) => _ico('<path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/>', n),
 }
 
@@ -600,7 +611,16 @@ function _menuUsuarioHTML() {
       ${claro ? ICO.lua(16) : ICO.sol(16)}
       <span>${claro ? t('menuTemaEscuro') : t('menuTemaClaro')}</span>
     </button>
+    ${_acessos(perfil).relatorios ? `
+    <button type="button" class="um-item um-so-movel" role="menuitem" data-acao="relatorios">
+      ${ICO.barras(16)}
+      <span>${t('navRelatorios')}</span>
+    </button>` : ''}
     ${_acessos(perfil).config ? `
+    <button type="button" class="um-item um-so-movel" role="menuitem" data-acao="admin">
+      ${ICO.admin(16)}
+      <span>${t('navAdministracao')}</span>
+    </button>
     <button type="button" class="um-item" role="menuitem" data-acao="ajustes">
       ${ICO.ajustes(16)}
       <span>${t('navAjustes')}</span>
@@ -671,6 +691,7 @@ function _abrirMenuUsuario(gatilho) {
     menu.style.bottom = `${Math.round(window.innerHeight - r.top + 8)}px`
   }
   menu.classList.add('open')
+  if (movel && !menu._voltar) menu._voltar = empilharVoltar(() => { menu._voltar = null; _fecharMenuUsuario(false) })
   document.getElementById('user-menu-fundo')?.classList.toggle('open', movel)
   document.getElementById('btn-avatar')?.setAttribute('aria-expanded', 'true')
   document.getElementById('bnav-conta')?.setAttribute('aria-expanded', 'true')
@@ -680,6 +701,7 @@ function _abrirMenuUsuario(gatilho) {
 function _fecharMenuUsuario(devolverFoco = true) {
   const menu = document.getElementById('user-menu')
   if (!menu?.classList.contains('open')) return
+  if (menu._voltar) { desempilharVoltar(menu._voltar); menu._voltar = null }
   menu.classList.remove('open')
   document.getElementById('user-menu-fundo')?.classList.remove('open')
   document.getElementById('btn-avatar')?.setAttribute('aria-expanded', 'false')
@@ -713,6 +735,11 @@ async function _acaoMenuUsuario(e) {
     navegar('config-geral')
     return
   }
+  if (acao === 'relatorios' || acao === 'admin') {
+    _fecharMenuUsuario(false)
+    navegar(acao === 'admin' ? 'config-usuarios' : 'relatorios')
+    return
+  }
   if (acao === 'sair') {
     _fecharMenuUsuario(false)
     await confirmarSaida()
@@ -723,6 +750,24 @@ export async function confirmarSaida() {
   const { prxConfirm } = await import('./ui.js')
   const ok = await prxConfirm(t('confirmarSair'), t('confirmarSairMsg'), t('navSair'), t('btnCancelar'))
   if (ok) fazerLogout()
+}
+
+// O "+" do celular: pedir uma compra (abre o pedido para cotar e aprovar) ou
+// lançar uma compra que já aconteceu (só para rastrear)
+export async function escolherNovo() {
+  const escolha = await prxEscolha(t('novoOQueFazer'), '', [
+    { valor: 'pedir', rotulo: t('novoPedirCompra'), desc: t('novoPedirCompraDesc'), icone: ICO.carrinho(22) },
+    { valor: 'lancar', rotulo: t('novoLancarCompra'), desc: t('novoLancarCompraDesc'), icone: ICO.recibo(22) },
+  ])
+  // A folha de escolha fechou: espera o voltar dela antes de abrir a próxima
+  await new Promise(r => quandoHistoricoLivre(r))
+  if (escolha === 'pedir') {
+    const { abrirNovoPedido } = await import('./pedidos.js')
+    abrirNovoPedido()
+  } else if (escolha === 'lancar') {
+    const { abrirLancamento } = await import('./lancar-compra.js')
+    abrirLancamento()
+  }
 }
 
 // ── Footer ────────────────────────────────────────────────────
@@ -753,15 +798,16 @@ document.addEventListener('click', e => {
 })
 
 // ── Barra inferior (celular) ──────────────────────────────────
-// Pedidos · Relatórios* · Buscar · Ajustes* · Conta   (*conforme o perfil)
+// Pedidos · Minha fila · + (novo) · Buscar · Conta. Relatórios e
+// Administração ficam na folha da Conta; o sino, no alto da tela
 function _renderBottomNav() {
   const { usuario } = sessao
   if (!usuario) { document.getElementById('bottom-nav')?.remove(); return }
 
-  const pode     = _acessos(usuario.perfil)
-  const tela     = new URLSearchParams(window.location.search).get('tela') || 'pedidos'
-  const isConfig = TELAS_CONFIG.includes(tela)
-  const ativoPedidos = tela === 'pedidos' || tela === 'detalhe'
+  const params   = new URLSearchParams(window.location.search)
+  const tela     = params.get('tela') || 'pedidos'
+  const naFila   = tela === 'pedidos' && params.get('filtro') === 'pendentes'
+  const ativoPedidos = (tela === 'pedidos' && !naFila) || tela === 'detalhe'
 
   let nav = document.getElementById('bottom-nav')
   if (!nav) {
@@ -778,20 +824,26 @@ function _renderBottomNav() {
     </button>`
 
   nav.innerHTML = `
-    ${item('pedidos', ativoPedidos, ICO.quadro(20), t('navPedidos'))}
-    ${pode.relatorios ? item('relatorios', tela === 'relatorios', ICO.barras(20), t('navRelatorios')) : ''}
-    <button type="button" class="bottom-nav-item" id="bnav-buscar" aria-label="${t('tooltipPaleta')}">
-      ${ICO.busca(20)}<span>${t('navBuscar')}</span>
+    ${item('pedidos', ativoPedidos, ICO.quadro(22), t('navPedidos'))}
+    ${item('fila', naFila, ICO.fila(22), t('navMinhaFila'))}
+    <button type="button" class="bottom-nav-item bnav-novo" id="bnav-novo" aria-label="${t('novoOQueFazer')}" aria-haspopup="dialog">
+      <span class="bnav-novo-circulo" aria-hidden="true">${ICO.mais(24)}</span><span>${t('navNovo')}</span>
     </button>
-    ${pode.config ? item('config-usuarios', isConfig, ICO.engren(20), t('navAjustes')) : ''}
+    <button type="button" class="bottom-nav-item" id="bnav-buscar" aria-label="${t('tooltipPaleta')}">
+      ${ICO.busca(22)}<span>${t('navBuscar')}</span>
+    </button>
     <button type="button" class="bottom-nav-item" id="bnav-conta" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
       <span class="bnav-avatar" aria-hidden="true">${esc(gerarIniciais(usuario.nome))}</span><span>${t('navConta')}</span>
     </button>
   `
 
   nav.querySelectorAll('[data-bnav]').forEach(btn => {
-    btn.addEventListener('click', () => navegar(btn.dataset.bnav))
+    btn.addEventListener('click', () => {
+      if (btn.dataset.bnav === 'fila') navegar('pedidos', { filtro: 'pendentes' })
+      else navegar(btn.dataset.bnav)
+    })
   })
+  document.getElementById('bnav-novo')?.addEventListener('click', () => escolherNovo())
   document.getElementById('bnav-buscar')?.addEventListener('click', () => abrirCommandPalette())
   document.getElementById('bnav-conta')?.addEventListener('click', e => {
     e.stopPropagation()

@@ -26,6 +26,9 @@ import {
   segmentosDoPedido, marcosDoPedido, formatarDuracao, percentil, resumoDoProcesso,
 } from '../js/processo.js'
 import { montarExportacao, paraJSON, nomeDoArquivo, COLECOES, SUBCOLECOES_PEDIDO, FORMATO } from '../js/exportacao.js'
+import {
+  statusDoLancamento, errosDoLancamento, montarLancamento, podeRevisarAutorizacao, revisaoDaAutorizacao,
+} from '../js/lancamento.js'
 import acessoDemo from '../functions/src/demo-acesso.js'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -592,6 +595,58 @@ test('cópia dos dados: datas em ISO, ordem estável, subcoleções no pedido e 
   // O arquivo volta igual pelo JSON
   assert.deepEqual(JSON.parse(JSON.stringify(pacote)), pacote)
   assert.equal(nomeDoArquivo(new Date(2026, 10, 7)), 'praxis-dados-2026-11-07.json')
+})
+
+test('compra já feita: etapa, validação, pedido e parcelas como as regras esperam', () => {
+  assert.equal(statusDoLancamento({ recebido: true, pago: true }), 'pago')
+  assert.equal(statusDoLancamento({ recebido: true, pago: false }), 'entregue')
+  assert.equal(statusDoLancamento({ recebido: false, pago: true }), 'comprado')
+  const v = {
+    titulo: 'Lâmpadas', empresaId: 'e1', fornecedorNome: 'Casa do Construtor', valorFinal: 100, dataCompra: '2026-11-15',
+    pedidoPor: { id: 'u1', nome: 'Ana' }, autorizadoPor: { id: null, nome: 'Gerente' }, compradoPor: { id: null, nome: 'José' },
+    motivo: 'urgente', recebido: true, pago: false, vencimento: '2026-12-31', parcelas: 3,
+  }
+  assert.deepEqual(errosDoLancamento(v, '2026-11-17'), [])
+  const campos = e => errosDoLancamento(e, '2026-11-17').map(x => x[0])
+  assert.deepEqual(campos({ ...v, dataCompra: '2026-11-18' }), ['lc-data'])
+  assert.deepEqual(campos({ ...v, motivo: 'outro' }), ['lc-detalhes'])
+  assert.deepEqual(campos({ ...v, valorFinal: 0, compradoPor: { nome: ' ' } }), ['lc-valor', 'lc-comprado-por'])
+  assert.deepEqual(campos({ ...v, parcelas: 0, link: 'mercadolivre.com' }), ['lc-parcelas', 'lc-link'])
+  // Quem não é gestor: autorização pendente, parcelas mensais em centavos
+  const quem = { id: 'u9', nome: 'Serviços', perfil: 'solicitante' }
+  const { pedido, parcelas } = montarLancamento(v, quem, 'TS')
+  assert.equal(pedido.status, 'entregue')
+  assert.equal(pedido.solicitanteId, 'u9')
+  assert.equal(pedido.compradorId, null)
+  assert.equal(pedido.condicaoPagamento, 'apos_recebimento')
+  assert.equal(pedido.dataEntrega, '2026-11-15')
+  assert.equal(pedido.lancamento.autorizacao, 'pendente')
+  assert.equal(pedido.lancamento.autorizacaoEm, null)
+  assert.deepEqual(parcelas.map(p => [p.valor, p.vencimento, p.pago]),
+    [[33.33, '2026-12-31', false], [33.33, '2027-01-31', false], [33.34, '2027-02-28', false]])
+  // O gestor que autorizou a própria compra: confirmada; já pago: uma parcela paga
+  const gestor = { id: 'u2', nome: 'Gestora', perfil: 'gestor' }
+  const g = montarLancamento({ ...v, autorizadoPor: { id: 'u2', nome: 'Gestora' }, pago: true }, gestor, 'TS')
+  assert.equal(g.pedido.status, 'pago')
+  assert.equal(g.pedido.lancamento.autorizacao, 'confirmada')
+  assert.equal(g.pedido.lancamento.autorizacaoEm, 'TS')
+  assert.deepEqual(g.parcelas, [{ numero: 1, total: 1, valor: 100, vencimento: '2026-11-15', pago: true, pagoEm: 'TS', comprovante: null }])
+})
+
+test('compra já feita: quem revisa a autorização e o que muda', () => {
+  const p = { empresaId: 'e1', lancamento: { lancadoPor: 'u9', autorizadoPor: { id: 'u3', nome: 'Apr' }, autorizacao: 'pendente' } }
+  assert.equal(podeRevisarAutorizacao(p, { id: 'u9', perfil: 'gestor', empresas: ['e1'] }), false)  // quem lançou
+  assert.equal(podeRevisarAutorizacao(p, { id: 'u3', perfil: 'aprovador', empresas: ['e1'] }), true) // apontado
+  assert.equal(podeRevisarAutorizacao(p, { id: 'u4', perfil: 'gestor', empresas: ['e1'] }), true)    // gestor da empresa
+  assert.equal(podeRevisarAutorizacao(p, { id: 'u5', perfil: 'gestor', empresas: ['e2'] }), false)   // de outra
+  assert.equal(podeRevisarAutorizacao(p, { id: 'u6', perfil: 'comprador', empresas: ['e1'] }), false)
+  assert.equal(podeRevisarAutorizacao({ ...p, lancamento: { ...p.lancamento, autorizacao: 'confirmada' } }, { id: 'u4', perfil: 'gestor', empresas: ['e1'] }), false)
+  const r = revisaoDaAutorizacao(p, { id: 'u4', nome: 'Gestor' }, 'negada', 'TS', 'ev1')
+  assert.deepEqual(r.lancamento, { ...p.lancamento, autorizacao: 'negada', autorizacaoEm: 'TS', autorizacaoPor: 'u4', autorizacaoPorNome: 'Gestor' })
+  assert.equal(r.autorizacaoEventoId, 'ev1')
+  // E o lançamento fica fora do tempo do processo
+  const lancado = { pedido: { status: 'pago', criadoEm: em(0), lancamento: {} }, historico: passos(['pago', DIA]) }
+  assert.equal(resumoDoProcesso([lancado], { ini: T0, fim: T0 + 10 * DIA }, AGORA).ciclo.pagamento.n, 0)
 })
 
 test('alçada: o editor confere faixas e níveis antes de gravar', () => {

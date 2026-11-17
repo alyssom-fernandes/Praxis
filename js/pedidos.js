@@ -12,9 +12,20 @@ import {
   corCategoria, t,
 } from './constants.js'
 import { formatCurrency, formatDate, dataAbsoluta, gerarIniciais, hojeISO, debounce, normalizarTexto, esc, prefereMenosMovimento, impedimentoDeFuncao, empresasDoUsuario, csvNumero, baixarCSV } from './utils.js'
+import { podeRevisarAutorizacao } from './lancamento.js'
 
 let _pedidoFonteDuplicar = null
 export function agendarDuplicar(pedido) { _pedidoFonteDuplicar = pedido }
+
+// Novo pedido aberto de fora da tela (o "+" da barra inferior): na própria
+// tela abre na hora; em outra, abre ao chegar
+let _abrirNovoAoEntrar = false
+export function abrirNovoPedido() {
+  if (!document.getElementById('modal-novo-pedido')) { _abrirNovoAoEntrar = true; navegar('pedidos'); return }
+  _fecharPainel(false)
+  _resetarModalNovoPedido()
+  abrirModal('modal-novo-pedido')
+}
 
 let _unsubPedidos = null
 let _resizeLigado = false  // um só ouvinte de resize para as setas do quadro
@@ -84,6 +95,7 @@ const _TERMINAIS = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
 const _svg = (n, corpo) => `<svg width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
 const ICO = {
   mais:     n => _svg(n, '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  recibo:   n => _svg(n, '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>'),
   busca:    n => _svg(n, '<circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.2" y2="16.2"/>'),
   filtros:  n => _svg(n, '<line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/>'),
   quadro:   n => _svg(n, '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>'),
@@ -141,9 +153,14 @@ export async function renderPedidos() {
               <h1 class="titulo-pagina pedidos-title" id="pedidos-titulo">${_filtroAtivo === 'pendentes' ? t('navMinhaFila') : t('titulo')}</h1>
               <p class="pedidos-resumo" id="pedidos-resumo" aria-live="polite">&nbsp;</p>
             </div>
-            <button class="btn-primary pedidos-btn-novo" id="btn-novo-pedido" aria-label="${t('novoPedido')}">
-              ${ICO.mais(16)}<span class="pedidos-btn-novo-txt">${t('novoPedido')}</span><span class="pedidos-btn-novo-curto" aria-hidden="true">${t('cfgNovoCurto')}</span>
-            </button>
+            <div class="pedidos-head-acoes">
+              <button class="btn-secondary pedidos-btn-lancar" id="btn-lancar-compra" title="${t('novoLancarCompraDesc')}">
+                ${ICO.recibo(16)}<span>${t('lancSalvar')}</span>
+              </button>
+              <button class="btn-primary pedidos-btn-novo" id="btn-novo-pedido" aria-label="${t('novoPedido')}">
+                ${ICO.mais(16)}<span class="pedidos-btn-novo-txt">${t('novoPedido')}</span><span class="pedidos-btn-novo-curto" aria-hidden="true">${t('cfgNovoCurto')}</span>
+              </button>
+            </div>
           </div>
 
           <div class="pedidos-controles" id="pedidos-controles">
@@ -378,6 +395,10 @@ export async function renderPedidos() {
   if (fonteDuplicar) {
     _resetarModalNovoPedido()
     _preencherModalDuplicar(fonteDuplicar)
+    abrirModal('modal-novo-pedido')
+  } else if (_abrirNovoAoEntrar) {
+    _abrirNovoAoEntrar = false
+    _resetarModalNovoPedido()
     abrirModal('modal-novo-pedido')
   }
 
@@ -801,6 +822,13 @@ function _bindEvents() {
     el?.addEventListener('change', () => _limparErroCampo(id))
   })
 
+  // Compra já feita: o formulário próprio (js/lancar-compra.js)
+  document.getElementById('btn-lancar-compra')?.addEventListener('click', async () => {
+    _fecharPainel(false)
+    const { abrirLancamento } = await import('./lancar-compra.js')
+    abrirLancamento()
+  })
+
   // Abrir modal
   document.getElementById('btn-novo-pedido')?.addEventListener('click', () => {
     _fecharPainel(false)
@@ -939,7 +967,7 @@ async function _submeterNovoPedido() {
     const visivel = primeiro?.classList.contains('campo-data-nativo') ? primeiro.nextElementSibling : primeiro
     if (visivel && visivel.focus) visivel.focus({ preventScroll: true })
     document.querySelector(`[data-campo="${erros[0][0]}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    prxToast(t('erroCamposObrigatorios'), 'error')
+    prxToast(t('erroCamposObrigatorios'), 'warning')
     return
   }
 
@@ -1105,37 +1133,45 @@ function _aplicarPill(lista, filtro) {
       })
     }
     case 'pendentes': {
-      const perfil = sessao.usuario.perfil
-      const agora  = Date.now()
-      const h48    = 48 * 3600000
-      if ([PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
-        return lista.filter(p => {
-          if (_TERMINAIS.includes(p.status)) return false
-          if (p.urgente) return true
-          // Com alçada, o que espera o voto desta pessoa no nível atual
-          if (p.status === STATUS.EM_APROVACAO && p.aprovacao && !impedimentoDeFuncao(p, sessao.usuario, 'decidir')) return true
-          const ts = _tsDate(p.atualizadoEm)
-          return ts && (agora - ts.getTime()) > h48
-        })
-      }
-      // Na fila, só o que a pessoa pode decidir ou pagar (separação de funções)
-      if (perfil === PERFIS.APROVADOR) {
-        return lista.filter(p => p.status === STATUS.EM_APROVACAO && !impedimentoDeFuncao(p, sessao.usuario, 'decidir'))
-      }
-      if (perfil === PERFIS.COMPRADOR) {
-        return lista.filter(p =>
-          (p.status === STATUS.SOLICITADO && !p.compradorId) ||
-          (p.status === STATUS.AG_COTACAO && p.compradorId === uid)
-        )
-      }
-      if (perfil === PERFIS.FINANCEIRO) {
-        return lista.filter(p => p.status === STATUS.ENTREGUE && !impedimentoDeFuncao(p, sessao.usuario, 'pagar'))
-      }
-      // solicitante: seus pedidos não encerrados
-      return lista.filter(p => p.solicitanteId === uid && !_TERMINAIS.includes(p.status))
+      const base = _filaDoPerfil(lista, uid)
+      const revisar = lista.filter(p => !base.includes(p) && podeRevisarAutorizacao(p, sessao.usuario))
+      return [...base, ...revisar]
     }
     default: return lista
   }
+}
+
+// O que espera a pessoa, pelo perfil (a "Minha fila" soma as autorizações de
+// compra já feita que ela confirma)
+function _filaDoPerfil(lista, uid) {
+  const perfil = sessao.usuario.perfil
+  const agora  = Date.now()
+  const h48    = 48 * 3600000
+  if ([PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
+    return lista.filter(p => {
+      if (_TERMINAIS.includes(p.status)) return false
+      if (p.urgente) return true
+      // Com alçada, o que espera o voto desta pessoa no nível atual
+      if (p.status === STATUS.EM_APROVACAO && p.aprovacao && !impedimentoDeFuncao(p, sessao.usuario, 'decidir')) return true
+      const ts = _tsDate(p.atualizadoEm)
+      return ts && (agora - ts.getTime()) > h48
+    })
+  }
+  // Na fila, só o que a pessoa pode decidir ou pagar (separação de funções)
+  if (perfil === PERFIS.APROVADOR) {
+    return lista.filter(p => p.status === STATUS.EM_APROVACAO && !impedimentoDeFuncao(p, sessao.usuario, 'decidir'))
+  }
+  if (perfil === PERFIS.COMPRADOR) {
+    return lista.filter(p =>
+      (p.status === STATUS.SOLICITADO && !p.compradorId) ||
+      (p.status === STATUS.AG_COTACAO && p.compradorId === uid)
+    )
+  }
+  if (perfil === PERFIS.FINANCEIRO) {
+    return lista.filter(p => p.status === STATUS.ENTREGUE && !impedimentoDeFuncao(p, sessao.usuario, 'pagar'))
+  }
+  // solicitante: seus pedidos não encerrados
+  return lista.filter(p => p.solicitanteId === uid && !_TERMINAIS.includes(p.status))
 }
 
 function _valorPedido(p) {
@@ -1913,6 +1949,7 @@ function _renderKcard(p) {
         ${p.numeroPedido ? `<span class="kcard-num">${esc(p.numeroPedido)}</span>` : ''}
         ${naoLido ? `<span class="kcard-unread-dot" title="${t('comentarioNaoLido')}" role="img" aria-label="${t('comentarioNaoLido')}"></span>` : ''}
         ${p.urgente ? `<span class="kcard-urg">${t('urgenteTag')}</span>` : ''}
+        ${_seloLancamento(p)}
       </div>
       <h3 class="kcard-title">${esc(p.titulo)}</h3>
       ${nomeEmp ? `<div class="kcard-empresa" title="${esc(nomeEmp)}">${esc(nomeEmp)}</div>` : ''}
@@ -1923,6 +1960,15 @@ function _renderKcard(p) {
       </div>
     </article>
   `
+}
+
+// Compra já feita: o selo, com a autorização a confirmar ou não reconhecida
+function _seloLancamento(p) {
+  const l = p.lancamento
+  if (!l) return ''
+  const titulo = l.autorizacao === 'pendente' ? t('lancAutPendente')
+    : l.autorizacao === 'negada' ? t('lancAutNegada', { nome: l.autorizacaoPorNome || '' }) : t('lancTag')
+  return `<span class="selo-lanc selo-lanc-${esc(l.autorizacao || 'confirmada')}" title="${esc(titulo)}">${t('lancTag')}</span>`
 }
 
 // ── Estados vazios ────────────────────────────────────────────
@@ -1998,6 +2044,7 @@ function _renderLista(lista, totalFiltrada, totalPaginas, inicio) {
             <span class="lp-titulo">${esc(p.titulo)}</span>
             ${_temComentarioNaoLido(p) ? `<span class="kcard-unread-dot" title="${t('comentarioNaoLido')}" role="img" aria-label="${t('comentarioNaoLido')}"></span>` : ''}
             ${p.urgente ? `<span class="kcard-urg">${t('urgenteTag')}</span>` : ''}
+            ${_seloLancamento(p)}
           </div>
         </td>
         <td class="c-empresa">${esc(nomeEmp || '—')}</td>

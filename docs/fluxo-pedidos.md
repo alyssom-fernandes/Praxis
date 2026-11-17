@@ -46,15 +46,28 @@ Cancelado (terminal) ← possível de Solicitado até Comprado, conforme perfil
 | De | Para | Quem pode | Observações |
 |---|---|---|---|
 | Solicitado | Ag. cotação | Comprador, Gestor, Supremo | Claim via `runTransaction` — o primeiro vence |
-| Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada: o pedido guarda a indicada em `cotacaoIndicadaId`, e as regras conferem que ela existe e saiu do lote marcada. Daí em diante as cotações não mudam |
+| Ag. cotação | Em aprovação | Comprador que assumiu, Gestor, Supremo | Requer ≥1 cotação e 1 indicada: o pedido guarda a indicada em `cotacaoIndicadaId`, e as regras conferem que ela existe e saiu do lote marcada. A cotação "não tinha o produto" registra um lugar consultado, sem valor, e não pode ser indicada. Com uma cotação só com preço, o comprador diz por quê (`motivoCotacaoUnica`). Daí em diante as cotações não mudam |
 | Em aprovação | Aprovado | Aprovador, Gestor, Supremo | `runTransaction` — primeiro a aprovar vence; quem abriu ou cotou o pedido não aprova. Com alçada na empresa (Administração › Alçadas), o pedido entra com o retrato da faixa do valor da cotação indicada e passa pelos níveis em ordem: cada voto conta no nível atual, o nível completo passa ao seguinte e o último aprova; cada pessoa vota uma vez por pedido |
 | Em aprovação | Reprovado | Aprovador, Gestor, Supremo | Motivo obrigatório (lista + "Outros" com texto), conferido pelas regras; quem abriu ou cotou o pedido não reprova; com alçada, reprova quem está no nível atual |
-| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição, data da compra, parcelas; quem aprovou não registra a compra |
+| Aprovado | Comprado | Comprador, Gestor, Supremo | Fornecedor (autocomplete), valor final, condição (à vista, antecipado ou após o recebimento), data da compra, parcelas e, se houver, a nota fiscal (número ou chave de 44 dígitos; também pode ser informada depois); quem aprovou não registra a compra |
 | Comprado | Entregue | Comprador que assumiu, Solicitante, Gestor, Supremo | Data de entrega real |
 | Entregue | Pago | Financeiro, Gestor, Supremo | Após a última parcela ser confirmada; quem aprovou não registra parcelas, comprovantes nem a conclusão |
 | Qualquer (até Comprado) | Cancelado | Gestor/Supremo; Solicitante só em Solicitado | Motivo obrigatório, conferido pelas regras |
 
 O supremo segue estas mesmas transições, como um gestor de todas as empresas: não pula etapas e não abre pedido já adiantado. A separação de funções e a alçada não valem para ele: aprova em qualquer nível, de uma vez, e pode aprovar, comprar e pagar o mesmo pedido.
+
+## Compra já feita
+
+Para a compra que aconteceu antes de passar pelo Praxis (o gerente manda alguém pegar na loja, algo urgente ou já decidido), quem tem acesso à empresa lança depois, só para ficar rastreada: o que foi, onde, quanto, a data, a nota (se houver), quem pediu, quem autorizou e quem comprou ou retirou (pessoas do Praxis ou só o nome) e por que foi direto.
+
+| O item já chegou? | Pagamento | O pedido nasce em |
+|---|---|---|
+| Sim | Já pago | Pago |
+| Sim | A pagar (vencimento e parcelas) | Entregue (o financeiro paga as parcelas) |
+| Não | A pagar | Comprado (depois Entregue e Pago) |
+| Não | Já pago | Comprado; ao receber, vai direto a Pago |
+
+Sem solicitação, cotação, aprovação nem alçada. A autorização fica confirmada quando quem lança é o gestor (ou o supremo) que autorizou; nos outros casos fica pendente até a pessoa apontada, ou um gestor da empresa que não lançou, confirmar ou marcar como não reconhecida (a compra continua registrada, com o selo). Tudo vai para o histórico. As compras já feitas ficam fora do tempo do processo nos relatórios, porque não passaram pelas etapas.
 
 ## Concorrência
 

@@ -2305,3 +2305,112 @@ button:active:not(:disabled) { transform: scale(0.98); }
 }
 .cal-acao { min-height: 30px; padding: 0 var(--esp-100); font-size: var(--t-pequeno); font-weight: 600; color: var(--text2); border-radius: var(--radius-sm); }
 .cal-acao:hover:not(:disabled) { background: var(--card3); color: var(--text); }
+
+/* ── Controle de duas opções ───────────────────────────── */
+/* Um grupo de rádio em botões (compra já feita: chegou? pago?) */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--radius-input);
+  overflow: hidden;
+}
+.seg-op {
+  min-height: 40px;
+  padding: var(--esp-100) var(--esp-150);
+  font: 600 var(--t-corpo)/1.2 var(--font);
+  color: var(--text2);
+  background: var(--card);
+  border: none;
+  cursor: pointer;
+}
+.seg-op + .seg-op { border-left: 1px solid var(--borda-campo); }
+.seg-op:hover:not(.active) { color: var(--text); background: var(--card3); }
+.seg-op.active { color: var(--text); background: var(--card3); box-shadow: inset 0 -2px 0 var(--gold-fill); }
+.seg-op:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
+
+/* ── Compra já feita: o formulário ─────────────────────── */
+.lanc-modal { max-width: 640px; }
+.lanc-form { display: flex; flex-direction: column; gap: var(--esp-400); }
+.lanc-secao { display: flex; flex-direction: column; gap: var(--esp-200); }
+.lanc-secao-tit {
+  padding-bottom: var(--esp-100);
+  font-family: var(--display);
+  font-size: var(--t-titulo-3);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+.lanc-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-200); }
+.lanc-par[hidden], .form-group[hidden] { display: none; }
+.lanc-pessoa-nome { margin-top: var(--esp-100); }
+.lanc-quem { font-size: var(--t-pequeno); color: var(--text3); }
+
+/* Selo da compra já feita (cartão, lista e detalhe): a autorização a
+   confirmar em bronze, a não reconhecida em vermelho */
+.selo-lanc {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--esp-025) var(--esp-075);
+  font-size: var(--t-pequeno);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--text2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-tag);
+}
+.selo-lanc-pendente { color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); }
+.selo-lanc-negada { color: var(--red); border-color: var(--red); background: var(--red-dim); }
+
+/* Detalhe: o bloco da compra já feita e a revisão da autorização */
+.lanc-bloco .dt-card-head { flex-wrap: wrap; gap: var(--esp-100); }
+.lanc-dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-150) var(--esp-300); }
+.lanc-linha dt { font-size: var(--t-pequeno); color: var(--text3); }
+.lanc-linha dd { margin: var(--esp-025) 0 0; font-size: var(--t-corpo); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.lanc-bloco .lanc-quem { margin-top: var(--esp-150); }
+.lanc-revisao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-150);
+  margin-top: var(--esp-200);
+  padding: var(--esp-200);
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-card);
+}
+.lanc-revisao p { font-size: var(--t-corpo); color: var(--text); }
+.lanc-revisao-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--esp-100); }
+.dt-nota { overflow-wrap: anywhere; }
+
+/* Cotação: o lugar que não tinha o produto e a cotação única */
+.cot-sem-produto-op { display: flex; align-items: flex-start; gap: var(--esp-100); cursor: pointer; }
+.cot-sem-produto-op input { margin-top: var(--esp-025); }
+.cot-sem-produto-op span { display: flex; flex-direction: column; gap: var(--esp-025); }
+.cot-sem-produto-op strong { font-size: var(--t-corpo); color: var(--text); }
+.cot-sem-produto-op small { font-size: var(--t-pequeno); color: var(--text3); }
+.cotacao-item.sem-produto .cotacao-fornecedor { color: var(--text2); }
+.cot-sem-produto { color: var(--text3); }
+.cotacao-sem-valor { color: var(--text3); }
+.cotacoes-unica { margin-top: var(--esp-150); font-size: var(--t-corpo); color: var(--text2); }
+.feed-sem-produto { color: var(--text3); }
+
+/* Escolha com ícone e descrição (o "+" do celular) */
+.dialog-opcao-rica { display: flex; align-items: center; gap: var(--esp-150); min-height: 64px; padding: var(--esp-150) var(--esp-200); text-align: left; }
+.dialog-opcao-rica > svg { flex-shrink: 0; color: var(--gold); }
+.dialog-opcao-txt { display: flex; flex-direction: column; gap: var(--esp-025); min-width: 0; }
+.dialog-opcao-rot { font-size: var(--t-titulo-3); font-weight: 600; color: var(--text); }
+.dialog-opcao-desc { font-size: var(--t-pequeno); font-weight: 400; line-height: 1.4; color: var(--text3); white-space: normal; }
+
+/* Chips de escolha nos formulários: retos, como no novo pedido (o redondo
+   fica para avatares e pontos) */
+.lanc-form .chip, #cot-unica-opcoes .chip { border-radius: var(--radius-tag); }
+
+/* Escolha entre opções: a lista e o "Cancelar" um embaixo do outro */
+.dialog-actions:has(> .dialog-opcoes) { flex-direction: column; align-items: stretch; }
+.dialog-actions:has(> .dialog-opcoes) > * { flex: none; }
+
+/* Cabeçalho de Pedidos: "Lançar compra" ao lado de "Novo pedido" */
+.pedidos-head-acoes { display: flex; align-items: center; gap: var(--esp-100); flex-shrink: 0; }

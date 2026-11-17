@@ -566,3 +566,59 @@ input[type="checkbox"], input[type="radio"] {
   .pedidos-resumo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pf-corpo > .pedidos-rapidos { order: -1; flex-wrap: wrap; align-self: stretch; overflow: visible; }
 }
+
+/* ── Celular como app ──────────────────────────────────── */
+/* Da auditoria de 17/11 (_build/auditoria-celular.mjs): campos de 40 px com
+   texto de 14 px (o iPhone dá zoom ao tocar), botões abaixo de 44 px e o
+   rodapé de site no meio da tela. Aqui, o toque de app */
+.um-so-movel { display: none; }
+@media (max-width: 1023px) {
+  .ord-lancamento { order: 1; }
+}
+@media (max-width: 767px) {
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, label, summary, [role="button"], [role="tab"], .chip { touch-action: manipulation; }
+  .main-footer { display: none; }
+  .um-so-movel { display: flex; }
+
+  /* Campos: texto de 16 px (sem zoom no iPhone) e 48 px para o dedo */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea { font-size: var(--t-titulo-3); }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select { min-height: 48px; }
+
+  /* Botões com 44 px no mínimo, os pequenos também; ícone em quadrado de 44 */
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger { min-height: 44px; }
+  .btn-icon { min-width: 44px; min-height: 44px; }
+  .chip { min-height: 40px; }
+  .seg-op { min-height: 48px; }
+
+  /* Janelas: os botões do rodapé do mesmo tamanho, acima da barra de gestos */
+  .modal-footer { padding: var(--esp-150) var(--esp-200) calc(var(--esp-150) + env(safe-area-inset-bottom, 0px)); }
+  .modal-footer > .btn-primary, .modal-footer > .btn-secondary, .modal-footer > .btn-danger { flex: 1 1 0; min-height: 48px; }
+
+  /* O "+" da barra inferior faz o "Novo pedido" e o "Lançar compra" */
+  .pedidos-head-acoes { display: none; }
+
+  /* Compra já feita: tela inteira, como o formulário de um app */
+  #modal-lancamento .modal { height: 100%; max-height: 100%; border-top: none; }
+  #modal-lancamento .modal-header { padding: var(--esp-150) var(--esp-150) var(--esp-150) var(--esp-200); }
+  #modal-lancamento .modal-body { padding: var(--esp-250) var(--esp-200); }
+  body:has(#modal-lancamento.visible) .bottom-nav { display: none; }
+  .lanc-revisao-acoes > button { flex: 1 1 0; }
+
+  /* Barra inferior: o "+" no meio, em bronze */
+  .bnav-novo { color: var(--text2); }
+  .bnav-novo-circulo {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 30px;
+    color: var(--on-gold);
+    background: var(--gold-fill);
+    border-radius: var(--radius);
+  }
+  .bnav-novo-circulo svg { width: 20px; height: 20px; }
+  .bnav-novo:active .bnav-novo-circulo { background: var(--gold-fill-hover); }
+}

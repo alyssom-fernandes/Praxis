@@ -70,7 +70,8 @@ const erros = []
 before(async () => {
   await new Promise(ok => servidor.listen(0, 'localhost', ok))
   BASE = `http://localhost:${servidor.address().port}`
-  navegador = await chromium.launch()
+  // PW_CANAL=chrome usa o Chrome instalado na máquina (sem baixar o do Playwright)
+  navegador = await chromium.launch(process.env.PW_CANAL ? { channel: process.env.PW_CANAL } : {})
 })
 after(async () => {
   await navegador?.close()
@@ -163,10 +164,14 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   await com.click('#salvar-cotacao')
   await com.waitForSelector('[data-indicar]')
   await com.click('[data-indicar]')
-  await confirmar(com)
+  // Com uma cotação só, a compradora diz por quê (vale como confirmação)
+  await com.waitForSelector('#modal-cot-unica.visible')
+  await com.click('#cot-unica-opcoes [data-motivo="habitual"]')
+  await com.click('#cot-unica-ok')
   assert.equal(await etapa(id, 'em_aprovacao'), 'em_aprovacao')
   const emAprovacao = (await banco.doc(`pedidos/${id}`).get()).data()
   assert.ok(emAprovacao.cotacaoIndicadaId, 'o pedido aponta a cotação indicada')
+  assert.equal(emAprovacao.motivoCotacaoUnica, 'habitual', 'o pedido guarda por que só houve uma cotação')
   await com.context().close()
 
   // 3. O aprovador aprova

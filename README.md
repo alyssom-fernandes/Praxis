@@ -64,6 +64,8 @@ Captured from the demo.
 - **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
 - **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
 - **Command palette** (Ctrl+K), guided tour, installable PWA, light and dark themes and a dedicated phone layout.
+- **Purchase already made.** For what was bought before going through Praxis (someone picked it up at the store, something urgent or already decided): record what, where, how much, the invoice, who asked, who authorized and who bought it, and why it went straight to purchase. Authorization from someone who is not a manager stays pending until the named person or a manager confirms it.
+- **Phone as an app.** Bottom bar with a "+" to request or record a purchase, 16 px fields (no zoom on iPhone), 44 px buttons and the Android back button closing the open window.
 - **Data copy.** In Settings, a manager downloads a JSON file with everything from their companies (the Supreme user, from all of them): orders with history, quotes, installments, comments and notes, records, users, invitations, approval tiers and audit log, with counts to check against.
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
 
