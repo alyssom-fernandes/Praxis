@@ -370,6 +370,11 @@ button:disabled {
    para o texto não disputar com os cartões */
 #spinner-overlay:has(.spinner-texto:not(:empty)) { background: color-mix(in srgb, var(--bg) 94%, transparent); }
 .spinner-texto:empty { display: none; }
+/* Antes de a primeira tela aparecer (rede lenta), a espera fica igual ao
+   splash: fundo cheio e o símbolo acima do fio. Com o app na tela, só o fio */
+.spinner-simbolo { display: none; width: 44px; height: 44px; color: var(--text); }
+body:has(#app:empty) #spinner-overlay { background: var(--bg); }
+body:has(#app:empty) .spinner-simbolo { display: block; }
 @keyframes spinnerAparece { from { opacity: 0; } to { opacity: 1; } }
 
 .spinner {

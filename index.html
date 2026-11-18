@@ -41,11 +41,12 @@
        o SDK do Firebase depois de ler app.js e firebase.js (três idas e voltas).
        Prioridade baixa: no celular lento o CSS, que segura a pintura, vem antes.
        O integrity confere o SDK do gstatic com o publicado no npm (o mesmo dos
-       testes, ver tests/unidade.test.mjs): o import usa o módulo já conferido -->
+       testes, ver tests/unidade.test.mjs): o import usa o módulo já conferido.
+       O SDK do Storage não entra aqui: vem sob demanda, com o mesmo integrity
+       (js/firebase.js, armazenamento) -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js" integrity="sha384-27tS/85dn4W68Z7BnI9M5M3mHUztf+VUfnpa3F37TMTiu0oJo4GVAPOAXweoB3AP" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js" integrity="sha384-w+r+PkUpbBmdc2CgCBCTzKE8pSbh0d+vv75Am+aW4qrsdYekG+bhI3S/HRRz8g+U" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js" integrity="sha384-wV3Yly7PWjAYGDvy7c61tJmWdhDDGLyQTiFYsT5j6RfjB0u52463NudBEnSFeuEs" crossorigin fetchpriority="low">
-  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-storage.js" integrity="sha384-XI/vZ0ZW0hYp5K15yEQUhMAyUpTh4R4f132KKsjw8UlKc1Fqe74pLpd8xQQVFysw" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="/js/firebase.js" fetchpriority="low">
   <link rel="modulepreload" href="/js/constants.js" fetchpriority="low">
   <link rel="modulepreload" href="/js/ui.js" fetchpriority="low">
@@ -60,12 +61,12 @@
   <link rel="apple-touch-icon" href="/assets/logo/praxis-apple-touch.png">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="/css/fontes.css?v=37">
-  <link rel="stylesheet" href="/css/tokens.css?v=37">
-  <link rel="stylesheet" href="/css/base.css?v=37">
-  <link rel="stylesheet" href="/css/components.css?v=37">
-  <link rel="stylesheet" href="/css/views.css?v=37">
-  <link rel="stylesheet" href="/css/themes.css?v=37">
+  <link rel="stylesheet" href="/css/fontes.css?v=38">
+  <link rel="stylesheet" href="/css/tokens.css?v=38">
+  <link rel="stylesheet" href="/css/base.css?v=38">
+  <link rel="stylesheet" href="/css/components.css?v=38">
+  <link rel="stylesheet" href="/css/views.css?v=38">
+  <link rel="stylesheet" href="/css/themes.css?v=38">
 
   <style>
     /* Splash de carregamento inicial — usa os tokens, então segue o tema salvo.
@@ -115,6 +116,7 @@
 
   <!-- Spinner global de loading -->
   <div id="spinner-overlay" role="status" aria-label="Carregando">
+    <svg class="spinner-simbolo" viewBox="60 86 480 480" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M296 100H323L466 527V535H521V553H77V535Q128 535 145 495ZM289 197L185 470Q172 505 175 525Q180 535 215 535H405Z"/></svg>
     <div class="spinner"></div>
   </div>
 

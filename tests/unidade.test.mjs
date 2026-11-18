@@ -257,12 +257,18 @@ test('o SDK do Firebase do site é o mesmo dos testes, conferido pelo integrity'
   const versao = JSON.parse(_ler('node_modules/firebase/package.json')).version
   const html = _ler('index.html').toString()
   const preloads = [...html.matchAll(/<link rel="modulepreload" href="https:\/\/www\.gstatic\.com\/firebasejs\/([^/]+)\/(firebase-[a-z]+\.js)"([^>]*)>/g)]
-  assert.equal(preloads.length, 4)
+  assert.equal(preloads.length, 3)
+  const sri = arquivo => 'sha384-' + createHash('sha384').update(_ler(`node_modules/firebase/${arquivo}`)).digest('base64')
   for (const [, v, arquivo, resto] of preloads) {
     assert.equal(v, versao, `${arquivo}: versão do site igual à dos testes`)
-    const hash = 'sha384-' + createHash('sha384').update(_ler(`node_modules/firebase/${arquivo}`)).digest('base64')
-    assert.ok(resto.includes(`integrity="${hash}"`), `${arquivo}: integrity igual ao do pacote do npm`)
+    assert.ok(resto.includes(`integrity="${sri(arquivo)}"`), `${arquivo}: integrity igual ao do pacote do npm`)
   }
+  // O Storage vem sob demanda (js/firebase.js), com o integrity no próprio código
+  const fb = _ler('js/firebase.js').toString()
+  const [, vSto, arqSto] = fb.match(/const SDK_STORAGE = 'https:\/\/www\.gstatic\.com\/firebasejs\/([^/]+)\/(firebase-storage\.js)'/)
+  assert.equal(vSto, versao, 'Storage: versão do site igual à dos testes')
+  assert.ok(fb.includes(`const SRI_STORAGE = '${sri(arqSto)}'`), 'Storage: integrity igual ao do pacote do npm')
+  assert.ok(!/from 'https:\/\/www\.gstatic\.com\/firebasejs\/[^']+\/firebase-storage\.js'/.test(fb), 'o Storage não é importado na primeira visita')
   // Todo import do SDK no app usa a mesma versão, e nenhum script vem do cdnjs
   for (const nome of readdirSync(new URL('../js/', import.meta.url)).filter(n => n.endsWith('.js'))) {
     const codigo = _ler(`js/${nome}`).toString()

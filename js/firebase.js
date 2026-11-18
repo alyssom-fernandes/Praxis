@@ -40,14 +40,8 @@ import {
   writeBatch,
   increment,
 } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js'
-import {
-  getStorage,
-  connectStorageEmulator,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-storage.js'
+// O SDK do Storage não entra na primeira visita: só anexos, cotações com
+// arquivo e comprovantes usam (armazenamento(), abaixo).
 // O SDK de Cloud Functions não é importado: o app não chama nenhuma função
 // (as Functions reagem sozinhas a gravações no Firestore). Era um download a
 // mais em toda visita.
@@ -67,8 +61,6 @@ const auth      = initializeAuth(app, {
 const db        = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
-const storage   = getStorage(app)
-
 const _isLocal =
   typeof location !== 'undefined' &&
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
@@ -77,12 +69,44 @@ if (_isLocal && !globalThis.__praxisEmuladoresConectados) {
   try {
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
     connectFirestoreEmulator(db, 'localhost', 9090)
-    connectStorageEmulator(storage, 'localhost', 9199)
     globalThis.__praxisEmuladoresConectados = true
-    console.log('🔧 Praxis: conectado aos emuladores locais (Auth, Firestore, Storage)')
+    console.log('🔧 Praxis: conectado aos emuladores locais (Auth, Firestore; Storage no primeiro envio)')
   } catch (e) {
     console.error('Falha ao conectar nos emuladores locais:', e)
   }
+}
+
+// ── Storage sob demanda ───────────────────────────────────────
+// Carregado no primeiro envio ou remoção de arquivo. O integrity continua
+// valendo: um modulepreload posto na hora confere o arquivo do gstatic com o
+// do npm (tests/unidade.test.mjs), e o import() reaproveita o módulo já
+// conferido. Se a conferência falhar, nada é carregado
+const SDK_STORAGE = 'https://www.gstatic.com/firebasejs/13.3.0/firebase-storage.js'
+const SRI_STORAGE = 'sha384-XI/vZ0ZW0hYp5K15yEQUhMAyUpTh4R4f132KKsjw8UlKc1Fqe74pLpd8xQQVFysw'
+let _armazenamento = null
+function armazenamento() {
+  if (!_armazenamento) {
+    _armazenamento = (async () => {
+      await new Promise((ok, erro) => {
+        const link = document.createElement('link')
+        link.rel = 'modulepreload'
+        link.href = SDK_STORAGE
+        link.integrity = SRI_STORAGE
+        link.crossOrigin = 'anonymous'
+        link.onload = ok
+        link.onerror = () => erro(new Error('Não foi possível carregar o envio de arquivos.'))
+        document.head.appendChild(link)
+      })
+      const sdk = await import(SDK_STORAGE)
+      const storage = sdk.getStorage(app)
+      if (_isLocal) sdk.connectStorageEmulator(storage, 'localhost', 9199)
+      return {
+        ref: caminho => sdk.ref(storage, caminho),
+        uploadBytes: sdk.uploadBytes, getDownloadURL: sdk.getDownloadURL, deleteObject: sdk.deleteObject,
+      }
+    })().catch(err => { _armazenamento = null; throw err })
+  }
+  return _armazenamento
 }
 
 // ── Área da demonstração ──────────────────────────────────────
@@ -141,7 +165,7 @@ function contadorPedidosRef() {
 }
 
 export {
-  app, auth, db, storage,
+  app, auth, db,
   // Área da demonstração
   eContaDemo, consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
   apagarCopiaLocal,
@@ -156,6 +180,6 @@ export {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, runTransaction,
   serverTimestamp, Timestamp, writeBatch, increment,
-  // Storage
-  storageRef, uploadBytes, getDownloadURL, deleteObject,
+  // Storage (sob demanda)
+  armazenamento,
 }

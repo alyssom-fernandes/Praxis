@@ -767,7 +767,9 @@
 }
 .regua-nome { font-size: var(--t-corpo); font-weight: 600; }
 /* Régua do pedido: o nome da etapa quebra em duas linhas (tablet, inglês) em vez de cortar */
-.caminho .regua-nome { white-space: normal; overflow-wrap: break-word; line-height: 1.2; }
+.caminho .regua-nome { white-space: normal; overflow-wrap: normal; line-height: 1.2; }
+/* Tablet: sete etapas em pouco espaço; o nome desce um degrau para caber sem partir a palavra */
+@media (min-width: 768px) and (max-width: 1199px) { .caminho .regua-nome { font-size: var(--t-pequeno); } }
 .regua-sub { font-size: var(--t-pequeno); font-variant-numeric: tabular-nums lining-nums; }
 .regua-etapa.feita { border-top-color: var(--tinta); }
 .regua-etapa.feita .regua-n { color: var(--text); }

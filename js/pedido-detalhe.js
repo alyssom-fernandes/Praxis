@@ -1,8 +1,7 @@
 import {
-  auth, db, storage,
+  auth, db, armazenamento,
   doc, collection, where, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
   runTransaction, writeBatch, serverTimestamp, increment,
-  storageRef, uploadBytes, getDownloadURL, deleteObject,
   consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, eContaDemo,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
@@ -243,22 +242,27 @@ async function _fornecedorNoLote(nomeDigitado, lote) {
 
 // Envia o arquivo (quando há) e grava o lote que quem chama monta, já com o
 // endereço do arquivo. Se algo falhar depois do envio, o arquivo é apagado:
-// não sobra arquivo no Storage sem o registro no Firestore.
-async function _enviarEGravar(arquivoRef, arquivo, metadados, montarLote) {
+// não sobra arquivo no Storage sem o registro no Firestore. `caminho` é o
+// endereço no Storage (null quando não há arquivo); o SDK do Storage só
+// carrega aqui, no primeiro envio
+async function _enviarEGravar(caminho, arquivo, metadados, montarLote) {
   let enviado = false
+  let S = null, arquivoRef = null
   try {
     let url = null
-    if (arquivoRef) {
-      await uploadBytes(arquivoRef, arquivo, metadados)
+    if (caminho) {
+      S = await armazenamento()
+      arquivoRef = S.ref(caminho)
+      await S.uploadBytes(arquivoRef, arquivo, metadados)
       enviado = true
-      url = await getDownloadURL(arquivoRef)
+      url = await S.getDownloadURL(arquivoRef)
     }
     const lote = writeBatch(db)
     const resultado = await montarLote(lote, url)
     await lote.commit()
     return resultado
   } catch (err) {
-    if (enviado) deleteObject(arquivoRef).catch(() => {})
+    if (enviado) S.deleteObject(arquivoRef).catch(() => {})
     throw err
   }
 }
@@ -1124,7 +1128,7 @@ function _renderDecisao(acoes) {
       ${fatos.length || resp ? `
         <dl class="decisao-fatos">
           ${fatos.map(([k, v, sub, cls]) => `
-            <div class="decisao-fato ${cls || ''}">
+            <div class="decisao-fato ${cls || ''}${String(v).replace(/<[^>]+>/g, '').trim().length >= 14 ? ' largo' : ''}">
               <dt>${k}</dt>
               <dd><span class="decisao-valor">${v}</span>${sub ? `<span class="decisao-sub">${sub}</span>` : ''}</dd>
             </div>`).join('')}
@@ -2199,10 +2203,12 @@ function _editarPedido() {
             </select>
           </div>
           <div class="form-group">
-            <span class="form-label-falso">${t('editPrioridade')}</span>
-            <div class="toggle-wrap edit-urgente-wrap" id="edit-urgente-wrap" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-labelledby="edit-urgente-rotulo">
-              <span class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" aria-hidden="true"></span>
-              <span class="toggle-label" id="edit-urgente-rotulo">${t('urgente')}</span>
+            <div class="toggle-wrap np-urgente${p.urgente ? ' on' : ''}" id="edit-urgente-wrap" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-labelledby="edit-urgente-rotulo" aria-describedby="edit-urgente-desc">
+              <div class="np-urgente-txt">
+                <span class="toggle-label" id="edit-urgente-rotulo">${t('npUrgente')}<span class="kcard-urg np-urgente-selo" aria-hidden="true">${t('urgenteTag')}</span></span>
+                <span class="np-urgente-desc" id="edit-urgente-desc">${t('npUrgenteDesc')}</span>
+              </div>
+              <div class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" aria-hidden="true"></div>
             </div>
           </div>
         </div>
@@ -2213,10 +2219,14 @@ function _editarPedido() {
       </div>
     </div>
   `)
-  // A linha inteira é o interruptor (44 px no celular), como no novo pedido
+  // O mesmo interruptor do novo pedido: a caixa inteira alterna, com o selo e a descrição
   const tg = document.getElementById('edit-urgente-toggle')
   const wrap = document.getElementById('edit-urgente-wrap')
-  const alternar = () => { tg.classList.toggle('on'); wrap.setAttribute('aria-checked', String(tg.classList.contains('on'))) }
+  const alternar = () => {
+    const on = tg.classList.toggle('on')
+    wrap.classList.toggle('on', on)
+    wrap.setAttribute('aria-checked', String(on))
+  }
   wrap?.addEventListener('click', alternar)
   wrap?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternar() } })
   document.getElementById('salvar-edicao')?.addEventListener('click', () => _salvarEdicaoPedido(fechar))
@@ -2638,10 +2648,10 @@ async function _anexarComprovante(parcelaId, file) {
   mostrarSpinner()
   try {
     const parc = _parcelas.find(p => p.id === parcelaId)
-    const arquivoRef = storageRef(storage, STORAGE_PATHS.comprovante(_pedidoId, parcelaId) + '/' + file.name)
+    const caminho = STORAGE_PATHS.comprovante(_pedidoId, parcelaId) + '/' + file.name
     // O comprovante e a entrada do histórico vão no mesmo lote, e a parcela
     // aponta para a entrada (as regras recusam o comprovante sem ela)
-    await _enviarEGravar(arquivoRef, file, undefined, (lote, url) => {
+    await _enviarEGravar(caminho, file, undefined, (lote, url) => {
       const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
       lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
         comprovante: url, comprovanteEventoId: entrada.id,
@@ -2758,12 +2768,12 @@ async function _mostrarModalCotacao() {
     mostrarSpinner()
     try {
       const cotRef = doc(collection(db, 'pedidos', _pedidoId, 'cotacoes'))
-      const arquivoRef = arquivo
-        ? storageRef(storage, STORAGE_PATHS.cotacao(_pedidoId, cotRef.id) + '/' + arquivo.name)
+      const caminho = arquivo
+        ? STORAGE_PATHS.cotacao(_pedidoId, cotRef.id) + '/' + arquivo.name
         : null
       // Fornecedor, cotação e histórico num lote só; a entrada do histórico usa
       // o ID da cotação, como as regras exigem
-      const forn = await _enviarEGravar(arquivoRef, arquivo, undefined, async (lote, url) => {
+      const forn = await _enviarEGravar(caminho, arquivo, undefined, async (lote, url) => {
         const f = await _fornecedorNoLote(fornNome, lote)
         lote.set(cotRef, {
           fornecedorId: f.id,
@@ -3317,7 +3327,7 @@ async function _uploadAnexo(file) {
     // As regras do Storage só deixam apagar o anexo quem o enviou (ou um gestor
     // da empresa). O anexo e a entrada do histórico, com o mesmo ID, vão no
     // mesmo lote
-    await _enviarEGravar(storageRef(storage, storagePath), file,
+    await _enviarEGravar(storagePath, file,
       { customMetadata: { autorUid: auth.currentUser?.uid || '' } },
       (lote, url) => {
         lote.set(anexoRef, {
@@ -3357,7 +3367,7 @@ async function _removerAnexo(anexoId, storagePath) {
   mostrarSpinner()
   try {
     await deleteDoc(doc(db, 'pedidos', _pedidoId, 'anexos', anexoId))
-    if (storagePath) deleteObject(storageRef(storage, storagePath)).catch(() => {})
+    if (storagePath) armazenamento().then(S => S.deleteObject(S.ref(storagePath))).catch(() => {})
     _anexos = _anexos.filter(a => a.id !== anexoId)
     _renderDetalhe()
     prxToast(t('anexoRemovido'), 'success')

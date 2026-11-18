@@ -1855,6 +1855,8 @@
   .detalhe-aside .decisao-fatos { grid-template-columns: 1fr 1fr; margin: 0 calc(var(--esp-200) * -1); }
   .detalhe-aside .decisao-fato { padding: var(--esp-150) var(--esp-200); }
   .detalhe-aside .decisao-fato:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* Valor longo (R$ 9.999.999,99): ocupa a linha toda em vez de cortar */
+  .detalhe-aside .decisao-fatos:has(.largo) { grid-template-columns: 1fr; }
   .detalhe-aside .decisao-resp-nome { white-space: normal; }
   .detalhe-aside .detalhe-meta-grid { grid-template-columns: 1fr 1fr; gap: var(--esp-200) var(--esp-250); }
 }
@@ -2049,8 +2051,6 @@
 .dropzone:hover,
 .dropzone:focus-within { color: var(--text); outline: 2px solid var(--foco); outline-offset: 1px; }
 .dropzone span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.edit-urgente-wrap { margin-top: var(--esp-100); min-height: 44px; cursor: pointer; }
-.edit-urgente-wrap:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .modal-comparar { max-width: 920px; }
 /* Sugestões de fornecedor (datalist) sem a seta nativa do navegador */
 #modal-compra input[list]::-webkit-calendar-picker-indicator,
