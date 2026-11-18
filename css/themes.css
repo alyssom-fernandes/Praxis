@@ -234,6 +234,41 @@ input[type="checkbox"], input[type="radio"] {
   .dt-feed-mais { align-self: flex-start; min-height: 44px; margin-top: var(--esp-100); }
   .dt-bloco.recolhida > :not(.dt-card-head) { display: none; }
   .dt-bloco.recolhida > .dt-card-head { margin-bottom: 0; }
+  /* Relatórios: o mesmo recolher, com o cabeçalho inteiro como alvo; o
+     seletor gráfico/tabela fica por cima e some com a seção fechada */
+  .rel-secao-cab { position: relative; }
+  .rel-secao-cab > :not(.rel-secao-tit):not(.rel-recolher) { position: relative; z-index: 1; }
+  .rel-recolher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    margin: calc(var(--esp-100) * -1) calc(var(--esp-150) * -1) calc(var(--esp-100) * -1) 0;
+    padding: 0;
+    color: var(--text3);
+    background: none;
+    border: none;
+  }
+  .rel-recolher::after { content: ''; position: absolute; inset: 0; }
+  .rel-recolher svg { transition: transform var(--transition-fast); }
+  .rel-recolher[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .rel-recolher:active:not(:disabled) { transform: none; }
+  .rel-secao.recolhida > .rel-secao-corpo,
+  .rel-secao.recolhida .rel-secao-cab > :not(.rel-secao-tit):not(.rel-recolher) { display: none; }
+  .rel-secao.recolhida > .rel-secao-cab { margin-bottom: 0; padding-bottom: var(--esp-100); }
+  /* Seção que a pessoa acabou de abrir (classe posta só no toque, para o
+     detalhe que se redesenha em tempo real não piscar): o conteúdo desce */
+  .dt-bloco.abrindo > :not(.dt-card-head),
+  .rel-secao.abrindo > .rel-secao-corpo { animation: dropIn 0.2s var(--ease-out, ease-out); }
+  /* Cor da categoria: amostras de 44 px */
+  .cfg-cor { width: 44px; height: 44px; min-height: 44px; }
+  .cfg-cor::before { width: 24px; height: 24px; }
+  /* Convites e usuários: o e-mail quebra em vez de cortar */
+  .usr-email { white-space: normal; overflow-wrap: anywhere; }
+  /* Relatórios: código, empresa e categoria das linhas quebram em vez de cortar */
+  .rel-linha-sub { white-space: normal; }
   .dt-modal-pedido { display: none; }
   .dt-modal .modal-header { padding: var(--esp-200) var(--esp-200) var(--esp-200) var(--esp-250); }
   .dt-modal .modal-body { padding: var(--esp-250); }
@@ -430,14 +465,17 @@ input[type="checkbox"], input[type="radio"] {
   .kanban-cards { gap: var(--esp-100); min-height: 0; }
   .kanban-vazio { padding: var(--esp-200) 0; font-size: var(--t-corpo); }
   .kanban-ver-mais { min-height: 44px; font-size: var(--t-corpo); }
-  .kcard { padding: var(--esp-200) var(--esp-200) var(--esp-150); }
+  /* Cartão compacto (rodada 12, aprovado): prazo e valor dividem a última linha, sem o fio */
+  .kcard { padding: var(--esp-150) var(--esp-200); }
   .kcard-num { font-size: var(--t-corpo); }
   .kcard-urg { font-size: var(--t-pequeno); padding: var(--esp-025) var(--esp-100) 1px; }
-  .kcard-title { font-size: var(--t-titulo-3); -webkit-line-clamp: 2; }
+  .kcard-title { margin: var(--esp-050) 0 0; font-size: var(--t-titulo-3); -webkit-line-clamp: 2; }
   .kcard-empresa { font-size: var(--t-pequeno); }
-  .kcard-pe { flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--esp-150); }
+  .kcard-pe { flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--esp-150); margin-top: var(--esp-100); padding-top: 0; border-top: none; }
+  .kcard-pe > .kcard-prazo { flex: 1 1 auto; min-width: 0; }
+  .kcard-pe > .kcard-valor { flex: 0 0 auto; }
   .kcard-prazo { font-size: var(--t-pequeno); }
-  .kcard-valor { font-size: var(--t-titulo-2); }
+  .kcard-valor { font-size: var(--t-titulo-3); }
 
   /* Lista vira cartões na mesma linguagem do quadro */
   .pedidos-tabela-wrap { overflow: visible; border-top: none; }
@@ -648,6 +686,10 @@ input[type="checkbox"], input[type="radio"] {
   html { -webkit-tap-highlight-color: transparent; }
   button, a, label, summary, [role="button"], [role="tab"], .chip { touch-action: manipulation; }
   .main-footer { display: none; }
+  /* Sem o rodapé, o espaço da barra de baixo (e da barra de ação do detalhe)
+     fica no fim do conteúdo; antes, o último item da página ficava sob ela */
+  body:has(#bottom-nav) .main-content { padding-bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
+  body:has(#bottom-nav):has(.decisao-acoes) .main-content { padding-bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
   .um-so-movel { display: flex; }
 
   /* Campos: texto de 16 px (sem zoom no iPhone) e 48 px para o dedo */

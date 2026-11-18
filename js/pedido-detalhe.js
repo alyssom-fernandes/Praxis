@@ -7,7 +7,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast, prxConfirm, estadoVazio, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca } from './ui.js'
+import { prxToast, prxConfirm, estadoVazio, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca, empilharVoltar, desempilharVoltar, bordasDeRolagem } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL,
@@ -394,7 +394,9 @@ function _estadoPrazo() {
 function _renderCaminho() {
   const p = _pedido
   const { atual, parou } = _posicaoCaminho()
-  const ent = _entradas()
+  const ent0 = _entradas()
+  // Compra já feita: as etapas não passam pelo histórico; as datas vêm da própria compra
+  const ent = p.lancamento ? { ...ent0, [STATUS.COMPRADO]: ent0[STATUS.COMPRADO] || p.dataCompra, [STATUS.ENTREGUE]: ent0[STATUS.ENTREGUE] || p.dataEntrega, [STATUS.PAGO]: ent0[STATUS.PAGO] || (p.lancamento.pago ? p.dataCompra : null) } : ent0
   const fim = parou === STATUS.REPROVADO ? (p.reprovadoEm || _quemFez(STATUS.REPROVADO)?.em)
     : parou === STATUS.CANCELADO ? (p.canceladoEm || _quemFez(STATUS.CANCELADO)?.em) : null
   const etapas = _ETAPAS.map((st, i) => {
@@ -685,6 +687,7 @@ function _centralizarCaminho() {
   if (!ol || !atual || ol.scrollWidth <= ol.clientWidth) return
   const alvo = atual.previousElementSibling || atual
   ol.scrollLeft = Math.max(0, alvo.offsetLeft - ol.offsetLeft - 16)
+  bordasDeRolagem(ol)
 }
 
 // Bloco de uma cotação dentro de um modal (fornecedor, valor, condições)
@@ -1593,12 +1596,18 @@ function _bindMenuAcoes() {
   const menu = document.getElementById('menu-mais-acoes')
   if (_fecharMenuDoc) { document.removeEventListener('click', _fecharMenuDoc); document.removeEventListener('keydown', _fecharMenuDoc) }
   if (!btn || !menu) return
-  const fechar = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false') }
+  // Celular: o voltar do Android fecha o menu, sem sair do pedido
+  const fechar = () => {
+    menu.hidden = true; btn.setAttribute('aria-expanded', 'false')
+    if (menu._voltar) { desempilharVoltar(menu._voltar); menu._voltar = null }
+  }
   btn.addEventListener('click', e => {
     e.stopPropagation()
     const abrir = menu.hidden
-    menu.hidden = !abrir
-    btn.setAttribute('aria-expanded', String(abrir))
+    if (!abrir) { fechar(); return }
+    menu.hidden = false
+    btn.setAttribute('aria-expanded', 'true')
+    if (!menu._voltar) menu._voltar = empilharVoltar(() => { menu._voltar = null; fechar() }, 'menu-mais-acoes')
     if (abrir) [...menu.querySelectorAll('.menu-acoes-item')].find(i => i.offsetParent !== null)?.focus()
   })
   menu.addEventListener('click', e => { if (e.target.closest('.menu-acoes-item')) fechar() })
@@ -1684,6 +1693,8 @@ function _bindDetalheEvents() {
     const secao = b.closest('.dt-bloco')
     const abrir = secao.classList.contains('recolhida')
     secao.classList.toggle('recolhida', !abrir)
+    secao.classList.toggle('abrindo', abrir)
+    if (abrir) setTimeout(() => secao.classList.remove('abrindo'), 260)
     b.setAttribute('aria-expanded', String(abrir))
     _secoesAlternadas[b.dataset.secao] = abrir
   }))
@@ -2189,9 +2200,9 @@ function _editarPedido() {
           </div>
           <div class="form-group">
             <span class="form-label-falso">${t('editPrioridade')}</span>
-            <div class="toggle-wrap edit-urgente-wrap">
-              <span class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-label="${t('urgente')}"></span>
-              <span class="toggle-label">${t('urgente')}</span>
+            <div class="toggle-wrap edit-urgente-wrap" id="edit-urgente-wrap" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-labelledby="edit-urgente-rotulo">
+              <span class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" aria-hidden="true"></span>
+              <span class="toggle-label" id="edit-urgente-rotulo">${t('urgente')}</span>
             </div>
           </div>
         </div>
@@ -2202,10 +2213,12 @@ function _editarPedido() {
       </div>
     </div>
   `)
+  // A linha inteira é o interruptor (44 px no celular), como no novo pedido
   const tg = document.getElementById('edit-urgente-toggle')
-  const alternar = () => { tg.classList.toggle('on'); tg.setAttribute('aria-checked', String(tg.classList.contains('on'))) }
-  tg?.closest('.toggle-wrap')?.addEventListener('click', alternar)
-  tg?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternar() } })
+  const wrap = document.getElementById('edit-urgente-wrap')
+  const alternar = () => { tg.classList.toggle('on'); wrap.setAttribute('aria-checked', String(tg.classList.contains('on'))) }
+  wrap?.addEventListener('click', alternar)
+  wrap?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternar() } })
   document.getElementById('salvar-edicao')?.addEventListener('click', () => _salvarEdicaoPedido(fechar))
 }
 

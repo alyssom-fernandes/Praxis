@@ -38,6 +38,8 @@ export function abrirCommandPalette() {
   _criarPaletaDOM()
   if (!_cmdPaletaEl.classList.contains('visible')) _cmdGatilho = document.activeElement
   _cmdPaletaEl.classList.add('visible')
+  // Celular: o voltar do Android fecha a busca, sem sair da tela
+  if (!_cmdPaletaEl._voltar) _cmdPaletaEl._voltar = empilharVoltar(() => { _cmdPaletaEl._voltar = null; _fecharPaleta(false) }, 'cmd-palette')
   _cmdActiveIdx = 0
   const input = document.getElementById('cmd-input')
   if (input) { input.value = ''; input.focus() }
@@ -47,6 +49,7 @@ export function abrirCommandPalette() {
 function _fecharPaleta(devolverFoco = true) {
   if (!_cmdPaletaEl?.classList.contains('visible')) return
   _cmdPaletaEl.classList.remove('visible')
+  if (_cmdPaletaEl._voltar) { desempilharVoltar(_cmdPaletaEl._voltar); _cmdPaletaEl._voltar = null }
   if (devolverFoco && _cmdGatilho?.isConnected) _cmdGatilho.focus({ preventScroll: true })
   _cmdGatilho = null
 }
@@ -623,7 +626,12 @@ export function empilharVoltar(fechar, chave = null) {
   if (existente) { existente.fechar = fechar; return existente }
   const item = { fechar, chave }
   _pilhaVoltar.push(item)
-  history.pushState({ ...(history.state || {}), prxCamada: _pilhaVoltar.length }, '')
+  // Uma janela que abre logo depois de outra fechar (um item do menu que abre
+  // a sua janela) só ganha a entrada depois que o voltar da anterior termina;
+  // antes, o pushState entrava no meio e o voltar seguinte saía da tela
+  quandoHistoricoLivre(() => {
+    if (_pilhaVoltar.includes(item)) history.pushState({ ...(history.state || {}), prxCamada: _pilhaVoltar.length }, '')
+  })
   return item
 }
 export function desempilharVoltar(item) {
@@ -655,6 +663,20 @@ export function consumirVoltarDeModal() {
   if (!item) return false
   item.fechar()
   return true
+}
+
+// Linha que rola para o lado (abas da administração, régua do pedido): a borda
+// por onde ainda há o que ver esmaece, em vez de cortar o texto seco
+export function bordasDeRolagem(el) {
+  if (!el || el._bordas) return
+  el._bordas = true
+  const atualizar = () => {
+    el.classList.toggle('rola-esq', el.scrollLeft > 4)
+    el.classList.toggle('rola-dir', el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+  el.addEventListener('scroll', atualizar, { passive: true })
+  if (typeof ResizeObserver === 'function') new ResizeObserver(atualizar).observe(el)
+  atualizar()
 }
 
 // ── Modal genérico ────────────────────────────────────────────
@@ -1055,9 +1077,11 @@ export function skeletonDashCards(n = 4) {
 // celular). Um recorte fixo destaca o alvo; o balão se posiciona abaixo,
 // acima ou, sem espaço, preso à borda de baixo da tela.
 function _getTourPassos() {
+  // No celular o quadro é a régua das etapas (não há colunas) e o pedido novo sai do "+"
+  const celular = window.matchMedia('(max-width: 767px)').matches
   return [
-    { alvo: ['#pedidos-view'],                                        titulo: t('tourStep1Titulo'), desc: t('tourStep1Desc') },
-    { alvo: ['#btn-novo-pedido'],                                     titulo: t('tourStep2Titulo'), desc: t('tourStep2Desc') },
+    { alvo: ['#pedidos-view'],                                        titulo: t('tourStep1Titulo'), desc: t(celular ? 'tourStep1DescCelular' : 'tourStep1Desc') },
+    { alvo: ['#btn-novo-pedido', '#bnav-novo'],                       titulo: t('tourStep2Titulo'), desc: t(celular ? 'tourStep2DescCelular' : 'tourStep2Desc') },
     { alvo: ['#btn-notif'],                                           titulo: t('tourStep3Titulo'), desc: t('tourStep3Desc') },
     { alvo: ['#btn-avatar', '#bnav-conta'],                           titulo: t('tourStep4Titulo'), desc: t('tourStep4Desc') },
     { alvo: ['#lateral-cadastros', '#bottom-nav [data-bnav="config-usuarios"]'], titulo: t('tourStep5Titulo'), desc: t('tourStep5Desc') },

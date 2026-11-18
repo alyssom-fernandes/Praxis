@@ -6,7 +6,7 @@ import { atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
 import { t, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais, cnpjValido } from './utils.js'
-import { estadoVazio } from './ui.js'
+import { estadoVazio, bordasDeRolagem } from './ui.js'
 
 const svg = (tam, corpo, traco = 2) =>
   `<svg width="${tam}" height="${tam}" fill="none" stroke="currentColor" stroke-width="${traco}" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
@@ -100,6 +100,7 @@ export function botaoNovo(id, rotulo, curto) {
 export function revelarItemLateral() {
   const nav  = document.querySelector('.lateral[data-mode="config"] .lateral-nav')
   const item = nav?.querySelector('.lateral-item.active')
+  bordasDeRolagem(nav)
   if (!nav || !item || nav.scrollWidth <= nav.clientWidth) return
   const n = nav.getBoundingClientRect()
   const i = item.getBoundingClientRect()
@@ -133,6 +134,28 @@ export function vazio({ titulo = '', texto = '', acao = '' } = {}) {
 }
 
 // Linha de tabela com estado vazio (ocupa todas as colunas)
+// Listas longas (fornecedores, usuários, auditoria): 30 linhas por vez, com
+// "Mostrar mais" no fim; a busca e os filtros valem para a lista inteira
+const POR_VEZ = 30
+const _mostrando = {}
+export function linhasComMais(tbody, lista, colunas, linha, redesenhar) {
+  const chave = tbody.id
+  const n = _mostrando[chave] || POR_VEZ
+  const resto = lista.length - n
+  if (!tbody._mais) {
+    tbody._mais = true
+    tbody.addEventListener('click', e => {
+      if (!e.target.closest('[data-mostrar-mais]')) return
+      e.stopPropagation()
+      _mostrando[chave] = (_mostrando[chave] || POR_VEZ) + POR_VEZ
+      redesenhar()
+    })
+  }
+  return lista.slice(0, n).map(linha).join('') + (resto > 0
+    ? `<tr class="cfg-linha-mais"><td colspan="${colunas}"><button type="button" class="btn-secondary cfg-mais" data-mostrar-mais>${esc(tf('cfgMostrarMais', { n: Math.min(POR_VEZ, resto), total: lista.length }))}</button></td></tr>`
+    : '')
+}
+
 export function linhaVazia(colunas, opcoes) {
   return `<tr class="cfg-linha-vazia"><td colspan="${colunas}">${vazio(opcoes)}</td></tr>`
 }

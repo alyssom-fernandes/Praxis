@@ -476,8 +476,14 @@
      desenho; o olho da senha cresce dentro do campo de 48 */
   .login-link { position: relative; }
   .login-link::after { content: ''; position: absolute; inset: -15px -8px; }
-  /* "Esqueci a senha" fica logo acima do campo: a área não desce sobre ele */
-  .login-label-linha .login-link::after { bottom: -4px; }
+  /* "Esqueci a senha" desce para uma linha própria abaixo do campo, à direita,
+     com 44 px de altura (acima do campo a área esbarrava no e-mail e na senha) */
+  .form-group:has(> .login-label-linha) { display: flex; flex-direction: column; }
+  .login-label-linha { display: contents; }
+  .login-label-linha > label { order: 1; }
+  .form-group:has(> .login-label-linha) > .login-senha { order: 2; }
+  .login-label-linha .login-link { order: 3; align-self: flex-end; display: inline-flex; align-items: center; min-height: 44px; margin-bottom: calc(var(--esp-100) * -1); }
+  .login-label-linha .login-link::after { content: none; }
   .login-voltar { min-height: 44px; }
   .login-olho { right: 2px; width: 44px; height: 44px; min-height: 44px; }
   .login-senha input { padding-right: var(--esp-600); }
@@ -1171,6 +1177,12 @@
 }
 .rel-secao-meta { margin-top: var(--esp-050); font-size: var(--t-corpo); line-height: 1.45; color: var(--text3); }
 .rel-secao-corpo { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+/* Recolher a seção: só no celular (css/themes.css); no computador e no papel tudo fica aberto */
+.rel-recolher { display: none; }
+@media print {
+  .rel-recolher { display: none !important; }
+  .rel-secao.recolhida > .rel-secao-corpo { display: flex !important; }
+}
 
 .rel-mini-seg {
   display: inline-flex;
@@ -1518,7 +1530,9 @@
   .rel-kpi.destaque .rel-kpi-valor { font-size: clamp(2rem, 14cqi, var(--t-display-g)); }
   .rel-kpi-rotulo { margin-top: var(--esp-100); font-size: var(--t-corpo); }
 
-  .rel-grade { row-gap: var(--esp-600); }
+  /* Uma coluna só: as 12 colunas com 11 vãos somavam 352 px e passavam da tela a 360 */
+  .rel-grade { grid-template-columns: minmax(0, 1fr); row-gap: var(--esp-600); }
+  .rel-grade > .rel-larg-12, .rel-grade > .rel-larg-6 { grid-column: 1 / -1; }
   .rel-secao-cab { margin-bottom: var(--esp-200); }
   .rel-secao-tit h2 { font-size: 1.3rem; }
   .rel-plot { height: 190px; margin-left: 50px; }
@@ -1675,8 +1689,9 @@
   align-items: center;
   padding: var(--esp-025) var(--esp-100) 1px;
   border-radius: var(--radius-tag);
-  background: var(--urgente);
-  color: var(--on-urgente);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--urgente-borda);
+  color: var(--urgente-texto);
   font-size: var(--t-pequeno);
   font-weight: 700;
   line-height: 1.45;
@@ -1789,7 +1804,7 @@
 .decisao-acoes > button { min-height: 42px; padding: 0 var(--esp-200); font-size: var(--t-corpo); }
 .decisao-fatos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* 200: cabe R$ 9.999.999,99 sem cortar */
   gap: 1px;
   margin: 0 calc(var(--esp-300) * -1);
   background: var(--line);
@@ -2034,7 +2049,8 @@
 .dropzone:hover,
 .dropzone:focus-within { color: var(--text); outline: 2px solid var(--foco); outline-offset: 1px; }
 .dropzone span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.edit-urgente-wrap { margin-top: var(--esp-100); cursor: pointer; }
+.edit-urgente-wrap { margin-top: var(--esp-100); min-height: 44px; cursor: pointer; }
+.edit-urgente-wrap:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .modal-comparar { max-width: 920px; }
 /* Sugestões de fornecedor (datalist) sem a seta nativa do navegador */
 #modal-compra input[list]::-webkit-calendar-picker-indicator,
@@ -2274,6 +2290,9 @@ input.cfg-mono { font-size: var(--t-corpo); }
 /* Estado vazio (dentro de tabela ou grade) */
 .cfg-linha-vazia, .cfg-linha-vazia:hover { cursor: default; background: none !important; }
 .cfg-linha-vazia > td { padding: 0 !important; }
+.cfg-linha-mais, .cfg-linha-mais:hover { cursor: default; background: none !important; }
+.cfg-linha-mais > td { padding: var(--esp-200) 0 !important; text-align: center; }
+.cfg-mais { min-height: 44px; }
 /* O vazio (.vazio.solto) alinhado ao texto das células */
 .cfg-linha-vazia .vazio { padding-inline: var(--esp-150); }
 
@@ -2774,7 +2793,10 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .cfg-btn-editar { width: 36px; height: 36px; min-height: 36px; }
 
   .cfg-tabela tbody tr.cfg-linha-vazia,
+  .cfg-tabela tbody tr.cfg-linha-mais,
   .cfg-tabela tbody tr.cfg-linha-esq { display: block; padding: 0; }
+  .cfg-tabela tbody tr.cfg-linha-mais { padding: var(--esp-200) 0; }
+  .cfg-mais { width: 100%; }
   .cfg-tabela tbody tr.cfg-linha-esq { padding: var(--esp-200) var(--esp-025); }
   .cfg-tabela tbody tr.cfg-linha-esq td + td { display: none; }
   .cfg-linha-vazia .vazio { padding: var(--esp-500) var(--esp-200); }
@@ -2829,6 +2851,11 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .forn-tabela td.c-nome { grid-area: nome; }
   .forn-tabela td.c-acoes { grid-area: acoes; }
   .forn-tabela td.c-cnpj { grid-area: cnpj; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Telas estreitas (360): o CNPJ ganha a linha toda; pedidos e valor descem */
+  @media (max-width: 389px) {
+    .forn-tabela tbody tr { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "nome nome acoes" "cnpj cnpj cnpj" "num valor valor"; }
+    .forn-tabela td.c-num { text-align: left; }
+  }
   .forn-tabela td.c-num { grid-area: num; font-size: var(--t-corpo) !important; text-align: right; }
   .forn-tabela td.c-num::after { content: attr(data-sufixo); font-family: var(--font); font-weight: 500; color: var(--text3); }
   .forn-tabela td.c-valor { grid-area: valor; font-size: var(--t-corpo) !important; text-align: right; }

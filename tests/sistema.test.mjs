@@ -82,8 +82,12 @@ function conferir(frentes, fundos, minimo) {
   assert.deepEqual(falhas, [], `abaixo de ${minimo}:1`)
 }
 
-test('texto: 4,5:1 sobre o fundo, os painéis e os campos, nos dois temas', () => {
-  conferir(['--text', '--text2', '--text3'], SUPERFICIES, 4.5)
+test('texto: 4,5:1 sobre o fundo, os painéis e os campos, no hover e nos dois temas', () => {
+  conferir(['--text', '--text2', '--text3'], [...SUPERFICIES, '--card3'], 4.5) // --card3: o cartão sob o mouse
+})
+
+test('selo Urgente: o texto do contorno com 4,5:1 nas superfícies, nos dois temas', () => {
+  conferir(['--urgente-texto'], [...SUPERFICIES, '--card3'], 4.5)
 })
 
 test('anel de foco: 3:1 sobre todas as superfícies, nos dois temas', () => {

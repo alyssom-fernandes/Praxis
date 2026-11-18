@@ -15,7 +15,7 @@ import {
   doisDigitos, moedaCurta, moeda,
   marcarErro, limparErro, limparErros, focarPrimeiroErro,
   mascararCNPJ, ligarMascaraCNPJ, cnpjValido, ligarInterruptor, definirInterruptor,
-  revelarItemLateral,
+  revelarItemLateral, linhasComMais,
 } from './config-comum.js'
 
 // Cadastros: cada um é uma tela própria (?tela=config-cadastros&aba=…), aberta
@@ -446,7 +446,7 @@ function _renderFornecedores() {
     return
   }
 
-  tbody.innerHTML = lista.map(f => {
+  tbody.innerHTML = linhasComMais(tbody, lista, 5, f => {
     const n = _usos(f)
     const valor = _contagem ? (_contagem.valorFornecedor[f.id] || 0) : null
     return `
@@ -459,7 +459,7 @@ function _renderFornecedores() {
           <button class="btn-icon cfg-btn-editar btn-editar-forn" data-forn-id="${esc(f.id)}" aria-label="${esc(tf('cfgEditarX', { nome: _nomeForn(f) }))}" data-tooltip="${t('editarLabel')}">${ICO.editar()}</button>
         </td>
       </tr>`
-  }).join('')
+  }, _renderFornecedores)
 }
 
 // ── Modal Empresa ─────────────────────────────────────────────

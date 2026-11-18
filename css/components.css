@@ -602,7 +602,7 @@
   cursor: pointer;
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
-.kcard:hover { background: var(--card3); }
+@media (hover: hover) { .kcard:hover { background: var(--card3); } }
 /* Cartão que acabou de mudar de etapa (por esta pessoa ou por outra, em tempo
    real): um anel de terracota que some em 1,6 s mostra onde ele chegou */
 .kcard.kcard-mudou { animation: kcardMudou 1.6s ease calc(0.3s + var(--desde, 0ms)) both; }
@@ -628,8 +628,9 @@
   font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap;
 }
-/* Selo "Urgente": terracota cheia, cantos de 2px (também na lista e no modal).
-   Sem caixa alta: a 12 px, em maiúsculas, o selo não cabia ao lado do número */
+/* Selo "Urgente": contorno e texto na cor da urgência, cantos de 2px (também na
+   lista, no detalhe e na busca). Bem visível sem o bloco cheio, que pesava mais
+   que a ação principal. Sem caixa alta: a 12 px, em maiúsculas, não cabia */
 .kcard-urg {
   margin-left: auto;
   display: inline-flex;
@@ -637,8 +638,9 @@
   flex-shrink: 0;
   padding: 1px var(--esp-050) 0;
   border-radius: var(--radius-tag);
-  background: var(--urgente);
-  color: var(--on-urgente);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--urgente-borda);
+  color: var(--urgente-texto);
   font-family: var(--font);
   font-size: var(--t-pequeno);
   font-weight: 700;
@@ -655,7 +657,7 @@
   letter-spacing: 0;
   color: var(--text);
   overflow-wrap: break-word;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 .kcard-empresa {
@@ -764,6 +766,8 @@
   color: var(--text3);
 }
 .regua-nome { font-size: var(--t-corpo); font-weight: 600; }
+/* Régua do pedido: o nome da etapa quebra em duas linhas (tablet, inglês) em vez de cortar */
+.caminho .regua-nome { white-space: normal; overflow-wrap: break-word; line-height: 1.2; }
 .regua-sub { font-size: var(--t-pequeno); font-variant-numeric: tabular-nums lining-nums; }
 .regua-etapa.feita { border-top-color: var(--tinta); }
 .regua-etapa.feita .regua-n { color: var(--text); }
@@ -1505,7 +1509,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   }
   .notif-list { max-height: calc(100vh - var(--notif-top, 56px) - 56px - 96px - env(safe-area-inset-bottom, 0px)); }
   .notif-header { min-height: 54px; padding: var(--esp-100) var(--esp-100) var(--esp-100) var(--esp-200); }
-  .notif-marcar { min-height: 40px; }
+  .notif-marcar { min-height: 44px; }
   .notif-item { padding: var(--esp-200) var(--esp-200); }
   .notif-ponto { right: 16px; }
   .notif-fundo {
@@ -2052,8 +2056,9 @@ button:active:not(:disabled) { transform: scale(0.98); }
   flex-shrink: 0;
   padding: var(--esp-025) var(--esp-075) 1px;
   border-radius: var(--radius-tag);
-  background: var(--urgente);
-  color: var(--on-urgente);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--urgente-borda);
+  color: var(--urgente-texto);
   font-size: var(--t-pequeno);
   font-weight: 700;
 }
@@ -2516,3 +2521,8 @@ details[open] > .np-mais-corpo, details[open] > .lanc-mais-corpo { animation: pf
 .nota-aviso:empty { display: none; }
 .nota-aviso.erro { color: var(--red); }
 .invalido .nota-aviso.erro { display: none; }
+
+/* Linha que rola para o lado (ui.js bordasDeRolagem): a borda com mais conteúdo esmaece */
+.rola-dir { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.rola-esq { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+.rola-esq.rola-dir { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }

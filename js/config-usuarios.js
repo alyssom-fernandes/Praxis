@@ -13,7 +13,7 @@ import {
   ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, dataAcesso, iniciais,
   marcarErro, limparErro, limparErros, focarPrimeiroErro, ligarInterruptor, definirInterruptor,
-  revelarItemLateral, completarContagensLateral,
+  revelarItemLateral, completarContagensLateral, linhasComMais,
 } from './config-comum.js'
 
 let _usuarios     = []
@@ -283,7 +283,7 @@ function _renderTabela() {
   }
 
   const eu = _meuId()
-  tbody.innerHTML = lista.map(u => _linha(u, eu)).join('')
+  tbody.innerHTML = linhasComMais(tbody, lista, COLUNAS, u => _linha(u, eu), _renderTabela)
 }
 
 // Uma linha da tabela: usuário ou convite pendente (que mostra o prazo no

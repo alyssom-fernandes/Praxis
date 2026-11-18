@@ -21,6 +21,9 @@
   /* Urgência: vermelho tijolo, para não disputar com a ação (bronze) */
   --urgente: #B4473A;
   --on-urgente: #FFFFFF;
+  /* Selo "Urgente": contorno e texto na cor da urgência (sem o bloco cheio) */
+  --urgente-texto: #E3907F;
+  --urgente-borda: rgba(180, 71, 58, 0.75);
 
   /* Superfícies */
   --bg: #141311;
@@ -50,7 +53,7 @@
   /* Texto */
   --text: #EEE9DF;
   --text2: #B8B0A2;
-  --text3: #938B7D;
+  --text3: #9A9283;
 
   /* Semânticas (afinadas com a paleta quente; urgência usa o próprio acento) */
   --green: #8FB07A;
@@ -168,6 +171,8 @@
   --gold-glow: rgba(134, 101, 42, 0.18);
 
   --urgente: #A63D31;
+  --urgente-texto: #9E3A2E;
+  --urgente-borda: rgba(166, 61, 49, 0.55);
 
   --bg: #F5F3EE;
   --card: #FFFFFF;

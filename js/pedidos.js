@@ -4,7 +4,7 @@ import {
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, atualizarLateral, registrarFiltroLateral } from './app.js'
 import { sessao, registrarPedidos } from './estado.js'
-import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, estadoVazio, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline } from './ui.js'
+import { prxToast, prxConfirm, prxAlert, prxEscolha, atalhosLigados, estadoVazio, mostrarSpinner, esconderSpinner, abrirModal, fecharModal, exigirConexao, estaOnline, empilharVoltar, desempilharVoltar } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
   STATUS, STATUS_LABEL, CATEGORIA_ETAPA,
@@ -628,6 +628,8 @@ function _abrirPainel() {
   btn.setAttribute('aria-expanded', 'true')
   btn.classList.add('aberto')
   document.body.classList.add('pf-aberto')
+  // Celular: o voltar do Android fecha o painel, sem sair da tela
+  if (!painel._voltar) painel._voltar = empilharVoltar(() => { painel._voltar = null; _fecharPainel() }, 'painel-filtros')
   _renderVisoes()
   // Computador: o painel termina antes da borda de baixo da janela (o corpo rola por dentro)
   painel.style.maxHeight = ''
@@ -642,6 +644,7 @@ function _fecharPainel(devolverFoco = false) {
   const btn = document.getElementById('btn-filtros')
   if (!painel || painel.hidden) return
   painel.hidden = true
+  if (painel._voltar) { desempilharVoltar(painel._voltar); painel._voltar = null }
   document.getElementById('pf-fundo')?.setAttribute('hidden', '')
   btn?.setAttribute('aria-expanded', 'false')
   btn?.classList.remove('aberto')
@@ -2002,7 +2005,7 @@ function _renderKcard(p) {
         ${p.urgente ? `<span class="kcard-urg">${t('urgenteTag')}</span>` : ''}
         ${_seloLancamento(p)}
       </div>
-      <h3 class="kcard-title">${esc(p.titulo)}</h3>
+      <h3 class="kcard-title" title="${esc(p.titulo)}">${esc(p.titulo)}</h3>
       ${nomeEmp ? `<div class="kcard-empresa" title="${esc(nomeEmp)}">${esc(nomeEmp)}</div>` : ''}
       <div class="kcard-pe">
         ${prazo ? `<span class="kcard-prazo${prazo.classe ? ' ' + prazo.classe : ''}"${prazo.data ? ` title="${prazo.data}"` : ''}>${ICO.relogio(12)}<span>${prazo.texto}</span></span>` : ''}

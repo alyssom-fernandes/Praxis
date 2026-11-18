@@ -47,6 +47,12 @@ let _filtroEmp  = 'todas'
 let _dataIni    = ''
 let _dataFim    = ''
 let _vistaMensal = 'grafico'
+// Celular: só o gasto mensal e o dinheiro começam abertos; as outras seções
+// mostram o título e o resumo e abrem com um toque. O que a pessoa abre ou fecha
+// vale enquanto o app estiver aberto. No computador o botão não aparece e a
+// classe não muda nada (css/themes.css)
+const _ABERTAS_NO_CELULAR = new Set(['bloco-vazio', 'bloco-mensal', 'bloco-dinheiro'])
+const _secoesAlternadas = {}
 let _carregado  = false
 let _geracao    = 0
 
@@ -339,6 +345,17 @@ function _bindEvents() {
 
   // Painel (delegação): ações dentro das seções
   document.getElementById('dash-content')?.addEventListener('click', e => {
+    const recolher = e.target.closest('.rel-recolher')
+    if (recolher) {
+      const secao = recolher.closest('.rel-secao')
+      const abrir = secao.classList.contains('recolhida')
+      secao.classList.toggle('recolhida', !abrir)
+      secao.classList.toggle('abrindo', abrir)
+      if (abrir) setTimeout(() => secao.classList.remove('abrindo'), 260)
+      recolher.setAttribute('aria-expanded', String(abrir))
+      _secoesAlternadas[recolher.dataset.secao] = abrir
+      return
+    }
     const vista = e.target.closest('[data-vista]')
     if (vista) { _vistaMensal = vista.dataset.vista; _renderDash(); return }
     const per = e.target.closest('[data-ir-per]')
@@ -631,12 +648,14 @@ function _kpisAprovador(D) {
 }
 
 function _secao({ id, larg = 12, titulo, meta = '', acoes = '', corpo, cls = '' }) {
-  return `<section class="rel-secao rel-larg-${larg}${cls ? ' ' + cls : ''}" id="${id}" aria-labelledby="${id}-tit">
+  const aberta = id in _secoesAlternadas ? _secoesAlternadas[id] : _ABERTAS_NO_CELULAR.has(id)
+  return `<section class="rel-secao rel-larg-${larg}${cls ? ' ' + cls : ''}${aberta ? '' : ' recolhida'}" id="${id}" aria-labelledby="${id}-tit">
     <header class="rel-secao-cab">
       <div class="rel-secao-tit"><h2 id="${id}-tit">${titulo}</h2>${meta ? `<p class="rel-secao-meta">${meta}</p>` : ''}</div>
       ${acoes}
+      <button type="button" class="rel-recolher" data-secao="${id}" aria-expanded="${aberta}" aria-controls="${id}-corpo" aria-labelledby="${id}-tit">${ICONE.seta}</button>
     </header>
-    <div class="rel-secao-corpo">${corpo}</div>
+    <div class="rel-secao-corpo" id="${id}-corpo">${corpo}</div>
   </section>`
 }
 
@@ -784,8 +803,8 @@ function _blocoDinheiro(D) {
   const coluna = (titulo, corpo) => `<div class="rel-dinheiro-col"><h3 class="rel-subtit">${titulo}</h3>${corpo}</div>`
   const vazio = `<p class="rel-vazio-linha">${tr('vazioCompras')}</p>`
   const corpo = `<div class="rel-dinheiro">
-    ${coluna(tr('porCategoria'), cats.length ? lista(cats, nomeCat, corCat, 'cat') : vazio)}
-    ${coluna(porForn ? tr('porFornecedor') : tr('porEmpresa'), seg.length ? lista(seg, nomeSeg, () => 'var(--rel-neutra)', 'seg') : vazio)}
+    ${coluna(tr('porCategoria'), cats.length ? lista(cats, nomeCat, corCat, 'rel-barras-cat') : vazio)}
+    ${coluna(porForn ? tr('porFornecedor') : tr('porEmpresa'), seg.length ? lista(seg, nomeSeg, () => 'var(--rel-neutra)', 'rel-barras-seg') : vazio)}
   </div>`
   const meta = fin
     ? `<span class="num">${_brl(D.gasto)}</span> · ${_plural(D.compras, tr('compra1'), tr('compraN'))}`

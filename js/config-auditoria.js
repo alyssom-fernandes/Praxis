@@ -14,7 +14,7 @@ import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { dataEHora, empresasDoUsuario, hojeISO, baixarCSV } from './utils.js'
 import { textoAlcada } from './config-alcadas.js'
-import { ICO, tf, cabecalho, linhaVazia, linhasEsqueleto, esc, revelarItemLateral, completarContagensLateral } from './config-comum.js'
+import { ICO, tf, cabecalho, linhaVazia, linhasEsqueleto, esc, revelarItemLateral, completarContagensLateral, linhasComMais } from './config-comum.js'
 
 const COLUNAS = 4
 const PERIODOS = { 30: 30, 90: 90, tudo: null }
@@ -169,7 +169,7 @@ function _renderLista() {
   }
   const ent = _ENTIDADE_ROTULO()
   const acao = _ACAO_ROTULO()
-  tbody.innerHTML = lista.map(r => {
+  tbody.innerHTML = linhasComMais(tbody, lista, COLUNAS, r => {
     const mud = _mudancas(r)
     const detalhe = r.acao === 'apagar' ? `<span class="aud-mudo">${t('audRegistroApagado')}</span>`
       : mud.length ? `<ul class="aud-mudancas">${mud.map(([campo, antes, depois]) => `
@@ -184,7 +184,7 @@ function _renderLista() {
         <td class="c-oque"><span class="aud-acao">${acao[r.acao] || esc(r.acao)} ${(ent[r.entidade] || esc(r.entidade)).toLowerCase()}</span><span class="aud-nome">${esc(r.nome || r.entidadeId)}</span></td>
         <td class="c-mudanca">${detalhe}</td>
       </tr>`
-  }).join('')
+  }, _renderLista)
 }
 
 // Uma linha por campo mudado (o registro de apagar e o sem mudança, uma linha só)
