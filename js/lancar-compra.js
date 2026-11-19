@@ -110,7 +110,6 @@ function _html({ categorias }) {
               ${campo('lc-valor', t('lancValor'), `<input type="text" id="lc-valor" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">`)}
               ${campo('lc-data', t('lancData'), `<input type="date" id="lc-data" value="${hojeISO()}" max="${hojeISO()}">`)}
             </div>
-            ${campo('lc-nota', t('lancNota'), `<input type="text" id="lc-nota" inputmode="numeric" placeholder="${t('lancNotaPlaceholder')}" maxlength="${MAX_NOTA}" autocomplete="off">`, { obrigatorio: false })}
           </section>
 
           <section class="lanc-secao" aria-labelledby="lc-s3">
@@ -121,6 +120,7 @@ function _html({ categorias }) {
               ${campo('lc-vencimento', t('lancVencimento'), `<input type="date" id="lc-vencimento" value="${maisXDiasISO(30)}">`)}
               ${campo('lc-parcelas', t('lancParcelas'), `<input type="number" id="lc-parcelas" value="1" min="1" max="60" inputmode="numeric">`)}
             </div>
+            ${campo('lc-nota', t('lancNota'), `<input type="text" id="lc-nota" inputmode="numeric" placeholder="${t('lancNotaPlaceholder')}" maxlength="${MAX_NOTA}" autocomplete="off">`, { obrigatorio: false })}
           </section>
 
           <section class="lanc-secao" aria-labelledby="lc-s4">

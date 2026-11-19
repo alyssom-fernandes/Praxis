@@ -593,13 +593,17 @@ export function _renderDash() {
 }
 
 // Variação contra o período anterior: seta e percentual em texto pequeno, sem cor
-// de "bom" ou "ruim" (gastar mais não é bom nem ruim por si)
-export function _delta(atual, anterior, vs) {
+// de "bom" ou "ruim" (gastar mais não é bom nem ruim por si). Numa contagem com
+// base pequena (menos de 10), a diferença em unidades: "+17" diz mais que "+850%"
+export function _delta(atual, anterior, vs, { contagem = false } = {}) {
   if (!anterior && !atual) return `<span class="rel-var">${ICONE.igual}0%</span><span>${vs}</span>`
   if (!anterior) return `<span>${tr('semBase')}</span>`
   const pct = Math.round(((atual - anterior) / anterior) * 100)
   const icone = pct > 0 ? ICONE.sobe : pct < 0 ? ICONE.desce : ICONE.igual
-  const txt = (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toLocaleString(_locale()) + '%'
+  const sinal = pct > 0 ? '+' : pct < 0 ? '−' : ''
+  const txt = contagem && anterior < 10
+    ? sinal + Math.abs(atual - anterior).toLocaleString(_locale())
+    : sinal + Math.abs(pct).toLocaleString(_locale()) + '%'
   return `<span class="rel-var">${icone}${txt}</span><span>${vs}</span>`
 }
 export const _alerta = (txt, cor) => `<span class="rel-alerta" data-estilo="--cor:${cor}">${txt}</span>`
@@ -619,7 +623,7 @@ export function _kpisFinanceiro(D) {
   const econ = `<span>${D.nEconomia ? tr('economiaSubN', { n: _plural(D.nEconomia, tr('compra1'), tr('compraN')) }) : tr('economiaSub')}</span>`
   return [
     _kpi({ rotulo: tr('kGasto'), valor: _numMoeda(D.gasto), sub: _delta(D.gasto, D.gastoAnt, D.iv.vs), destaque: true }),
-    _kpi({ rotulo: tr('kPedidos'), valor: D.ped.length, sub: _delta(D.ped.length, D.ant.length, D.iv.vs) }),
+    _kpi({ rotulo: tr('kPedidos'), valor: D.ped.length, sub: _delta(D.ped.length, D.ant.length, D.iv.vs, { contagem: true }) }),
     _kpi({ rotulo: tr('kAprov'), valor: D.emAprov.length, sub: urg }),
     _kpi({ rotulo: tr('kEconomia'), valor: _numMoeda(D.economia), sub: econ }),
     _kpi({ rotulo: tr('kVencer'), valor: _numMoeda(totalV7), sub: venc }),
@@ -632,7 +636,7 @@ export function _kpisAprovador(D) {
   const taxa = D.decididos ? `${_pct(D.aprovados, D.decididos)}% ${tr('taxaAprov')}` : tr('noPeriodo')
   return [
     _kpi({ rotulo: tr('kAprov'), valor: D.emAprov.length, sub: urg, destaque: true }),
-    _kpi({ rotulo: tr('kPedidos'), valor: D.ped.length, sub: _delta(D.ped.length, D.ant.length, D.iv.vs) }),
+    _kpi({ rotulo: tr('kPedidos'), valor: D.ped.length, sub: _delta(D.ped.length, D.ant.length, D.iv.vs, { contagem: true }) }),
     _kpi({ rotulo: tr('kAprovados'), valor: D.aprovados, sub: `<span>${taxa}</span>` }),
     _kpi({ rotulo: tr('kReprovados'), valor: D.reprovados, sub: `<span>${tr('reprovSub')}</span>` }),
   ].join('')
@@ -730,7 +734,7 @@ export function _blocoMensal(D) {
             const h = (m.valor / esc4.topo) * 100
             const qtdTxt = _plural(m.qtd, tr('pedido'), tr('pedidos'))
             const rotulo = m.valor ? (fin ? _brlCompacto(m.valor) : m.valor) : (m.atual ? tr('parcial') : '')
-            return `<button type="button" class="rel-col${m.atual ? ' atual' : ''}${m.valor ? '' : ' zero'}" data-i="${i}"
+            return `<button type="button" class="rel-col${m.atual ? ' atual' : ''}${m.valor ? '' : ' zero'}" data-i="${i}" data-estilo="--i:${i}"
                 data-titulo="${esc(nomeMesLongo(m))}${m.atual ? ' · ' + tr('parcial') : ''}" data-valor="${esc(fin ? _brl(m.valor) : qtdTxt)}" data-sub="${esc(fin ? qtdTxt : '')}"
                 aria-label="${esc(nomeMesLongo(m))}: ${esc(fin ? _brl(m.valor) : qtdTxt)}">
                 <span class="rel-col-valor num">${rotulo}</span>

@@ -276,7 +276,7 @@ function _renderEditor() {
             ? `<span class="alc-ed-faixa-valor">${esc(faixas.length === 1 ? t('alcQualquerValor') : t('alcAcimaDe', { valor: formatCurrency(faixas[f - 1].ate || 0) }))}</span>`
             : `<label class="alc-ed-teto"><span>${t('alcAteRotulo')}</span>
                  <input type="text" inputmode="decimal" class="cfg-mono" data-campo="ate" data-f="${f}" value="${esc(valorTeto(fx.ate))}" aria-label="${esc(tf('alcTetoAria', { n: f + 1 }))}"></label>`}
-          ${faixas.length > 1 && !ultima ? `<button type="button" class="btn-icon alc-ed-tirar" data-alc="menos-faixa" data-f="${f}" aria-label="${esc(tf('alcTirarFaixa', { n: f + 1 }))}">${ICO.fechar(14)}</button>` : ''}
+          ${faixas.length > 1 && !ultima ? `<button type="button" class="btn-ghost btn-sm alc-ed-tirar" data-alc="menos-faixa" data-f="${f}" aria-label="${esc(tf('alcTirarFaixa', { n: f + 1 }))}">${t('alcRemoverFaixa')}</button>` : ''}
         </div>
         <ol class="alc-ed-niveis">
           ${fx.niveis.map((nv, n) => `
@@ -291,7 +291,6 @@ function _renderEditor() {
                 <label for="alc-min-${f}-${n}">${t('alcMinimo')}</label>
                 ${_seletorMinimo(nv, f, n)}
               </div>
-              ${fx.niveis.length > 1 ? `<button type="button" class="btn-icon alc-ed-tirar" data-alc="menos-nivel" data-f="${f}" data-n="${n}" aria-label="${esc(tf('alcTirarNivel', { n: n + 1 }))}">${ICO.fechar(14)}</button>` : ''}
             </div>
             <fieldset class="alc-ed-quem">
               <legend>${t('alcQuemAprova')}</legend>
@@ -302,6 +301,7 @@ function _renderEditor() {
                 <label class="alc-ed-opcao"><input type="checkbox" data-campo="pessoa" data-f="${f}" data-n="${n}" value="${esc(u.id)}"${nv.usuarios.includes(u.id) ? ' checked' : ''}>${esc(u.nome)} <span class="cfg-mudo">${esc(PERFIS_LABEL[u.perfil] || '')}</span></label>`).join('')}
               </div>
             </fieldset>
+            ${fx.niveis.length > 1 ? `<button type="button" class="btn-ghost btn-sm alc-ed-tirar-nivel" data-alc="menos-nivel" data-f="${f}" data-n="${n}" aria-label="${esc(tf('alcTirarNivel', { n: n + 1 }))}">${t('alcRemoverNivel')}</button>` : ''}
           </li>`).join('')}
         </ol>
         ${fx.niveis.length < MAX_NIVEIS ? `<button type="button" class="btn-ghost btn-sm alc-ed-mais" data-alc="mais-nivel" data-f="${f}">${ICO.mais(13)}${t('alcMaisNivel')}</button>` : ''}

@@ -24,15 +24,6 @@ select option {
   color: var(--text);
 }
 
-/* Checkbox e rádio no acento da marca */
-input[type="checkbox"], input[type="radio"] {
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  accent-color: var(--gold-fill);
-  cursor: pointer;
-  flex-shrink: 0;
-}
 
 /* Responsive — Tablet */
 @media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
@@ -163,9 +154,6 @@ input[type="checkbox"], input[type="radio"] {
   body:has(.decisao-acoes) #toast-container { bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
   body:has(#bottom-nav):has(.modal-overlay.visible) #toast-container,
   body:has(.modal-overlay.visible) #toast-container { bottom: calc(var(--rodape-janela-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
-  /* A cotação tem uma linha de botões a mais ("Salvar e cotar outra"): 48 + 8 */
-  body:has(#bottom-nav):has(#modal-cotacao.visible) #toast-container,
-  body:has(#modal-cotacao.visible) #toast-container { bottom: calc(var(--rodape-janela-h) + 56px + env(safe-area-inset-bottom, 0px) + 0.6rem); }
   .detalhe-cols { gap: var(--esp-400); }
   .dt-card-head { flex-wrap: wrap; row-gap: var(--esp-075); }
   .dt-legenda { display: none; }
@@ -517,7 +505,7 @@ input[type="checkbox"], input[type="radio"] {
   .pedidos-tabela .lp-num { font-size: var(--t-corpo); }
   .pedidos-tabela .lp-linha .kcard-urg { order: 2; margin-left: auto; }
   .pedidos-tabela .lp-linha .kcard-unread-dot { order: 2; }
-  .pedidos-tabela .lp-titulo { order: 3; flex-basis: 100%; font-size: var(--t-titulo-3); line-height: 1.32; white-space: normal; }
+  .pedidos-tabela .lp-titulo { order: 3; flex-basis: 100%; font-size: var(--t-titulo-3); line-height: 1.32; white-space: normal; -webkit-line-clamp: 3; }
   .pedidos-tabela .lp-valor { font-size: var(--t-titulo-2); }
   .lista-paginacao { padding: 0; }
   .pagina-btns .btn-ghost span { display: none; }
@@ -683,33 +671,13 @@ input[type="checkbox"], input[type="radio"] {
   .ord-lancamento { order: 1; }
 }
 @media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, label, summary, [role="button"], [role="tab"], .chip { touch-action: manipulation; }
-  .main-footer { display: none; }
-  /* Sem o rodapé, o espaço da barra de baixo (e da barra de ação do detalhe)
-     fica no fim do conteúdo; antes, o último item da página ficava sob ela */
-  body:has(#bottom-nav) .main-content { padding-bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
-  body:has(#bottom-nav):has(.decisao-acoes) .main-content { padding-bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
-  .um-so-movel { display: flex; }
+  /* O toque (campos de 16 px e 48 px, botões de 44 px) foi para base.css:
+     a entrada precisa dele na primeira pintura */
 
-  /* Campos: texto de 16 px (sem zoom no iPhone) e 48 px para o dedo */
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
-  select, textarea { font-size: var(--t-titulo-3); }
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
-  select { min-height: 48px; }
-
-  /* Botões com 44 px no mínimo, os pequenos também; ícone em quadrado de 44 */
-  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger { min-height: 44px; }
-  .btn-icon { min-width: 44px; min-height: 44px; }
-  .chip { min-height: 44px; }
-  .seg-op { min-height: 48px; }
 
   /* Janelas: os botões do rodapé do mesmo tamanho, acima da barra de gestos */
   .modal-footer { padding: var(--esp-150) var(--esp-200) calc(var(--esp-150) + env(safe-area-inset-bottom, 0px)); }
   .modal-footer > .btn-primary, .modal-footer > .btn-secondary, .modal-footer > .btn-danger { flex: 1 1 0; min-height: 48px; }
-  /* Cotação: "Salvar e cotar outra" numa linha só, acima de Cancelar e Salvar */
-  #modal-cotacao .modal-footer { flex-wrap: wrap; }
-  #modal-cotacao .modal-footer > #salvar-cotacao-outra { flex: 1 1 100%; order: -1; }
 
   /* O "+" da barra inferior faz o "Novo pedido" e o "Lançar compra" */
   .pedidos-head-acoes { display: none; }
@@ -755,7 +723,32 @@ input[type="checkbox"], input[type="radio"] {
   .kanban-wrap .regua { margin: 0 calc(var(--esp-400) * -1); padding: 0 var(--esp-300); }
 }
 
-/* Tablet em paisagem (toque, 1024 a 1279 px): três colunas */
+/* Tablet (768 px ou mais): as janelas e os diálogos sobem de baixo, mas com a
+   largura de um formulário (640 e 520 px, centrados), e não a tela inteira.
+   No pedido, os fatos da decisão voltam à grade do computador, com o rótulo
+   acima do valor, em vez de linhas com 700 px entre um e outro */
+@media (min-width: 768px) and (max-width: 1023px), (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
+  .modal { max-width: 640px; border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong); }
+  #modal-lancamento .modal { border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong); }
+  .dialog-overlay { justify-content: center; }
+  .dialog { max-width: 520px; border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong); }
+  .decisao-fatos { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .decisao-fato { display: block; padding: var(--esp-200) var(--esp-250); }
+  .decisao-fato dt { max-width: none; margin-bottom: var(--esp-075); }
+  .decisao-fato dd { align-items: flex-start; text-align: left; }
+  .decisao-resp dd { flex-direction: row; text-align: left; }
+  .decisao-resp .decisao-resp-txt { align-items: flex-start; }
+  .decisao-valor .dt-numeral { font-size: 1.55rem; }
+  .decisao-resp-nome { white-space: normal; }
+}
+
+/* Tablet em paisagem (toque, 1024 a 1279 px): três colunas no quadro, e o
+   pedido em duas, como no computador (a ação continua na barra de baixo) */
 @media (min-width: 1024px) and (max-width: 1279px) and (pointer: coarse) {
   .kanban-col.atual .kanban-cards, .meus-lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .detalhe-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--esp-500); align-items: start; }
+  .detalhe-main, .detalhe-aside { display: flex; flex-direction: column; gap: var(--esp-400); min-width: 0; }
+  .detalhe-aside .decisao-fatos { grid-template-columns: 1fr 1fr; }
+  .detalhe-aside .decisao-fato:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .detalhe-aside .decisao-fatos:has(.largo) { grid-template-columns: 1fr; }
 }

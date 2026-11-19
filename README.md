@@ -10,16 +10,19 @@ belongs to it.
 
 **Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Acessar modo demo** (open demo mode).
 
-[![Rules tests](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
-![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Storage-FFCA28?style=flat-square&logo=firebase&logoColor=black)
-![No bundler](https://img.shields.io/badge/bundler-none-555?style=flat-square)
-![Theme](https://img.shields.io/badge/theme-light_and_dark-D2693F?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+[![Tests](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-C9A15C?style=flat-square&labelColor=1B1A17&logo=javascript&logoColor=EEE9DF)
+![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Storage-C9A15C?style=flat-square&labelColor=1B1A17&logo=firebase&logoColor=EEE9DF)
+![No bundler](https://img.shields.io/badge/bundler-none-C9A15C?style=flat-square&labelColor=1B1A17)
+![Accessibility checked with axe-core](https://img.shields.io/badge/accessibility-checked_with_axe--core-C9A15C?style=flat-square&labelColor=1B1A17)
+![Languages](https://img.shields.io/badge/languages-pt_·_en-C9A15C?style=flat-square&labelColor=1B1A17)
+![License](https://img.shields.io/badge/license-MIT-C9A15C?style=flat-square&labelColor=1B1A17)
 
-This README is also available in [Portuguese](README.pt-br.md). The interface is in Brazilian Portuguese.
+This README is also available in [Portuguese](README.pt-br.md). The app speaks Brazilian Portuguese and English: switch on the sign-in screen or in Settings.
 
 **Case study:** [how it was built and why, with links to the code](https://alyssom-fernandes.github.io/portfolio/en/projetos/praxis/) on my portfolio.
+
+**Contents:** [In 30 seconds](#in-30-seconds) · [Screens](#screens) · [In motion](#in-motion) · [Features](#features) · [Quality, measured](#quality-measured) · [How an order moves](#how-an-order-moves) · [Technical decisions](#technical-decisions) · [Running it](#running-it) · [Structure](#structure)
 
 ## In 30 seconds
 
@@ -49,27 +52,62 @@ Captured from the demo.
 |---|---|
 | <img src="docs/telas/celular-claro.png" alt="Order detail on a phone, light theme" width="260"> | <img src="docs/telas/celular-escuro.png" alt="Request board on a phone, dark theme" width="260"> |
 
+| On a tablet, lying down: the order in two columns, the decision at hand |
+|---|
+| ![An order awaiting approval on a tablet in landscape, with the details on the left, the decision panel on the right and the approve button in the bottom bar](docs/telas/tablet-escuro.png) |
+
+## In motion
+
+<img src="docs/telas/movimento.webp" alt="On a phone, the approver opens an order from their queue: the card title travels into the order header; they approve, and a bronze seal stamps the decision" width="300">
+
+On a phone, from the approver's queue: the card title travels into the order header, and approving ends with the bronze seal (8 seconds, with the animations slowed down so each step shows). Moving between Orders, My queue and Reports slides the content in the direction you are going, and the report bars rise when the page opens. With reduced motion turned on, all of it is instant.
+
 ---
 
 ## Features
 
-- **Board and list.** Kanban with the seven stages, a total per column, a deadline on every card and role-aware drag and drop. The list has filters, sorting, pagination and bulk selection (export to CSV or cancel with a reason).
-- **Quotes.** Several proposals per order, a side-by-side comparison with the difference to the lowest one, the chosen quote flagged, and a supplier registry that never duplicates names.
-- **Traceable approval.** Approve, or reject with a reason; a rejected order can be reopened with a justification, creating a new order linked to the original.
-- **Purchase, delivery and installments.** The purchase records supplier, final amount and installments; each installment is paid with an attached receipt; the last one closes the order.
-- **The next step is always visible.** Each order says who needs to act and what is missing, with the time spent in each stage and the bottleneck highlighted.
-- **Comments with @mentions (the author can edit their own), attachments and a full history** in a single timeline.
-- **Reports.** Spend, orders, savings from quotes and installments due, compared with the previous period; charts by month, status, category and company; process time (median from opening to purchase and to payment, median per step with the bottleneck, and quoting and purchase time per buyer), calculated from each order's history; PDF and Excel export plus a print layout. Approvers see operational data only.
-- **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by the Firestore and Storage rules: each stage of an order can only be moved by the role that owns it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
-- **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
-- **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
-- **Command palette** (Ctrl+K), guided tour, light and dark themes, Portuguese and English (on the sign-in screen and in Settings) and a dedicated phone layout.
-- **Installable app that opens offline.** The service worker stores the whole app version on the device and the Firestore local cache keeps the data already seen: a returning user gets the board without waiting for the network, and with no connection too. A newly published version only takes over when the person taps "Update". On Android, the installed icon has shortcuts to New order, Purchase already made and My queue.
-- **Purchase already made.** For what was bought before going through Praxis (someone picked it up at the store, something urgent or already decided): record what, where, how much, the invoice, who asked, who authorized and who bought it, and why it went straight to purchase. Authorization from someone who is not a manager stays pending until the named person or a manager confirms it.
-- **Phone and tablet as an app.** Bottom bar with a "+" to request or record a purchase, 16 px fields (no zoom on iPhone), 44 px buttons and the Android back button closing the open window. Requesters open on "My orders", each with the seven-stage path and who has it; on a tablet, the same app in two columns.
-- **Motion with a purpose.** Opening an order from the board carries the card title into the order header, and back reverses it; approving, rejecting, buying, receiving and paying end with a bronze seal (and a short vibration on Android). All of it respects reduced motion.
-- **Data copy.** In Settings, a manager downloads a JSON file with everything from their companies (the Supreme user, from all of them): orders with history, quotes, installments, comments and notes, records, users, invitations, approval tiers and audit log, with counts to check against.
+**The flow**
+
+- **Board and list.** The seven stages side by side, a total per column and a deadline on every card; drag and drop follows each role. The list adds filters, sorting, saved views and bulk actions.
+- **Quotes.** Several proposals per order, compared side by side with the difference to the lowest, and a supplier registry that never duplicates names, with CSV import.
+- **Approval with a trail.** Approve, or reject with a reason; a rejected order can be reopened with a justification. Approval tiers by value set how many people approve, and who.
+- **Purchase, delivery and installments.** Supplier, final amount and installments; each installment is paid with its receipt, and the last one closes the order.
+- **Purchase already made.** For what was bought outside Praxis: what, where, how much, the invoice (typed or read from its QR code), who authorized it and why.
+
+**Control**
+
+- **Six roles, enforced on the server.** Each stage moves only by the role that owns it, and whoever opens or quotes an order cannot approve it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
+- **Several companies.** Each person works only with the companies they belong to; the top role sees all of them.
+- **Audit and a copy of the data.** Administrative changes are logged with who and when, and a manager downloads everything from their companies as JSON, with counts to check against.
+
+**Reports**
+
+- Spend, orders, savings from quotes and installments due, against the previous period; charts by month, stage, category and company; process time per step, with the bottleneck; PDF, Excel and a print layout. Approvers see operational data only.
+
+**Experience**
+
+- **The next step is always visible.** Each order says who acts next and what is missing.
+- **Phone, tablet and desktop.** On a phone, a bottom bar with "+", 44 px touch targets and the Android back button closing the open window. Requesters open on "My orders". A tablet lying down shows the order in two columns, as on a desktop.
+- **Installable and offline.** The whole app version stays on the device: it opens without network, and a new version only takes over when the person taps "Update".
+- **Motion with a purpose, keyboard and palette.** The transitions above, a command palette (Ctrl+K) and one-key shortcuts, a guided tour, light and dark themes, and Portuguese and English.
+- **Comments with @mentions, attachments and the full history** in one timeline, and in-app notifications in real time (the automatic ones come from Cloud Functions, with e-mail once an API key is set).
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
+
+## Quality, measured
+
+Every number below was measured, with the date and the command that repeats it. The phone measurements simulate Lighthouse's "slow 4G" (150 ms, 1.6 Mbit/s) and a 4x slower CPU, and take the median of three runs.
+
+| What | Result | Measured | Command |
+|---|---|---|---|
+| Lighthouse on the live site: performance, accessibility, best practices, SEO | 99 · 100 · 100 · 100 | Nov 19, 2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
+| Sign-in screen painted, first visit, on a phone | 1.4 s | Nov 19, 2026 | `npm run medir-desempenho` |
+| Reopening the app, up to the board | 2.4 s | Nov 19, 2026 | `npm run medir-desempenho` |
+| Opening with no connection, up to the board | 0.4 s | Nov 19, 2026 | `npm run medir-desempenho` |
+| Every role's main screens at 390 and 360 px: sideways scroll, 44 px targets, 16 px fields, contrast and axe-core (WCAG 2.2 AA rules) | no failure | Nov 19, 2026 | `npm run testar-e2e` |
+| Security rules, on the emulator | 69 tests pass | Nov 19, 2026 | `npm run testar-regras` |
+| Unit tests: text in both languages, contrast and focus, installable app, notices | 85 tests pass | Nov 19, 2026 | `npm run testar-unidade` |
+
+GitHub Actions runs the tests, the type check and Lighthouse (90 minimum in all four scores) on every push.
 
 ## How an order moves
 
@@ -99,13 +137,15 @@ An order can be cancelled with a reason: by its requester while it waits for a b
 - **A demo account that cannot reach real data.** Its password ships in the public `js/config.js`, so the rules give it a role of its own, `demo`, that is worth nothing else: it only reads and writes records marked as demo (orders with `demo-…` IDs and `isDemo == true`, the demo people, companies, categories and suppliers) and files of demo orders. It never touches real users, companies, categories, orders or files, and a real order can never be turned into a demo one.
 - **Everything verifiable locally.** With the Firebase emulators the whole app runs on your machine without touching real data.
 
-More in [`docs/arquitetura.md`](docs/arquitetura.md).
+More in [`docs/arquitetura.md`](docs/arquitetura.md), and the reasoning behind each choice in [`docs/decisoes.md`](docs/decisoes.md) (Portuguese).
 
 ## Running it
 
 ### Locally, with the emulators (no Firebase account needed)
 
 Requirements: Node.js 24.12+ and Java 21+ (for the Firestore emulator).
+
+> **On Windows,** if the Firestore emulator stops right after starting, point Java's temporary folders to a folder of your own before running it, for example `set JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=C:\tmp -Djdk.net.unixdomain.tmpdir=C:\tmp` (it happened with JDK 21, with the default user temp folder).
 
 ```bash
 npm install
@@ -201,7 +241,7 @@ docs/                 architecture, decisions, order flow, glossary and permissi
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE). To report a security problem, see [`SECURITY.md`](SECURITY.md).
 
 ---
 

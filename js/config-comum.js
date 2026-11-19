@@ -42,8 +42,6 @@ function _locale() {
 // Número inteiro no idioma da sessão: "1.000" ou "1,000"
 export const numero = n => new Intl.NumberFormat(_locale()).format(n)
 
-// Numeral grande das inscrições: dois dígitos, como "07" no quadro de pedidos
-export const doisDigitos = n => (Number.isInteger(n) && n >= 0 && n < 10 ? `0${n}` : String(n))
 
 // Valores: "R$ 54,2 mil" (cabeçalhos) e "R$ 23.750,00" (tabelas)
 export function moedaCurta(v) {

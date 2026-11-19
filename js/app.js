@@ -278,12 +278,17 @@ window.addEventListener('popstate', () => {
 // pedido; voltar faz o caminho inverso, até o cartão (View Transitions; o resto
 // da tela troca na hora, components.css). Sem suporte ou com movimento
 // reduzido, a troca é direta. A nova tela é esperada no máximo 0,6 s
-let _rotaAtual = { tela: null, id: null }
+let _rotaAtual = { tela: null, id: null, filtro: null, aba: null }
 const _TITULO_VT = 'pedido-titulo'
 function _rotaDaUrl() {
   const p = new URLSearchParams(location.search)
-  return { tela: p.get('tela') || 'pedidos', id: p.get('id') }
+  return { tela: p.get('tela') || 'pedidos', id: p.get('id'), filtro: p.get('filtro'), aba: p.get('aba') }
 }
+// As abas principais na ordem da navegação: entre elas, o conteúdo desliza
+// para o lado em que a aba fica (para a frente ou para trás)
+const _ORDEM_ABAS = ['pedidos', 'fila', 'relatorios', 'cad-empresas', 'cad-categorias', 'cad-fornecedores', 'config-usuarios', 'config-alcadas', 'config-auditoria', 'config-geral']
+const _aba = r => r.tela === 'pedidos' ? (r.filtro === 'pendentes' ? 'fila' : 'pedidos')
+  : r.tela === 'config-cadastros' ? `cad-${r.aba || 'empresas'}` : r.tela
 function _trocarTela(executar) {
   const de = _rotaAtual, para = _rotaDaUrl()
   const pode = typeof document.startViewTransition === 'function' && !prefereMenosMovimento() && document.visibilityState === 'visible'
@@ -293,7 +298,14 @@ function _trocarTela(executar) {
   let origem = null, destino = null
   if (pode && para.tela === 'detalhe' && de.tela === 'pedidos') { origem = tituloCartao(); destino = tituloPedido }
   else if (pode && de.tela === 'detalhe' && para.tela === 'pedidos') { origem = tituloPedido(); destino = tituloCartao }
-  if (!origem) { executar(); return }
+  if (!origem) {
+    const ia = _ORDEM_ABAS.indexOf(_aba(de)), ib = _ORDEM_ABAS.indexOf(_aba(para))
+    if (!pode || ia < 0 || ib < 0 || ia === ib) { executar(); return }
+    const raiz = document.documentElement
+    raiz.dataset.vtAba = ib > ia ? 'frente' : 'tras'
+    document.startViewTransition(() => executar()).finished.finally(() => { delete raiz.dataset.vtAba })
+    return
+  }
   origem.style.viewTransitionName = _TITULO_VT
   const vt = document.startViewTransition(() => new Promise(fim => {
     executar()
@@ -327,7 +339,7 @@ function _rotear() {
   const params = new URLSearchParams(window.location.search)
   const tela   = params.get('tela') || 'pedidos'
   const id     = params.get('id')
-  _rotaAtual = { tela, id }
+  _rotaAtual = { tela, id, filtro: params.get('filtro'), aba: params.get('aba') }
 
   // Guarda de rota por perfil: troca o endereço (sem deixar a tela bloqueada
   // no histórico, senão o "voltar" cairia nela de novo) e avisa

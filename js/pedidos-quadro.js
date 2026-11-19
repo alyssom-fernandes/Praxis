@@ -77,7 +77,7 @@ export function _renderKanban(lista) {
     }
 
     return `
-      <section class="kanban-col${ehFila ? ' eh-fila' : ''}${status === atual ? ' atual' : ''}" id="coluna-${status}" data-status="${status}" data-drop-status="${status}" aria-labelledby="etapa-${status}">
+      <section class="kanban-col${ehFila ? ' eh-fila' : ''}${status === atual ? ' atual' : ''}${!cards.length && !encerrados ? ' recolhida' : ''}" id="coluna-${status}" data-status="${status}" data-drop-status="${status}" aria-labelledby="etapa-${status}">
         <header class="kanban-col-header"${ehFila ? ` title="${t('etapaDaFila')}"` : ''}>
           <!-- O numeral é a quantidade de pedidos na etapa (sem zero à esquerda,
                para não ler como o número da etapa, que vai de 01 a 07 no detalhe) -->
@@ -96,11 +96,14 @@ export function _renderKanban(lista) {
     `
   }).join('')
 
+  // No computador, a etapa sem pedidos vira uma faixa estreita (o numeral e o
+  // nome na vertical) e a largura que sobra vai para as colunas com cartões
+  const modelo = colunas.map(st => (porEtapa[st].length || encerrados ? 'minmax(128px, 1fr)' : 'var(--col-recolhida)')).join(' ')
   return `
     <div class="kanban-wrap${encerrados ? ' kanban-poucas' : ''}">
       ${regua}
       <button type="button" class="kanban-nav kanban-nav-ant" data-board-ant aria-label="${t('colunasAnteriores')}" title="${t('colunasAnteriores')}">${ICO.setaEsq(16)}</button>
-      <div class="kanban-board" data-estilo="--cols:${colunas.length}">${cols}</div>
+      <div class="kanban-board" data-estilo="--cols:${colunas.length};--modelo:${modelo}">${cols}</div>
       <button type="button" class="kanban-nav kanban-nav-prox" data-board-prox aria-label="${t('proximasColunas')}" title="${t('proximasColunas')}">${ICO.setaDir(16)}</button>
     </div>`
 }
@@ -185,14 +188,18 @@ export function _temComentarioNaoLido(p) {
   return p.ultimoComentarioEm && _tsMs(p.ultimoComentarioEm) > _tsMs(p.vistoPor?.[sessao.usuario.id])
 }
 
-// ── Celular: "Meus pedidos" da solicitante ────────────────────
+// ── "Meus pedidos" da solicitante ─────────────────────────────
 // Quem só pede compras quer saber onde está cada pedido, não ver sete colunas
-// quase vazias. No celular, o quadro da solicitante vira a lista dos pedidos
+// quase vazias. No celular e no computador, o quadro da solicitante vira a lista dos pedidos
 // dela, os em andamento primeiro, cada um com o caminho das sete etapas, a
 // etapa em que está e com quem. O cartão é o mesmo do quadro
 export function _usaMeusPedidos() {
-  return sessao.usuario?.perfil === PERFIS.SOLICITANTE && Q.filtroAtivo !== 'encerrados' &&
-    window.matchMedia('(max-width: 1023px), (max-width: 1279px) and (pointer: coarse)').matches
+  return sessao.usuario?.perfil === PERFIS.SOLICITANTE && Q.filtroAtivo !== 'encerrados'
+}
+// Título da tela: a fila, os pedidos da solicitante ou o quadro de todos
+export function _tituloTela() {
+  if (Q.filtroAtivo === 'pendentes') return t('navMinhaFila')
+  return sessao.usuario?.perfil === PERFIS.SOLICITANTE ? t('meusPedidos') : t('titulo')
 }
 const _FIM = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
 export function _renderMeusPedidos(lista) {

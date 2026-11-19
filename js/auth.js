@@ -337,6 +337,9 @@ function _irParaView(nome) {
   document.querySelectorAll('.login-card .view').forEach(v => v.classList.remove('active'))
   const view = document.getElementById(`view-${nome}`)
   view?.classList.add('active')
+  // Fora da visão de entrar, o celular esconde o título grande: o formulário
+  // de senha e o aviso de e-mail sobem para o alto da tela
+  document.querySelector('.login-page')?.toggleAttribute('data-secundaria', nome !== 'login')
   // Foco no primeiro campo da nova visão; no celular não abre o teclado sozinho
   if (!window.matchMedia?.('(pointer: coarse)').matches) view?.querySelector('input')?.focus()
 }

@@ -335,6 +335,8 @@ body.com-offline { padding-bottom: var(--esp-800); }
   }
   .offline-banner-ico { margin-top: 1px; }
   body:has(#bottom-nav) .offline-banner { bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + 0.75rem); }
+  /* No celular o aviso tem duas linhas: o fim da página reserva a altura dele */
+  body.com-offline { padding-bottom: calc(var(--esp-800) + var(--esp-300)); }
   @keyframes offlineEntraMovel {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: none; }

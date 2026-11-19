@@ -12,7 +12,7 @@ import { gravarAuditado } from './auditoria.js'
 import { abrirImportacao } from './importar-fornecedores.js'
 import {
   ICO, tf, plural, cabecalho, resumoCarregando, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
-  doisDigitos, moedaCurta, moeda,
+  numero, moedaCurta, moeda,
   marcarErro, limparErro, limparErros, focarPrimeiroErro,
   mascararCNPJ, ligarMascaraCNPJ, cnpjValido, ligarInterruptor, definirInterruptor,
   revelarItemLateral, linhasComMais,
@@ -357,7 +357,8 @@ function _renderEmpresas() {
     const ativa  = e.ativa !== false
     const info   = _contagem ? (_contagem.empresa[e.id] || { pedidos: 0, valorAberto: 0 }) : null
     const usr    = _num(_contagem?.usuariosEmpresa, e.id)
-    const numeral = n => (n == null ? '—' : doisDigitos(n))
+    // Contagem sem zero à esquerda: o numeral de dois dígitos é da régua das etapas
+    const numeral = n => (n == null ? '—' : numero(n))
     const aberto = !info ? '' : info.valorAberto > 0
       ? `<span title="${esc(moeda(info.valorAberto))}">${esc(moedaCurta(info.valorAberto))}</span> ${t('emAberto')}`
       : t('cfgNadaEmAberto')

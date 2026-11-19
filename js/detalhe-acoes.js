@@ -946,17 +946,22 @@ export async function _mostrarModalCotacao() {
             </label>
           </div>` : `
           <div class="form-group col-span-2"><p class="form-hint">${t('dtCotacaoSemArquivo')}</p></div>`}
+          <div class="form-group col-span-2">
+            <label class="cot-sem-produto-op">
+              <input type="checkbox" id="cot-outra">
+              <span><strong>${t('cotOutraDepois')}</strong></span>
+            </label>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
-        <button class="btn-secondary" id="salvar-cotacao-outra">${t('cotSalvarOutra')}</button>
         <button class="btn-primary" id="salvar-cotacao">${t('cotSalvar')}</button>
       </div>
     </div>
   `)
   autocompletar(document.getElementById('cot-forn'), _opcoesFornecedor)
-  // "Salvar e cotar outra": a janela fica aberta e volta limpa ao fornecedor,
+  // "Registrar outra depois de salvar": a janela fica aberta e volta limpa ao fornecedor,
   // para quem cota três lugares seguidos não abrir a janela três vezes
   const limpar = () => {
     for (const id of ['cot-forn', 'cot-valor', 'cot-prazo', 'cot-cond', 'cot-link']) {
@@ -994,7 +999,7 @@ export async function _mostrarModalCotacao() {
     if (!fornNome || (!semProduto && !valor)) { prxToast(t('fornecedorValorObrig'), 'error'); return }
     if (link && !/^https?:\/\/\S+$/i.test(link)) { prxToast(t('lancLinkInvalido'), 'error'); return }
 
-    const botoes = ['salvar-cotacao', 'salvar-cotacao-outra'].map(id => document.getElementById(id)).filter(Boolean)
+    const botoes = [document.getElementById('salvar-cotacao')].filter(Boolean)
     botoes.forEach(b => { b.disabled = true })
     mostrarSpinner()
     try {
@@ -1039,6 +1044,6 @@ export async function _mostrarModalCotacao() {
       esconderSpinner()
     }
   }
-  document.getElementById('salvar-cotacao')?.addEventListener('click', () => salvar(false))
-  document.getElementById('salvar-cotacao-outra')?.addEventListener('click', () => salvar(true))
+  // Com a opção marcada, a janela fica aberta e volta limpa para a próxima
+  document.getElementById('salvar-cotacao')?.addEventListener('click', () => salvar(document.getElementById('cot-outra')?.checked === true))
 }

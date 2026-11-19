@@ -315,7 +315,7 @@ function _linha(u, eu) {
         </td>
         <td class="c-perfil">${perfilHtml(u.perfil)}</td>
         <td class="c-empresas" data-rotulo="${t('cfgColEmpresas')}">${_celEmpresas(u)}</td>
-        <td class="c-acesso" data-rotulo="${t('cfgColUltimoAcesso')}">${acesso}</td>
+        <td class="c-acesso" data-rotulo="${convite ? '' : t('cfgColUltimoAcesso')}">${acesso}</td>
         <td class="c-acoes">
           <button class="btn-icon cfg-btn-editar btn-editar-usr" data-uid="${esc(u.id)}" aria-label="${esc(tf('cfgEditarX', { nome: u.nome || '' }))}" data-tooltip="${t('editarLabel')}">${ICO.editar()}</button>
         </td>

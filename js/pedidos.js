@@ -21,7 +21,7 @@ import {
   _carregarDadosAuxiliares, _preencherFiltros, _preencherModalNovoPedido, _preencherModalDuplicar,
   _carregarViews, _preencherResumoVisao, _aplicarView, _renderVisoes, _confirmarSalvarVisao,
   _renomearView, _removerView, _atualizarBulkBar, _exportarCSV, _abrirModalBulkCancel,
-  _confirmarBulkCancel,
+  _confirmarBulkCancel, _tituloTela,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
 
@@ -162,7 +162,7 @@ export async function renderPedidos() {
         <header class="pedidos-head">
           <div class="pedidos-head-top">
             <div class="pedidos-head-titulo">
-              <h1 class="titulo-pagina pedidos-title" id="pedidos-titulo">${Q.filtroAtivo === 'pendentes' ? t('navMinhaFila') : t('titulo')}</h1>
+              <h1 class="titulo-pagina pedidos-title" id="pedidos-titulo">${_tituloTela()}</h1>
               <p class="pedidos-resumo" id="pedidos-resumo" aria-live="polite">&nbsp;</p>
             </div>
             <div class="pedidos-head-acoes">

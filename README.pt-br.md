@@ -9,16 +9,19 @@ etapa tem responsável, prazo e histórico, e cada perfil vê só o que lhe cabe
 
 **Demonstração ao vivo:** [praxis-af618.web.app](https://praxis-af618.web.app). Na entrada, clique em **Acessar modo demo**.
 
-[![Testes das regras](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
-![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Storage-FFCA28?style=flat-square&logo=firebase&logoColor=black)
-![Sem bundler](https://img.shields.io/badge/bundler-nenhum-555?style=flat-square)
-![Tema](https://img.shields.io/badge/tema-claro_e_escuro-D2693F?style=flat-square)
-![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue?style=flat-square)
+[![Testes](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-C9A15C?style=flat-square&labelColor=1B1A17&logo=javascript&logoColor=EEE9DF)
+![Firebase](https://img.shields.io/badge/Firebase-Firestore_·_Auth_·_Storage-C9A15C?style=flat-square&labelColor=1B1A17&logo=firebase&logoColor=EEE9DF)
+![Sem bundler](https://img.shields.io/badge/bundler-nenhum-C9A15C?style=flat-square&labelColor=1B1A17)
+![Acessibilidade conferida com o axe-core](https://img.shields.io/badge/acessibilidade-conferida_com_axe--core-C9A15C?style=flat-square&labelColor=1B1A17)
+![Idiomas](https://img.shields.io/badge/idiomas-pt_·_en-C9A15C?style=flat-square&labelColor=1B1A17)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-C9A15C?style=flat-square&labelColor=1B1A17)
 
-Este README também está em [inglês](README.md).
+Este README também está em [inglês](README.md). O app fala português e inglês: a troca fica na entrada e em Ajustes.
 
 **Estudo de caso:** [como foi construído e por quê, com links para o código](https://alyssom-fernandes.github.io/portfolio/projetos/praxis/) no meu portfólio.
+
+**Neste README:** [Em 30 segundos](#em-30-segundos) · [Telas](#telas) · [Em movimento](#em-movimento) · [Funcionalidades](#funcionalidades) · [Qualidade, medida](#qualidade-medida) · [Como um pedido anda](#como-um-pedido-anda) · [Decisões técnicas](#decisões-técnicas) · [Como rodar](#como-rodar) · [Estrutura](#estrutura)
 
 ## Em 30 segundos
 
@@ -48,27 +51,62 @@ Capturadas do modo demonstração.
 |---|---|
 | <img src="docs/telas/celular-claro.png" alt="Detalhe de um pedido no celular, tema claro" width="260"> | <img src="docs/telas/celular-escuro.png" alt="Quadro de pedidos no celular, tema escuro" width="260"> |
 
+| No tablet deitado: o pedido em duas colunas, a decisão à mão |
+|---|
+| ![Um pedido aguardando aprovação num tablet em paisagem, com os dados à esquerda, o painel da decisão à direita e o botão de aprovar na barra de baixo](docs/telas/tablet-escuro.png) |
+
+## Em movimento
+
+<img src="docs/telas/movimento.webp" alt="No celular, o aprovador abre um pedido da fila: o título do cartão vira o título do pedido; ele aprova, e o selo de bronze carimba a decisão" width="300">
+
+No celular, a partir da fila do aprovador: o título do cartão vira o título do pedido, e aprovar termina com o selo de bronze (8 segundos, com as animações desaceleradas para cada passo aparecer). Entre Pedidos, Minha fila e Relatórios, o conteúdo desliza no sentido da navegação, e as barras dos relatórios sobem quando a página abre. Com o movimento reduzido ligado, tudo é instantâneo.
+
 ---
 
 ## Funcionalidades
 
-- **Quadro e lista.** Kanban com as sete etapas, total em reais por coluna, prazo em cada cartão e arrastar e soltar conforme o perfil. Na lista, filtros, ordenação, paginação e seleção em massa (exportar CSV ou cancelar com motivo).
-- **Cotações.** Várias propostas por pedido, comparação lado a lado com a diferença para a menor, indicação da escolhida e cadastro de fornecedores sem duplicar nomes.
-- **Aprovação rastreável.** Aprovar ou reprovar com motivo; pedido reprovado pode ser reaberto com justificativa, gerando um novo pedido vinculado ao original.
-- **Compra, entrega e parcelas.** Execução da compra com fornecedor, valor final e parcelas; pagamento parcela a parcela com comprovante; a última parcela fecha o pedido.
-- **Próximo passo sempre à vista.** Cada pedido diz quem precisa agir e o que falta, com o tempo gasto em cada etapa e o gargalo destacado.
-- **Comentários com @menção (o autor edita o próprio), anexos e histórico completo** em uma linha do tempo única.
-- **Relatórios.** Gasto, pedidos, economia nas cotações e parcelas a vencer, com comparação ao período anterior; gráficos por mês, status, categoria e empresa; tempo do processo (mediana da abertura à compra e ao pagamento, mediana de cada etapa com o gargalo e o tempo de cotação e de compra de cada comprador), calculado do histórico de cada pedido; exportação em PDF e Excel e versão para impressão. O aprovador vê só os dados operacionais.
-- **Seis perfis** (supremo, gestor, aprovador, comprador, financeiro e solicitante), com as permissões validadas no servidor pelas regras do Firestore e do Storage: cada etapa do pedido só anda pelas mãos do perfil responsável. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
-- **Várias empresas.** Cada usuário trabalha só com os pedidos das empresas às quais pertence, e o gestor só vê e edita pessoas e empresas das dele; o supremo vê todas.
-- **Notificações em tempo real** no app. As @menções saem do próprio app; as automáticas (aprovações, entregas, parcelas a vencer) vêm das Cloud Functions, com envio por e-mail via Resend quando a chave é configurada.
-- **Paleta de comandos** (Ctrl+K), tour guiado, tema claro e escuro, português e inglês (na entrada e em Ajustes) e layout próprio para o celular.
-- **App instalável que abre sem internet.** O service worker guarda a versão inteira do app no aparelho e a cópia local do Firestore guarda os dados já vistos: quem já entrou abre o quadro sem esperar a rede, e também sem conexão. Versão nova publicada só assume quando a pessoa toca em "Atualizar". No Android, o ícone instalado tem atalhos para Novo pedido, Compra já feita e Minha fila.
-- **Compra já feita.** Para o que foi comprado antes de passar pelo Praxis (alguém foi buscar na loja, algo urgente ou já decidido): lança o que foi, onde, quanto, a nota, quem pediu, quem autorizou e quem comprou, e por que foi direto. A autorização de quem não é gestor fica pendente até a pessoa apontada ou um gestor confirmar.
-- **Celular e tablet como app.** Barra inferior com o "+" para pedir ou lançar uma compra, campos de 16 px (sem zoom no iPhone), botões de 44 px e o voltar do Android fechando a janela aberta. Quem só pede compras abre em "Meus pedidos", cada um com o caminho das sete etapas e com quem está; no tablet, o mesmo app em duas colunas.
-- **Movimento com função.** Abrir um pedido pelo quadro leva o título do cartão até o cabeçalho do pedido, e o voltar faz o caminho inverso; aprovar, reprovar, comprar, receber e pagar terminam com um selo de bronze (e uma vibração curta no Android). Tudo respeita o movimento reduzido.
-- **Cópia dos dados.** Em Ajustes, o gestor baixa num arquivo JSON tudo das empresas dele (o supremo, de todas): pedidos com histórico, cotações, parcelas, comentários e notas, cadastros, usuários, convites, alçadas e auditoria, com as contagens para conferir.
-- **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, recriados todo dia.
+**O fluxo**
+
+- **Quadro e lista.** As sete etapas lado a lado, a soma de cada coluna e o prazo em cada cartão; o arrastar segue o perfil de cada um. A lista tem filtros, ordenação, visões salvas e ações em massa.
+- **Cotações.** Várias propostas por pedido, comparadas lado a lado com a diferença para a menor, e um cadastro de fornecedores que nunca duplica nomes, com importação por CSV.
+- **Aprovação rastreável.** Aprovar, ou reprovar com motivo; o pedido reprovado pode ser reaberto com justificativa. As alçadas por valor definem quantas pessoas aprovam, e quem.
+- **Compra, entrega e parcelas.** Fornecedor, valor final e parcelas; cada parcela é paga com o comprovante, e a última encerra o pedido.
+- **Compra já feita.** Para o que foi comprado fora do Praxis: o quê, onde, quanto, a nota fiscal (digitada ou lida pelo QR), quem autorizou e por quê.
+
+**Controle**
+
+- **Seis perfis, garantidos no servidor.** Cada etapa só anda pelo perfil dono dela, e quem abre ou cota um pedido não pode aprová-lo. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
+- **Várias empresas.** Cada pessoa trabalha só com as empresas a que pertence; o perfil supremo vê todas.
+- **Auditoria e cópia dos dados.** As mudanças administrativas ficam registradas com quem e quando, e o gestor baixa tudo das empresas dele em JSON, com as contagens para conferir.
+
+**Relatórios**
+
+- Gasto, pedidos, economia nas cotações e parcelas a vencer, frente ao período anterior; gráficos por mês, etapa, categoria e empresa; tempo do processo por etapa, com o gargalo; PDF, Excel e versão para imprimir. O aprovador vê só os dados operacionais.
+
+**Experiência**
+
+- **O próximo passo sempre à vista.** Cada pedido diz quem age agora e o que falta.
+- **Celular, tablet e computador.** No celular, a barra de baixo com o "+", toques de 44 px e o voltar do Android fechando a janela aberta. Quem só pede abre em "Meus pedidos". O tablet deitado mostra o pedido em duas colunas, como no computador.
+- **Instalável e sem internet.** A versão inteira do app fica no aparelho: ele abre sem rede, e a versão nova só entra quando a pessoa toca em "Atualizar".
+- **Movimento com função, teclado e paleta.** As transições acima, a paleta de comandos (Ctrl+K) e atalhos de uma tecla, o tour guiado, os temas claro e escuro, e português e inglês.
+- **Comentários com @menções, anexos e o histórico completo** numa linha do tempo só, e avisos no app em tempo real (os automáticos vêm das Cloud Functions, com e-mail quando há chave de API).
+- **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, refeitos todo dia.
+
+## Qualidade, medida
+
+Cada número abaixo foi medido, com a data e o comando que o repete. As medidas no celular simulam o "4G lento" do Lighthouse (150 ms, 1,6 Mbit/s) e um processador 4 vezes mais lento, e usam a mediana de três rodadas.
+
+| O quê | Resultado | Medido em | Comando |
+|---|---|---|---|
+| Lighthouse no site no ar: desempenho, acessibilidade, boas práticas, SEO | 99 · 100 · 100 · 100 | 19/11/2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
+| Entrada pintada, primeira visita, no celular | 1,4 s | 19/11/2026 | `npm run medir-desempenho` |
+| Reabrir o app, até o quadro | 2,4 s | 19/11/2026 | `npm run medir-desempenho` |
+| Abrir sem internet, até o quadro | 0,4 s | 19/11/2026 | `npm run medir-desempenho` |
+| Telas principais de cada perfil a 390 e 360 px: rolagem lateral, toques de 44 px, campos de 16 px, contraste e axe-core (regras da WCAG 2.2 AA) | nenhuma falha | 19/11/2026 | `npm run testar-e2e` |
+| Regras de segurança, no emulador | 69 testes passam | 19/11/2026 | `npm run testar-regras` |
+| Testes de unidade: textos nas duas línguas, contraste e foco, app instalável, avisos | 85 testes passam | 19/11/2026 | `npm run testar-unidade` |
+
+O GitHub Actions roda os testes, a checagem de tipos e o Lighthouse (mínimo de 90 nas quatro notas) a cada push.
 
 ## Como um pedido anda
 
@@ -98,13 +136,15 @@ O pedido pode ser cancelado com motivo: pelo solicitante enquanto espera um comp
 - **Uma conta demo que não alcança dados reais.** A senha dela vai no `js/config.js` público, então as regras dão a ela um perfil próprio, `demo`, que não vale como nenhum outro: só lê e grava registros marcados como demo (pedidos com ID `demo-…` e `isDemo == true`, as pessoas, empresas, categorias e fornecedores da demonstração) e arquivos de pedidos da demo. Ela nunca toca em usuários, empresas, categorias, pedidos ou arquivos reais, e nenhum pedido real vira pedido da demo.
 - **Tudo verificável localmente.** Com os emuladores do Firebase, o app roda inteiro na máquina, sem tocar em dados reais.
 
-Mais detalhes em [`docs/arquitetura.md`](docs/arquitetura.md).
+Mais detalhes em [`docs/arquitetura.md`](docs/arquitetura.md), e o porquê de cada escolha em [`docs/decisoes.md`](docs/decisoes.md).
 
 ## Como rodar
 
 ### Localmente, com os emuladores (sem conta no Firebase)
 
 Requisitos: Node.js 24.12 ou superior e Java 21 ou superior (para o emulador do Firestore).
+
+> **No Windows,** se o emulador do Firestore parar logo depois de abrir, aponte as pastas temporárias do Java para uma pasta sua antes de rodar, por exemplo `set JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=C:\tmp -Djdk.net.unixdomain.tmpdir=C:\tmp` (aconteceu com o JDK 21, na pasta temporária padrão do usuário).
 
 ```bash
 npm install
@@ -201,7 +241,7 @@ docs/                 arquitetura, decisões, fluxo de pedidos, glossário e per
 
 ## Licença
 
-MIT. Veja [`LICENSE`](LICENSE).
+MIT. Veja [`LICENSE`](LICENSE). Para avisar um problema de segurança, veja o [`SECURITY.md`](SECURITY.md).
 
 ---
 

@@ -416,19 +416,20 @@
 }
 .login-voltar:hover { color: var(--text); background: var(--card3); }
 
-/* Visão "link enviado": o envelope num medalhão aceso, como a etapa da vez
-   no caminho ao lado; alinhada à esquerda como as outras visões */
+/* Visões "link enviado" e "confirme o e-mail": o envelope numa placa de
+   pedra, de cantos retos e fio de tinta no alto, como as janelas e as
+   colunas do quadro (o círculo aceso era um ícone genérico) */
 .sent-icon {
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: var(--gold-fill);
-  border: 1px solid var(--gold-fill);
+  border: 1px solid var(--border-strong);
+  border-top: 2px solid var(--tinta);
+  background: var(--card2);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 0 var(--esp-250);
-  color: var(--on-gold);
+  color: var(--gold);
 }
 .login-sent-acao { margin-top: var(--esp-050); }
 
@@ -463,6 +464,8 @@
   .entrada-miolo { padding: var(--esp-300) var(--esp-250) var(--esp-050); }
   .entrada-titulo { margin-top: var(--esp-300); padding-top: 0; font-size: 2.15rem; }
   .entrada-texto { margin-top: var(--esp-150); font-size: var(--t-corpo); line-height: 1.55; }
+  /* Recuperar senha, criar senha e o aviso do e-mail: só a marca no alto */
+  .login-page[data-secundaria] :is(.entrada-titulo, .entrada-texto) { display: none; }
   .login-shell { align-items: flex-start; padding: var(--esp-300) var(--esp-250) var(--esp-300); }
   .login-card-titulo { font-size: 1.65rem; }
   .login-card-sub { margin-bottom: var(--esp-250); }
@@ -523,6 +526,13 @@
   background-position: -1px -1px;
   -webkit-mask-image: linear-gradient(#000 30%, transparent);
   mask-image: linear-gradient(#000 30%, transparent);
+}
+
+/* Computador: o conteúdo ocupa ao menos a tela, então o rodapé da assinatura
+   começa abaixo dela. Antes ele aparecia no pé da tela enquanto o pedido
+   carregava e depois era empurrado para baixo (deslocamento de 0,06 a 1280 px) */
+@media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
+  .main-content { min-height: 100vh; }
 }
 
 @media (max-width: 1279px) {

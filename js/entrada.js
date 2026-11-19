@@ -5,18 +5,19 @@
 // 4x; scripts/medir-desempenho.mjs): antes a entrada esperava o SDK inteiro.
 import { carregarIdioma } from './constants.js'
 
-// CSS das telas do app (index.html): baixado sem segurar a primeira pintura;
-// o app espera por ele antes de desenhar a primeira tela da conta (js/app.js)
-const cssTelas = document.getElementById('css-telas')
-window.__praxisCssTelas = new Promise(pronto => {
-  if (!cssTelas) return pronto()
-  const feito = () => pronto()
-  if (cssTelas.sheet) feito()
-  else { cssTelas.addEventListener('load', feito, { once: true }); cssTelas.addEventListener('error', feito, { once: true }) }
+// CSS das telas do app e dos ajustes por largura e tema (index.html): baixados
+// sem segurar a primeira pintura da entrada; o app espera os dois antes de
+// desenhar a primeira tela da conta (js/app.js). A ordem dos <link> no
+// documento, e não a da chegada, decide a cascata
+const adiados = ['css-telas', 'css-themes'].map(id => document.getElementById(id)).filter(Boolean)
+window.__praxisCssTelas = Promise.all(adiados.map(link => new Promise(pronto => {
+  if (link.sheet) return pronto()
+  link.addEventListener('load', pronto, { once: true })
+  link.addEventListener('error', pronto, { once: true })
   // Sem resposta (rede caindo): não trava o app
-  setTimeout(feito, 8000)
-})
-if (cssTelas) cssTelas.media = 'all'
+  setTimeout(pronto, 8000)
+})))
+for (const link of adiados) link.media = 'all'
 
 // Quem escolheu o inglês baixa o dicionário antes da primeira tela
 await carregarIdioma()

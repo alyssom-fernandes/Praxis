@@ -18,7 +18,7 @@ import {
   _sincronizarControles, _mudouFiltro, _atualizarResultadoPainel,
 } from './pedidos.js'
 import {
-  _renderKanban, _usaMeusPedidos, _renderMeusPedidos, _tsMs, _nomeEmpresa, _bindEmptyActions, _renderLista, _tsToISO, _atualizarBulkBar,
+  _renderKanban, _usaMeusPedidos, _tituloTela, _renderMeusPedidos, _tsMs, _nomeEmpresa, _bindEmptyActions, _renderLista, _tsToISO, _atualizarBulkBar,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
 
@@ -448,7 +448,7 @@ export function _descricaoFila() {
 
 export function _atualizarTitulo() {
   const h1 = document.getElementById('pedidos-titulo')
-  const titulo = Q.filtroAtivo === 'pendentes' ? t('navMinhaFila') : t('titulo')
+  const titulo = _tituloTela()
   if (h1 && h1.textContent !== titulo) h1.textContent = titulo
 }
 
@@ -483,7 +483,7 @@ export function _renderView() {
     Q.selecionados.clear()
     _atualizarBulkBar()
     const scrollAnterior = container.querySelector('.kanban-board')?.scrollLeft || 0
-    // A solicitante, no celular, vê os pedidos dela como lista com o caminho
+    // A solicitante vê os pedidos dela como lista com o caminho
     container.innerHTML = _usaMeusPedidos() ? _renderMeusPedidos(lista) : _renderKanban(lista)
     container.querySelectorAll('.kcard').forEach(card => {
       card.addEventListener('click', () => navegar('detalhe', { id: card.dataset.id }))

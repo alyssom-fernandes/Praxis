@@ -92,3 +92,17 @@ importada; o objeto deixa, e o estado fica num lugar visível.
 **Decisão:** `js/textos-pt.js` vem com o app; `js/textos-en.js` só é baixado por
 quem escolhe o inglês (na entrada ou em Ajustes, guardado no navegador).
 **Por quê:** o inglês era baixado por todos, e ninguém conseguia escolhê-lo.
+
+## 11. Os ajustes por largura fora da primeira pintura (19/11/2026)
+
+**Decisão:** o `css/themes.css` (os ajustes de cada tela por largura e tema) é
+baixado como o `css/telas.css`: sem segurar a primeira pintura, e o app espera
+os dois antes da primeira tela da conta (`js/entrada.js`). As regras de toque
+que a entrada usa (campos de 16 px e 48 px, botões de 44 px) foram para o
+`css/base.css`.
+**Por quê:** a entrada não usa o resto do arquivo. Medido: maior pintura da
+primeira visita de 1,58 s para 1,39 s (celular simulado, 4G lento, CPU 4x,
+mediana de três rodadas).
+**O que se perde:** uma regra de toque nova precisa ir para o `base.css`.
+Conferido: a entrada fica igual, pixel a pixel, com e sem o `themes.css`, a 390,
+768 e 1440 px.

@@ -606,6 +606,49 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
   .dialog-actions > *, .dialog-actions > button { flex: 1 1 0; min-height: 46px; }
 }
 
+/* Checkbox e rádio no acento da marca (o "html" mantém a precedência que a
+   regra tinha quando vinha por último, em themes.css) */
+html input[type="checkbox"], html input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: var(--gold-fill);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Toque no celular e no tablet: vem antes da primeira pintura (a entrada usa
+   campos e botões); os ajustes de cada tela ficam em themes.css, que chega
+   depois. O "html" na frente mantém a precedência de quando estas regras
+   vinham por último */
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, label, summary, [role="button"], [role="tab"], .chip { touch-action: manipulation; }
+  html .main-footer { display: none; }
+  /* Sem o rodapé, o espaço da barra de baixo (e da barra de ação do detalhe)
+     fica no fim do conteúdo; antes, o último item da página ficava sob ela */
+  body:has(#bottom-nav) .main-content { padding-bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
+  body:has(#bottom-nav):has(.decisao-acoes) .main-content { padding-bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + var(--esp-300)); }
+  html .um-so-movel { display: flex; }
+
+  /* Campos: texto de 16 px (sem zoom no iPhone) e 48 px para o dedo */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  html select, html textarea { font-size: var(--t-titulo-3); }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  html select { min-height: 48px; }
+
+  /* Botões com 44 px no mínimo, os pequenos também; ícone em quadrado de 44 */
+  html :is(.btn-primary, .btn-secondary, .btn-ghost, .btn-danger) { min-height: 44px; }
+  html .btn-icon { min-width: 44px; min-height: 44px; }
+  html .chip { min-height: 44px; }
+  html .seg-op { min-height: 48px; }
+}
+
+/* Ícones de traço (24 × 24): pontas e junções retas e traço fino, como a
+   pedra cortada da marca e os fios das inscrições. O CSS vence os atributos
+   de cada SVG, então a regra vale para todos sem reescrever um por um */
+svg[viewBox="0 0 24 24"][fill="none"] { stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; }
+
 /* Avatar */
 .avatar {
   border-radius: 50%;

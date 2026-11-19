@@ -126,6 +126,7 @@ const FOCO_APAGADO_DE_PROPOSITO = {
   'main:focus':                     'destino do link de salto; não é controle',
   '.tour-popover:focus':            'o anel vem de .tour-popover:focus-visible',
   '.comentario-campo textarea:focus': 'o anel fica na caixa toda (.comentario-campo:focus-within)',
+  '.cmd-input:focus-visible':        'o foco é o fio de baixo da faixa da busca (.cmd-palette-header:focus-within)',
 }
 
 test('nenhum foco é apagado sem outro no lugar', () => {

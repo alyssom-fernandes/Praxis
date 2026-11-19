@@ -441,6 +441,17 @@
 .kanban-board::-webkit-scrollbar-track { background: transparent; }
 /* Encerrados (duas etapas): largura contida, sem esticar até a borda */
 .kanban-poucas .kanban-board { grid-template-columns: repeat(var(--cols), minmax(200px, 300px)); }
+/* Computador: a etapa sem pedidos vira uma faixa de 56 px, com o numeral e o
+   nome na vertical, e a largura que sobra vai para as colunas com cartões
+   (--modelo vem de js/pedidos-quadro.js). Nas colunas estreitas, o título do
+   cartão vai até quatro linhas antes das reticências */
+@media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
+  .kanban-board { --col-recolhida: 56px; grid-template-columns: var(--modelo, repeat(var(--cols, 7), minmax(128px, 1fr))); }
+  .kanban-col.recolhida .kanban-col-header { align-items: center; }
+  .kanban-col.recolhida .etapa-nome { margin-top: var(--esp-150); writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+  .kanban-col.recolhida :is(.etapa-fila, .etapa-soma, .kanban-vazio) { display: none; }
+  .kanban-board .kcard-title { -webkit-line-clamp: 4; }
+}
 
 .kanban-wrap.tem-dir .kanban-board { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent); }
 .kanban-wrap.tem-esq .kanban-board { -webkit-mask-image: linear-gradient(to right, transparent, #000 64px); mask-image: linear-gradient(to right, transparent, #000 64px); }
@@ -590,6 +601,24 @@
 ::view-transition-new(pedido-titulo) { animation: vtEntrar 0.3s ease 0.08s both; }
 @keyframes vtSair { to { opacity: 0; } }
 @keyframes vtEntrar { from { opacity: 0; } }
+/* Entre as abas principais (js/app.js, _ORDEM_ABAS): o conteúdo sai para um
+   lado e o novo entra do outro, no sentido da navegação; a barra e a lateral
+   ficam paradas. O grupo não se move (só as imagens), para não esticar */
+html[data-vt-aba] .main-content { view-transition-name: conteudo; }
+/* A barra de baixo vira uma camada própria, parada e acima do conteúdo: sem
+   isso, a imagem do conteúdo (a página inteira) a cobria durante a troca */
+html[data-vt-aba] .bottom-nav { view-transition-name: barra-baixo; }
+::view-transition-group(barra-baixo), ::view-transition-old(barra-baixo), ::view-transition-new(barra-baixo) { animation: none; }
+::view-transition-group(conteudo) { animation: none; }
+::view-transition-old(conteudo) { animation: abaSai 0.16s ease-in both; }
+::view-transition-new(conteudo) { animation: abaEntra 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s both; }
+html[data-vt-aba="tras"]::view-transition-old(conteudo) { animation-name: abaSaiTras; }
+html[data-vt-aba="tras"]::view-transition-new(conteudo) { animation-name: abaEntraTras; }
+::view-transition-old(conteudo), ::view-transition-new(conteudo) { height: 100%; object-fit: none; object-position: left top; }
+@keyframes abaSai { to { opacity: 0; transform: translateX(-24px); } }
+@keyframes abaEntra { from { opacity: 0; transform: translateX(24px); } }
+@keyframes abaSaiTras { to { opacity: 0; transform: translateX(24px); } }
+@keyframes abaEntraTras { from { opacity: 0; transform: translateX(-24px); } }
 .kcard:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .light .kcard { background: var(--card); }
 .light .kcard:hover { background: var(--card); box-shadow: 0 1px 0 var(--border-strong), 0 0 0 1px var(--border-strong); }
@@ -1145,7 +1174,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .pedidos-tabela thead th.c-cb:hover input { opacity: 1; }
 .pedidos-tabela td.c-pedido { width: 40%; max-width: 0; }
 .pedidos-tabela td.c-empresa,
-.pedidos-tabela td.c-solic { max-width: 170px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pedidos-tabela td.c-solic { max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pedidos-tabela .c-valor { text-align: right; white-space: nowrap; }
 .pedidos-tabela .c-prazo,
 .pedidos-tabela .c-status,
@@ -1164,7 +1193,19 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   color: var(--text3);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.lp-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 600; }
+/* O título vai até duas linhas antes das reticências: numa linha só, as
+   colunas de empresa, prazo e data ficavam com a sobra e o título cortava */
+.lp-titulo {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 .lp-linha .kcard-urg { margin-left: 0; }
 /* Etiqueta de estado (lozenge): 20 px, cantos de 2 px, a cor vem da categoria
    da etapa (CATEGORIA_ETAPA); o texto é sempre o nome da etapa */
@@ -1521,6 +1562,10 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 }
 .cmd-input:focus,
 .cmd-input:hover:not(:focus) { border: none; box-shadow: none; }
+/* O foco da busca é o fio de baixo da faixa inteira, em tinta: o anel em volta
+   do campo encostava no alto da tela e no botão de fechar */
+.cmd-input:focus-visible { outline: none; }
+.cmd-palette-header:focus-within { border-bottom-color: var(--foco); box-shadow: 0 1px 0 var(--foco); }
 .cmd-input::placeholder { color: var(--text3); font-weight: 400; opacity: 1; }
 .cmd-esc {
   border: none;
@@ -2563,6 +2608,13 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   background: var(--rel-mes);
   transition: background var(--transition-fast);
 }
+/* Ao abrir os relatórios (e ao trocar o período), as barras sobem da base,
+   uma depois da outra, e o valor de cada mês aparece em seguida. Com o
+   movimento reduzido, a regra geral de base.css zera a duração */
+.rel-col-barra { transform-origin: bottom; animation: barraSobe 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.rel-col-valor { animation: valorAparece 0.3s ease both; animation-delay: calc(var(--i, 0) * 45ms + 0.3s); }
+@keyframes barraSobe { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes valorAparece { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 /* Mês em andamento: contorno e hachura a 45° (dado incompleto) */
 .rel-col.atual .rel-col-barra {
   box-sizing: border-box;
@@ -2750,7 +2802,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   color: var(--text);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.rel-etapa-nome { display: block; margin-top: var(--esp-100); overflow: hidden; font-size: var(--t-corpo); font-weight: 600; color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.rel-etapa-nome { display: block; margin-top: var(--esp-100); font-size: var(--t-corpo); font-weight: 600; line-height: 1.3; color: var(--text); text-wrap: balance; }
 .rel-etapa-sub { display: block; margin-top: var(--esp-025); font-size: var(--t-pequeno); color: var(--text3); white-space: nowrap; }
 .rel-etapa.zero .rel-etapa-num { color: var(--border-strong); }
 .rel-etapa.fora { padding-top: var(--esp-150); border-top: 1px solid var(--border-strong); }
@@ -3099,7 +3151,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .decisao-titulo { font-size: 1.3rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; color: var(--text); overflow-wrap: anywhere; }
 .decisao-desc { margin-top: var(--esp-050); font-size: var(--t-corpo); line-height: 1.55; color: var(--text2); }
 .decisao-acoes { display: flex; align-items: center; gap: var(--esp-100); flex-shrink: 0; padding-top: var(--esp-025); }
-.decisao-acoes > button { min-height: 42px; padding: 0 var(--esp-200); font-size: var(--t-corpo); }
+.decisao-acoes > button { min-height: 44px; padding: 0 var(--esp-200); font-size: var(--t-corpo); }
 .decisao-fatos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* 200: cabe R$ 9.999.999,99 sem cortar */
@@ -3143,13 +3195,16 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
    fatos em duas colunas (o último sozinho ocupa a linha toda, sem deixar
    um vão), depois dados, pessoas e tempo por etapa */
 @media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
-  .detalhe-layout .detalhe-cols { grid-template-columns: minmax(0, 1fr) 360px; gap: var(--esp-500); }
+  /* O trilho cresce com a tela (340 px a 1024, 400 px a 1440): os fatos em duas
+     colunas cabem sem quebrar nome nem valor */
+  .detalhe-layout .detalhe-cols { grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw - 30px, 420px); gap: var(--esp-500); }
   .detalhe-layout .detalhe-aside { gap: var(--esp-400); }
   .detalhe-aside .decisao-valor { white-space: nowrap; }
   .detalhe-aside .decisao { padding: var(--esp-200) var(--esp-200) 0; }
   .detalhe-aside .decisao-topo { flex-direction: column; align-items: stretch; gap: var(--esp-200); padding-bottom: var(--esp-200); }
   .detalhe-aside .decisao-titulo { font-size: var(--t-titulo-2); }
   .detalhe-aside .decisao-acoes { justify-content: flex-start; flex-wrap: wrap; }
+  .detalhe-aside .decisao-acoes > button { flex: 1 1 0; }
   .detalhe-aside .decisao-fatos { grid-template-columns: 1fr 1fr; margin: 0 calc(var(--esp-200) * -1); }
   .detalhe-aside .decisao-fato { padding: var(--esp-150) var(--esp-200); }
   .detalhe-aside .decisao-fato:last-child:nth-child(odd) { grid-column: 1 / -1; }
@@ -3565,9 +3620,11 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .usr-tabela td.c-empresas { color: var(--text2); }
 .usr-cel { display: flex; align-items: center; gap: var(--esp-150); min-width: 0; }
 .usr-avatar { flex-shrink: 0; background: var(--card2); border-color: var(--border-strong); color: var(--text2); }
-.usr-id { min-width: 0; }
-.usr-nome { display: flex; align-items: baseline; gap: var(--esp-100); min-width: 0; font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
-.usr-nome-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usr-id { flex: 1 1 auto; min-width: 0; }
+.usr-nome { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--esp-025) var(--esp-100); min-width: 0; font-size: var(--t-corpo); font-weight: 600; color: var(--text); }
+/* O nome não encolhe abaixo de 9 letras: sem espaço, a marca ("Convite
+   pendente", "Você") desce para a linha de baixo em vez de cortar o nome */
+.usr-nome-txt { min-width: min(100%, 9em); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usr-email { margin-top: var(--esp-025); font-size: var(--t-pequeno); font-weight: 400; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* "Você", "Inativo": rótulo da inscrição ao lado do nome */
 .cfg-marca {
@@ -3773,7 +3830,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .alc-ed-nivel-cab .alc-nivel-n { margin-bottom: var(--esp-100); }
 .alc-ed-nome { flex: 1; min-width: 0; margin: 0; }
 .alc-ed-min { width: 7rem; margin: 0; }
-.alc-ed-nivel-cab .alc-ed-tirar { margin-left: 0; margin-bottom: var(--esp-050); }
+.alc-ed-tirar-nivel { margin-top: var(--esp-100); }
 .alc-ed-quem { margin-top: var(--esp-150); padding: 0; border: none; }
 .alc-ed-quem legend { margin-bottom: var(--esp-075); font-size: var(--t-pequeno); font-weight: 600; color: var(--text3); }
 .alc-ed-opcoes { display: flex; flex-wrap: wrap; gap: var(--esp-075) var(--esp-200); }
@@ -4239,7 +4296,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .sis-vazio { grid-template-columns: 1fr; }
 }
 
-/* ── Meus pedidos: a solicitante no celular (js/pedidos-quadro.js) ── */
+/* ── Meus pedidos: a solicitante (js/pedidos-quadro.js) ── */
 /* Em andamento e encerrados, cada cartão com o caminho em sete traços: os
    feitos e o atual em bronze, o atual mais alto; e a etapa com quem responde. */
 .meus { display: flex; flex-direction: column; gap: var(--esp-300); }
@@ -4250,6 +4307,11 @@ input.cfg-mono { font-size: var(--t-corpo); }
 }
 .meus-grupo-titulo .numeral { color: var(--gold); letter-spacing: 0; }
 .meus-lista { display: flex; flex-direction: column; gap: var(--esp-150); }
+/* No computador, os cartões em grade (o mesmo cartão do quadro, mais largo) */
+@media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
+  .meus { max-width: 1180px; }
+  .meus-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--esp-200); }
+}
 .meus-caminho { display: grid; grid-template-columns: repeat(7, 1fr); align-items: end; gap: var(--esp-050); margin-top: var(--esp-150); }
 .meus-passo { height: 2px; background: var(--line); }
 .meus-passo.feito { background: var(--gold); }
