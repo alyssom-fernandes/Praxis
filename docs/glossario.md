@@ -1,6 +1,6 @@
 # Glossário
 
-Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos e-mails. Os textos ficam em `js/constants.js` (português e inglês) e em `js/textos-relatorios.js`; o teste `tests/textos.test.mjs` confere que toda chave existe nos dois idiomas e que nenhum texto de tela fica fora do dicionário.
+Um nome para cada coisa, igual em todas as telas, no PDF, nos relatórios e nos e-mails. Os textos ficam em `js/textos-pt.js` e `js/textos-en.js` e em `js/textos-relatorios.js`; o teste `tests/textos.test.mjs` confere que toda chave existe nos dois idiomas e que nenhum texto de tela fica fora do dicionário.
 
 ## Conceitos
 

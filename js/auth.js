@@ -1,11 +1,20 @@
-import {
-  auth, db, apagarCopiaLocal,
+// O Firebase vem sob demanda: a tela de entrada aparece sem esperar o SDK
+// (js/entrada.js), e cada ação que fala com o Firebase espera por ele (_fb).
+// O download começa na carga deste módulo, em paralelo com o desenho da tela
+let auth, db, apagarCopiaLocal,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, sendPasswordResetEmail,
-  doc, getDoc, setDoc, writeBatch, serverTimestamp,
-} from './firebase.js'
+  doc, getDoc, getDocFromCache, getDocFromServer, setDoc, writeBatch, serverTimestamp
+const _firebase = import('./firebase.js').then(m => {
+  ;({
+    auth, db, apagarCopiaLocal,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, sendPasswordResetEmail,
+    doc, getDoc, getDocFromCache, getDocFromServer, setDoc, writeBatch, serverTimestamp,
+  } = m)
+})
+const _fb = () => _firebase
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
-import { t, idioma, STATUS, STATUS_LABEL } from './constants.js'
+import { t, idioma, trocarIdioma, STATUS, STATUS_LABEL } from './constants.js'
 import { DEMO_CREDENTIALS } from './config.js'
 import { esc } from './utils.js'
 
@@ -33,7 +42,7 @@ function _etapasEntrada() {
   return `
     <ol class="regua entrada-etapas" aria-hidden="true">
       ${nomes.map((nome, i) => `
-        <li class="regua-etapa" style="--i:${i}">
+        <li class="regua-etapa" data-estilo="--i:${i}">
           <span class="regua-n">${String(i + 1).padStart(2, '0')}</span>
           <span class="regua-nome">${nome}</span>
         </li>`).join('')}
@@ -54,10 +63,28 @@ function _blocoMarcaAfn() {
   return `
     <div class="login-afn">
       <div class="login-afn-nome">
-        <span class="pf-afn" style="font-size:13px">AFN</span><span class="pf-gap"></span><span class="pf-sys" style="font-size:13px">SYSTEMS</span>
+        <span class="pf-afn" data-estilo="font-size:13px">AFN</span><span class="pf-gap"></span><span class="pf-sys" data-estilo="font-size:13px">SYSTEMS</span>
       </div>
-      <span class="pf-sys" style="font-size:8px;letter-spacing:1.4px;text-transform:uppercase">by Alyssom Fernandes</span>
+      <span class="pf-sys" data-estilo="font-size:8px;letter-spacing:1.4px;text-transform:uppercase">by Alyssom Fernandes</span>
     </div>`
+}
+
+// ── Tela de entrada ──────────────────────────────────────────
+// O index.html já traz a entrada desenhada em português (scripts/gerar-entrada.mjs,
+// a partir de renderLogin): a primeira pintura não espera JavaScript. Aqui ela
+// só ganha os eventos. Em inglês, ou sem a cópia no HTML, desenha de novo.
+export function mostrarEntrada() {
+  const estatica = document.querySelector('#app > .login-page[data-estatica]')
+  if (estatica && idioma() === 'pt') {
+    document.documentElement.classList.remove('entrada-escondida')
+    if (estatica.dataset.ligada) return
+    estatica.dataset.ligada = '1'
+    _prepararEntrada()
+    return
+  }
+  if (document.querySelector('#app > .login-page:not([data-estatica])')) return
+  renderLogin()
+  document.documentElement.classList.remove('entrada-escondida')
 }
 
 // ── Render da tela de login ──────────────────────────────────
@@ -104,6 +131,7 @@ export function renderLogin() {
             <div class="login-sep"><span>${t('loginOu')}</span></div>
             <button type="button" class="btn-secondary login-botao" id="btn-demo">${t('btnDemo')}</button>
             <p class="login-demo-dica">${t('demoDica')}</p>
+            <p class="login-idioma"><button type="button" class="login-link" id="btn-idioma" lang="${idioma() === 'en' ? 'pt-BR' : 'en'}" aria-label="${t('idiomaTrocarRotulo')}">${t('idiomaTrocar')}</button></p>
             ${_blocoMarcaAfn()}
           </div>
 
@@ -163,6 +191,10 @@ export function renderLogin() {
     </div>
   `
 
+  _prepararEntrada()
+}
+
+function _prepararEntrada() {
   mostrarCeu(true)
   _bindLoginEvents()
   // Quem entrou sem acesso volta para cá sabendo o motivo; quem ainda não
@@ -206,6 +238,8 @@ function _mostrarErro(id, msg) {
 }
 
 function _bindLoginEvents() {
+  document.getElementById('btn-idioma')?.addEventListener('click', () => trocarIdioma(idioma() === 'en' ? 'pt' : 'en'))
+
   document.getElementById('form-login')?.addEventListener('submit', async e => {
     e.preventDefault()
     const email = document.getElementById('input-email').value.trim()
@@ -325,6 +359,7 @@ async function _fazerLogin(email, senha) {
   _botaoCarregando(btn, true, t('btnEntrar'), t('entrando'))
   let focar = null
   try {
+    await _fb()
     await signInWithEmailAndPassword(auth, email, senha)
   } catch (err) {
     _mostrarErro('login-erro', _traduzirErroAuth(err.code))
@@ -358,6 +393,7 @@ async function _criarConta(email, senha) {
   _mostrarErro('criar-erro', '')
   _botaoCarregando(btn, true, t('criarBotao'), t('criando'))
   try {
+    await _fb()
     await createUserWithEmailAndPassword(auth, email, senha)
   } catch (err) {
     _mostrarErro('criar-erro', _traduzirErroAuth(err.code))
@@ -375,6 +411,7 @@ async function _criarConta(email, senha) {
 // do Firebase oferece voltar ao Praxis (endereço autorizado no projeto; se não
 // for, vai sem o retorno)
 async function _enviarConfirmacao(usuario) {
+  await _fb()
   auth.languageCode = idioma() === 'en' ? 'en' : 'pt-BR'
   try {
     await sendEmailVerification(usuario, { url: `${location.origin}/` })
@@ -407,6 +444,7 @@ function _mostrarBoasVindas() {
 async function _entrarDemo() {
   mostrarSpinner()
   try {
+    await _fb()
     await signInWithEmailAndPassword(auth, DEMO_EMAIL, DEMO_PASSWORD)
   } catch (err) {
     prxToast(t('erroAcessarDemo'), 'error')
@@ -422,6 +460,7 @@ async function _enviarResetSenha(email) {
   _mostrarErro('forgot-erro', '')
   _botaoCarregando(btn, true, t('enviarLink'), t('enviarLink'))
   try {
+    await _fb()
     await sendPasswordResetEmail(auth, email)
     _mostrarEnviado(email)
   } catch (err) {
@@ -457,10 +496,19 @@ function _mostrarEnviado(email) {
 let _saindo = false
 export const estaSaindo = () => _saindo
 
+// Marca de sessão neste aparelho: com ela, a abertura espera o Firebase (o
+// quadro vem em seguida); sem ela, a entrada aparece na hora (js/entrada.js)
+const _CHAVE_SESSAO = 'praxis_sessao'
+export function lembrarSessao() { try { localStorage.setItem(_CHAVE_SESSAO, '1') } catch { /* sem armazenamento */ } }
+export function esquecerSessao() { try { localStorage.removeItem(_CHAVE_SESSAO) } catch { /* sem armazenamento */ } }
+export function temSessaoLembrada() { try { return localStorage.getItem(_CHAVE_SESSAO) === '1' } catch { return false } }
+
 export async function fazerLogout() {
   if (_saindo) return
   _saindo = true
   mostrarSpinner()
+  esquecerSessao()
+  await _fb()
   // As telas param de escutar o banco antes de ele ser encerrado (js/app.js):
   // senão cada escuta recebe o erro do encerramento e reage a ele
   window.dispatchEvent(new Event('praxis:saindo'))
@@ -475,13 +523,37 @@ export async function fazerLogout() {
 }
 
 // ── Carregar dados do usuário logado ─────────────────────────
-export async function carregarUsuario(uid) {
+// Quem já entrou neste aparelho abre o app com o perfil da cópia local, sem
+// esperar a rede (e sem internet também). A conferência com o perfil do
+// servidor vem logo depois, em segundo plano: conta desativada sai; perfil ou
+// empresas diferentes renovam o token e redesenham a tela (evento
+// praxis:perfil, em js/app.js).
+// Antes, cada abertura esperava as duas idas à rede, e sem internet a falha
+// levava à saída da conta, que apagava a cópia local.
+// doServidor: lê só do servidor (a renovação da demo muda o perfil)
+export async function carregarUsuario(uid, { doServidor = false } = {}) {
+  await _fb()
+  if (!doServidor) {
+    let local = null
+    try {
+      const s = await getDocFromCache(doc(db, 'usuarios', uid))
+      if (s.exists()) local = { id: s.id, ...s.data() }
+    } catch { /* sem cópia local deste perfil */ }
+    if (local) {
+      // Depois que a primeira tela abriu, para não disputar a rede e a fila do
+      // Firestore com as leituras dela
+      setTimeout(() => _conferirNoServidor(uid, local), 2500)
+      return local
+    }
+  }
+  // Token com o perfil e as empresas de agora; logo depois de entrar ele acabou
+  // de ser emitido e não precisa de outra ida à rede
   try {
-    if (auth.currentUser) await auth.currentUser.getIdToken(true)
+    const u = auth.currentUser
+    if (u && Date.now() - Date.parse((await u.getIdTokenResult()).issuedAtTime) > 60000) await u.getIdToken(true)
   } catch (e) {
     console.warn('Erro ao renovar token:', e.message)
   }
-  const { getDocFromServer } = await import('https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js')
   const snap = await getDocFromServer(doc(db, 'usuarios', uid))
   if (!snap.exists()) {
     // Conta demo criada direto no console do Firebase: o perfil nasce aqui,
@@ -502,11 +574,41 @@ export async function carregarUsuario(uid) {
   return { id: snap.id, ...snap.data() }
 }
 
+// Os campos do perfil que mudam o que a pessoa vê e pode fazer
+const _CAMPOS_DO_ACESSO = ['perfil', 'empresas', 'ativo', 'nome', 'email']
+function _mesmoAcesso(a, b) {
+  return _CAMPOS_DO_ACESSO.every(c => JSON.stringify(a?.[c] ?? null) === JSON.stringify(b?.[c] ?? null))
+}
+
+// Segundo plano da abertura rápida: sem internet, fica com a cópia local (as
+// gravações já esperam a conexão, ver o aviso de sem conexão em js/ui.js).
+// O token só é renovado quando o perfil mudou (o perfil e as empresas vão no
+// token); renovar a cada abertura era mais uma ida à rede
+async function _conferirNoServidor(uid, local) {
+  try {
+    await _fb()
+    const snap = await getDocFromServer(doc(db, 'usuarios', uid))
+    if (auth.currentUser?.uid !== uid || _saindo) return
+    const doBanco = snap.exists() ? { id: snap.id, ...snap.data() } : null
+    if (!doBanco || !doBanco.ativo) {
+      avisarNaEntrada(t(doBanco ? 'entradaInativo' : 'entradaSemPerfil'))
+      await fazerLogout()
+      return
+    }
+    if (_mesmoAcesso(local, doBanco)) return
+    if (auth.currentUser) await auth.currentUser.getIdToken(true)
+    window.dispatchEvent(new CustomEvent('praxis:perfil', { detail: doBanco }))
+  } catch (e) {
+    console.warn('Perfil conferido só na cópia local:', e?.code || e?.message || e)
+  }
+}
+
 // Convite pendente para o e-mail da conta (/convites/{e-mail}, criado em
 // Configurações › Usuários): a própria pessoa grava o seu perfil copiando o
 // convite e apaga o convite, no mesmo lote. As regras conferem campo a campo
 // e o prazo (firestore.rules, aceitaConvite).
 async function _aceitarConvite(uid) {
+  await _fb()
   const email = String(auth.currentUser?.email || '').trim().toLowerCase()
   if (!email) return null
   // O convite só vale com o e-mail confirmado (firestore.rules, aceitaConvite

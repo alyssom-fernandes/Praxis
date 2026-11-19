@@ -11,7 +11,7 @@ import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario } from './util
 import { gravarAuditado } from './auditoria.js'
 import { abrirImportacao } from './importar-fornecedores.js'
 import {
-  ICO, tf, plural, cabecalho, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
+  ICO, tf, plural, cabecalho, resumoCarregando, botaoNovo, vazio, linhaVazia, linhasEsqueleto, esc,
   doisDigitos, moedaCurta, moeda,
   marcarErro, limparErro, limparErros, focarPrimeiroErro,
   mascararCNPJ, ligarMascaraCNPJ, cnpjValido, ligarInterruptor, definirInterruptor,
@@ -63,20 +63,20 @@ export async function renderConfigCadastros() {
 function _cabecalho() {
   if (_secao === 'empresas') {
     return cabecalho(t('secaoEmpresas'), {
-      resumoId: 'cad-resumo',
+      resumoId: 'cad-resumo', resumo: resumoCarregando('cfgEmpresasDesc'),
       acao: botaoNovo('btn-nova-empresa', t('btnNovaEmpresa'), t('cfgNovaCurto')),
     })
   }
   if (_secao === 'categorias') {
     return cabecalho(t('secaoCategorias'), {
-      resumoId: 'cad-resumo',
+      resumoId: 'cad-resumo', resumo: resumoCarregando('cfgCategoriasDesc'),
       acao: botaoNovo('btn-nova-categoria', t('btnNovaCategoria'), t('cfgNovaCurto')),
     })
   }
   // Fornecedores entram pelas cotações ou pela importação de um CSV: as ações
   // da tela são a busca e a importação
   return cabecalho(t('secaoFornecedores'), {
-    resumoId: 'cad-resumo',
+    resumoId: 'cad-resumo', resumo: resumoCarregando('cfgFornecedoresDesc'),
     acao: `
       <div class="search-input-wrap cfg-busca">
         ${ICO.busca()}
@@ -195,7 +195,7 @@ function _modalCategoria() {
             <div class="form-group">
               <span class="cfg-rotulo-campo" id="cat-cor-rotulo">${t('cfgCor')}</span>
               <div class="cfg-cores" id="cat-cores" role="radiogroup" aria-labelledby="cat-cor-rotulo">
-                ${Object.entries(TONS_CATEGORIA).map(([tom, c]) => `<button type="button" class="cfg-cor" role="radio" aria-checked="false" data-cor="${c}" style="--cor:var(--rel-${tom})" aria-label="${tom}"></button>`).join('')}
+                ${Object.entries(TONS_CATEGORIA).map(([tom, c]) => `<button type="button" class="cfg-cor" role="radio" aria-checked="false" data-cor="${c}" data-estilo="--cor:var(--rel-${tom})" aria-label="${tom}"></button>`).join('')}
               </div>
             </div>
             <div class="cfg-previa">
@@ -409,10 +409,10 @@ function _renderCategorias() {
     const pct = n ? Math.max(3, Math.round((n / maior) * 100)) : 0
     return `
       <tr data-cat-id="${esc(c.id)}" tabindex="0">
-        <td class="c-nome"><span class="cfg-cat" style="--cor:var(--rel-${tomDaCor(cor)})"><span class="cfg-cat-dot" aria-hidden="true"></span><span class="cfg-cat-nome">${esc(c.nome)}</span></span></td>
+        <td class="c-nome"><span class="cfg-cat" data-estilo="--cor:var(--rel-${tomDaCor(cor)})"><span class="cfg-cat-dot" aria-hidden="true"></span><span class="cfg-cat-nome">${esc(c.nome)}</span></span></td>
         <td class="c-tipo">${c.tipo === 'padrao' ? `<span class="cfg-mudo">${t('categoriaPadraoLabel')}</span>` : `<span class="cfg-tipo-propria">${t('catPersonalizadaLabel')}</span>`}</td>
         <td class="c-uso">
-          <span class="cfg-uso" style="--cor:${cor};--p:${pct}%">
+          <span class="cfg-uso" data-estilo="--cor:${cor};--p:${pct}%">
             <span class="cfg-uso-trilho" aria-hidden="true"><span class="cfg-uso-barra"></span></span>
             <span class="cfg-uso-n"${_sufixo(n)}>${_numHtml(n)}</span>
           </span>

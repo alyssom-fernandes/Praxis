@@ -63,9 +63,11 @@ Captured from the demo.
 - **Six roles** (supremo, gestor, aprovador, comprador, financeiro, solicitante), with permissions enforced on the server by the Firestore and Storage rules: each stage of an order can only be moved by the role that owns it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
 - **Multiple companies.** Each user works only with the orders of the companies they belong to, and a manager only sees and edits people and companies of their own; the top role sees all of them.
 - **Real-time in-app notifications.** @mentions come from the app; the automatic ones (approvals, deliveries, installments due) come from Cloud Functions, with email through Resend once an API key is configured.
-- **Command palette** (Ctrl+K), guided tour, installable PWA, light and dark themes and a dedicated phone layout.
+- **Command palette** (Ctrl+K), guided tour, light and dark themes, Portuguese and English (on the sign-in screen and in Settings) and a dedicated phone layout.
+- **Installable app that opens offline.** The service worker stores the whole app version on the device and the Firestore local cache keeps the data already seen: a returning user gets the board without waiting for the network, and with no connection too. A newly published version only takes over when the person taps "Update". On Android, the installed icon has shortcuts to New order, Purchase already made and My queue.
 - **Purchase already made.** For what was bought before going through Praxis (someone picked it up at the store, something urgent or already decided): record what, where, how much, the invoice, who asked, who authorized and who bought it, and why it went straight to purchase. Authorization from someone who is not a manager stays pending until the named person or a manager confirms it.
-- **Phone as an app.** Bottom bar with a "+" to request or record a purchase, 16 px fields (no zoom on iPhone), 44 px buttons and the Android back button closing the open window.
+- **Phone and tablet as an app.** Bottom bar with a "+" to request or record a purchase, 16 px fields (no zoom on iPhone), 44 px buttons and the Android back button closing the open window. Requesters open on "My orders", each with the seven-stage path and who has it; on a tablet, the same app in two columns.
+- **Motion with a purpose.** Opening an order from the board carries the card title into the order header, and back reverses it; approving, rejecting, buying, receiving and paying end with a bronze seal (and a short vibration on Android). All of it respects reduced motion.
 - **Data copy.** In Settings, a manager downloads a JSON file with everything from their companies (the Supreme user, from all of them): orders with history, quotes, installments, comments and notes, records, users, invitations, approval tiers and audit log, with counts to check against.
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
 
@@ -131,7 +133,7 @@ The unit tests need no emulator. They cover the interface text check (every key 
 npm run testar-unidade
 ```
 
-The end-to-end test opens the app in a headless browser (Playwright) against the emulators with the seed data, and takes one request from opening to approval, each step signed in with its own role (requester, buyer, approver). The first time, download the browser:
+The end-to-end test opens the app in a headless browser (Playwright) against the emulators with the seed data, and takes one request from opening to approval, each step signed in with its own role (requester, buyer, approver). In the same command, `tests/celular.test.mjs` goes through the main screens of each role at 390 and 360 px (no sideways scroll, 44 px touch targets, an accessible name on every control, 16 px fields, AA contrast and no console errors) and opens the app offline, through the service worker and the local cache. The first time, download the browser:
 
 ```bash
 npx playwright install chromium
@@ -140,6 +142,20 @@ npx playwright install chromium
 ```bash
 npm run testar-e2e
 ```
+
+Performance is measured on a simulated phone (390 × 844, Lighthouse "slow 4G" and a 4x slower CPU) against the emulators: first visit to the sign-in screen, sign-in to the board, reopening the app to the board and opening it offline, as the median of three runs:
+
+```bash
+npm run medir-desempenho
+```
+
+And Lighthouse on the sign-in screen, served as Firebase Hosting serves it (CI requires 90 in all four scores):
+
+```bash
+npm run lighthouse
+```
+
+Type checking (TypeScript, no build) covers the app's rule modules: `npm run tipos`.
 
 On `localhost` the app connects to the emulators by itself. Use **Acessar modo demo**, or sign in as
 `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` or `solicitante@praxis.app`, all with the
@@ -159,22 +175,28 @@ password `demo1234`, to see the system through each role.
 ## Structure
 
 ```
-index.html            single entry point; loads js/app.js as a module
-css/                  tokens → base → components → views → themes
+index.html            single entry point, with the sign-in screen already written in (scripts/gerar-entrada.mjs)
+css/                  tokens → base → components → views (sign-in) → telas (app screens) → themes
 js/
-  app.js              sign-in flow, routes (?tela=), sidebar, navigation
+  entrada.js          entry point: the sign-in screen shows without waiting for Firebase
+  app.js              session, routes (?tela=), sidebar, navigation, card ↔ order transition
   estado.js           the session and the hooks modules share, with no window globals
-  constants.js        stages, roles and the interface text (Portuguese and English)
-  pedidos.js          board and list, filters, saved views, bulk actions
-  pedido-detalhe.js   order flow, quotes, installments, comments, attachments, PDF
-  relatorios.js       dashboard, charts and exports
+  constants.js        stages, roles, t() and idioma()
+  textos-pt.js        interface text in Portuguese (ships with the app)
+  textos-en.js        English text (downloaded only when English is chosen)
+  pedidos*.js         board and list, "My orders", filters, saved views, bulk actions
+  pedido-detalhe.js   the order page; detalhe-*.js: decision, actions, comments, attachments
+  relatorios*.js      dashboard, charts and exports
+  ui.js, tour.js      shared components (notices, dialogs, decision seal) and the tour
   config-*.js         users, registries and preferences
   demo-*.js           demo people and the daily rebuild
 functions/            triggers, scheduled jobs and the demo seed
 vendor/               jsPDF and ExcelJS, copied unchanged from npm, with their licenses
-scripts/              emulator seed (npm run seed)
-tests/                rules (emulator), unit, interface text, Functions notices and end-to-end tests
-docs/                 architecture, order flow and permissions (in Portuguese)
+scripts/              emulator seed, service worker list and CSP (gerar-sw), static sign-in (gerar-entrada),
+                      performance (medir-desempenho) and Lighthouse
+tests/                rules (emulator), unit, interface text, installable app, Functions notices,
+                      end-to-end and phone (390 and 360 px, axe-core, production CSP, offline)
+docs/                 architecture, decisions, order flow, glossary and permissions (in Portuguese)
 ```
 
 ## License

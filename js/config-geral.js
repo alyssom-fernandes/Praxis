@@ -1,9 +1,10 @@
 import { db, collection, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
-import { abrirTour, definirTema, preferenciaTema, atalhosLigados, definirAtalhos, btnComLoading, exigirConexao, prxToast } from './ui.js'
+import { definirTema, preferenciaTema, atalhosLigados, definirAtalhos, btnComLoading, exigirConexao, prxToast } from './ui.js'
+import { abrirTour } from './tour.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { t } from './constants.js'
+import { t, idioma, trocarIdioma } from './constants.js'
 import { empresasDoUsuario, mensagemDeErro } from './utils.js'
 import { ICO, cabecalho, perfilHtml, iniciais, revelarItemLateral, completarContagensLateral, esc } from './config-comum.js'
 
@@ -62,6 +63,15 @@ export async function renderConfigGeral() {
                 ${opcaoTema('auto', ICO.auto(), t('cfgTemaAuto'))}
                 ${opcaoTema('dark', ICO.lua(), t('cfgTemaEscuro'))}
                 ${opcaoTema('light', ICO.sol(), t('cfgTemaClaro'))}
+              </div>
+            </div>
+            <div class="cfg-item">
+              <div class="cfg-item-texto">
+                <div class="cfg-item-titulo" id="cfg-idioma-titulo">${t('idiomaTitulo')}</div>
+                <p class="cfg-item-desc">${t('idiomaDica')}</p>
+              </div>
+              <div class="cfg-seg" id="cfg-idioma" role="radiogroup" aria-labelledby="cfg-idioma-titulo">
+                ${[['pt', t('idiomaNomePt')], ['en', t('idiomaNomeEn')]].map(([v, nome]) => `<button type="button" class="cfg-seg-op ${idioma() === v ? 'active' : ''}" role="radio" aria-checked="${idioma() === v}" tabindex="${idioma() === v ? 0 : -1}" data-idioma="${v}" lang="${v === 'en' ? 'en' : 'pt-BR'}"><span>${nome}</span></button>`).join('')}
               </div>
             </div>
             <div class="cfg-item">
@@ -158,6 +168,17 @@ function _bindEvents() {
     definirTema(novo)
     _marcarTema(novo)
     grupo.querySelector(`[data-tema="${novo}"]`)?.focus()
+  })
+
+  const lingua = document.getElementById('cfg-idioma')
+  lingua?.addEventListener('click', e => {
+    const b = e.target.closest('[data-idioma]')
+    if (b && b.dataset.idioma !== idioma()) trocarIdioma(b.dataset.idioma)
+  })
+  lingua?.addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+    e.preventDefault()
+    trocarIdioma(idioma() === 'en' ? 'pt' : 'en')
   })
 
   const atalhos = document.getElementById('cfg-atalhos')

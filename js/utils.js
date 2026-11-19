@@ -64,7 +64,7 @@ export function formatarDataRelativa(ts) {
   const date = _paraData(ts)
   if (!date) return { label: '—', title: '', data: '' }
   const now    = new Date()
-  const diffMs = now - date
+  const diffMs = now.getTime() - date.getTime()
   const diffMin = Math.floor(diffMs / 60000)
   const diffH   = Math.floor(diffMs / 3600000)
   const diffD   = Math.floor(diffMs / 86400000)
@@ -296,7 +296,7 @@ export function textoPrazo(dias) {
 
 export function calcularSLA(dataNecessaria) {
   if (!dataNecessaria) return null
-  const dias = Math.round((new Date(dataNecessaria) - new Date(hojeISO())) / 86400000)
+  const dias = Math.round((new Date(dataNecessaria).getTime() - new Date(hojeISO()).getTime()) / 86400000)
   const classe = dias <= 0 ? 'sla-danger' : dias <= 3 ? 'sla-warn' : 'sla-ok'
   return { label: textoPrazo(dias), classe }
 }

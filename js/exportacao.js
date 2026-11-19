@@ -17,7 +17,7 @@ export function paraJSON(valor) {
     const d = valor.toDate()
     return isNaN(d) ? null : d.toISOString()
   }
-  if (valor instanceof Date) return isNaN(valor) ? null : valor.toISOString()
+  if (valor instanceof Date) return isNaN(valor.getTime()) ? null : valor.toISOString()
   if (typeof valor.path === 'string' && valor.firestore) return valor.path
   if (Array.isArray(valor)) return valor.map(paraJSON)
   if (typeof valor === 'object') return Object.fromEntries(Object.entries(valor).map(([k, v]) => [k, paraJSON(v)]))

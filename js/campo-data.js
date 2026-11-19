@@ -7,12 +7,12 @@
 //
 // Por quê: o seletor nativo mostra "dd/mm/yyyy" quando o navegador está em
 // inglês e abre o calendário do sistema, fora da identidade do app.
-import { t } from './constants.js'
+import { t, idioma } from './constants.js'
 
 const _DESC_VALUE    = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')
 const _DESC_DISABLED = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'disabled')
 
-const _ehEn = () => (sessionStorage.getItem('praxis_lang') || 'pt') === 'en'
+const _ehEn = () => idioma() === 'en'
 const _locale = () => (_ehEn() ? 'en-US' : 'pt-BR')
 
 // ── Conversões ────────────────────────────────────────────────
@@ -59,9 +59,10 @@ function _aprimorar(nat) {
   txt.spellcheck = false
   txt.maxLength = 10
   txt.placeholder = t('campoDataPlaceholder')
+  txt.setAttribute('role', 'combobox')
   txt.setAttribute('aria-haspopup', 'dialog')
   txt.setAttribute('aria-expanded', 'false')
-  if (nat.getAttribute('style')) txt.setAttribute('style', nat.getAttribute('style'))
+  if (nat.style.cssText) txt.style.cssText = nat.style.cssText
   // Nome acessível: o mesmo do campo nativo (aria-label, title ou <label for>)
   const rotulo = nat.getAttribute('aria-label')
     || (nat.id && document.querySelector(`label[for="${CSS.escape(nat.id)}"]`)?.textContent.trim())

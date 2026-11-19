@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://praxis-af618.web.app/sitemap.xml

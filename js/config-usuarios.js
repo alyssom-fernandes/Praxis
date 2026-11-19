@@ -10,7 +10,7 @@ import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
 import { gravarAuditado } from './auditoria.js'
 import {
-  ICO, tf, plural, cabecalho, botaoNovo, linhaVazia, linhasEsqueleto, esc,
+  ICO, tf, plural, cabecalho, resumoCarregando, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, dataAcesso, iniciais,
   marcarErro, limparErro, limparErros, focarPrimeiroErro, ligarInterruptor, definirInterruptor,
   revelarItemLateral, completarContagensLateral, linhasComMais,
@@ -49,7 +49,7 @@ export async function renderConfigUsuarios() {
       ${renderTopbar('config-usuarios', true)}
       <main class="main-content cfg-pagina">
         ${cabecalho(t('configUsuarios'), {
-          resumoId: 'usr-resumo',
+          resumoId: 'usr-resumo', resumo: resumoCarregando('cfgUsuariosDesc'),
           acao: botaoNovo('btn-novo-usuario', t('btnNovoUsuario'), t('cfgNovoCurto')),
         })}
 

@@ -467,7 +467,7 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
 @keyframes toastOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px); } }
 
 /* Celular: avisos centralizados na largura útil, acima da barra inferior */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   #toast-container { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; align-items: stretch; }
   body:has(#bottom-nav) #toast-container { bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + 0.6rem); }
   .toast { width: auto; min-width: 0; max-width: none; }
@@ -492,7 +492,7 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
 }
 .modal-overlay.visible { display: flex; }
 /* Celular: a página fica parada atrás de modal, busca e folha da conta */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   body:has(.modal-overlay.visible, .cmd-palette-overlay.visible, .user-menu.folha.open) { overflow: hidden; }
 }
 
@@ -591,7 +591,7 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
 .dialog-actions > button { min-height: 40px; padding-inline: var(--esp-250); }
 
 /* Celular: o diálogo vira folha de baixo, como os modais */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .dialog-overlay { padding: 0; align-items: flex-end; }
   .dialog {
     max-width: none;
@@ -711,6 +711,6 @@ main:focus { outline: none; }
 
 /* Celular: o título de tela desce para 24 px (era 30: ocupava a primeira
    dobra sem dizer nada que a barra inferior já não diga) */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .titulo-pagina { font-size: 1.5rem; }
 }

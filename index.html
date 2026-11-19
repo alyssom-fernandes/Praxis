@@ -16,6 +16,7 @@
   <meta property="og:type"         content="website">
   <meta property="og:site_name"    content="Praxis">
   <meta property="og:locale"       content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
   <meta property="og:url"          content="https://praxis-af618.web.app/">
   <meta property="og:title"        content="Praxis · Toda compra tem um caminho. Do pedido ao pagamento.">
   <meta property="og:description"  content="Solicitações, cotações, aprovações e pagamentos num fluxo só, com prazo, responsável e histórico em cada etapa. Explore a demonstração.">
@@ -32,14 +33,31 @@
   <meta name="twitter:image:alt"   content="Praxis, gestão de compras corporativas">
 
   <title>Praxis · Gestão de compras corporativas</title>
+  <link rel="canonical" href="https://praxis-af618.web.app/">
+
+  <!-- Dados estruturados (schema.org): bloco de dados, não é executado -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Praxis",
+    "url": "https://praxis-af618.web.app/",
+    "description": "Gestão de compras corporativas: solicitações, cotações, aprovações e pagamentos num fluxo só, com prazo, responsável e histórico em cada etapa.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web, Android, iOS",
+    "inLanguage": ["pt-BR", "en"],
+    "image": "https://praxis-af618.web.app/assets/og-image.png",
+    "author": { "@type": "Person", "name": "Alyssom Fernandes" }
+  }
+  </script>
 
   <!-- Fontes do próprio site (css/fontes.css): as da primeira tela vêm antes -->
   <link rel="preload" href="/assets/fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/gfs-didot-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 
-  <!-- Módulos da entrada, pedidos em paralelo: sem isto o navegador só descobre
-       o SDK do Firebase depois de ler app.js e firebase.js (três idas e voltas).
-       Prioridade baixa: no celular lento o CSS, que segura a pintura, vem antes.
+  <!-- Módulos pedidos em paralelo. Os da tela de entrada (js/entrada.js) vêm
+       com prioridade normal: a entrada aparece sem esperar o Firebase. O SDK e
+       o resto, com prioridade baixa: chegam enquanto a pessoa digita.
        O integrity confere o SDK do gstatic com o publicado no npm (o mesmo dos
        testes, ver tests/unidade.test.mjs): o import usa o módulo já conferido.
        O SDK do Storage não entra aqui: vem sob demanda, com o mesmo integrity
@@ -48,9 +66,16 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js" integrity="sha384-w+r+PkUpbBmdc2CgCBCTzKE8pSbh0d+vv75Am+aW4qrsdYekG+bhI3S/HRRz8g+U" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js" integrity="sha384-wV3Yly7PWjAYGDvy7c61tJmWdhDDGLyQTiFYsT5j6RfjB0u52463NudBEnSFeuEs" crossorigin fetchpriority="low">
   <link rel="modulepreload" href="/js/firebase.js" fetchpriority="low">
-  <link rel="modulepreload" href="/js/constants.js" fetchpriority="low">
-  <link rel="modulepreload" href="/js/ui.js" fetchpriority="low">
-  <link rel="modulepreload" href="/js/auth.js" fetchpriority="low">
+  <link rel="modulepreload" href="/js/constants.js">
+  <link rel="modulepreload" href="/js/ui.js">
+  <link rel="modulepreload" href="/js/auth.js">
+  <link rel="modulepreload" href="/js/textos-pt.js">
+  <link rel="modulepreload" href="/js/utils.js">
+  <link rel="modulepreload" href="/js/alcadas.js">
+  <link rel="modulepreload" href="/js/estado.js">
+  <link rel="modulepreload" href="/js/demo-pessoas.js">
+  <link rel="modulepreload" href="/js/config.js">
+  <link rel="modulepreload" href="/js/app.js" fetchpriority="low">
 
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -61,12 +86,15 @@
   <link rel="apple-touch-icon" href="/assets/logo/praxis-apple-touch.png">
 
   <!-- CSS -->
-  <link rel="stylesheet" href="/css/fontes.css?v=38">
-  <link rel="stylesheet" href="/css/tokens.css?v=38">
-  <link rel="stylesheet" href="/css/base.css?v=38">
-  <link rel="stylesheet" href="/css/components.css?v=38">
-  <link rel="stylesheet" href="/css/views.css?v=38">
-  <link rel="stylesheet" href="/css/themes.css?v=38">
+  <link rel="stylesheet" href="/css/fontes.css?v=39">
+  <link rel="stylesheet" href="/css/tokens.css?v=39">
+  <link rel="stylesheet" href="/css/base.css?v=39">
+  <link rel="stylesheet" href="/css/components.css?v=39">
+  <link rel="stylesheet" href="/css/views.css?v=39">
+  <!-- As telas do app não seguram a primeira pintura: js/entrada.js troca o
+       media para "all" e o app espera esta folha antes da primeira tela -->
+  <link rel="stylesheet" href="/css/telas.css?v=39" media="print" id="css-telas">
+  <link rel="stylesheet" href="/css/themes.css?v=39">
 
   <style>
     /* Splash de carregamento inicial — usa os tokens, então segue o tema salvo.
@@ -84,6 +112,11 @@
       transition: opacity 0.35s ease;
     }
     #splash.hide { opacity: 0; pointer-events: none; }
+    /* A entrada vem escrita no HTML: sem sessão e em português, ela é a primeira
+       pintura e o splash não aparece. Com sessão ou em inglês (js/inicio.js),
+       o splash fica e a cópia estática se esconde até o app decidir */
+    html:not(.entrada-escondida) #splash { display: none; }
+    html.entrada-escondida #app > .login-page[data-estatica] { display: none; }
     .splash-simbolo { width: 44px; height: 44px; color: var(--text, #EEE9DF); }
     .splash-barra {
       position: relative;
@@ -106,7 +139,7 @@
     }
   </style>
 </head>
-<body>
+<body class="ceu">
 
   <!-- Splash inicial (primeiro elemento do body: pinta antes de tudo) -->
   <div id="splash" role="status" aria-label="Carregando o Praxis">
@@ -124,10 +157,148 @@
   <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
 
   <!-- App root -->
-  <div id="app"></div>
+  <div id="app">
+    <!-- entrada:inicio (gerado por scripts/gerar-entrada.mjs) -->
+    <div class="login-page" data-estatica="pt">
+      <section class="entrada-lado">
+        <div class="entrada-miolo">
+          <div class="entrada-marca"><span class="marca " role="img" aria-label="Praxis"><span aria-hidden="true">PR</span><svg class="marca-tri" viewBox="67.16 100 466.6 453" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M296 100H323L466 527V535H521V553H77V535Q128 535 145 495ZM289 197L185 470Q172 505 175 525Q180 535 215 535H405Z"></path></svg><span aria-hidden="true">XIS</span></span></div>
+          <h1 class="entrada-titulo">Toda compra<br>tem um caminho.<span>Do pedido ao pagamento.</span></h1>
+          <p class="entrada-texto">Quem pede, quem cota, quem aprova e quem paga. Sete etapas, cada uma com responsável, prazo e histórico.</p>
+          
+    <ol class="regua entrada-etapas" aria-hidden="true">
+      
+        <li class="regua-etapa" data-estilo="--i:0">
+          <span class="regua-n">01</span>
+          <span class="regua-nome">Solicitado</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:1">
+          <span class="regua-n">02</span>
+          <span class="regua-nome">Em cotação</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:2">
+          <span class="regua-n">03</span>
+          <span class="regua-nome">Em aprovação</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:3">
+          <span class="regua-n">04</span>
+          <span class="regua-nome">Aprovado</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:4">
+          <span class="regua-n">05</span>
+          <span class="regua-nome">Comprado</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:5">
+          <span class="regua-n">06</span>
+          <span class="regua-nome">Entregue</span>
+        </li>
+        <li class="regua-etapa" data-estilo="--i:6">
+          <span class="regua-n">07</span>
+          <span class="regua-nome">Pago</span>
+        </li>
+    </ol>
+        </div>
+        <svg class="friso friso-h entrada-friso" aria-hidden="true" focusable="false"><defs><pattern id="friso-entrada" width="20" height="14" patternUnits="userSpaceOnUse"><path d="M0 12.5H4V1.5H16V9.5H9V5.5H12.5M16 12.5H20" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square"></path></pattern></defs><rect width="100%" height="100%" fill="url(#friso-entrada)"></rect></svg>
+      </section>
+
+      <main class="login-shell">
+        <section class="login-card" aria-label="Acesse sua conta">
+
+          <!-- Visão: entrar -->
+          <div class="view active" id="view-login">
+            <h2 class="login-card-titulo">Acesse sua conta</h2>
+            <p class="login-card-sub">Use o e-mail cadastrado pela sua empresa.</p>
+            <form class="login-form" id="form-login" novalidate="">
+              <div class="form-group">
+                <label for="input-email">E-mail</label>
+                <input type="email" id="input-email" placeholder="voce@empresa.com" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required="">
+              </div>
+              <div class="form-group">
+                <div class="login-label-linha">
+                  <label for="input-senha">Senha</label>
+                  <button type="button" class="login-link" id="link-forgot">Esqueci a senha</button>
+                </div>
+                <div class="login-senha">
+                  <input type="password" id="input-senha" placeholder="Sua senha" autocomplete="current-password" required="">
+                  <button type="button" class="login-olho" id="btn-olho" aria-pressed="false" aria-controls="input-senha" aria-label="Mostrar senha" title="Mostrar senha"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                </div>
+              </div>
+              <div class="login-erro" id="login-erro" role="alert" hidden=""></div>
+              <button type="submit" class="btn-primary login-botao" id="btn-entrar">Entrar</button>
+              <p class="login-primeiro">Primeiro acesso? <button type="button" class="login-link" id="link-criar">Criar senha</button></p>
+            </form>
+            <div class="login-sep"><span>ou</span></div>
+            <button type="button" class="btn-secondary login-botao" id="btn-demo">Acessar modo demo</button>
+            <p class="login-demo-dica">Dados fictícios, sem cadastro.</p>
+            <p class="login-idioma"><button type="button" class="login-link" id="btn-idioma" lang="en" aria-label="Use the app in English">English</button></p>
+            
+    <div class="login-afn">
+      <div class="login-afn-nome">
+        <span class="pf-afn" data-estilo="font-size:13px">AFN</span><span class="pf-gap"></span><span class="pf-sys" data-estilo="font-size:13px">SYSTEMS</span>
+      </div>
+      <span class="pf-sys" data-estilo="font-size:8px;letter-spacing:1.4px;text-transform:uppercase">by Alyssom Fernandes</span>
+    </div>
+          </div>
+
+          <!-- Visão: esqueci a senha -->
+          <div class="view" id="view-forgot">
+            <button type="button" class="login-voltar" id="btn-forgot-voltar"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Voltar</span></button>
+            <h2 class="login-card-titulo">Recuperar senha</h2>
+            <p class="login-card-sub">Informe o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</p>
+            <form class="login-form" id="form-forgot" novalidate="">
+              <div class="form-group">
+                <label for="input-forgot-email">E-mail</label>
+                <input type="email" id="input-forgot-email" placeholder="voce@empresa.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" required="">
+              </div>
+              <div class="login-erro" id="forgot-erro" role="alert" hidden=""></div>
+              <button type="submit" class="btn-primary login-botao" id="btn-enviar-link">Enviar link</button>
+            </form>
+          </div>
+
+          <!-- Visão: primeiro acesso (quem foi convidado cria a senha) -->
+          <div class="view" id="view-criar">
+            <button type="button" class="login-voltar" id="btn-criar-voltar"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Voltar</span></button>
+            <h2 class="login-card-titulo">Criar senha</h2>
+            <p class="login-card-sub">Para quem recebeu um convite: use o e-mail do convite e escolha uma senha. Depois, confirme o e-mail pelo link que vamos enviar.</p>
+            <form class="login-form" id="form-criar" novalidate="">
+              <div class="form-group">
+                <label for="input-criar-email">E-mail</label>
+                <input type="email" id="input-criar-email" placeholder="voce@empresa.com" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required="">
+              </div>
+              <div class="form-group">
+                <label for="input-criar-senha">Senha</label>
+                <input type="password" id="input-criar-senha" autocomplete="new-password" minlength="8" aria-describedby="criar-senha-dica" required="">
+                <p class="form-hint" id="criar-senha-dica">Pelo menos 8 caracteres</p>
+              </div>
+              <div class="login-erro" id="criar-erro" role="alert" hidden=""></div>
+              <button type="submit" class="btn-primary login-botao" id="btn-criar">Criar senha</button>
+            </form>
+          </div>
+
+          <!-- Visão: confirmar o e-mail (o link foi enviado) -->
+          <div class="view" id="view-confirmar">
+            <div class="sent-icon" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></div>
+            <h2 class="login-card-titulo">Confirme o seu e-mail</h2>
+            <p class="login-card-sub" id="confirmar-msg" role="status"></p>
+            <button type="button" class="btn-secondary login-botao login-sent-acao" id="btn-confirmar-voltar"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Voltar para o login</span></button>
+          </div>
+
+          <!-- Visão: link enviado -->
+          <div class="view" id="view-sent">
+            <div class="sent-icon" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></div>
+            <h2 class="login-card-titulo">Confira seu e-mail</h2>
+            <p class="login-card-sub" id="sent-msg" role="status">Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.</p>
+            <button type="button" class="btn-secondary login-botao login-sent-acao" id="btn-sent-voltar"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Voltar para o login</span></button>
+          </div>
+
+        </section>
+      </main>
+    </div>
+    <!-- entrada:fim -->
+  </div>
 
   <!-- App entry point -->
-  <script type="module" src="/js/app.js"></script>
+  <script type="module" src="/js/entrada.js"></script>
 
 
 </body>

@@ -8,7 +8,7 @@ import {
 } from './firebase.js'
 import { navegar } from './app.js'
 import { sessao } from './estado.js'
-import { abrirModal, fecharModal, prxToast, exigirConexao, btnComLoading } from './ui.js'
+import { abrirModal, fecharModal, prxToast, exigirConexao, btnComLoading, avisoNoFormulario } from './ui.js'
 import { PERFIS, t, corCategoria } from './constants.js'
 import { esc, hojeISO, maisXDiasISO, parseMoeda, empresasDoUsuario, mensagemDeErro, normalizarTexto } from './utils.js'
 import { MOTIVOS_LANCAMENTO, MAX_NOTA, errosDoLancamento, montarLancamento, pessoa } from './lancamento.js'
@@ -153,7 +153,7 @@ function _html({ categorias }) {
             <div class="form-group" data-campo="lc-categoria">
               <span class="form-label-falso" id="lc-cat-rot">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></span>
               <div class="category-chips" id="lc-categorias" role="radiogroup" aria-labelledby="lc-cat-rot">
-                ${categorias.map(c => `<button type="button" class="chip" role="radio" aria-checked="false" data-id="${esc(c.id)}"><span class="chip-dot" style="background:${corCategoria(c.cor)}"></span>${esc(c.nome)}</button>`).join('')}
+                ${categorias.map(c => `<button type="button" class="chip" role="radio" aria-checked="false" data-id="${esc(c.id)}"><span class="chip-dot" data-estilo="background:${corCategoria(c.cor)}"></span>${esc(c.nome)}</button>`).join('')}
               </div>
             </div>` : ''}
             ${campo('lc-link', t('lancLink'), `<input type="url" id="lc-link" inputmode="url" placeholder="${t('cotLinkPlaceholder')}" autocomplete="off">`, { obrigatorio: false })}
@@ -342,7 +342,7 @@ async function _gravar({ fornecedores, fechar, aoConcluir }) {
     grupo?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     grupo?.querySelector('input:not([type=hidden]):not(.campo-data-nativo), select, textarea, .chip')?.focus({ preventScroll: true })
     // Um erro só (a chave da nota, a data): o aviso diz qual; vários, o geral
-    prxToast(erros.length === 1 ? t(erros[0][1]) : t('erroCamposObrigatorios'), 'warning')
+    avisoNoFormulario(`#${ID}`, erros.length === 1 ? t(erros[0][1]) : t('erroCamposObrigatorios'))
     return
   }
   if (!exigirConexao()) return

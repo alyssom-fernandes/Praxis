@@ -33,6 +33,9 @@ jobs:
       - name: Lint do front (ESLint)
         run: npm run lint
 
+      - name: Tipos das regras do app (TypeScript, sem compilar)
+        run: npm run tipos
+
       - name: Sintaxe dos módulos do app
         run: for f in js/*.js tests/*.mjs; do node --check "$f"; done
 
@@ -84,8 +87,14 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: emuladores-${{ hashFiles('package-lock.json') }}
 
-      - name: Caminho feliz de um pedido
+      - name: Caminho feliz, celular (390 e 360, axe-core, CSP da produção) e sem internet
         run: npm run testar-e2e
+
+      # Lighthouse na entrada, servida como no Hosting: as quatro notas no mínimo 90
+      - name: Lighthouse (desempenho, acessibilidade, boas práticas e SEO)
+        run: npm run lighthouse
+        env:
+          LIMITE: 90
 
   functions:
     name: Lint das Cloud Functions

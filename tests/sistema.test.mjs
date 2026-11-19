@@ -222,9 +222,11 @@ test('um estado vazio e uma régua de etapas', () => {
   }
   assert.deepEqual(achados, [])
   const js = n => fs.readFileSync(path.join(RAIZ, 'js', n), 'utf8')
-  for (const n of ['auth.js', 'pedido-detalhe.js', 'pedidos.js']) {
-    assert.match(js(n), /regua-etapa/, `${n} usa a régua comum`)
-    assert.match(js(n), /STATUS_LABEL\[/, `${n} nomeia a etapa por STATUS_LABEL`)
+  // A entrada, o detalhe e o quadro (cada tela pode estar dividida em módulos)
+  const tela = nomes => nomes.map(js).join('\n')
+  for (const [nome, partes] of [['entrada', ['auth.js']], ['detalhe', ['pedido-detalhe.js', 'detalhe-painel.js', 'detalhe-acoes.js', 'detalhe-dados.js']], ['quadro', ['pedidos.js', 'pedidos-fluxo.js', 'pedidos-quadro.js']]]) {
+    assert.match(tela(partes), /regua-etapa/, `${nome} usa a régua comum`)
+    assert.match(tela(partes), /STATUS_LABEL\[/, `${nome} nomeia a etapa por STATUS_LABEL`)
   }
 })
 

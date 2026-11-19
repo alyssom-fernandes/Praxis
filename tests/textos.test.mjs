@@ -17,14 +17,17 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { TRADUCOES } from '../js/constants.js'
+import PT from '../js/textos-pt.js'
+import EN from '../js/textos-en.js'
 import { TEXTOS_RELATORIOS } from '../js/textos-relatorios.js'
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 // Dicionários, configuração e dados: não são texto de tela escrito no código
 const FORA_DA_VARREDURA = {
-  'constants.js':          'dicionário principal e listas de valores gravados',
+  'constants.js':          'listas de valores gravados',
+  'textos-pt.js':          'dicionário principal (português)',
+  'textos-en.js':          'dicionário principal (inglês)',
   'textos-relatorios.js':  'dicionário da tela de relatórios',
   'config.js':             'configuração local do Firebase',
   'config.example.js':     'modelo da configuração',
@@ -237,7 +240,7 @@ function conferirParidade(nome, dic) {
 }
 
 test('toda chave de texto existe nos dois idiomas, com os mesmos marcadores', () => {
-  conferirParidade('constants.js', TRADUCOES)
+  conferirParidade('textos-pt.js e textos-en.js', { pt: PT, en: EN })
   conferirParidade('textos-relatorios.js', TEXTOS_RELATORIOS)
 })
 
@@ -245,7 +248,7 @@ test('toda chave que o código pede a t(), tf() e tr() existe no dicionário', (
   const faltam = []
   for (const [arquivo, { chaves }] of Object.entries(lido)) {
     for (const { funcao, chave, linha } of chaves) {
-      const existe = chave in TRADUCOES.pt || (funcao === 'tr' && chave in TEXTOS_RELATORIOS.pt)
+      const existe = chave in PT || (funcao === 'tr' && chave in TEXTOS_RELATORIOS.pt)
       if (!existe) faltam.push(`${arquivo}:${linha}: ${funcao}('${chave}')`)
     }
   }

@@ -61,6 +61,19 @@
   window.errosRegistrados = function () { return lista.slice(); };
 })();
 
+// A entrada já vem escrita no index.html (em português). Quem tem sessão neste
+// aparelho vai direto ao quadro (splash até lá) e quem escolheu o inglês recebe
+// a entrada redesenhada: nos dois casos ela fica escondida (classe no <html>,
+// css no index.html) até o app decidir
+(function () {
+  try {
+    if (localStorage.getItem('praxis_sessao') === '1' ||
+        (sessionStorage.getItem('praxis_lang') || localStorage.getItem('praxis_lang')) === 'en') {
+      document.documentElement.classList.add('entrada-escondida');
+    }
+  } catch (e) {}
+})();
+
 // Splash: sai assim que a primeira tela fica pronta (o app chama
 // window.__praxisPronto ao desenhar a entrada ou a primeira tela). Antes ele
 // esperava o "load" e mais 0,45 s, ~0,7 s depois da entrada já pronta. O "load"

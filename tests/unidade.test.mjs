@@ -14,7 +14,7 @@ import {
 } from '../js/utils.js'
 import {
   tomDaCor, corCategoria, TONS_CATEGORIA,
-  t, STATUS_LABEL, PERFIS_LABEL, rotuloMotivo, rotuloNota, rotuloUrgencia,
+  t, carregarIdioma, STATUS_LABEL, PERFIS_LABEL, rotuloMotivo, rotuloNota, rotuloUrgencia,
 } from '../js/constants.js'
 import {
   MAX_LINHAS, MAX_NOME, lerCSV, decodificarArquivo, classificarFornecedores, contarSituacoes,
@@ -220,7 +220,9 @@ function emIngles(fn) {
   }
 }
 
-test('rótulos, prazos e notas gravadas seguem o idioma da sessão', () => {
+test('rótulos, prazos e notas gravadas seguem o idioma da sessão', async () => {
+  // O inglês é baixado sob demanda (js/textos-en.js), como no app
+  await emIngles(() => carregarIdioma())
   assert.equal(STATUS_LABEL.ag_cotacao, 'Em cotação')
   assert.equal(PERFIS_LABEL.gestor, 'Gestor')
   assert.equal(t('prazoFaltam', { n: 3 }), 'Faltam 3 dias')

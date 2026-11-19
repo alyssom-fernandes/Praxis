@@ -1,0 +1,29 @@
+{
+  // Checagem de tipos do JavaScript (sem compilar nada): as regras puras do app,
+  // que decidem etapa, alçada, parcela, nota fiscal e tempo do processo, e os
+  // módulos que elas usam. npm run tipos
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "skipLibCheck": true
+  },
+  "files": [
+    "js/lancamento.js",
+    "js/nota.js",
+    "js/processo.js",
+    "js/alcadas.js",
+    "js/fornecedores-csv.js",
+    "js/exportacao.js",
+    "js/constants.js",
+    "js/textos-pt.js",
+    "js/utils.js",
+    "js/estado.js"
+  ]
+}

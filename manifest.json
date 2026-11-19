@@ -1,13 +1,17 @@
 {
-  "name": "Praxis",
+  "id": "/",
+  "name": "Praxis · Gestão de compras",
   "short_name": "Praxis",
-  "description": "Compras sob controle, do pedido ao pagamento.",
-  "start_url": "/",
+  "description": "Compras sob controle, do pedido ao pagamento: solicitações, cotações, aprovações e pagamentos num fluxo só, com prazo, responsável e histórico em cada etapa.",
+  "start_url": "/?tela=pedidos",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#141311",
   "background_color": "#141311",
   "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/assets/logo/praxis-icon-192.png",
@@ -26,6 +30,52 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo pedido",
+      "short_name": "Novo pedido",
+      "description": "Pedir uma compra para cotar e aprovar",
+      "url": "/?tela=pedidos&novo=pedido",
+      "icons": [{ "src": "/assets/logo/praxis-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Lançar compra já feita",
+      "short_name": "Compra feita",
+      "description": "Registrar o que já foi comprado, só para rastrear",
+      "url": "/?tela=pedidos&novo=compra",
+      "icons": [{ "src": "/assets/logo/praxis-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Minha fila",
+      "short_name": "Minha fila",
+      "description": "Os pedidos que esperam a sua ação",
+      "url": "/?tela=pedidos&filtro=pendentes",
+      "icons": [{ "src": "/assets/logo/praxis-icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/telas/celular-quadro.webp",
+      "sizes": "780x1688",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Quadro de pedidos no celular, com as sete etapas"
+    },
+    {
+      "src": "/assets/telas/celular-detalhe.webp",
+      "sizes": "780x1688",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Pedido em aprovação, com a proposta e a economia"
+    },
+    {
+      "src": "/assets/telas/computador-quadro.webp",
+      "sizes": "1440x900",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Quadro de pedidos no computador"
     }
   ]
 }

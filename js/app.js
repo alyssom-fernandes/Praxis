@@ -1,8 +1,8 @@
 import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, prxEscolha, consumirVoltarDeModal, quandoHistoricoLivre, empilharVoltar, desempilharVoltar } from './ui.js'
-import { renderLogin, carregarUsuario, fazerLogout, avisarNaEntrada, pedirConfirmacaoNaEntrada, estaSaindo } from './auth.js'
-import { PERFIS, PERFIS_LABEL, t } from './constants.js'
-import { gerarIniciais, esc } from './utils.js'
+import { mostrarEntrada, carregarUsuario, fazerLogout, avisarNaEntrada, pedirConfirmacaoNaEntrada, estaSaindo, lembrarSessao, esquecerSessao } from './auth.js'
+import { PERFIS, PERFIS_LABEL, t, carregarIdioma } from './constants.js'
+import { gerarIniciais, esc, prefereMenosMovimento } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 import { sessao, registrarNavegacao, registrarTrocaDePessoa } from './estado.js'
@@ -19,12 +19,90 @@ window.addEventListener('praxis:saindo', () => _limparTudo())
 
 // ── Boot ─────────────────────────────────────────────────────
 
-// Registra service worker apenas em produção (não no emulador local)
-if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-  navigator.serviceWorker.register('/service-worker.js').catch(err => {
-    console.warn('SW register failed:', err)
+// Service worker: o app inteiro guardado no aparelho, numa versão fechada
+// (service-worker.js). Fora de localhost e 127.0.0.1, onde atrapalharia quem
+// desenvolve; em praxis.localhost registra (os testes usam). Quem já tem um
+// registrado (volta ao app) registra na hora, para receber a versão nova; na
+// primeira visita, só depois que a primeira tela da conta abriu: guardar o app
+// baixa cerca de 500 KB, que disputavam a rede com a entrada
+const _comServiceWorker = 'serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'
+let _swRegistrado = false
+function _registrarServiceWorkerUmaVez() {
+  if (!_comServiceWorker || _swRegistrado) return
+  _swRegistrado = true
+  _registrarServiceWorker()
+}
+if (_comServiceWorker && navigator.serviceWorker.controller) _registrarServiceWorkerUmaVez()
+
+// Versão nova publicada: fica guardada ao lado e só assume quando a pessoa
+// toca em "Atualizar" (recarrega) ou quando o app é fechado e aberto de novo.
+// Assim nada que esteja sendo preenchido se perde no meio
+async function _registrarServiceWorker() {
+  let reg
+  try {
+    reg = await navigator.serviceWorker.register('/service-worker.js')
+  } catch (err) {
+    console.warn('Service worker não registrado:', err?.message || err)
+    return
+  }
+  // Navegador que bloqueia service workers (políticas, alguns modos privados)
+  if (!reg) return
+  let pediuAtualizar = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (pediuAtualizar) location.reload()
+  })
+  const avisar = novo => {
+    if (!novo || !navigator.serviceWorker.controller || document.querySelector('.toast[data-versao]')) return
+    import('./ui.js').then(({ prxToast }) => {
+      prxToast(t('versaoNova'), 'info', { duracao: 0, acoes: [{ rotulo: t('versaoAtualizar'), fn: () => { pediuAtualizar = true; novo.postMessage('praxis:atualizar') } }] })
+      document.querySelector('#toast-container .toast:last-child')?.setAttribute('data-versao', '')
+    })
+  }
+  if (reg.waiting) avisar(reg.waiting)
+  reg.addEventListener('updatefound', () => {
+    const novo = reg.installing
+    novo?.addEventListener('statechange', () => { if (novo.state === 'installed') avisar(novo) })
+  })
+  // O app aberto por dias (comum no celular) procura a versão nova ao voltar
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reg.update().catch(() => {})
   })
 }
+
+// Perfil mudou no servidor depois da abertura rápida (js/auth.js): a tela se
+// redesenha com o acesso de agora, menos se houver uma janela aberta
+window.addEventListener('praxis:perfil', e => {
+  if (!sessao.usuario) return
+  if (sessao.isDemo) { sessao.contaDemo = e.detail; return }
+  sessao.usuario = e.detail
+  const janelaAberta = document.querySelector('.modal-overlay.visible, .bv-overlay, #tour-popover, .cmd-palette-overlay.visible')
+  if (!janelaAberta) _rotear()
+})
+
+// Erros de rede na abertura (sem internet, rede caindo): a conta continua
+// aberta. Antes, a falha levava à saída da conta e apagava a cópia local
+function _erroDeRede(err) {
+  const codigo = String(err?.code || '')
+  return codigo === 'unavailable' || codigo === 'auth/network-request-failed' || codigo === 'deadline-exceeded' ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+}
+function _mostrarSemConexaoNaAbertura() {
+  const app = document.getElementById('app')
+  app.innerHTML = `
+    <main class="pagina-404 pagina-cheia">
+      <section class="p404" aria-labelledby="sem-rede-titulo">
+        <div class="p404-topo">${simboloPraxis(64, 'p404-simbolo')}</div>
+        <h1 class="p404-titulo" id="sem-rede-titulo">${t('aberturaSemRedeTitulo')}</h1>
+        <p class="p404-texto">${t('aberturaSemRedeTexto')}</p>
+        <button type="button" class="btn-primary" id="btn-tentar-de-novo">${t('tentarDeNovo')}</button>
+      </section>
+    </main>`
+  document.getElementById('btn-tentar-de-novo').onclick = () => location.reload()
+  window.addEventListener('online', () => location.reload(), { once: true })
+}
+
+// Quem escolheu o inglês baixa o dicionário antes da primeira tela
+await carregarIdioma()
 
 initTheme()
 initOfflineWatcher()
@@ -49,7 +127,10 @@ onAuthStateChanged(auth, async (fireUser) => {
     mostrarDemoBanner(false)
     document.getElementById('bottom-nav')?.remove()
     document.getElementById('notif-fundo')?.remove()
-    renderLogin()
+    esquecerSessao()
+    // A entrada pode já estar na tela (index.html, js/entrada.js): redesenhar
+    // apagaria o que a pessoa começou a digitar
+    mostrarEntrada()
     window.__praxisPronto?.()
     // Com a entrada na tela, o quadro de pedidos vem no tempo ocioso: o
     // primeiro clique depois do login continua instantâneo
@@ -70,6 +151,7 @@ onAuthStateChanged(auth, async (fireUser) => {
     sessao.usuario  = usuario
     sessao.fireUser = fireUser
     sessao.isDemo   = fireUser.email === 'demo@praxis.app'
+    lembrarSessao()
     if (!sessao.isDemo) _registrarAcesso(fireUser.uid)
 
     // Na demo, o app age como a pessoa escolhida na entrada
@@ -84,7 +166,10 @@ onAuthStateChanged(auth, async (fireUser) => {
     mostrarDemoBanner(sessao.isDemo)
     // A entrada no celular costuma estar rolada (o botão da demo fica embaixo)
     window.scrollTo(0, 0)
+    // O CSS das telas (index.html, js/entrada.js) chega em paralelo com a entrada
+    await window.__praxisCssTelas
     await _rotear()
+    setTimeout(_registrarServiceWorkerUmaVez, 3000)
     // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
     // de hoje, depois que a tela já apareceu
     if (sessao.isDemo) _renovarDemoDoDia(fireUser)
@@ -92,6 +177,7 @@ onAuthStateChanged(auth, async (fireUser) => {
     // Conta sem perfil ou convite vencido são situações previstas, com aviso na entrada
     if (String(err?.code || '').startsWith('praxis/')) console.warn(err.message)
     else console.error(err)
+    if (_erroDeRede(err)) { _mostrarSemConexaoNaAbertura(); return }
     if (err?.code === 'praxis/sem-perfil') avisarNaEntrada(t('entradaSemPerfil'))
     else if (err?.code === 'praxis/convite-expirado') avisarNaEntrada(t('entradaConviteExpirado'))
     else if (err?.code === 'praxis/email-nao-confirmado') pedirConfirmacaoNaEntrada(fireUser.email)
@@ -112,7 +198,7 @@ async function _renovarDemoDoDia(fireUser) {
     if (await renovarDemo(sessao.contaDemo) !== 'renovada') return
     if (sessao.fireUser !== fireUser) return
     const empresasAntes = JSON.stringify(sessao.usuario?.empresas || [])
-    sessao.contaDemo = await carregarUsuario(fireUser.uid)
+    sessao.contaDemo = await carregarUsuario(fireUser.uid, { doServidor: true })
     sessao.usuario = await _carregarPessoaDemo(pessoaEscolhida())
     mostrarDemoBanner(true)
     const tela = new URLSearchParams(location.search).get('tela') || 'pedidos'
@@ -130,7 +216,9 @@ function _registrarAcesso(id) {
     if (sessionStorage.getItem(`praxis_acesso_${id}`)) return
     sessionStorage.setItem(`praxis_acesso_${id}`, '1')
   } catch {}
-  updateDoc(doc(db, 'usuarios', id), { ultimoAcesso: serverTimestamp() }).catch(() => {})
+  // Depois que a tela abriu: a gravação disputava a fila do Firestore com as
+  // primeiras leituras do quadro
+  setTimeout(() => updateDoc(doc(db, 'usuarios', id), { ultimoAcesso: serverTimestamp() }).catch(() => {}), 4000)
 }
 
 // ── Pessoas da demonstração ───────────────────────────────────
@@ -174,7 +262,7 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
     ;['id', 'aba', 'filtro'].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
     if (substituir) window.history.replaceState({}, '', url)
     else window.history.pushState({}, '', url)
-    _rotear()
+    _trocarTela(() => _rotear())
   })
 }
 
@@ -182,8 +270,44 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
 // depois volta de tela (ui.js guarda uma entrada no histórico por janela)
 window.addEventListener('popstate', () => {
   if (consumirVoltarDeModal()) return
-  if (sessao.usuario) _rotear()
+  if (sessao.usuario) _trocarTela(() => _rotear())
 })
+
+// ── Cartão ↔ pedido ───────────────────────────────────────────
+// Abrir um pedido pelo quadro: o título do cartão voa até virar o título do
+// pedido; voltar faz o caminho inverso, até o cartão (View Transitions; o resto
+// da tela troca na hora, components.css). Sem suporte ou com movimento
+// reduzido, a troca é direta. A nova tela é esperada no máximo 0,6 s
+let _rotaAtual = { tela: null, id: null }
+const _TITULO_VT = 'pedido-titulo'
+function _rotaDaUrl() {
+  const p = new URLSearchParams(location.search)
+  return { tela: p.get('tela') || 'pedidos', id: p.get('id') }
+}
+function _trocarTela(executar) {
+  const de = _rotaAtual, para = _rotaDaUrl()
+  const pode = typeof document.startViewTransition === 'function' && !prefereMenosMovimento() && document.visibilityState === 'visible'
+  const id = para.tela === 'detalhe' ? para.id : de.tela === 'detalhe' ? de.id : null
+  const tituloCartao = () => id && document.querySelector(`.kcard[data-id="${CSS.escape(id)}"] .kcard-title`)
+  const tituloPedido = () => document.querySelector('.detalhe-titulo')
+  let origem = null, destino = null
+  if (pode && para.tela === 'detalhe' && de.tela === 'pedidos') { origem = tituloCartao(); destino = tituloPedido }
+  else if (pode && de.tela === 'detalhe' && para.tela === 'pedidos') { origem = tituloPedido(); destino = tituloCartao }
+  if (!origem) { executar(); return }
+  origem.style.viewTransitionName = _TITULO_VT
+  const vt = document.startViewTransition(() => new Promise(fim => {
+    executar()
+    const t0 = performance.now()
+    const procurar = () => {
+      const alvo = destino()
+      if (alvo) { alvo.style.viewTransitionName = _TITULO_VT; fim(); return }
+      if (performance.now() - t0 > 600) { fim(); return }
+      setTimeout(procurar, 16)
+    }
+    procurar()
+  }))
+  vt.finished.finally(() => document.querySelectorAll('.detalhe-titulo, .kcard-title').forEach(el => { if (el.style.viewTransitionName === _TITULO_VT) el.style.removeProperty('view-transition-name') }))
+}
 
 const TELAS_CONFIG = ['config-usuarios', 'config-cadastros', 'config-geral', 'config-auditoria', 'config-alcadas']
 
@@ -203,6 +327,7 @@ function _rotear() {
   const params = new URLSearchParams(window.location.search)
   const tela   = params.get('tela') || 'pedidos'
   const id     = params.get('id')
+  _rotaAtual = { tela, id }
 
   // Guarda de rota por perfil: troca o endereço (sem deixar a tela bloqueada
   // no histórico, senão o "voltar" cairia nela de novo) e avisa
@@ -218,8 +343,21 @@ function _rotear() {
   if (!tela_) return _render404(tela)
   const [modulo, render] = tela_
   const seq = ++_rotaSeq
+  // Atalhos do app instalado (manifest.json): ?novo=pedido ou ?novo=compra
+  // abrem a janela por cima do quadro; o parâmetro sai do endereço
+  const novo = tela === 'pedidos' ? params.get('novo') : null
+  if (novo) {
+    const url = new URL(window.location)
+    url.searchParams.delete('novo')
+    window.history.replaceState({}, '', url)
+  }
   return import(modulo)
     .then(m => { if (seq === _rotaSeq) return m[render](id) })   // outra tela foi pedida no meio: não desenha esta
+    .then(async () => {
+      if (seq !== _rotaSeq) return
+      if (novo === 'pedido') (await import('./pedidos.js')).abrirNovoPedido()
+      else if (novo === 'compra') (await import('./lancar-compra.js')).abrirLancamento()
+    })
     .catch(err => {
       console.error(err)
       import('./ui.js').then(({ prxToast }) => prxToast(t('erroCarregar'), 'error'))
@@ -357,11 +495,11 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
     <a class="link-salto" href="#">${t('pularConteudo')}</a>
     <aside class="lateral" data-mode="${modoConfig ? 'config' : 'main'}">
       <div class="lateral-topo">
-        <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos" aria-label="Praxis: ${t('navPedidos')}">${marcaPraxis()}</a>
+        <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos">${marcaPraxis()}<span class="sr-only">: ${t('navPedidos')}</span></a>
         <div class="notif-wrap" id="notif-wrap">
           <button type="button" class="lateral-icone" id="btn-notif" aria-label="${t('tooltipNotificacoes')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-dropdown" data-tooltip="${t('tooltipNotificacoes')}">
             ${ICO.sino(17)}
-            <span class="notif-badge" id="notif-count" style="display:none" aria-hidden="true">0</span>
+            <span class="notif-badge" id="notif-count" data-estilo="display:none" aria-hidden="true">0</span>
           </button>
           <div class="notif-dropdown" id="notif-dropdown" role="dialog" aria-label="${t('tooltipNotificacoes')}"></div>
         </div>
@@ -566,7 +704,7 @@ function _fecharNotificacoes() {
 function _fundoNotificacoes(mostrar) {
   let fundo = document.getElementById('notif-fundo')
   if (!mostrar) { if (fundo) fundo.hidden = true; return }
-  if (!window.matchMedia('(max-width: 767px)').matches) return
+  if (!window.matchMedia('(max-width: 1023px), (max-width: 1279px) and (pointer: coarse)').matches) return
   if (!fundo) {
     fundo = document.createElement('div')
     fundo.id = 'notif-fundo'
@@ -588,7 +726,7 @@ function _posicionarNotificacoes() {
   if (!dd || !btn) return
   const r = btn.getBoundingClientRect()
   const lateral = document.querySelector('.lateral')?.getBoundingClientRect()
-  const movel = window.matchMedia('(max-width: 767px)').matches
+  const movel = window.matchMedia('(max-width: 1023px), (max-width: 1279px) and (pointer: coarse)').matches
   if (movel) {
     dd.style.setProperty('--notif-top', `${Math.round(lateral?.bottom ?? r.bottom)}px`)
     dd.style.setProperty('--notif-left', '0px')
@@ -693,7 +831,7 @@ function _abrirMenuUsuario(gatilho) {
   menu.innerHTML = _menuUsuarioHTML()
   _menuGatilho = gatilho || null
 
-  const movel = window.matchMedia('(max-width: 767px)').matches
+  const movel = window.matchMedia('(max-width: 1023px), (max-width: 1279px) and (pointer: coarse)').matches
   menu.classList.toggle('folha', movel)
   menu.style.top = menu.style.right = menu.style.bottom = menu.style.left = ''
   if (!movel && gatilho) {
@@ -705,6 +843,8 @@ function _abrirMenuUsuario(gatilho) {
   menu.classList.add('open')
   if (movel && !menu._voltar) menu._voltar = empilharVoltar(() => { menu._voltar = null; _fecharMenuUsuario(false) })
   document.getElementById('user-menu-fundo')?.classList.toggle('open', movel)
+  // A folha cobre a barra de baixo: ela sai do alcance do toque e do leitor de tela
+  if (movel) document.getElementById('bottom-nav')?.setAttribute('inert', '')
   document.getElementById('btn-avatar')?.setAttribute('aria-expanded', 'true')
   document.getElementById('bnav-conta')?.setAttribute('aria-expanded', 'true')
   setTimeout(() => menu.querySelector('.um-item')?.focus({ preventScroll: true }), 30)
@@ -716,6 +856,7 @@ function _fecharMenuUsuario(devolverFoco = true) {
   if (menu._voltar) { desempilharVoltar(menu._voltar); menu._voltar = null }
   menu.classList.remove('open')
   document.getElementById('user-menu-fundo')?.classList.remove('open')
+  document.getElementById('bottom-nav')?.removeAttribute('inert')
   document.getElementById('btn-avatar')?.setAttribute('aria-expanded', 'false')
   document.getElementById('bnav-conta')?.setAttribute('aria-expanded', 'false')
   if (devolverFoco && _menuGatilho?.isConnected) _menuGatilho.focus()
@@ -786,13 +927,13 @@ export async function escolherNovo() {
 export function renderFooter() {
   return `
     <footer class="main-footer">
-      <div style="display:flex;align-items:baseline">
-        <span class="pf-afn" style="font-size:10px">AFN</span>
+      <div data-estilo="display:flex;align-items:baseline">
+        <span class="pf-afn" data-estilo="font-size:10px">AFN</span>
         <span class="pf-gap"></span>
-        <span class="pf-sys" style="font-size:10px">SYSTEMS</span>
+        <span class="pf-sys" data-estilo="font-size:10px">SYSTEMS</span>
       </div>
-      <span class="pf-pipe" style="font-size:13px">|</span>
-      <span class="pf-info" style="font-size:11px">Praxis</span>
+      <span class="pf-pipe" data-estilo="font-size:13px">|</span>
+      <span class="pf-info" data-estilo="font-size:11px">Praxis</span>
     </footer>
   `
 }
@@ -839,7 +980,7 @@ function _renderBottomNav() {
   nav.innerHTML = `
     ${item('pedidos', ativoPedidos, ICO.quadro(22), t('navPedidos'))}
     ${item('fila', naFila, ICO.fila(22), t('navMinhaFila'), true)}
-    <button type="button" class="bottom-nav-item bnav-novo" id="bnav-novo" aria-label="${t('novoOQueFazer')}" aria-haspopup="dialog">
+    <button type="button" class="bottom-nav-item bnav-novo" id="bnav-novo" aria-haspopup="dialog">
       <span class="bnav-novo-circulo" aria-hidden="true">${ICO.mais(24)}</span><span>${t('navNovo')}</span>
     </button>
     <button type="button" class="bottom-nav-item" id="bnav-buscar" aria-label="${t('tooltipPaleta')}">

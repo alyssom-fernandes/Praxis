@@ -123,14 +123,14 @@ export function renderSistema() {
 
         ${_secao('cores', 'Cores', 'O bronze tem três papéis: ação primária, item ou aba ativa e "com você"; a urgência tem cor própria (--urgente). Contagem e valor são dado, na cor do texto. Etapa tem cor por categoria; perfil não tem cor.', `
           <ul class="sis-cores">${CORES.map(([tk, uso]) => `
-            <li><span class="sis-amostra" style="background:var(${tk})"></span><code>${tk}</code><span class="sis-valor" data-token="${tk}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
+            <li><span class="sis-amostra" data-estilo="background:var(${tk})"></span><code>${tk}</code><span class="sis-valor" data-token="${tk}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
           </ul>
           <p class="sis-sub">Acentos sem significado (categorias de compra e séries de gráfico)</p>
-          <ul class="sis-acentos">${ACENTOS.map(a => `<li><span class="sis-amostra" style="background:var(--acento-${a})"></span>${a}</li>`).join('')}</ul>`)}
+          <ul class="sis-acentos">${ACENTOS.map(a => `<li><span class="sis-amostra" data-estilo="background:var(--acento-${a})"></span>${a}</li>`).join('')}</ul>`)}
 
         ${_secao('tipos', 'Texto', 'Quatro degraus de texto, mínimo de 12 px. Título de tela, numerais e KPIs são a inscrição (Neohellenic) e ficam fora desta escala.', `
           <ul class="sis-tipos">${TIPOS.map(([tk, px, uso]) => `
-            <li><span style="font-size:var(${tk})">Pedido de compra 1.234</span><code>${tk}</code><span class="sis-mudo">${px} · ${uso}</span></li>`).join('')}
+            <li><span data-estilo="font-size:var(${tk})">Pedido de compra 1.234</span><code>${tk}</code><span class="sis-mudo">${px} · ${uso}</span></li>`).join('')}
           </ul>`)}
 
         ${_secao('botoes', 'Botões', 'Começam com verbo e dizem o objeto ("Criar pedido"). Um primário por área. Ghost sem borda; perigo só para o que não volta.', `
@@ -166,7 +166,7 @@ export function renderSistema() {
 
         ${_secao('espaco', 'Espaço', 'Base 8, treze degraus. Dentro de um componente, 2 a 8; entre componentes, 12 a 24; layout, 32 a 80. Padding, margin e gap só por estes tokens (o teste barra literal fora da escala).', `
           <ul class="sis-espacos">${ESPACOS.map(([n, uso]) => `
-            <li><span class="sis-barra-esp" style="width:var(--esp-${n})"></span><code>--esp-${n}</code><span class="sis-valor" data-token="--esp-${n}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
+            <li><span class="sis-barra-esp" data-estilo="width:var(--esp-${n})"></span><code>--esp-${n}</code><span class="sis-valor" data-token="--esp-${n}"></span><span class="sis-mudo">${uso}</span></li>`).join('')}
           </ul>`)}
 
         ${_secao('selos', 'Selo e contagem', 'Selo só para Urgente e "com você". Contagem é neutra; bronze só no sino quando há não lidas.', `

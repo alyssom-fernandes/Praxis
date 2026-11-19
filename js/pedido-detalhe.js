@@ -1,88 +1,77 @@
+// Detalhe do pedido: a tela, as escutas do Firestore, o caminho, o cabeçalho
+// e o HTML das seções. As outras partes: detalhe-painel.js (decisão, pessoas,
+// cotações, atividade, parcelas, eventos), detalhe-acoes.js (ações de cada
+// etapa, comparador, edição, menções, comentários) e detalhe-dados.js
+// (permissões, releituras, anexos, tempo por etapa); o estado em detalhe-estado.js.
 import {
-  auth, db, armazenamento,
-  doc, collection, where, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot,
-  runTransaction, writeBatch, serverTimestamp, increment,
-  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, eContaDemo,
+  db, armazenamento, doc, collection, where, getDocs, updateDoc, onSnapshot, writeBatch,
+  serverTimestamp, increment, consulta, consultaUsuarios, marcaDemo, eContaDemo,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast, prxConfirm, estadoVazio, mostrarSpinner, esconderSpinner, btnComLoading, abrirModal, fecharModal, exigirConexao, estaOnline, carregarBiblioteca, empilharVoltar, desempilharVoltar, bordasDeRolagem } from './ui.js'
+import { prxToast, avisoNoFormulario, prxConfirm, mostrarSpinner, esconderSpinner, exigirConexao, bordasDeRolagem } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
-  STATUS, STATUS_LABEL,
-  PERFIS, PERFIS_LABEL, MOTIVOS_REPROVACAO, MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo, rotuloNota, rotuloUrgencia,
-  CONDICAO_PAGAMENTO, STORAGE_PATHS, DEMO_ENVIA_ARQUIVOS, t,
+  STATUS, STATUS_LABEL, PERFIS, MOTIVOS_REPROVACAO, MOTIVOS_CANCELAMENTO, rotuloMotivo,
+  CONDICAO_PAGAMENTO, DEMO_ENVIA_ARQUIVOS, t,
 } from './constants.js'
 import {
   formatCurrency, formatDate, formatarDataRelativa, dataAbsoluta, dataComRelativo, gerarIniciais,
-  hojeISO, maisXDiasISO, normalizarTexto, parseMoeda, urlSegura, esc,
-  dividirEmParcelas, vencimentosMensais, arquivoIndisponivel, impedimentoDeFuncao,
-  empresasDoUsuario, textoPrazo, mensagemDeErro, dataEHora,
+  hojeISO, maisXDiasISO, normalizarTexto, urlSegura, esc, impedimentoDeFuncao, textoPrazo,
+  mensagemDeErro,
 } from './utils.js'
-import { agendarDuplicar } from './pedidos.js'
-import { retratoAprovacao, situacaoAprovacao, estaNoNivel, aplicarVoto } from './alcadas.js'
-import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
-import { ETAPAS_CAMINHO, TERMINAIS, msDe, transicoes, entradas, segmentosDoPedido, formatarDuracao } from './processo.js'
+import { ETAPAS_CAMINHO, TERMINAIS, transicoes, entradas } from './processo.js'
 import { podeRevisarAutorizacao, revisaoDaAutorizacao } from './lancamento.js'
 import { conferirNota, formatarNota } from './nota.js'
-import { autocompletar } from './autocompletar.js'
 import { prepararCampoNota } from './ler-nota.js'
+import {
+  _renderDecisao, _renderPessoa, _renderPessoaComprador, _renderPessoaAprovadores,
+  _renderPessoaFinanceiro, _renderCotacoes, _renderActivityFeed, _renderParcelasBloco,
+  _bindDetalheEvents,
+} from './detalhe-painel.js'
+import { _montarOverlay } from './detalhe-acoes.js'
+import {
+  _podeAssumir, _podeDecidir, _podeLiberar, _podeAnexarCotacao, _podePagarParcela, _tsMs,
+  _renderAnexos, _renderSLATimeline,
+} from './detalhe-dados.js'
+import { D } from './detalhe-estado.js'
 
-let _unsubPedido    = null
-let _unsubHistorico = null
-let _pedidoId    = null
-let _pedido      = null
 // Posição na régua da última renderização, e de onde o pedido acabou de
 // avançar (null quando não avançou): a régua anima só o passo que mudou
-let _posAnterior  = null
-let _avancouDe    = null
-let _avancouEm    = 0
-let _cotacoes    = []
-let _comentarios = []
-let _comentEditando = null  // { id, rascunho }: o comentário aberto para edição
-let _notaInterna = false     // seletor "Só equipe de compras" do compositor
-const _versoesAbertas = new Set() // comentários com as versões anteriores à mostra
+export const _versoesAbertas = new Set() // comentários com as versões anteriores à mostra
 // Celular: Dados do pedido, Pessoas, Tempo por etapa, Anexos sem nada e as
 // Cotações depois da aprovação começam recolhidos; a atividade mostra as
 // três últimas entradas; o que a pessoa abre ou fecha vale até sair do pedido. No
 // computador o botão não aparece e a classe não muda nada (css/themes.css)
-let _secoesAlternadas = {}
-const _secaoAberta = (chave, padrao) => (chave in _secoesAlternadas ? _secoesAlternadas[chave] : padrao)
-const _botaoRecolher = (chave, idTitulo, idCorpo, aberta) =>
+export const _secaoAberta = (chave, padrao) => (chave in D.secoesAlternadas ? D.secoesAlternadas[chave] : padrao)
+export const _botaoRecolher = (chave, idTitulo, idCorpo, aberta) =>
   `<button type="button" class="dt-recolher" data-secao="${chave}" aria-expanded="${aberta}" aria-controls="${idCorpo}" aria-labelledby="${idTitulo}">${ICO.abaixo}</button>`
 
 // Nota interna: a conversa da equipe de compras, que o perfil solicitante não
 // lê (firestore.rules, notasInternas). Fica numa subcoleção própria porque as
 // regras não filtram documento a documento numa consulta
-const _COL_INTERNA = 'notasInternas'
-function _ehEquipe() { return sessao.usuario.perfil !== PERFIS.SOLICITANTE }
+export const _COL_INTERNA = 'notasInternas'
+export function _ehEquipe() { return sessao.usuario.perfil !== PERFIS.SOLICITANTE }
 
-async function _lerComentarios() {
+export async function _lerComentarios() {
   const [com, notas] = await Promise.all([
-    getDocs(collection(db, 'pedidos', _pedidoId, 'comentarios')),
-    _ehEquipe() ? getDocs(collection(db, 'pedidos', _pedidoId, _COL_INTERNA)) : Promise.resolve({ docs: [] }),
+    getDocs(collection(db, 'pedidos', D.pedidoId, 'comentarios')),
+    _ehEquipe() ? getDocs(collection(db, 'pedidos', D.pedidoId, _COL_INTERNA)) : Promise.resolve({ docs: [] }),
   ])
   return [
     ...com.docs.map(d => ({ id: d.id, _col: 'comentarios', ...d.data() })),
     ...notas.docs.map(d => ({ id: d.id, _col: _COL_INTERNA, interno: true, ...d.data() })),
   ].sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
 }
-let _historico   = []
-let _parcelas    = []
-let _anexos      = []
-let _empresas    = []
-let _categorias  = []
-let _usuarios    = []
-let _fornecedores = []
 
 // ── Render ────────────────────────────────────────────────────
 export async function renderDetalhe(pedidoId) {
   if (!pedidoId) { navegar('pedidos'); return }
-  _pedidoId = pedidoId
-  _comentEditando = null
-  _secoesAlternadas = {}
-  _posAnterior = null
-  _avancouDe = null
+  D.pedidoId = pedidoId
+  D.comentEditando = null
+  D.secoesAlternadas = {}
+  D.posAnterior = null
+  D.avancouDe = null
 
   const app = document.getElementById('app')
   app.innerHTML = `
@@ -102,15 +91,15 @@ export async function renderDetalhe(pedidoId) {
   _iniciarListenerHistorico()
 }
 
-function _iniciarListener() {
-  if (_unsubPedido) _unsubPedido()
+export function _iniciarListener() {
+  if (D.unsubPedido) D.unsubPedido()
   registrarLimpador(() => {
-    if (_unsubPedido) { _unsubPedido(); _unsubPedido = null }
+    if (D.unsubPedido) { D.unsubPedido(); D.unsubPedido = null }
   })
   let _vistoMarcado = false
   let _assinatura = null
-  _unsubPedido = onSnapshot(
-    doc(db, 'pedidos', _pedidoId),
+  D.unsubPedido = onSnapshot(
+    doc(db, 'pedidos', D.pedidoId),
     async snap => {
       if (!snap.exists()) {
         _renderErroDetalhe(t('pedidoNaoEncontrado'), t('pedidoRemovidoMsg'))
@@ -120,13 +109,13 @@ function _iniciarListener() {
       // evita fechar um modal aberto quando o "visto por" é gravado
       const { vistoPor, atualizadoEm, ultimoComentarioEm, ...relevante } = snap.data()
       const assinatura = JSON.stringify(relevante, (k, v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : v))
-      _pedido = { id: snap.id, ...snap.data() }
+      D.pedido = { id: snap.id, ...snap.data() }
       if (assinatura === _assinatura) return
       _assinatura = assinatura
       if (!_vistoMarcado) {
         _vistoMarcado = true
         const seenKey = `vistoPor.${sessao.usuario.id}`
-        updateDoc(doc(db, 'pedidos', _pedidoId), { [seenKey]: serverTimestamp() }).catch(() => {})
+        updateDoc(doc(db, 'pedidos', D.pedidoId), { [seenKey]: serverTimestamp() }).catch(() => {})
       }
       await _carregarSubcollections()
       _renderDetalhe()
@@ -142,7 +131,7 @@ function _iniciarListener() {
   )
 }
 
-function _renderErroDetalhe(titulo, msg) {
+export function _renderErroDetalhe(titulo, msg) {
   const root = document.getElementById('detalhe-root')
   if (!root) return
   root.innerHTML = `
@@ -154,61 +143,61 @@ function _renderErroDetalhe(titulo, msg) {
   `
 }
 
-function _iniciarListenerHistorico() {
-  if (_unsubHistorico) _unsubHistorico()
-  _unsubHistorico = onSnapshot(
-    collection(db, 'pedidos', _pedidoId, 'historico'),
+export function _iniciarListenerHistorico() {
+  if (D.unsubHistorico) D.unsubHistorico()
+  D.unsubHistorico = onSnapshot(
+    collection(db, 'pedidos', D.pedidoId, 'historico'),
     snap => {
-      _historico = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      D.historico = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
       // O histórico alimenta a atividade, os nomes (pessoas, próximo passo) e o tempo por etapa
-      if (_pedido && _pedido.id === _pedidoId && document.querySelector('#detalhe-root .detalhe-layout')) _renderDetalhe()
+      if (D.pedido && D.pedido.id === D.pedidoId && document.querySelector('#detalhe-root .detalhe-layout')) _renderDetalhe()
     },
     // Sem acesso ao pedido (ou pedido inexistente): o listener principal já
     // mostra o estado de erro; aqui só encerra, sem erro solto no console
     () => {
-      if (_unsubHistorico) { _unsubHistorico(); _unsubHistorico = null }
+      if (D.unsubHistorico) { D.unsubHistorico(); D.unsubHistorico = null }
     }
   )
-  registrarLimpador(() => { if (_unsubHistorico) { _unsubHistorico(); _unsubHistorico = null } })
+  registrarLimpador(() => { if (D.unsubHistorico) { D.unsubHistorico(); D.unsubHistorico = null } })
 }
 
-async function _carregarSubcollections() {
+export async function _carregarSubcollections() {
   const [cotSnap, comentarios, parcSnap, anexSnap] = await Promise.all([
-    getDocs(collection(db, 'pedidos', _pedidoId, 'cotacoes')),
+    getDocs(collection(db, 'pedidos', D.pedidoId, 'cotacoes')),
     _lerComentarios(),
-    getDocs(collection(db, 'pedidos', _pedidoId, 'parcelas')),
-    getDocs(collection(db, 'pedidos', _pedidoId, 'anexos')),
+    getDocs(collection(db, 'pedidos', D.pedidoId, 'parcelas')),
+    getDocs(collection(db, 'pedidos', D.pedidoId, 'anexos')),
   ])
-  _cotacoes    = cotSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _comentarios = comentarios
-  _parcelas    = parcSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.numero - b.numero)
-  _anexos      = anexSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
+  D.cotacoes    = cotSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  D.comentarios = comentarios
+  D.parcelas    = parcSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.numero - b.numero)
+  D.anexos      = anexSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
 }
 
-async function _carregarAuxiliares() {
+export async function _carregarAuxiliares() {
   const [empSnap, catSnap, fornSnap] = await Promise.all([
     getDocs(consulta(collection(db, 'empresas'))),
     getDocs(consulta(collection(db, 'categorias'))),
     getDocs(consulta(collection(db, 'fornecedores'))),
   ])
-  _empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  D.empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  D.categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  D.fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   // usuarios: regra permite list apenas para gestor+; demais perfis recebem lista vazia
   try {
     const usrSnap = await getDocs(consultaUsuarios(sessao.usuario))
-    _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    D.usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
       .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))
   } catch {
-    _usuarios = []
+    D.usuarios = []
   }
 }
 
 // Fornecedores para a busca dos campos (js/autocompletar.js): os mais usados primeiro
-function _opcoesFornecedor() {
-  return _fornecedores
+export function _opcoesFornecedor() {
+  return D.fornecedores
     .map(f => ({ nome: f.nomeExibicao || f.nomeOriginal || f.nome, usos: f.usos || 0 }))
     .filter(o => o.nome)
 }
@@ -218,9 +207,9 @@ function _opcoesFornecedor() {
 // quem chama, então o uso só conta se a compra ou a cotação for gravada.
 // Devolve o ID e, se o fornecedor é novo, a entrada para a lista local (que
 // quem chama acrescenta depois de gravar o lote).
-async function _fornecedorNoLote(nomeDigitado, lote) {
+export async function _fornecedorNoLote(nomeDigitado, lote) {
   const nomeNorm = normalizarTexto(nomeDigitado)
-  let id = _fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)?.id
+  let id = D.fornecedores.find(f => normalizarTexto(f.nomeExibicao || f.nomeOriginal || f.nome) === nomeNorm)?.id
   if (!id) {
     // Confirma no servidor (pode ter sido criado por outro fluxo)
     const snap = await getDocs(consulta(collection(db, 'fornecedores'), where('nome', '==', nomeNorm)))
@@ -245,7 +234,7 @@ async function _fornecedorNoLote(nomeDigitado, lote) {
 // não sobra arquivo no Storage sem o registro no Firestore. `caminho` é o
 // endereço no Storage (null quando não há arquivo); o SDK do Storage só
 // carrega aqui, no primeiro envio
-async function _enviarEGravar(caminho, arquivo, metadados, montarLote) {
+export async function _enviarEGravar(caminho, arquivo, metadados, montarLote) {
   let enviado = false
   let S = null, arquivoRef = null
   try {
@@ -270,13 +259,13 @@ async function _enviarEGravar(caminho, arquivo, metadados, montarLote) {
 // Na demo pública o envio de arquivos fica desligado (DEMO_ENVIA_ARQUIVOS, em
 // constants.js): a tela troca os campos de arquivo por um aviso, e a cotação é
 // registrada sem o arquivo
-function _enviaArquivos() {
+export function _enviaArquivos() {
   return DEMO_ENVIA_ARQUIVOS || !eContaDemo()
 }
 
 // ── Ícones (traço 2, mesma família) ───────────────────────────
-const _svg = (d, t = 15) => `<svg width="${t}" height="${t}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
-const ICO = {
+export const _svg = (d, t = 15) => `<svg width="${t}" height="${t}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
+export const ICO = {
   mais:      _svg('<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>', 16),
   fechar:    _svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 16),
   editar:    _svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
@@ -309,38 +298,38 @@ const ICO = {
   abaixo:    _svg('<polyline points="6 9 12 15 18 9"/>', 18),
 }
 
-const _TERMINAIS = TERMINAIS
+export const _TERMINAIS = TERMINAIS
 
 // Nome de um usuário: lista de usuários (gestor+), sessão, ou autoria registrada no histórico/comentários
-function _nomePorId(id) {
+export function _nomePorId(id) {
   if (!id) return null
   if (id === sessao.usuario.id) return sessao.usuario.nome
-  const u = _usuarios.find(x => x.id === id)
+  const u = D.usuarios.find(x => x.id === id)
   if (u?.nome) return u.nome
   // Nomes gravados no próprio pedido (perfis sem acesso à lista de usuários)
-  const p = _pedido || {}
+  const p = D.pedido || {}
   const gravado = { [p.solicitanteId]: p.solicitanteNome, [p.compradorId]: p.compradorNome,
     [p.aprovadoPor]: p.aprovadoPorNome, [p.reprovadoPor]: p.reprovadoPorNome, [p.canceladoPor]: p.canceladoPorNome }[id]
   if (gravado) return gravado
-  const reg = [..._historico, ..._comentarios].find(x => x.autorId === id && x.autorNome)
+  const reg = [...D.historico, ...D.comentarios].find(x => x.autorId === id && x.autorNome)
   return reg?.autorNome || null
 }
 
 // Última transição registrada para um status: quem fez e quando
-function _quemFez(status) {
-  const h = [..._historico].reverse().find(x => x.status === status && (!x.tipo || x.tipo === 'status'))
+export function _quemFez(status) {
+  const h = [...D.historico].reverse().find(x => x.status === status && (!x.tipo || x.tipo === 'status'))
   if (!h) return null
   return { id: h.autorId || null, nome: h.autorNome || _nomePorId(h.autorId), em: h.criadoEm }
 }
 
-function _diasAte(iso) {
+export function _diasAte(iso) {
   if (!iso) return null
   return Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 86400000)
 }
 
 // Cabeçalho dos modais do detalhe: número do pedido em numerais sobre o título
-function _cabModal(idTitulo, titulo, atributoFechar) {
-  const p = _pedido || {}
+export function _cabModal(idTitulo, titulo, atributoFechar) {
+  const p = D.pedido || {}
   return `
     <div class="modal-header dt-modal-cab">
       <div class="dt-modal-tit">
@@ -351,10 +340,10 @@ function _cabModal(idTitulo, titulo, atributoFechar) {
     </div>`
 }
 
-function _modalShell(id, titulo, corpo, rodape, largura = 520) {
+export function _modalShell(id, titulo, corpo, rodape, largura = 520) {
   return `
     <div class="modal-overlay dt-modal" id="${id}">
-      <div class="modal" style="max-width:${largura}px" role="dialog" aria-modal="true" aria-labelledby="${id}-titulo">
+      <div class="modal" data-estilo="max-width:${largura}px" role="dialog" aria-modal="true" aria-labelledby="${id}-titulo">
         ${_cabModal(`${id}-titulo`, titulo, `data-close="${id}"`)}
         <div class="modal-body">${corpo}</div>
         <div class="modal-footer">${rodape}</div>
@@ -364,20 +353,20 @@ function _modalShell(id, titulo, corpo, rodape, largura = 520) {
 
 // ── Caminho do pedido ─────────────────────────────────────────
 // As sete etapas, com os mesmos nomes e numerais do quadro de pedidos
-const _ETAPAS = ETAPAS_CAMINHO
-const _dois = n => String(n).padStart(2, '0')
+export const _ETAPAS = ETAPAS_CAMINHO
+export const _dois = n => String(n).padStart(2, '0')
 // Vencimento de uma parcela em palavras (dias que faltam; negativo: atraso)
-const _textoVencimento = d => d < 0 ? (d === -1 ? t('parcVencida1') : t('parcVencida', { n: -d }))
+export const _textoVencimento = d => d < 0 ? (d === -1 ? t('parcVencida1') : t('parcVencida', { n: -d }))
   : d === 0 ? t('prazoVenceHoje') : d === 1 ? t('parcVenceEm1') : t('parcVenceEm', { n: d })
-const _pct = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`
+export const _pct = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`
 
 // Mudanças de status do histórico e a entrada em cada etapa (js/processo.js)
-const _transicoes = () => transicoes(_historico)
-const _entradas = () => entradas(_pedido, _historico)
+export const _transicoes = () => transicoes(D.historico)
+export const _entradas = () => entradas(D.pedido, D.historico)
 
 // Etapa atual; em pedido reprovado ou cancelado, a etapa em que ele parou
-function _posicaoCaminho() {
-  const p = _pedido
+export function _posicaoCaminho() {
+  const p = D.pedido
   const i = _ETAPAS.indexOf(p.status)
   if (i >= 0) return { atual: i, parou: null }
   if (p.status === STATUS.REPROVADO) return { atual: _ETAPAS.indexOf(STATUS.EM_APROVACAO), parou: STATUS.REPROVADO }
@@ -386,8 +375,8 @@ function _posicaoCaminho() {
 }
 
 // Prazo do pedido em palavras, com o estado: atrasado, perto ou com folga
-function _estadoPrazo() {
-  const p = _pedido
+export function _estadoPrazo() {
+  const p = D.pedido
   if (!p.dataNecessaria) return null
   const data = formatDate(p.dataNecessaria)
   if (_TERMINAIS.includes(p.status) || p.status === STATUS.ENTREGUE) return { data, texto: '', cls: '' }
@@ -395,8 +384,8 @@ function _estadoPrazo() {
   return { data, texto: textoPrazo(d), cls: d <= 0 ? 'atrasado' : d <= 3 ? 'perto' : '' }
 }
 
-function _renderCaminho() {
-  const p = _pedido
+export function _renderCaminho() {
+  const p = D.pedido
   const { atual, parou } = _posicaoCaminho()
   const ent0 = _entradas()
   // Compra já feita: as etapas não passam pelo histórico; as datas vêm da própria compra
@@ -415,7 +404,7 @@ function _renderCaminho() {
       if (ent[st]) { const r = formatarDataRelativa(ent[st]); dica = `${r.title} · ${r.label.charAt(0).toLowerCase()}${r.label.slice(1)}` }
       leitor = t('dtEtapaAtual')
     } else { cls = parou ? 'cortada' : 'futura' }
-    if (_avancouDe != null && i > _avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
+    if (D.avancouDe != null && i > D.avancouDe && i <= atual) cls += i === atual ? ' chegou' : ' passou'
     return `
       <li class="regua-etapa ${cls}"${i === atual ? ' aria-current="step"' : ''}>
         <span class="regua-n" aria-hidden="true">${_dois(i + 1)}</span>
@@ -425,14 +414,14 @@ function _renderCaminho() {
   }).join('')
   return `
     <div class="caminho-wrap">
-      <ol class="regua caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="${t('dtCaminhoAria')}">${etapas}</ol>
+      <ol class="regua caminho${parou ? ' interrompido' : ''}" id="caminho" aria-label="${t('dtCaminhoAria')}" tabindex="0">${etapas}</ol>
     </div>`
 }
 
 // ── Cabeçalho ─────────────────────────────────────────────────
-function _renderCabecalho(menu) {
-  const p = _pedido
-  const empresa = _empresas.find(e => e.id === p.empresaId)
+export function _renderCabecalho(menu) {
+  const p = D.pedido
+  const empresa = D.empresas.find(e => e.id === p.empresaId)
   const solicNome = _nomePorId(p.solicitanteId) || p.solicitanteNome || null
   const criado = p.criadoEm ? dataComRelativo(p.criadoEm) : null
   const prazo = _estadoPrazo()
@@ -468,7 +457,7 @@ function _renderCabecalho(menu) {
 }
 
 // ── Render HTML ───────────────────────────────────────────────
-function _renderDetalhe() {
+export function _renderDetalhe() {
   const root = document.getElementById('detalhe-root')
   if (!root) return
 
@@ -479,14 +468,14 @@ function _renderDetalhe() {
   // (atraso negativo em --desde), em vez de recomeçar ou ser cortada
   const { atual: posAgora, parou: parouAgora } = _posicaoCaminho()
   const agora = performance.now()
-  if (_posAnterior != null && posAgora > _posAnterior && !parouAgora) { _avancouDe = _posAnterior; _avancouEm = agora }
-  else if (_avancouDe != null && (posAgora !== _posAnterior || agora - _avancouEm > 1600)) _avancouDe = null
-  _posAnterior = posAgora
-  const desde = _avancouDe != null ? Math.round(agora - _avancouEm) : 0
+  if (D.posAnterior != null && posAgora > D.posAnterior && !parouAgora) { D.avancouDe = D.posAnterior; D.avancouEm = agora }
+  else if (D.avancouDe != null && (posAgora !== D.posAnterior || agora - D.avancouEm > 1600)) D.avancouDe = null
+  D.posAnterior = posAgora
+  const desde = D.avancouDe != null ? Math.round(agora - D.avancouEm) : 0
 
-  const p       = _pedido
-  const empresa = _empresas.find(e => e.id === p.empresaId)
-  const categ   = _categorias.find(c => c.id === p.categoriaId)
+  const p       = D.pedido
+  const empresa = D.empresas.find(e => e.id === p.empresaId)
+  const categ   = D.categorias.find(c => c.id === p.categoriaId)
   const solicNome = _nomePorId(p.solicitanteId) || p.solicitanteNome || null
   const acoes   = _acoesDoPedido()
   // Preserva o rascunho de comentário e um modal aberto entre re-renderizações (snapshot em tempo real)
@@ -519,18 +508,18 @@ function _renderDetalhe() {
   const vazio = v => ['—', '<span class="mono">—</span>'].includes(String(v).trim())
   const dadosVisiveis = p.lancamento ? dados.filter(([, v]) => !vazio(v)) : dados
 
-  const nCot = _cotacoes.length
-  const nCotValor = _cotacoes.filter(c => !c.semProduto).length
+  const nCot = D.cotacoes.length
+  const nCotValor = D.cotacoes.filter(c => !c.semProduto).length
   const dadosAbertos = _secaoAberta('dados', false)
   const cotAbertas = _secaoAberta('cotacoes', [STATUS.AG_COTACAO, STATUS.EM_APROVACAO].includes(p.status))
   const pessoasAbertas = _secaoAberta('pessoas', false)
-  const nFeed = _historico.length + _comentarios.length + (p.lancamento ? 1 : 0)
+  const nFeed = D.historico.length + D.comentarios.length + (p.lancamento ? 1 : 0)
   const feedTodo = _secaoAberta('atividade', false) || nFeed <= 3
-  const anexosAbertos = _secaoAberta('anexos', _anexos.length > 0)
-  const cotInd = _cotacoes.find(c => c.indicada)
+  const anexosAbertos = _secaoAberta('anexos', D.anexos.length > 0)
+  const cotInd = D.cotacoes.find(c => c.indicada)
 
   root.innerHTML = `
-    <div class="detalhe-layout${_avancouDe != null ? ' avancou' : ''}"${desde ? ` style="--desde:-${desde}ms"` : ''}>
+    <div class="detalhe-layout${D.avancouDe != null ? ' avancou' : ''}"${desde ? ` data-estilo="--desde:-${desde}ms"` : ''}>
       ${_renderCabecalho(acoes.menu)}
       ${_renderCaminho()}
 
@@ -561,10 +550,10 @@ function _renderDetalhe() {
             <div id="cotacoes-list" class="cotacoes-list">${_renderCotacoes()}</div>
           </section>`}
 
-          ${_parcelas.length ? `
+          ${D.parcelas.length ? `
             <section class="dt-bloco ord-parcelas" aria-labelledby="sec-parc">
               <div class="dt-card-head">
-                <h2 class="dt-secao" id="sec-parc">${t('secaoParcelas')}<span class="dt-contagem">${_parcelas.length}</span></h2>
+                <h2 class="dt-secao" id="sec-parc">${t('secaoParcelas')}<span class="dt-contagem">${D.parcelas.length}</span></h2>
               </div>
               <div id="parcelas-wrap">${_renderParcelasBloco()}</div>
             </section>
@@ -572,7 +561,7 @@ function _renderDetalhe() {
 
           <section class="dt-bloco ord-anexos recolhivel${anexosAbertos ? '' : ' recolhida'}" aria-labelledby="sec-anexos">
             <div class="dt-card-head">
-              <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${_anexos.length ? `<span class="dt-contagem">${_anexos.length}</span>` : ''}</h2>
+              <h2 class="dt-secao" id="sec-anexos">${t('secaoAnexos')}${D.anexos.length ? `<span class="dt-contagem">${D.anexos.length}</span>` : ''}</h2>
               ${_enviaArquivos() ? `
               <label class="btn-ghost btn-sm dt-upload" tabindex="0">
                 ${ICO.clipe} ${t('dtAnexar')}
@@ -587,12 +576,12 @@ function _renderDetalhe() {
             <div class="dt-card-head"><h2 class="dt-secao" id="sec-ativ">${t('secaoAtividade')}</h2></div>
             <div class="comentario-composer">
               <div class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(sessao.usuario.nome || '?')}</div>
-              <div class="comentario-campo${_ehEquipe() && _notaInterna ? ' interno' : ''}">
+              <div class="comentario-campo${_ehEquipe() && D.notaInterna ? ' interno' : ''}">
                 <label for="input-comentario" class="sr-only">${t('dtComentario')}</label>
                 <textarea id="input-comentario" rows="2" placeholder="${t('dtComentarioPlaceholder')}"></textarea>
-                <div id="mention-dropdown" class="mention-dropdown" role="listbox" style="display:none"></div>
+                <div id="mention-dropdown" class="mention-dropdown" role="listbox" data-estilo="display:none"></div>
                 <div class="comentario-rodape">
-                  ${_ehEquipe() ? `<label class="comentario-interno" title="${t('notaInternaDica')}"><input type="checkbox" id="coment-interno"${_notaInterna ? ' checked' : ''}> ${t('notaInternaOpcao')}</label>` : ''}
+                  ${_ehEquipe() ? `<label class="comentario-interno" title="${t('notaInternaDica')}"><input type="checkbox" id="coment-interno"${D.notaInterna ? ' checked' : ''}> ${t('notaInternaOpcao')}</label>` : ''}
                   <span class="comentario-dica"><kbd>@</kbd> ${t('dtMenciona')} <span class="so-desktop">· <kbd>Ctrl</kbd>+<kbd>Enter</kbd> ${t('dtEnvia')}</span></span>
                   <button class="btn-secondary btn-sm" id="btn-enviar-comentario">${ICO.enviar}${t('dtComentar')}</button>
                 </div>
@@ -642,7 +631,7 @@ function _renderDetalhe() {
           ${MOTIVOS_REPROVACAO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" id="reprov-outros-wrap" style="display:none;margin-top:var(--esp-200)">
+      <div class="form-group" id="reprov-outros-wrap" data-estilo="display:none;margin-top:var(--esp-200)">
         <label for="reprov-outros">${t('especifique')} *</label>
         <textarea id="reprov-outros" placeholder="${t('especifiquePlaceholder')}" rows="3"></textarea>
       </div>`, `
@@ -658,7 +647,7 @@ function _renderDetalhe() {
           ${MOTIVOS_CANCELAMENTO.map(m => `<option value="${esc(m)}">${esc(rotuloMotivo(m))}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" id="cancel-outros-wrap" style="display:none;margin-top:var(--esp-200)">
+      <div class="form-group" id="cancel-outros-wrap" data-estilo="display:none;margin-top:var(--esp-200)">
         <label for="cancel-outros">${t('especifique')} *</label>
         <textarea id="cancel-outros" placeholder="${t('especifiquePlaceholder')}" rows="3"></textarea>
       </div>`, `
@@ -685,7 +674,7 @@ function _renderDetalhe() {
 }
 
 // No celular a régua rola: a etapa atual entra na vista, com a anterior ao lado
-function _centralizarCaminho() {
+export function _centralizarCaminho() {
   const ol = document.getElementById('caminho')
   const atual = ol?.querySelector('[aria-current="step"]')
   if (!ol || !atual || ol.scrollWidth <= ol.clientWidth) return
@@ -695,7 +684,7 @@ function _centralizarCaminho() {
 }
 
 // Bloco de uma cotação dentro de um modal (fornecedor, valor, condições)
-function _resumoCotacao(c, rotulo) {
+export function _resumoCotacao(c, rotulo) {
   return `
     <div class="modal-resumo">
       <span class="meta-label">${rotulo}</span>
@@ -704,8 +693,8 @@ function _resumoCotacao(c, rotulo) {
     </div>`
 }
 
-function _corpoModalCompra() {
-  const ind = _cotacoes.find(c => c.indicada)
+export function _corpoModalCompra() {
+  const ind = D.cotacoes.find(c => c.indicada)
   const valorIni = ind?.valor ? formatCurrency(ind.valor) : ''
   return `
     ${ind ? _resumoCotacao(ind, t('dtCotacaoIndicada')) : ''}
@@ -748,13 +737,13 @@ function _corpoModalCompra() {
 // ── Compra já feita (js/lancamento.js) ────────────────────────
 // Quem pediu, quem autorizou (com a situação da autorização), quem comprou e
 // por quê; para a pessoa apontada ou um gestor, confirmar ou não reconhecer
-function _renderLancamento() {
-  const l = _pedido.lancamento
+export function _renderLancamento() {
+  const l = D.pedido.lancamento
   const aut = l.autorizacao || 'confirmada'
   const estado = aut === 'confirmada' ? t('lancAutConfirmada', { nome: l.autorizacaoPorNome || '' })
     : aut === 'negada' ? t('lancAutNegada', { nome: l.autorizacaoPorNome || '' }) : t('lancAutPendente')
   const linha = (rotulo, valor) => `<div class="lanc-linha"><dt>${rotulo}</dt><dd>${esc(valor || '—')}</dd></div>`
-  const revisa = podeRevisarAutorizacao(_pedido, sessao.usuario)
+  const revisa = podeRevisarAutorizacao(D.pedido, sessao.usuario)
   return `
     <section class="dt-bloco ord-lancamento lanc-bloco lanc-${esc(aut)}" aria-labelledby="sec-lanc">
       <div class="dt-card-head">
@@ -767,7 +756,7 @@ function _renderLancamento() {
         ${linha(t('lancCompradoPor'), l.compradoPor?.nome)}
         ${linha(t('lancMotivo'), t(`lancMotivo_${l.motivo}`))}
       </dl>
-      <p class="lanc-quem">${esc(t('lancResumo', { quem: l.lancadoPorNome || '', data: dataAbsoluta(_pedido.criadoEm) }))}</p>
+      <p class="lanc-quem">${esc(t('lancResumo', { quem: l.lancadoPorNome || '', data: dataAbsoluta(D.pedido.criadoEm) }))}</p>
       ${revisa ? `
       <div class="lanc-revisao">
         <p>${esc(t('lancRevisarTexto', { quem: l.lancadoPorNome || '', autorizador: l.autorizadoPor?.nome || '' }))}</p>
@@ -779,7 +768,7 @@ function _renderLancamento() {
     </section>`
 }
 
-async function _revisarAutorizacao(resultado) {
+export async function _revisarAutorizacao(resultado) {
   if (resultado === 'negada') {
     const ok = await prxConfirm(t('lancNegarTitulo'), t('lancNegarTexto'), t('lancNegar'), t('btnCancelar'), true)
     if (!ok) return
@@ -789,8 +778,8 @@ async function _revisarAutorizacao(resultado) {
   try {
     // A revisão e a entrada do histórico no mesmo lote (as regras exigem)
     const lote = writeBatch(db)
-    const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
-    lote.update(doc(db, 'pedidos', _pedidoId), revisaoDaAutorizacao(_pedido, sessao.usuario, resultado, serverTimestamp(), entrada.id))
+    const entrada = doc(collection(db, 'pedidos', D.pedidoId, 'historico'))
+    lote.update(doc(db, 'pedidos', D.pedidoId), revisaoDaAutorizacao(D.pedido, sessao.usuario, resultado, serverTimestamp(), entrada.id))
     lote.set(entrada, {
       tipo: 'autorizacao', resultado,
       autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || '',
@@ -806,8 +795,8 @@ async function _revisarAutorizacao(resultado) {
 }
 
 // A nota fiscal que chega depois da compra
-function _podeInformarNota() {
-  const p = _pedido
+export function _podeInformarNota() {
+  const p = D.pedido
   const u = sessao.usuario
   if (![STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)) return false
   const gestorMais = [PERFIS.GESTOR, PERFIS.SUPREMO].includes(u.perfil)
@@ -815,14 +804,14 @@ function _podeInformarNota() {
     p.solicitanteId === u.id || u.perfil === PERFIS.FINANCEIRO
 }
 
-function _informarNota() {
+export function _informarNota() {
   const { overlay, fechar } = _montarOverlay('modal-nota', `
-    <div class="modal" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="modal-nota-titulo">
+    <div class="modal" data-estilo="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="modal-nota-titulo">
       ${_cabModal('modal-nota-titulo', t('dtNotaTitulo'), 'data-fechar')}
       <div class="modal-body">
         <div class="form-group">
           <label for="nota-numero">${t('lancNota')}</label>
-          <input type="text" id="nota-numero" inputmode="numeric" maxlength="60" placeholder="${t('lancNotaPlaceholder')}" value="${esc(_pedido.notaFiscal || '')}" autocomplete="off">
+          <input type="text" id="nota-numero" inputmode="numeric" maxlength="60" placeholder="${t('lancNotaPlaceholder')}" value="${esc(D.pedido.notaFiscal || '')}" autocomplete="off">
         </div>
       </div>
       <div class="modal-footer">
@@ -833,15 +822,15 @@ function _informarNota() {
   prepararCampoNota(overlay.querySelector('#nota-numero'))
   overlay.querySelector('#salvar-nota')?.addEventListener('click', async () => {
     const nota = overlay.querySelector('#nota-numero')?.value.trim()
-    if (!nota) { prxToast(t('erroCamposObrigatorios'), 'error'); return }
+    if (!nota) { avisoNoFormulario(overlay, t('erroCamposObrigatorios')); return }
     const r = conferirNota(nota)
     if (r === 'digito' || r === 'tamanho') { prxToast(t(r === 'digito' ? 'notaDigitoErrado' : 'notaTamanhoErrado'), 'warning'); return }
     if (!exigirConexao()) return
     mostrarSpinner()
     try {
       const lote = writeBatch(db)
-      const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
-      lote.update(doc(db, 'pedidos', _pedidoId), { notaFiscal: nota, ultimaEdicaoId: entrada.id, atualizadoEm: serverTimestamp() })
+      const entrada = doc(collection(db, 'pedidos', D.pedidoId, 'historico'))
+      lote.update(doc(db, 'pedidos', D.pedidoId), { notaFiscal: nota, ultimaEdicaoId: entrada.id, atualizadoEm: serverTimestamp() })
       lote.set(entrada, {
         tipo: 'edicao', campos: ['notaFiscal'],
         autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || '',
@@ -861,8 +850,8 @@ function _informarNota() {
 // ── Ações ─────────────────────────────────────────────────────
 // painel: a ação que faz o pedido andar, dentro do "Próximo passo" (secundária antes, principal por último)
 // menu: o resto, no "…" do cabeçalho
-function _acoesDoPedido() {
-  const p = _pedido
+export function _acoesDoPedido() {
+  const p = D.pedido
   const uid = sessao.usuario.id
   const perfil = sessao.usuario.perfil
   const gestorMais = [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
@@ -872,7 +861,7 @@ function _acoesDoPedido() {
   if (_podeAssumir()) painel.push(`<button class="btn-primary" id="btn-assumir">${ICO.usuario}${t('btnAssumirPedido')}</button>`)
 
   if (_podeAnexarCotacao()) {
-    const cls = _cotacoes.length >= 3 ? 'btn-secondary' : 'btn-primary'
+    const cls = D.cotacoes.length >= 3 ? 'btn-secondary' : 'btn-primary'
     painel.push(`<button class="${cls}" id="btn-add-cotacao">${ICO.mais2}${t('dtRegistrarCotacao')}</button>`)
   }
 
@@ -924,7 +913,7 @@ function _acoesDoPedido() {
   return { painel, menu }
 }
 
-function _renderMenuAcoes(menu) {
+export function _renderMenuAcoes(menu) {
   if (!menu.length) return ''
   return `
     <div class="menu-acoes-wrap">
@@ -939,2485 +928,6 @@ function _renderMenuAcoes(menu) {
 }
 
 // Parcela em aberto com o vencimento mais próximo
-function _proximaParcela() {
-  return _parcelas.filter(x => !x.pago).sort((a, b) => String(a.vencimento || '').localeCompare(String(b.vencimento || '')) || a.numero - b.numero)[0] || null
+export function _proximaParcela() {
+  return D.parcelas.filter(x => !x.pago).sort((a, b) => String(a.vencimento || '').localeCompare(String(b.vencimento || '')) || a.numero - b.numero)[0] || null
 }
-
-// ── Painel de decisão: o que falta, quem responde e a ação ────
-function _renderDecisao(acoes) {
-  const p = _pedido
-  const perfil = sessao.usuario.perfil
-  const ind = _cotacoes.find(c => c.indicada)
-  const n = _cotacoes.length
-  const fatos = []     // [rótulo, valor, detalhe, classe]
-  let rotulo = t('dtProximoPasso'), tom = 'neutro', titulo, texto, resp = null
-  const ultimaNota = st => _textoNota([..._historico].reverse().find(h => h.status === st && (h.nota || h.notaChave)) || {})
-  const dinheiro = v => `<span class="dt-numeral">${formatCurrency(v)}</span>`
-  const prazo = _estadoPrazo()
-  const fatoPrazo = () => prazo && fatos.push([t('dtPrazo'), `<span class="dt-numeral">${prazo.data}</span>`, prazo.texto, prazo.cls ? `prazo-${prazo.cls}` : ''])
-  const comprador = () => p.compradorId ? (_nomePorId(p.compradorId) || p.compradorNome || null) : (_quemFez(STATUS.AG_COTACAO)?.nome || null)
-
-  switch (p.status) {
-    case STATUS.SOLICITADO:
-      titulo = _podeAssumir() ? t('dtSolicTituloPode') : t('dtSolicTitulo')
-      texto = _podeAssumir() ? t('dtSolicTextoPode') : t('dtSolicTexto')
-      if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
-      fatoPrazo()
-      resp = { papel: t('compradorLabel'), nome: null, vazio: t('dtSemResponsavel') }
-      break
-
-    case STATUS.AG_COTACAO: {
-      const pode = _podeAnexarCotacao()
-      titulo = n === 0 ? (pode ? t('dtCotTituloVazio') : t('dtCotTituloAndamento'))
-        : n < 3 ? t('dtCotRegistradasDe3', { n }) : (pode ? t('dtCotTituloIndicar') : t('dtCotRegistradas', { n }))
-      texto = !pode ? t('dtCotTextoOutros')
-        : n === 0 ? t('dtCotTextoVazio') : n < 3 ? t('dtCotTextoPoucas') : t('dtCotTextoIndicar')
-      fatos.push([t('secaoCotacoes'), `<span class="dt-numeral">${n}</span><span class="dt-de"> ${t('dtDe3')}</span>`])
-      if (n) fatos.push([t('dtMenorValor'), dinheiro(Math.min(..._cotacoes.map(c => c.valor)))])
-      else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
-      fatoPrazo()
-      resp = { papel: t('compradorLabel'), nome: comprador() || t('dtCompradorDesignado') }
-      break
-    }
-
-    case STATUS.EM_APROVACAO: {
-      const podeDecidir = _podeDecidir()
-      titulo = podeDecidir ? t('dtAprovTituloPode') : t('dtAprovTitulo')
-      texto = ind
-        ? `${esc(ind.fornecedorNome)} ${t('dtFoiIndicada')}${n > 1 ? `, ${t('dtEntre')} ${n} ${t('dtCotacoesMin')}` : ''}.`
-        : t('dtAprovSemIndicada')
-      texto += ` ${_avisoDeFuncao('decidir', [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO])}`
-      if (ind) {
-        fatos.push([t('dtPropostaIndicada'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
-        if (p.valorEstimado) {
-          const dif = ind.valor - p.valorEstimado
-          fatos.push([t('dtFrenteEstimado'), `<span class="dt-numeral">${_pct(dif / p.valorEstimado * 100)}</span>`,
-            t(dif > 0 ? 'dtAcimaDe' : dif < 0 ? 'dtAbaixoDe' : 'dtIgualA', { valor: formatCurrency(p.valorEstimado) }), dif > 0 ? 'acima' : 'abaixo'])
-        }
-        if (n > 1) {
-          const maior = Math.max(..._cotacoes.map(c => c.valor))
-          if (maior > ind.valor) fatos.push([t('economiaLabel'), dinheiro(maior - ind.valor), t('dtFrenteMaisCara')])
-        }
-      } else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
-      // Alçada: o nível em que o pedido está e quantas aprovações faltam nele
-      const alc = situacaoAprovacao(p)
-      if (alc) {
-        fatos.push([t('dtAlcada'), `<span class="dt-numeral">${t('dtAlcadaNumero', { nivel: alc.numero, total: alc.total })}</span>`,
-          t(alc.faltam === 1 ? 'dtAlcadaFalta1' : 'dtAlcadaFaltam', { nome: esc(alc.nome), n: alc.faltam })])
-      }
-      resp = _respAprovadores()
-      break
-    }
-
-    case STATUS.APROVADO: {
-      const h = _quemFez(STATUS.APROVADO)
-      const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
-      const em = p.aprovadoEm || h?.em
-      titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
-        : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
-      if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
-      else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
-      fatoPrazo()
-      resp = { papel: t('compradorLabel'), nome: comprador() || t('dtCompradorDesignado') }
-      break
-    }
-
-    case STATUS.COMPRADO:
-      titulo = acoes.length ? t('dtCompradoTituloPode') : t('dtCompradoTitulo')
-      texto = `${p.fornecedorNome ? `${t(p.dataCompra ? 'dtCompraComEm' : 'dtCompraCom', { fornecedor: esc(p.fornecedorNome), d: p.dataCompra ? formatDate(p.dataCompra) : '' })} ` : ''}${t('dtCompradoTexto')}`
-      if (p.valorFinal) fatos.push([t('metaValorFinal'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
-      fatoPrazo()
-      resp = { papel: t('dtRecebimento'), nome: comprador() || _nomePorId(p.solicitanteId) || p.solicitanteNome || null }
-      break
-
-    case STATUS.ENTREGUE: {
-      const pagas = _parcelas.filter(x => x.pago)
-      const total = _parcelas.reduce((s, x) => s + (x.valor || 0), 0)
-      const pago = pagas.reduce((s, x) => s + (x.valor || 0), 0)
-      const prox = _proximaParcela()
-      titulo = prox
-        ? (acoes.length ? t('dtRegistrePagamentoParcela', { parcela: `${prox.numero}/${prox.total}` }) : t('dtEntregueTitulo'))
-        : (acoes.length ? t('dtEntregueTituloConcluir') : t('dtEntregueTitulo'))
-      texto = `${p.dataEntrega ? `${t('dtRecebidoEm', { d: formatDate(p.dataEntrega) })} ` : ''}${_parcelas.length
-        ? t('dtParcelasPagas', { pagas: pagas.length, total: _parcelas.length })
-        : t('dtSemParcelas')} ${_avisoDeFuncao('pagar', [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO])}`
-      if (_parcelas.length) fatos.push([t('dtPago'), dinheiro(pago), t('dtDeValor', { valor: formatCurrency(total) })])
-      if (prox) {
-        const d = _diasAte(prox.vencimento)
-        const est = d === null ? '' : _textoVencimento(d)
-        fatos.push([`${t('dtParcela')} ${prox.numero}/${prox.total}`, dinheiro(prox.valor), `${formatDate(prox.vencimento)}${est ? ` · ${est}` : ''}`, d !== null && d < 0 ? 'prazo-atrasado' : ''])
-      }
-      resp = _respFinanceiro()
-      break
-    }
-
-    case STATUS.PAGO: {
-      rotulo = t('dtConcluido'); tom = 'ok'
-      const ent = _entradas()
-      titulo = t('dtPagoTitulo')
-      texto = p.valorFinal
-        ? t(p.fornecedorNome ? 'dtPagosValorA' : 'dtPagosValor', { valor: formatCurrency(p.valorFinal), fornecedor: esc(p.fornecedorNome || '') })
-        : t(p.fornecedorNome ? 'dtPagoIntegralA' : 'dtPagoIntegral', { fornecedor: esc(p.fornecedorNome || '') })
-      if (p.valorFinal) fatos.push([t('dtValorPago'), dinheiro(p.valorFinal), esc(p.fornecedorNome || '')])
-      if (ent[STATUS.PAGO]) fatos.push([t('dtConcluidoEm'), `<span class="dt-numeral">${dataAbsoluta(ent[STATUS.PAGO])}</span>`])
-      if (p.criadoEm && ent[STATUS.PAGO]) {
-        const d = Math.max(1, Math.round((_tsMs(ent[STATUS.PAGO]) - _tsMs(p.criadoEm)) / 86400000))
-        fatos.push([t('dtDoPedidoAoPagamento'), `<span class="dt-numeral">${d}</span><span class="dt-de"> ${t(d === 1 ? 'dtDia' : 'dtDias')}</span>`])
-      }
-      break
-    }
-
-    case STATUS.REPROVADO: {
-      rotulo = t('dtReprovado'); tom = 'erro'
-      const motivo = p.motivoReprovacao === MOTIVO_OUTROS ? p.motivoReprovacaoOutros : (rotuloMotivo(p.motivoReprovacao) || ultimaNota(STATUS.REPROVADO))
-      const h = _quemFez(STATUS.REPROVADO)
-      const quem = _nomePorId(p.reprovadoPor) || p.reprovadoPorNome || h?.nome
-      const em = p.reprovadoEm || h?.em
-      titulo = motivo ? esc(motivo) : t('dtReprovadoTitulo')
-      texto = quem ? t(em ? 'dtReprovadoPorEm' : 'dtReprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' }) : ''
-      if (p.reabertoPara) texto += ` ${t('dtJaReaberto')} ${esc(p.reabertaParaNum || '')}.`
-      else if ([PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) texto += ` ${t('dtDicaReabrir')}`
-      break
-    }
-
-    case STATUS.CANCELADO: {
-      rotulo = t('dtCancelado'); tom = 'erro'
-      const motivo = p.motivoCancelamento === MOTIVO_OUTROS ? p.motivoCancelamentoOutros : (rotuloMotivo(p.motivoCancelamento) || ultimaNota(STATUS.CANCELADO))
-      const h = _quemFez(STATUS.CANCELADO)
-      const quem = _nomePorId(p.canceladoPor) || p.canceladoPorNome || h?.nome
-      const em = p.canceladoEm || h?.em
-      titulo = motivo ? esc(motivo) : t('dtCanceladoTitulo')
-      texto = `${quem ? `${t(em ? 'dtCanceladoPorEm' : 'dtCanceladoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${t('dtCanceladoTexto')}`
-      break
-    }
-
-    default: return ''
-  }
-
-  const comVoce = acoes.length > 0
-  if (comVoce) tom = 'voce'
-  // Vários responsáveis (os aprovadores): as iniciais de cada um, em pilha
-  const avatarResp = !resp?.nome
-    ? `<span class="avatar avatar-sm avatar-vazio" aria-hidden="true">${ICO.usuario}</span>`
-    : resp.pessoas?.length > 1
-      ? `<span class="avatar-pilha" aria-hidden="true">${resp.pessoas.map(u => `<span class="avatar avatar-sm">${gerarIniciais(u.nome)}</span>`).join('')}</span>`
-      : `<span class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(resp.pessoas?.[0]?.nome || resp.nome)}</span>`
-  const respHtml = resp ? `
-    <div class="decisao-fato decisao-resp">
-      <dt>${t('dtResponsavel')}</dt>
-      <dd>
-        ${avatarResp}
-        <span class="decisao-resp-txt">
-          <span class="decisao-resp-nome">${resp.nome ? esc(resp.nome) : (resp.vazio || '—')}</span>
-          <span class="decisao-resp-papel">${resp.papel}</span>
-        </span>
-      </dd>
-    </div>` : ''
-
-  return `
-    <section class="decisao tom-${tom}" aria-labelledby="decisao-titulo">
-      <div class="decisao-topo">
-        <div class="decisao-texto">
-          <p class="decisao-rotulo">${rotulo}${comVoce ? `<span class="decisao-voce">${t('dtComVoce')}</span>` : ''}</p>
-          <h2 class="decisao-titulo" id="decisao-titulo">${titulo}</h2>
-          ${texto.trim() ? `<p class="decisao-desc">${texto.trim()}</p>` : ''}
-        </div>
-        ${acoes.length ? `<div class="decisao-acoes" role="group" aria-label="${t('dtAcoesDoPasso')}">${acoes.join('')}</div>` : ''}
-      </div>
-      ${fatos.length || resp ? `
-        <dl class="decisao-fatos">
-          ${fatos.map(([k, v, sub, cls]) => `
-            <div class="decisao-fato ${cls || ''}${String(v).replace(/<[^>]+>/g, '').trim().length >= 14 ? ' largo' : ''}">
-              <dt>${k}</dt>
-              <dd><span class="decisao-valor">${v}</span>${sub ? `<span class="decisao-sub">${sub}</span>` : ''}</dd>
-            </div>`).join('')}
-          ${respHtml}
-        </dl>` : ''}
-    </section>`
-}
-
-// Quem pode decidir este pedido: com alçada, quem está no nível atual (pelo
-// perfil ou pelo nome); sem ela, os aprovadores da empresa. Menos quem abriu,
-// cotou ou já votou (separação de funções)
-function _aprovadoresDoPedido() {
-  const p = _pedido
-  const s = situacaoAprovacao(p)
-  const daEmpresa = u => u.ativo !== false && (u.perfil === PERFIS.SUPREMO || empresasDoUsuario(u).includes(p.empresaId))
-  return (s
-    ? _usuarios.filter(u => daEmpresa(u) && estaNoNivel(s.nivel, u))
-    : p.aprovadorIds?.length
-      ? p.aprovadorIds.map(id => _usuarios.find(u => u.id === id)).filter(Boolean)
-      : _usuarios.filter(u => [PERFIS.APROVADOR, PERFIS.GESTOR].includes(u.perfil) && daEmpresa(u)))
-    .filter(u => !impedimentoDeFuncao(p, u, 'decidir'))
-}
-
-// Quem pode decidir, quando não sobra ninguém na lista: a própria pessoa, se
-// for aprovadora e não estiver impedida
-function _souAprovadorLivre() {
-  return [PERFIS.APROVADOR, PERFIS.GESTOR].includes(sessao.usuario.perfil) &&
-    !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
-}
-
-// Quem decide a aprovação: os aprovadores do pedido ou da empresa
-function _respAprovadores() {
-  const lista = _aprovadoresDoPedido()
-  if (!lista.length) {
-    const souAprov = _souAprovadorLivre()
-    // Com alçada, o nome do nível ("Diretoria") no lugar de "aprovadores da empresa"
-    return { papel: t('aprovadoresLabel'), nome: souAprov ? sessao.usuario.nome : null,
-      vazio: situacaoAprovacao(_pedido)?.nome || t('dtAprovadoresEmpresa') }
-  }
-  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` ${t('dtEMais', { n: lista.length - 2 })}` : '')
-  return { papel: t('aprovadoresLabel'), nome: nomes, pessoas: lista.slice(0, 2) }
-}
-
-function _respFinanceiro() {
-  const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO && u.ativo !== false &&
-    empresasDoUsuario(u).includes(_pedido.empresaId))
-  const nome = fins[0]?.nome || (sessao.usuario.perfil === PERFIS.FINANCEIRO ? sessao.usuario.nome : null)
-  return { papel: PERFIS_LABEL[PERFIS.FINANCEIRO], nome, vazio: t('dtEquipeFinanceira') }
-}
-
-// ── Pessoas ───────────────────────────────────────────────────
-// Rótulos usados quando o nome real não pode ser lido pelo perfil atual (no
-// idioma da sessão, por isso a lista é montada na hora)
-const _nomeGenerico = nome => [t('dtAprovadoresEmpresa'), t('dtEquipeFinanceira'), t('dtCompradorDesignado'), PERFIS_LABEL[PERFIS.APROVADOR]].includes(nome)
-
-function _linhaPessoa(papel, nome, status, extra = '', statusCls = '') {
-  const real = nome && !_nomeGenerico(nome)
-  return `
-    <div class="pessoa-linha">
-      <div class="avatar avatar-sm ${real ? '' : 'avatar-vazio'}" aria-hidden="true">${real ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 13)}</div>
-      <div class="pessoa-corpo">
-        <div class="pessoa-role">${papel}</div>
-        <div class="pessoa-name">${nome ? esc(nome) : `<span class="pessoa-indef">${status || t('dtNaoDefinido')}</span>`}</div>
-        ${status && nome ? `<div class="pessoa-status ${statusCls}">${status}</div>` : ''}
-        ${extra}
-      </div>
-    </div>`
-}
-
-function _renderPessoa(papel, nome, statusTxt) {
-  return nome ? _linhaPessoa(papel, nome, statusTxt) : _linhaPessoa(papel, null, t('dtNomeIndisponivel'))
-}
-
-function _renderPessoaComprador() {
-  const p = _pedido
-  // Sem comprador gravado: vale quem assumiu no histórico, desde que o pedido tenha passado da
-  // fila (um pedido devolvido à fila volta a "Aguardando comprador")
-  const passouDaFila = [STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) ||
-    ([STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status) && !!_quemFez(STATUS.AG_COTACAO))
-  const nome = p.compradorId ? (_nomePorId(p.compradorId) || t('dtCompradorDesignado'))
-    : (passouDaFila ? (_quemFez(STATUS.AG_COTACAO)?.nome || t('dtCompradorDesignado')) : null)
-  if (!nome) return _linhaPessoa(t('compradorLabel'), null, _TERMINAIS.includes(p.status) ? t('dtNaoChegouCotacao') : t('aguardandoComprador'))
-  const st = _cotacoes.length
-    ? (_cotacoes.length === 1 ? t('dtCotRegistrada1') : t('dtCotRegistradas', { n: _cotacoes.length }))
-    : t('semCotacoes')
-  return _linhaPessoa(t('compradorLabel'), nome, st)
-}
-
-function _renderPessoaAprovadores() {
-  const p = _pedido
-  const papel = t('aprovadoresLabel')
-  const aprovou = [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) || p.aprovadoPor
-  if (aprovou) {
-    const h = _quemFez(STATUS.APROVADO)
-    const nome = _nomePorId(p.aprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
-    const em = p.aprovadoEm || h?.em
-    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, `${ICO.check} ${em ? t('dtAprovadoEm', { d: dataAbsoluta(em) }) : t('aprovadoStatus')}`, '', 'text-green')
-  }
-  if (p.status === STATUS.REPROVADO || p.reprovadoPor) {
-    const h = _quemFez(STATUS.REPROVADO)
-    const nome = _nomePorId(p.reprovadoPor) || h?.nome || PERFIS_LABEL[PERFIS.APROVADOR]
-    const em = p.reprovadoEm || h?.em
-    return _linhaPessoa(PERFIS_LABEL[PERFIS.APROVADOR], nome, em ? t('dtReprovouEm', { d: dataAbsoluta(em) }) : t('dtReprovou'), '', 'text-red')
-  }
-  const lista = _aprovadoresDoPedido()
-  const alc = p.status === STATUS.EM_APROVACAO ? situacaoAprovacao(p) : null
-  const status = alc ? t('dtAlcadaPessoa', { nivel: alc.numero, total: alc.total, nome: esc(alc.nome) })
-    : p.status === STATUS.EM_APROVACAO ? t('aguardandoStatus')
-    : [STATUS.SOLICITADO, STATUS.AG_COTACAO].includes(p.status) ? t('dtEntraAposCotacoes')
-    : p.status === STATUS.CANCELADO ? t('dtNaoChegouAprovacao') : ''
-  if (!lista.length) {
-    const souAprov = _souAprovadorLivre()
-    return _linhaPessoa(papel, souAprov ? sessao.usuario.nome : t('dtAprovadoresEmpresa'), status)
-  }
-  const nomes = lista.slice(0, 2).map(u => u.nome.split(' ')[0]).join(', ') + (lista.length > 2 ? ` ${t('dtEMais', { n: lista.length - 2 })}` : '')
-  return `
-    <div class="pessoa-linha">
-      <div class="avatar-pilha" aria-hidden="true">
-        ${lista.slice(0, 2).map(u => `<div class="avatar avatar-sm">${gerarIniciais(u.nome)}</div>`).join('')}
-      </div>
-      <div class="pessoa-corpo">
-        <div class="pessoa-role">${papel}</div>
-        <div class="pessoa-name">${esc(nomes)}</div>
-        ${status ? `<div class="pessoa-status">${status}</div>` : ''}
-      </div>
-    </div>`
-}
-
-function _renderPessoaFinanceiro() {
-  const fins = _usuarios.filter(u => u.perfil === PERFIS.FINANCEIRO && u.ativo !== false &&
-    empresasDoUsuario(u).includes(_pedido.empresaId))
-  const nome = fins[0]?.nome || (sessao.usuario.perfil === PERFIS.FINANCEIRO ? sessao.usuario.nome : null)
-  const totalPago = _parcelas.filter(p => p.pago).length
-  const totalParc = _parcelas.length
-  const st = totalParc ? t('dtPagasDe', { pagas: totalPago, total: totalParc }) : t('dtSemParcelasCurto')
-  return _linhaPessoa(PERFIS_LABEL[PERFIS.FINANCEIRO], nome || t('dtEquipeFinanceira'), st)
-}
-
-// ── Cotações ──────────────────────────────────────────────────
-// A lista já é a comparação: em ordem de valor, com a indicada e a de menor valor
-// marcadas, a diferença de cada proposta para a indicada (ou para a menor, antes
-// da indicação) e um fio proporcional ao valor.
-function _renderCotacoes() {
-  if (!_cotacoes.length) {
-    const pode = _podeAnexarCotacao()
-    const sub = pode
-      ? t('dtCotVazioPode')
-      : _pedido.status === STATUS.SOLICITADO
-        ? t('dtCotVazioSolic')
-        : t('dtCotVazioOutros')
-    return estadoVazio({ variante: 'compacto', titulo: t('dtCotVazioTitulo'), texto: sub })
-  }
-  const comValor = _cotacoes.filter(c => !c.semProduto)
-  const valores = comValor.map(c => c.valor || 0)
-  const menor = valores.length ? Math.min(...valores) : 0
-  const maior = valores.length ? Math.max(...valores) : 0
-  const ind = _cotacoes.find(c => c.indicada)
-  const ref = ind || comValor.find(c => (c.valor || 0) === menor)
-  const podeIndicar = _podeIndicarCotacao()
-  const varias = comValor.length > 1
-  const ordenadas = [...comValor.sort((a, b) => (a.valor - b.valor) || (b.indicada - a.indicada)), ..._cotacoes.filter(c => c.semProduto)]
-
-  const linhas = ordenadas.map(c => {
-    const anuncio = c.link && urlSegura(c.link)
-      ? `<a href="${esc(urlSegura(c.link))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerAnuncio')}" title="${t('dtVerAnuncio')}">${ICO.externo}</a>` : ''
-    if (c.semProduto) {
-      return `
-      <li class="cotacao-item sem-produto">
-        <div class="cotacao-info">
-          <div class="cotacao-fornecedor">${esc(c.fornecedorNome)}<span class="cotacao-marcas"><span class="cot-marca cot-sem-produto">${t('dtSemProduto')}</span></span></div>
-          ${c.condicoesComerciais ? `<div class="cotacao-sub">${esc(c.condicoesComerciais)}</div>` : ''}
-        </div>
-        <div class="cotacao-lado"><span class="cotacao-valor cotacao-sem-valor">—</span></div>
-        ${anuncio ? `<div class="cotacao-acoes">${anuncio}</div>` : ''}
-      </li>`
-    }
-    const eRef = c === ref
-    const dif = (c.valor || 0) - (ref.valor || 0)
-    let difHtml = ''
-    if (varias && !eRef) {
-      const pct = ref.valor ? dif / ref.valor * 100 : 0
-      const maisBarata = ind && dif < 0
-      difHtml = `<span class="cotacao-dif${maisBarata ? ' mais-barata' : ''}"${maisBarata ? ` title="${t('dtMaisBarataQueIndicada')}"` : ''}>${dif > 0 ? '+' : dif < 0 ? '−' : ''}${formatCurrency(Math.abs(dif))}<span class="cotacao-dif-pct">${_pct(pct)}</span></span>`
-    } else if (varias && eRef) {
-      difHtml = `<span class="cotacao-dif cotacao-dif-base">${t('dtBaseComparacao')}</span>`
-    }
-    const marcas = [
-      c.indicada ? `<span class="cot-marca cot-indicada">${t('dtIndicada')}</span>` : '',
-      varias && (c.valor || 0) === menor ? `<span class="cot-marca cot-menor">${t('dtMenorValor')}</span>` : '',
-    ].join('')
-    const largura = maior ? Math.max((c.valor || 0) / maior * 100, 3) : 0
-    const acoes = [
-      anuncio,
-      c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtAbrirArquivoCotacao')}" title="${t('dtAbrirArquivo')}">${ICO.externo}</a>` : '',
-      podeIndicar && !c.indicada ? `<button class="btn-ghost btn-sm" data-indicar="${esc(c.id)}" title="${t('dtIndicarTitulo')}">${t('dtIndicar')}</button>` : '',
-    ].join('')
-    return `
-      <li class="cotacao-item${c.indicada ? ' indicada' : ''}">
-        <div class="cotacao-info">
-          <div class="cotacao-fornecedor">${esc(c.fornecedorNome)}${marcas ? `<span class="cotacao-marcas">${marcas}</span>` : ''}</div>
-          <div class="cotacao-sub">${esc([c.prazoEntrega ? t('dtPrazoEntregaCurto', { prazo: c.prazoEntrega }) : '', c.condicoesComerciais].filter(Boolean).join(' · ') || t('dtSemCondicoes'))}</div>
-        </div>
-        <div class="cotacao-lado">
-          <span class="cotacao-valor">${formatCurrency(c.valor)}</span>
-          ${difHtml}
-        </div>
-        ${acoes ? `<div class="cotacao-acoes">${acoes}</div>` : ''}
-        ${varias ? `<span class="cotacao-fio" aria-hidden="true"><span style="width:${largura.toFixed(1)}%"></span></span>` : ''}
-      </li>`
-  }).join('')
-
-  const economia = ind && varias && maior > ind.valor
-    ? `<p class="cotacoes-economia">${t('dtEconomiaFrase1')} <span class="dt-numeral">${formatCurrency(maior - ind.valor)}</span> ${t('dtEconomiaFrase2')}</p>`
-    : ''
-  const m = _pedido.motivoCotacaoUnica
-  const unica = m ? `<p class="cotacoes-unica">${esc(t('dtCotacaoUnica', { motivo: _rotuloCotacaoUnica(m) }))}</p>` : ''
-  return `<ol class="cotacoes-lista">${linhas}</ol>${economia}${unica}`
-}
-
-// Motivo de uma cotação só: uma das opções (cotUnica_*) ou o texto digitado
-const _MOTIVOS_COT_UNICA = ['habitual', 'exclusivo', 'urgencia', 'negociado']
-const _rotuloCotacaoUnica = m => _MOTIVOS_COT_UNICA.includes(m) ? t(`cotUnica_${m}`) : m
-
-// Pergunta por que há uma cotação só; resolve com o motivo ou null
-function _perguntarCotacaoUnica(c) {
-  return new Promise(resolve => {
-    let resolvido = false
-    const fim = v => { if (!resolvido) { resolvido = true; resolve(v) } }
-    const { overlay, fechar } = _montarOverlay('modal-cot-unica', `
-      <div class="modal" style="max-width:480px" role="dialog" aria-modal="true" aria-labelledby="cot-unica-titulo">
-        ${_cabModal('cot-unica-titulo', t('cotUnicaTitulo'), 'data-fechar')}
-        <div class="modal-body">
-          <p class="modal-intro">${c ? `${esc(c.fornecedorNome)}, ${formatCurrency(c.valor)}. ` : ''}${t('cotUnicaTexto')}</p>
-          <div class="category-chips" id="cot-unica-opcoes" role="radiogroup" aria-labelledby="cot-unica-titulo">
-            ${[..._MOTIVOS_COT_UNICA, 'outro'].map(m => `<button type="button" class="chip" role="radio" aria-checked="false" data-motivo="${m}">${t(`cotUnica_${m}`)}</button>`).join('')}
-          </div>
-          <div class="form-group" id="cot-unica-outro-wrap" hidden>
-            <label for="cot-unica-outro">${t('cotUnicaOutro')}</label>
-            <textarea id="cot-unica-outro" rows="2" maxlength="300"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
-          <button class="btn-primary" id="cot-unica-ok">${t('dtIndicarConfirmaOk')}</button>
-        </div>
-      </div>`)
-    const grupo = overlay.querySelector('#cot-unica-opcoes')
-    grupo.addEventListener('click', e => {
-      const chip = e.target.closest('.chip')
-      if (!chip) return
-      grupo.querySelectorAll('.chip').forEach(x => { x.classList.toggle('selected', x === chip); x.setAttribute('aria-checked', String(x === chip)) })
-      const outro = chip.dataset.motivo === 'outro'
-      overlay.querySelector('#cot-unica-outro-wrap').hidden = !outro
-      if (outro) overlay.querySelector('#cot-unica-outro').focus()
-    })
-    overlay.querySelectorAll('[data-fechar]').forEach(b => b.addEventListener('click', () => fim(null)))
-    overlay.addEventListener('mousedown', e => { if (e.target === overlay) fim(null) })
-    overlay.addEventListener('keydown', e => { if (e.key === 'Escape') fim(null) })
-    overlay.querySelector('#cot-unica-ok').addEventListener('click', () => {
-      const escolha = grupo.querySelector('.chip.selected')?.dataset.motivo
-      const texto = overlay.querySelector('#cot-unica-outro').value.trim()
-      const motivo = escolha === 'outro' ? texto : escolha
-      if (!motivo) { prxToast(t('erroCamposObrigatorios'), 'error'); return }
-      fechar()
-      fim(motivo.slice(0, 300))
-    })
-  })
-}
-
-// ── Atividade ─────────────────────────────────────────────────
-// Mais recente primeiro (o campo de comentário fica no topo). Mudanças de etapa
-// levam o numeral da etapa, como na régua do caminho.
-function _renderActivityFeed() {
-  const hist = _historico.map(h  => ({ ...h,  _feedTipo: h.tipo || 'status' }))
-  const comt = _comentarios.map(c => ({ ...c, _feedTipo: 'comentario' }))
-  const l = _pedido.lancamento
-  const lanc = l ? [{ _feedTipo: 'lancamento', criadoEm: _pedido.criadoEm, autorId: l.lancadoPor, autorNome: l.lancadoPorNome }] : []
-  const feed = [...hist, ...comt, ...lanc].sort((a, b) => _tsMs(b.criadoEm) - _tsMs(a.criadoEm))
-
-  if (!feed.length) return estadoVazio({ variante: 'compacto', tag: 'li', titulo: t('dtAtividadeVazia'), texto: t('dtAtividadeVaziaTexto') })
-
-  const evento = (marca, html, ts, cls = '') => `
-    <li class="feed-item ${cls}">
-      <div class="feed-left">${marca}</div>
-      <div class="feed-body">
-        <div class="feed-text">${html}</div>
-        <div class="feed-time" title="${ts.title}">${ts.texto}</div>
-      </div>
-    </li>`
-  const icone = d => `<span class="feed-marca">${_svg(d, 12)}</span>`
-
-  return feed.map(item => {
-    const nome = item.autorNome || _nomePorId(item.autorId)
-    const ts   = dataComRelativo(item.criadoEm)
-    const quem = nome ? `<strong>${esc(nome)}</strong>` : ''
-
-    if (item._feedTipo === 'status') {
-      const i = _ETAPAS.indexOf(item.status)
-      const negativo = [STATUS.REPROVADO, STATUS.CANCELADO].includes(item.status)
-      const marca = negativo
-        ? `<span class="feed-marca feed-marca-neg">${_svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 12)}</span>`
-        : `<span class="feed-marca feed-marca-num">${i >= 0 ? _dois(i + 1) : '·'}</span>`
-      const st = `<span class="feed-status">${STATUS_LABEL[item.status] || esc(item.status)}</span>`
-      const nota = _textoNota(item)
-      const reprovou = item.status === STATUS.REPROVADO
-      const frase = item.status === STATUS.SOLICITADO && !nota
-        ? (quem ? t('feedAbriu', { quem }) : t('feedPedidoAberto'))
-        : negativo
-          ? (quem ? t(reprovou ? 'feedReprovou' : 'feedCancelou', { quem }) : t(reprovou ? 'feedPedidoReprovado' : 'feedPedidoCancelado'))
-          : (quem ? t('feedMoveu', { quem, etapa: st }) : t('feedMovido', { etapa: st }))
-      return evento(marca, `${frase}${nota ? `<div class="feed-nota">${esc(nota)}</div>` : ''}`, ts, negativo ? 'feed-item-neg' : 'feed-item-etapa')
-    }
-
-    if (item._feedTipo === 'comentario') {
-      const texto = esc(item.texto || '').replace(/@([\wÀ-ÿ]+)/g, '<span class="mention">@$1</span>')
-      const salvo = !String(item.id).startsWith('temp-')
-      const meu = salvo && item.autorId === sessao.usuario.id
-      const apaga = salvo && _podeApagarComentario()
-      const editando = _comentEditando?.id === item.id
-      const id = esc(item.id)
-      const acao = (tipo, rotulo, cls = '') =>
-        `<button type="button" class="coment-acao ${cls}" data-coment-acao="${tipo}" data-coment-id="${id}" aria-label="${rotulo}">${t(tipo === 'editar' ? 'comentEditar' : 'comentApagar')}</button>`
-      const versoes = item.versoes || []
-      const verAberto = _versoesAbertas.has(item.id) && versoes.length > 0
-      const editado = !item.editadoEm ? ''
-        : versoes.length
-          ? `<button type="button" class="feed-editado" data-coment-acao="versoes" data-coment-id="${id}" aria-expanded="${verAberto}" aria-label="${t('comentVersoesAria')}" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</button>`
-          : `<span class="feed-editado" title="${formatarDataRelativa(item.editadoEm).title}">${t('comentEditado')}</span>`
-      const interna = item.interno ? `<span class="lozenge lozenge-aguardando feed-interna" title="${t('notaInternaDica')}">${t('notaInternaSelo')}</span>` : ''
-      const anteriores = verAberto ? `
-            <ol class="coment-versoes" aria-label="${t('comentVersoesAria')}">${[...versoes].reverse().map(v => `
-              <li><span class="coment-versao-data">${v.em ? dataEHora(v.em) : ''}</span><span class="coment-versao-texto">${esc(v.texto || '')}</span></li>`).join('')}
-            </ol>` : ''
-      const corpo = editando ? `
-            <div class="coment-edicao">
-              <label class="sr-only" for="coment-edit-${id}">${t('comentEditarAria')}</label>
-              <textarea id="coment-edit-${id}" rows="3" data-coment-rascunho="${id}">${esc(_comentEditando.rascunho)}</textarea>
-              <div class="coment-edicao-acoes">
-                <button type="button" class="btn-ghost btn-sm" data-coment-acao="cancelar" data-coment-id="${id}">${t('btnCancelar')}</button>
-                <button type="button" class="btn-secondary btn-sm" data-coment-acao="salvar" data-coment-id="${id}">${t('salvar')}</button>
-              </div>
-            </div>`
-        : `<div class="comentario-bolha"><div class="comment-text">${texto}</div></div>`
-      return `
-        <li class="feed-item feed-item-comment${item.interno ? ' feed-item-interna' : ''}">
-          <div class="feed-left"><div class="avatar avatar-sm ${nome ? '' : 'avatar-vazio'}" aria-hidden="true">${nome ? gerarIniciais(nome) : _svg('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>', 12)}</div></div>
-          <div class="feed-body">
-            <div class="feed-header">
-              <span class="feed-author">${esc(nome || t('feedParticipante'))}</span>
-              ${interna}
-              <span class="feed-time" title="${ts.title}">${ts.texto}</span>
-              ${editado}
-              ${(meu || apaga) && !editando ? `<span class="coment-acoes">
-                ${meu ? acao('editar', t('comentEditarAria')) : ''}
-                ${apaga ? acao('apagar', t('comentApagarAria'), 'coment-acao-perigo') : ''}
-              </span>` : ''}
-            </div>
-            ${corpo}
-            ${anteriores}
-          </div>
-        </li>`
-    }
-
-    if (item._feedTipo === 'cotacao') {
-      return evento(icone('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
-        `${t('feedCotacao', { quem: quem || t('feedAlguem'), fornecedor: `<strong>${esc(item.fornecedorNome || '—')}</strong>` })}${item.semProduto ? ` <span class="feed-sem-produto">(${t('dtSemProduto')})</span>` : item.valor ? ` <span class="num">(${formatCurrency(item.valor)})</span>` : ''}`, ts)
-    }
-
-    if (item._feedTipo === 'lancamento') {
-      return evento(icone('<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>'),
-        t('feedLancou', { quem: quem || t('feedAlguem') }), ts, 'feed-item-etapa')
-    }
-
-    if (item._feedTipo === 'autorizacao') {
-      const negou = item.resultado === 'negada'
-      return evento(icone(negou ? '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' : '<polyline points="20 6 9 17 4 12"/>'),
-        t(negou ? 'feedAutorizacaoNegada' : 'feedAutorizacaoConfirmada', { quem: quem || t('feedAlguem') }), ts, negou ? 'feed-item-neg' : '')
-    }
-
-    if (item._feedTipo === 'comprovante') {
-      return evento(icone('<polyline points="20 6 9 17 4 12"/>'),
-        t('feedComprovante', { quem: quem || t('feedAlguem'), parcela: `<strong class="num">${esc(item.parcelaNumero || '')}</strong>` }), ts)
-    }
-
-    if (item._feedTipo === 'edicao') {
-      return evento(icone('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
-        `${t('feedAlterou', { quem: quem || t('feedAlguem'), campo: `<strong>${esc(_rotuloCampo(item))}</strong>` })}
-         <div class="feed-nota"><span class="feed-antes">${esc(_valorEdicao(item, item.valorAnterior))}</span> → ${esc(_valorEdicao(item, item.valorNovo))}</div>`, ts)
-    }
-
-    // Voto num nível da alçada (o último voto vira a entrada "Aprovado")
-    if (item._feedTipo === 'voto') {
-      return evento(icone('<polyline points="20 6 9 17 4 12"/>'),
-        `${t('feedVotou', { quem: quem || t('feedAlguem'), nivel: item.nivel, total: item.nivelTotal, nome: `<strong>${esc(item.nivelNome || '')}</strong>` })}${item.avancou
-          ? `<div class="feed-nota">${t('feedVotoAvancou', { nivel: item.nivel + 1 })}</div>` : ''}`, ts)
-    }
-
-    if (item._feedTipo === 'anexo') {
-      return evento(icone('<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>'),
-        t('feedAnexou', { quem: quem || t('feedAlguem'), arquivo: `<strong>${esc(item.nomeArquivo || '—')}</strong>` }), ts)
-    }
-
-    return ''
-  }).join('')
-}
-
-// ── Parcelas ──────────────────────────────────────────────────
-function _renderParcelasBloco() {
-  const total = _parcelas.reduce((s, x) => s + (x.valor || 0), 0)
-  const pago  = _parcelas.filter(x => x.pago).reduce((s, x) => s + (x.valor || 0), 0)
-  const pct   = total ? Math.round(pago / total * 100) : 0
-  const pagas = _parcelas.filter(x => x.pago).length
-  return `
-    <div class="parcelas-resumo">
-      <div class="parcelas-resumo-txt">
-        <span class="parcelas-pago">${formatCurrency(pago)}</span>
-        <span class="parcelas-de">${t('dtPagosDe')} ${formatCurrency(total)} · ${t(_parcelas.length === 1 ? 'dtParcelasDe1' : 'dtParcelasDe', { pagas, total: _parcelas.length })}</span>
-      </div>
-      <span class="parcelas-pct">${pct}%</span>
-    </div>
-    <div class="parcelas-barra" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${t('dtPercentualPago')}"><span style="width:${pct}%"></span></div>
-    <ol class="parcelas-lista" id="parcelas-list" style="--col-acoes:${_podePagarParcela() ? '112px' : (_parcelas.some(x => x.comprovante) ? '36px' : '0px')}">${_renderParcelas()}</ol>
-    ${_podePagarParcela() && !_enviaArquivos() ? `<p class="form-hint">${t('dtArquivosDesligados')}</p>` : ''}`
-}
-
-function _renderParcelas() {
-  const podePagar = _podePagarParcela()
-  return _parcelas.map(parc => {
-    let estado, cls = ''
-    if (parc.pago) {
-      estado = parc.pagoEm ? t('parcPagaEm', { d: dataAbsoluta(parc.pagoEm) }) : t('parcPaga')
-      cls = 'paga'
-    } else {
-      const d = _diasAte(parc.vencimento)
-      if (d === null) estado = t('parcSemVencimento')
-      else {
-        estado = _textoVencimento(d)
-        cls = d < 0 ? 'vencida' : d <= 3 ? 'vencendo' : ''
-      }
-    }
-    const acoes = [
-      parc.comprovante ? `<a href="${esc(urlSegura(parc.comprovante))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('dtVerComprovante')}" title="${t('dtVerComprovante')}">${ICO.doc}</a>` : '',
-      podePagar && !parc.comprovante && _enviaArquivos() ? `
-        <label class="btn-icon" tabindex="0" aria-label="${t('dtAnexarComprovante')}" title="${t('dtAnexarComprovante')}">
-          ${ICO.clipe}
-          <input type="file" accept="image/*,.pdf" data-comprov="${esc(parc.id)}" class="sr-only" tabindex="-1">
-        </label>` : '',
-      !parc.pago && podePagar ? `<button class="btn-ghost btn-sm" data-pagar="${esc(parc.id)}" title="${t('dtRegistrarPagamento')}">${t('dtPagar')}</button>` : '',
-    ].join('')
-    return `
-      <li class="parcela-item ${cls}">
-        <div class="parcela-numero"><b>${esc(parc.numero)}</b><span>/${esc(parc.total)}</span></div>
-        <div class="parcela-info">
-          <div class="parcela-data">${formatDate(parc.vencimento)}</div>
-          <div class="parcela-venc ${cls}">${estado}</div>
-        </div>
-        <div class="parcela-valor${parc.pago ? ' parcela-pago' : ''}">${formatCurrency(parc.valor)}</div>
-        <div class="parcela-acoes">${acoes}</div>
-      </li>`
-  }).join('')
-}
-
-// ── Bind de eventos ───────────────────────────────────────────
-let _fecharMenuDoc = null
-let _menuLimpadorReg = false
-
-function _bindMenuAcoes() {
-  const btn  = document.getElementById('btn-mais-acoes')
-  const menu = document.getElementById('menu-mais-acoes')
-  if (_fecharMenuDoc) { document.removeEventListener('click', _fecharMenuDoc); document.removeEventListener('keydown', _fecharMenuDoc) }
-  if (!btn || !menu) return
-  // Celular: o voltar do Android fecha o menu, sem sair do pedido
-  const fechar = () => {
-    menu.hidden = true; btn.setAttribute('aria-expanded', 'false')
-    if (menu._voltar) { desempilharVoltar(menu._voltar); menu._voltar = null }
-  }
-  btn.addEventListener('click', e => {
-    e.stopPropagation()
-    const abrir = menu.hidden
-    if (!abrir) { fechar(); return }
-    menu.hidden = false
-    btn.setAttribute('aria-expanded', 'true')
-    if (!menu._voltar) menu._voltar = empilharVoltar(() => { menu._voltar = null; fechar() }, 'menu-mais-acoes')
-    if (abrir) [...menu.querySelectorAll('.menu-acoes-item')].find(i => i.offsetParent !== null)?.focus()
-  })
-  menu.addEventListener('click', e => { if (e.target.closest('.menu-acoes-item')) fechar() })
-  menu.addEventListener('keydown', e => {
-    const itens = [...menu.querySelectorAll('.menu-acoes-item')].filter(i => i.offsetParent !== null)
-    const idx = itens.indexOf(document.activeElement)
-    if (e.key === 'ArrowDown') { e.preventDefault(); itens[(idx + 1) % itens.length]?.focus() }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); itens[(idx - 1 + itens.length) % itens.length]?.focus() }
-  })
-  _fecharMenuDoc = e => {
-    if (e.type === 'keydown' && e.key !== 'Escape') return
-    if (e.type === 'click' && e.target.closest?.('.menu-acoes-wrap')) return
-    if (!menu.hidden) { fechar(); if (e.type === 'keydown') btn.focus() }
-  }
-  document.addEventListener('click', _fecharMenuDoc)
-  document.addEventListener('keydown', _fecharMenuDoc)
-  if (!_menuLimpadorReg) {
-    _menuLimpadorReg = true
-    registrarLimpador(() => {
-      _menuLimpadorReg = false
-      if (_fecharMenuDoc) { document.removeEventListener('click', _fecharMenuDoc); document.removeEventListener('keydown', _fecharMenuDoc); _fecharMenuDoc = null }
-    })
-  }
-}
-
-function _bindParcelasEvents(raiz = document) {
-  raiz.querySelectorAll('[data-pagar]').forEach(btn => {
-    btn.addEventListener('click', () => _pagarParcela(btn.dataset.pagar))
-  })
-  raiz.querySelectorAll('input[data-comprov]').forEach(inp => {
-    inp.addEventListener('change', e => {
-      const file = e.target.files[0]
-      if (file) _anexarComprovante(inp.dataset.comprov, file)
-    })
-  })
-}
-
-function _atualizarResumoParcelasCompra() {
-  const el = document.getElementById('mc-resumo-parcelas')
-  if (!el) return
-  const valor = parseMoeda(document.getElementById('mc-valor')?.value || '')
-  const n = parseInt(document.getElementById('mc-parcelas')?.value) || 1
-  if (!(valor > 0)) { el.textContent = ''; return }
-  if (n <= 1) { el.textContent = t('mcPagamentoUnico', { valor: formatCurrency(valor) }); return }
-  // Os mesmos valores que serão gravados: a última parcela leva a diferença dos centavos
-  const parcelas = dividirEmParcelas(valor, n)
-  const primeira = parcelas[0]
-  const ultima = parcelas[parcelas.length - 1]
-  el.textContent = ultima === primeira
-    ? t('mcParcelasIguais', { n, valor: formatCurrency(primeira) })
-    : t('mcParcelasUltima', { n, valor: formatCurrency(primeira), ultima: formatCurrency(ultima) })
-}
-
-function _bindDetalheEvents() {
-  // Fecha modais: botões, clique fora e Esc
-  document.querySelectorAll('#detalhe-root [data-close]').forEach(btn => {
-    btn.addEventListener('click', () => fecharModal(btn.dataset.close))
-  })
-  document.querySelectorAll('#detalhe-root .modal-overlay').forEach(ov => {
-    ov.addEventListener('mousedown', e => { if (e.target === ov) fecharModal(ov.id) })
-    ov.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(ov.id) })
-  })
-
-  _bindMenuAcoes()
-
-  document.getElementById('btn-assumir')?.addEventListener('click', _assumirPedido)
-  document.getElementById('btn-liberar')?.addEventListener('click', _liberarClaim)
-  document.getElementById('btn-aprovar')?.addEventListener('click', _aprovarPedido)
-  document.getElementById('btn-reprovar')?.addEventListener('click', () => abrirModal('modal-reprovar'))
-
-  document.getElementById('reprov-motivo')?.addEventListener('change', e => {
-    const wrap = document.getElementById('reprov-outros-wrap')
-    if (wrap) wrap.style.display = e.target.value === MOTIVO_OUTROS ? 'block' : 'none'
-  })
-  document.getElementById('btn-confirmar-reprovar')?.addEventListener('click', _reprovarPedido)
-
-  document.getElementById('btn-feed-mais')?.addEventListener('click', e => {
-    _secoesAlternadas.atividade = true
-    document.getElementById('activity-feed')?.classList.remove('curta')
-    e.currentTarget.remove()
-  })
-  document.querySelectorAll('#detalhe-root .dt-recolher').forEach(b => b.addEventListener('click', () => {
-    const secao = b.closest('.dt-bloco')
-    const abrir = secao.classList.contains('recolhida')
-    secao.classList.toggle('recolhida', !abrir)
-    secao.classList.toggle('abrindo', abrir)
-    if (abrir) setTimeout(() => secao.classList.remove('abrindo'), 260)
-    b.setAttribute('aria-expanded', String(abrir))
-    _secoesAlternadas[b.dataset.secao] = abrir
-  }))
-  document.getElementById('btn-executar-compra')?.addEventListener('click', () => {
-    abrirModal('modal-compra')
-    _atualizarResumoParcelasCompra()
-  })
-  autocompletar(document.getElementById('mc-fornecedor'), _opcoesFornecedor)
-  prepararCampoNota(document.getElementById('mc-nota'))
-  ;['mc-valor', 'mc-parcelas'].forEach(id => document.getElementById(id)?.addEventListener('input', _atualizarResumoParcelasCompra))
-  document.getElementById('btn-confirmar-compra')?.addEventListener('click', _executarCompra)
-
-  document.getElementById('btn-confirmar-entrega')?.addEventListener('click', _confirmarEntrega)
-  document.getElementById('btn-lanc-confirmar')?.addEventListener('click', () => _revisarAutorizacao('confirmada'))
-  document.getElementById('btn-lanc-negar')?.addEventListener('click', () => _revisarAutorizacao('negada'))
-  document.getElementById('btn-informar-nota')?.addEventListener('click', _informarNota)
-  document.getElementById('btn-confirmar-pagamento')?.addEventListener('click', _confirmarPagamento)
-
-  document.getElementById('btn-cancelar')?.addEventListener('click', () => abrirModal('modal-cancelar'))
-  document.getElementById('cancel-motivo')?.addEventListener('change', e => {
-    const wrap = document.getElementById('cancel-outros-wrap')
-    if (wrap) wrap.style.display = e.target.value === MOTIVO_OUTROS ? 'block' : 'none'
-  })
-  document.getElementById('btn-confirmar-cancelar')?.addEventListener('click', _cancelarPedido)
-
-  // Comentário
-  document.getElementById('btn-enviar-comentario')?.addEventListener('click', _enviarComentario)
-  document.getElementById('input-comentario')?.addEventListener('keydown', e => {
-    if (_handleMentionKeydown(e)) return
-    if (e.key === 'Escape') { _fecharMentionDropdown(); return }
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { _fecharMentionDropdown(); _enviarComentario() }
-  })
-  document.getElementById('input-comentario')?.addEventListener('input', _handleMentionInput)
-  document.getElementById('coment-interno')?.addEventListener('change', e => {
-    _notaInterna = e.target.checked
-    e.target.closest('.comentario-campo')?.classList.toggle('interno', _notaInterna)
-  })
-  document.getElementById('input-comentario')?.addEventListener('blur', () => setTimeout(_fecharMentionDropdown, 150))
-
-  // Comentário já enviado: o autor edita; o gestor da empresa e o supremo apagam
-  const feed = document.getElementById('activity-feed')
-  feed?.addEventListener('click', e => {
-    const b = e.target.closest('[data-coment-acao]')
-    if (!b) return
-    const id = b.dataset.comentId
-    if (b.dataset.comentAcao === 'editar') _abrirEdicaoComentario(id)
-    else if (b.dataset.comentAcao === 'apagar') _apagarComentario(id)
-    else if (b.dataset.comentAcao === 'salvar') _salvarComentario(id)
-    else if (b.dataset.comentAcao === 'cancelar') _fecharEdicaoComentario(id)
-    else if (b.dataset.comentAcao === 'versoes') {
-      if (_versoesAbertas.has(id)) _versoesAbertas.delete(id); else _versoesAbertas.add(id)
-      _redesenharAtividade()
-      _focarComentario(id, '[data-coment-acao="versoes"]')
-    }
-  })
-  feed?.addEventListener('input', e => {
-    if (_comentEditando && e.target.dataset.comentRascunho === _comentEditando.id) _comentEditando.rascunho = e.target.value
-  })
-  feed?.addEventListener('keydown', e => {
-    const id = e.target.dataset?.comentRascunho
-    if (!id) return
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _fecharEdicaoComentario(id) }
-    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); _salvarComentario(id) }
-  })
-
-  document.querySelectorAll('[data-indicar]').forEach(btn => {
-    btn.addEventListener('click', () => _indicarCotacao(btn.dataset.indicar))
-  })
-  document.getElementById('btn-add-cotacao')?.addEventListener('click', _mostrarModalCotacao)
-  document.getElementById('btn-comparar-cotacoes')?.addEventListener('click', _compararCotacoes)
-  document.getElementById('btn-editar-pedido')?.addEventListener('click', _editarPedido)
-
-  document.getElementById('btn-reabrir-pedido')?.addEventListener('click', () => {
-    document.getElementById('reabrir-justificativa').value = ''
-    abrirModal('modal-reabrir')
-  })
-  document.getElementById('btn-confirmar-reabrir')?.addEventListener('click', _reabrirPedido)
-
-  document.getElementById('btn-duplicar-pedido')?.addEventListener('click', () => {
-    agendarDuplicar(_pedido)
-    navegar('pedidos')
-  })
-  document.getElementById('btn-exportar-pdf')?.addEventListener('click', _exportarPedidoPDF)
-
-  _bindParcelasEvents()
-
-  // Labels usados como botão de upload respondem a Enter/Espaço
-  document.querySelectorAll('#detalhe-root label[tabindex="0"]').forEach(l => {
-    l.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); l.querySelector('input[type=file]')?.click() }
-    })
-  })
-
-  document.getElementById('input-upload-anexo')?.addEventListener('change', e => {
-    Array.from(e.target.files || []).forEach(f => _uploadAnexo(f))
-    e.target.value = ''
-  })
-
-  _bindAnexosEvents()
-}
-
-// ── Ações de workflow ─────────────────────────────────────────
-async function _assumirPedido() {
-  const ok = await prxConfirm(t('dlgAssumirTitulo'), t('dlgAssumirTexto'), t('dlgAssumirOk'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    await runTransaction(db, async (tx) => {
-      const ref  = doc(db, 'pedidos', _pedidoId)
-      const snap = await tx.get(ref)
-      if (snap.data().compradorId) throw new Error(t('pedidoJaAssumido'))
-      tx.update(ref, {
-        compradorId: sessao.usuario.id,
-        compradorNome: sessao.usuario.nome || null,
-        compradorAssumiuEm: serverTimestamp(),
-        status: STATUS.AG_COTACAO,
-        atualizadoEm: serverTimestamp(),
-      })
-      _historicoJunto(tx, STATUS.AG_COTACAO, { chave: 'notaAssumiu' })
-    })
-    prxToast(t('pedidoAssumido'), 'success')
-  } catch (err) {
-    prxToast(mensagemDeErro(err, t('erroAssumir')), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _liberarClaim() {
-  const ok = await prxConfirm(t('dlgLiberarTitulo'), t('dlgLiberarTexto'), t('dlgLiberarOk'), t('btnCancelar'), true)
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    // Em transação: se o comprador indicou uma cotação nesse meio-tempo, o
-    // pedido não volta para a fila por cima disso
-    await runTransaction(db, async (tx) => {
-      const ref  = doc(db, 'pedidos', _pedidoId)
-      const snap = await tx.get(ref)
-      if (snap.data().status !== STATUS.AG_COTACAO) throw new Error(t('pedidoJaProcessado'))
-      tx.update(ref, {
-        compradorId: null,
-        compradorNome: null,
-        compradorAssumiuEm: null,
-        status: STATUS.SOLICITADO,
-        atualizadoEm: serverTimestamp(),
-      })
-      _historicoJunto(tx, STATUS.SOLICITADO, { chave: 'notaLiberado' })
-    })
-    prxToast(t('pedidoLiberado'), 'success')
-  } catch (err) {
-    prxToast(t('erroLiberarPedido'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _aprovarPedido() {
-  if (situacaoAprovacao(_pedido)) return _votarNaAlcada()
-  const ind = _cotacoes.find(c => c.indicada)
-  const ok = await prxConfirm(t('dlgAprovarTitulo'),
-    ind ? t('dlgAprovarTextoInd', { fornecedor: ind.fornecedorNome, valor: formatCurrency(ind.valor) }) : t('dlgAprovarTexto'),
-    t('btnAprovar'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    await runTransaction(db, async (tx) => {
-      const ref  = doc(db, 'pedidos', _pedidoId)
-      const snap = await tx.get(ref)
-      if (snap.data().status !== STATUS.EM_APROVACAO) throw new Error(t('pedidoJaProcessado'))
-      tx.update(ref, {
-        status: STATUS.APROVADO,
-        aprovadoPor: sessao.usuario.id,
-        aprovadoPorNome: sessao.usuario.nome || null,
-        aprovadoEm: serverTimestamp(),
-        atualizadoEm: serverTimestamp(),
-      })
-      _historicoJunto(tx, STATUS.APROVADO)
-    })
-    prxToast(t('pedidoAprovado'), 'success')
-  } catch (err) {
-    prxToast(mensagemDeErro(err, t('erroAprovar')), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-// Com alçada: a aprovação conta para o nível atual. Quando o nível completa,
-// o pedido passa ao seguinte ou, no último, fica aprovado; tudo numa
-// transação, com a entrada do histórico (firestore.rules, votar). O supremo
-// aprova de uma vez, em qualquer nível
-async function _votarNaAlcada() {
-  const s = situacaoAprovacao(_pedido)
-  const supremo = sessao.usuario?.perfil === 'supremo'
-  const ultimo = s.numero === s.total
-  const fecha = s.faltam <= 1
-  const ok = await prxConfirm(t(supremo ? 'dlgAprovarTitulo' : 'dlgVotoTitulo'),
-    t(supremo ? 'dlgVotoSupremo' : fecha ? (ultimo ? 'dlgVotoAprova' : 'dlgVotoAvanca') : 'dlgVotoConta',
-      { nivel: s.numero, total: s.total, nome: s.nome, faltam: s.faltam - 1 }),
-    t('btnAprovar'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const resultado = await runTransaction(db, async (tx) => {
-      const ref  = doc(db, 'pedidos', _pedidoId)
-      const snap = await tx.get(ref)
-      const atual = snap.data()
-      if (atual.status !== STATUS.EM_APROVACAO) throw new Error(t('pedidoJaProcessado'))
-      if (impedimentoDeFuncao(atual, sessao.usuario, 'decidir')) throw new Error(t('votoJaContado'))
-      const agora = situacaoAprovacao(atual)
-      const { campos, resultado } = aplicarVoto(atual, sessao.usuario.id, { supremo })
-      tx.update(ref, {
-        ...campos,
-        ...(resultado === 'aprovado' ? {
-          status: STATUS.APROVADO,
-          aprovadoPor: sessao.usuario.id,
-          aprovadoPorNome: sessao.usuario.nome || null,
-          aprovadoEm: serverTimestamp(),
-        } : {}),
-        atualizadoEm: serverTimestamp(),
-      })
-      const dados = { nivel: agora.numero, total: agora.total, nome: agora.nome }
-      const nota = supremo && !(agora.numero === agora.total && agora.faltam <= 1) ? 'notaAprovouSupremo' : 'notaAprovouAlcada'
-      if (resultado === 'aprovado') _historicoJunto(tx, STATUS.APROVADO, { chave: nota, dados })
-      else {
-        tx.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
-          tipo: 'voto', nivel: agora.numero, nivelTotal: agora.total, nivelNome: agora.nome,
-          avancou: resultado === 'avancou',
-          autorId: sessao.usuario.id, autorNome: sessao.usuario.nome || null, criadoEm: serverTimestamp(),
-        })
-      }
-      return resultado
-    })
-    prxToast(t(resultado === 'aprovado' ? 'pedidoAprovado' : resultado === 'avancou' ? 'votoAvancou' : 'votoContado'), 'success')
-  } catch (err) {
-    prxToast(mensagemDeErro(err, t('erroAprovar')), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _reprovarPedido() {
-  const motivo = document.getElementById('reprov-motivo')?.value
-  const outros = document.getElementById('reprov-outros')?.value.trim()
-  if (!motivo || (motivo === MOTIVO_OUTROS && !outros)) {
-    prxToast(t('selecionarMotivoSimples'), 'error')
-    return
-  }
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    await runTransaction(db, async (tx) => {
-      const ref  = doc(db, 'pedidos', _pedidoId)
-      const snap = await tx.get(ref)
-      if (snap.data().status !== STATUS.EM_APROVACAO) throw new Error(t('pedidoJaProcessado'))
-      tx.update(ref, {
-        status: STATUS.REPROVADO,
-        reprovadoPor: sessao.usuario.id,
-        reprovadoPorNome: sessao.usuario.nome || null,
-        reprovadoEm: serverTimestamp(),
-        motivoReprovacao: motivo,
-        motivoReprovacaoOutros: motivo === MOTIVO_OUTROS ? outros : null,
-        atualizadoEm: serverTimestamp(),
-      })
-      _historicoJunto(tx, STATUS.REPROVADO, motivo === MOTIVO_OUTROS ? outros : motivo)
-    })
-    fecharModal('modal-reprovar')
-    prxToast(t('pedidoReprovado'), 'info')
-  } catch (err) {
-    prxToast(mensagemDeErro(err, t('erroReprovar')), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _executarCompra() {
-  const fornecedor = document.getElementById('mc-fornecedor')?.value.trim()
-  const valorStr   = document.getElementById('mc-valor')?.value.trim()
-  const condicao   = document.getElementById('mc-condicao')?.value
-  const dataCompra = document.getElementById('mc-data')?.value
-  const numParc    = parseInt(document.getElementById('mc-parcelas')?.value) || 1
-  const venc1      = document.getElementById('mc-venc1')?.value
-  const nota       = document.getElementById('mc-nota')?.value.trim()
-  const valorFinal = parseMoeda(valorStr)
-
-  if (!fornecedor || !valorFinal || !condicao || !dataCompra || !venc1) {
-    prxToast(t('erroCamposObrigatorios'), 'error')
-    return
-  }
-  if (['digito', 'tamanho'].includes(conferirNota(nota))) {
-    prxToast(t(conferirNota(nota) === 'digito' ? 'notaDigitoErrado' : 'notaTamanhoErrado'), 'warning')
-    return
-  }
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    // Fornecedor (novo ou com mais um uso), pedido, histórico e parcelas num
-    // lote só: a compra nunca fica registrada pela metade
-    const lote = writeBatch(db)
-    const forn = await _fornecedorNoLote(fornecedor, lote)
-    lote.update(doc(db, 'pedidos', _pedidoId), {
-      status: STATUS.COMPRADO,
-      fornecedorId: forn.id,
-      fornecedorNome: fornecedor,
-      valorFinal,
-      condicaoPagamento: condicao,
-      dataCompra,
-      ...(nota ? { notaFiscal: nota } : {}),
-      atualizadoEm: serverTimestamp(),
-    })
-    _historicoJunto(lote, STATUS.COMPRADO, { chave: 'notaCompra', dados: { fornecedor, valor: formatCurrency(valorFinal) } })
-    // Parcelas em centavos (a última leva a diferença), com vencimentos que
-    // respeitam o fim do mês
-    const valores = dividirEmParcelas(valorFinal, numParc)
-    const vencimentos = vencimentosMensais(venc1, numParc)
-    valores.forEach((valor, i) => {
-      lote.set(doc(collection(db, 'pedidos', _pedidoId, 'parcelas')), {
-        numero: i + 1, total: numParc,
-        valor, vencimento: vencimentos[i],
-        pago: false, pagoEm: null, comprovante: null,
-      })
-    })
-    await lote.commit()
-    if (forn.novo) _fornecedores.push(forn.novo)
-
-    fecharModal('modal-compra')
-    prxToast(t('compraRegistrada'), 'success')
-  } catch (err) {
-    prxToast(t('erroRegistrarCompra'), 'error')
-    console.error(err)
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _confirmarEntrega() {
-  const ok = await prxConfirm(t('dlgEntregaTitulo'), t('dlgEntregaTexto'), t('confirmar'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const lote = writeBatch(db)
-    const fecha = _pedido.lancamento?.pago === true
-    lote.update(doc(db, 'pedidos', _pedidoId), {
-      status: fecha ? STATUS.PAGO : STATUS.ENTREGUE,
-      dataEntrega: hojeISO(),
-      atualizadoEm: serverTimestamp(),
-    })
-    _historicoJunto(lote, fecha ? STATUS.PAGO : STATUS.ENTREGUE)
-    await lote.commit()
-    prxToast(t('entregaConfirmada'), 'success')
-  } catch (err) {
-    prxToast(t('erroConfirmarEntrega'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _confirmarPagamento() {
-  const forn = _pedido.fornecedorNome || ''
-  const resumo = _pedido.valorFinal
-    ? t(forn ? 'dtPagosValorA' : 'dtPagosValor', { valor: formatCurrency(_pedido.valorFinal), fornecedor: forn })
-    : t(forn ? 'dlgPagamentoRegistradoA' : 'dlgPagamentoRegistrado', { fornecedor: forn })
-  const ok = await prxConfirm(t('dlgPagamentoTitulo'), `${resumo} ${t('dlgPagamentoConclui')}`, t('confirmar'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const lote = writeBatch(db)
-    lote.update(doc(db, 'pedidos', _pedidoId), {
-      status: STATUS.PAGO,
-      atualizadoEm: serverTimestamp(),
-    })
-    _historicoJunto(lote, STATUS.PAGO)
-    await lote.commit()
-    prxToast(t('pagamentoConfirmado'), 'success')
-  } catch (err) {
-    prxToast(t('erroConfirmarPagamento'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _cancelarPedido() {
-  const motivo = document.getElementById('cancel-motivo')?.value
-  const outros = document.getElementById('cancel-outros')?.value.trim()
-  if (!motivo || (motivo === MOTIVO_OUTROS && !outros)) {
-    prxToast(t('selecionarMotivoSimples'), 'error')
-    return
-  }
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const lote = writeBatch(db)
-    lote.update(doc(db, 'pedidos', _pedidoId), {
-      status: STATUS.CANCELADO,
-      canceladoPor: sessao.usuario.id,
-      canceladoPorNome: sessao.usuario.nome || null,
-      canceladoEm: serverTimestamp(),
-      motivoCancelamento: motivo,
-      motivoCancelamentoOutros: motivo === MOTIVO_OUTROS ? outros : null,
-      atualizadoEm: serverTimestamp(),
-    })
-    _historicoJunto(lote, STATUS.CANCELADO, motivo === MOTIVO_OUTROS ? outros : motivo)
-    await lote.commit()
-    fecharModal('modal-cancelar')
-    prxToast(t('pedidoCanceladoMsg'), 'info')
-  } catch (err) {
-    prxToast(t('erroCancelarPedido'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-// ── Comparador de cotações (3.3) ─────────────────────────────
-// Overlay criado sob demanda (fora do #detalhe-root): fecha por botão, clique fora e Esc
-function _montarOverlay(id, html) {
-  document.getElementById(id)?.remove()
-  const overlay = document.createElement('div')
-  overlay.className = 'modal-overlay dt-modal'
-  overlay.id = id
-  overlay.innerHTML = html
-  document.body.appendChild(overlay)
-  abrirModal(id)
-  const fechar = () => { fecharModal(id); setTimeout(() => overlay.remove(), 250) }
-  overlay.querySelectorAll('[data-fechar]').forEach(b => b.addEventListener('click', fechar))
-  overlay.addEventListener('mousedown', e => { if (e.target === overlay) fechar() })
-  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') fechar() })
-  registrarLimpador(() => overlay.remove())
-  return { overlay, fechar }
-}
-
-function _compararCotacoes() {
-  const comValor = _cotacoes.filter(c => !c.semProduto)
-  const menorValor = Math.min(...comValor.map(c => c.valor))
-  const lista = [...comValor].sort((a, b) => a.valor - b.valor)
-  _montarOverlay('modal-comparar', `
-    <div class="modal modal-comparar" role="dialog" aria-modal="true" aria-labelledby="modal-comparar-titulo">
-      ${_cabModal('modal-comparar-titulo', t('dtLadoALadoTitulo'), 'data-fechar')}
-      <div class="modal-body">
-        <div class="cotacao-compare-grid" style="--colunas:${Math.min(lista.length, 4)}">
-          ${lista.map(c => {
-            const eMenor = c.valor === menorValor
-            const dif = c.valor - menorValor
-            return `
-              <div class="cotacao-compare-col ${c.indicada ? 'cotacao-compare-indicada' : ''}">
-                <div class="cotacao-compare-badges">
-                  ${c.indicada ? `<span class="cot-marca cot-indicada">${t('dtIndicada')}</span>` : ''}
-                  ${eMenor ? `<span class="cot-marca cot-menor">${t('dtMenorValor')}</span>` : ''}
-                </div>
-                <div class="cotacao-compare-fornecedor">${esc(c.fornecedorNome)}</div>
-                <div class="cotacao-compare-valor">${formatCurrency(c.valor)}</div>
-                <div class="cotacao-compare-dif num">${eMenor ? t('cmpMenorProposta') : `+${formatCurrency(dif)} · ${_pct(dif / menorValor * 100)}`}</div>
-                <div class="cotacao-compare-row"><span class="meta-label">${t('cotPrazoEntrega')}</span><span>${esc(c.prazoEntrega || '—')}</span></div>
-                <div class="cotacao-compare-row"><span class="meta-label">${t('cmpCondicoes')}</span><span>${esc(c.condicoesComerciais || '—')}</span></div>
-                ${c.arquivoUrl ? `<a href="${esc(urlSegura(c.arquivoUrl))}" target="_blank" rel="noopener" class="btn-ghost btn-sm cotacao-compare-arq">${ICO.externo}${t('dtAbrirArquivo')}</a>` : ''}
-              </div>`
-          }).join('')}
-        </div>
-      </div>
-    </div>
-  `)
-}
-
-// ── Editar campos do pedido + auditoria campo-a-campo (3.7) ──
-const _CAMPO_CHAVE = {
-  titulo: 'npTitulo', descricao: 'dtDescricao', valorEstimado: 'npValor',
-  dataNecessaria: 'campoDataNecessaria', urgente: 'campoUrgencia', categoriaId: 'npCategoria',
-}
-// Nome do campo de uma edição no idioma de quem lê (o rótulo gravado fica para
-// campos que o app não conhece mais)
-const _rotuloCampo = h => _CAMPO_CHAVE[h.campo] ? t(_CAMPO_CHAVE[h.campo]) : (h.campoLabel || h.campo || '')
-const _valorEdicao = (h, v) => h.campo === 'urgente' ? rotuloUrgencia(v) : (v || '—')
-
-function _editarPedido() {
-  const p = _pedido
-  const { fechar } = _montarOverlay('modal-editar-pedido', `
-    <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="modal-editar-titulo">
-      ${_cabModal('modal-editar-titulo', t('btnEditarPedido'), 'data-fechar')}
-      <div class="modal-body">
-        <p class="modal-intro">${t('editIntro')}</p>
-        <div class="form-grid form-grid-2">
-          <div class="form-group col-span-2">
-            <label for="edit-titulo">${t('npTitulo')} *</label>
-            <input type="text" id="edit-titulo" value="${esc(p.titulo || '')}" maxlength="120">
-          </div>
-          <div class="form-group col-span-2">
-            <label for="edit-descricao">${t('dtDescricao')}</label>
-            <textarea id="edit-descricao" rows="3" style="resize:vertical">${esc(p.descricao || '')}</textarea>
-          </div>
-          <div class="form-group">
-            <label for="edit-data">${t('npData')}</label>
-            <input type="date" id="edit-data" value="${esc(p.dataNecessaria || '')}">
-          </div>
-          <div class="form-group">
-            <label for="edit-categoria">${t('npCategoria')}</label>
-            <select id="edit-categoria">
-              ${_categorias.map(c => `<option value="${esc(c.id)}" ${p.categoriaId === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <div class="toggle-wrap np-urgente${p.urgente ? ' on' : ''}" id="edit-urgente-wrap" role="switch" tabindex="0" aria-checked="${p.urgente ? 'true' : 'false'}" aria-labelledby="edit-urgente-rotulo" aria-describedby="edit-urgente-desc">
-              <div class="np-urgente-txt">
-                <span class="toggle-label" id="edit-urgente-rotulo">${t('npUrgente')}<span class="kcard-urg np-urgente-selo" aria-hidden="true">${t('urgenteTag')}</span></span>
-                <span class="np-urgente-desc" id="edit-urgente-desc">${t('npUrgenteDesc')}</span>
-              </div>
-              <div class="toggle ${p.urgente ? 'on' : ''}" id="edit-urgente-toggle" aria-hidden="true"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
-        <button class="btn-primary" id="salvar-edicao">${t('editSalvar')}</button>
-      </div>
-    </div>
-  `)
-  // O mesmo interruptor do novo pedido: a caixa inteira alterna, com o selo e a descrição
-  const tg = document.getElementById('edit-urgente-toggle')
-  const wrap = document.getElementById('edit-urgente-wrap')
-  const alternar = () => {
-    const on = tg.classList.toggle('on')
-    wrap.classList.toggle('on', on)
-    wrap.setAttribute('aria-checked', String(on))
-  }
-  wrap?.addEventListener('click', alternar)
-  wrap?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternar() } })
-  document.getElementById('salvar-edicao')?.addEventListener('click', () => _salvarEdicaoPedido(fechar))
-}
-
-async function _salvarEdicaoPedido(fechar) {
-  const titulo      = document.getElementById('edit-titulo')?.value.trim()
-  const descricao   = document.getElementById('edit-descricao')?.value.trim()
-  const data        = document.getElementById('edit-data')?.value
-  const categoriaId = document.getElementById('edit-categoria')?.value
-  const urgente     = document.getElementById('edit-urgente-toggle')?.classList.contains('on')
-
-  if (!titulo) { prxToast(t('editTituloObrigatorio'), 'error'); return }
-
-  const p = _pedido
-
-  const novos = { titulo, descricao, dataNecessaria: data, categoriaId, urgente }
-  const formatar = (campo, val) => {
-    if (campo === 'valorEstimado')  return val ? formatCurrency(val) : '—'
-    if (campo === 'dataNecessaria') return val ? formatDate(val) : '—'
-    if (campo === 'urgente')        return val ? t('urgente') : t('campoNormal')
-    if (campo === 'categoriaId')    return _categorias.find(c => c.id === val)?.nome || val
-    return String(val ?? '—')
-  }
-
-  const alteracoes = Object.keys(novos).filter(k => {
-    const antes = p[k] ?? null
-    const depois = novos[k] ?? null
-    return String(antes) !== String(depois)
-  })
-
-  if (!alteracoes.length) { prxToast(t('editSemAlteracao'), 'info'); fechar(); return }
-
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    // A edição e as entradas do histórico (uma por campo) vão no mesmo lote, e
-    // o pedido aponta para a primeira: as regras recusam a edição sem ela
-    const lote = writeBatch(db)
-    const entradas = alteracoes.map(() => doc(collection(db, 'pedidos', _pedidoId, 'historico')))
-    lote.update(doc(db, 'pedidos', _pedidoId), {
-      ...novos, ultimaEdicaoId: entradas[0].id, atualizadoEm: serverTimestamp(),
-    })
-    alteracoes.forEach((campo, i) => lote.set(entradas[i], {
-      tipo:          'edicao',
-      campo,
-      campoLabel:    _rotuloCampo({ campo }),
-      valorAnterior: formatar(campo, p[campo]),
-      valorNovo:     formatar(campo, novos[campo]),
-      autorId:       sessao.usuario.id,
-      autorNome:     sessao.usuario.nome,
-      criadoEm:      serverTimestamp(),
-    }))
-    await lote.commit()
-    fechar()
-    prxToast(t('pedidoAtualizado'), 'success')
-  } catch (err) {
-    prxToast(t('erroSalvarAlteracoes'), 'error')
-    console.error(err)
-  } finally {
-    esconderSpinner()
-  }
-}
-
-let _mentionIndex = -1
-
-function _mentionAberto() {
-  const dd = document.getElementById('mention-dropdown')
-  return dd && dd.style.display !== 'none'
-}
-
-function _fecharMentionDropdown() {
-  const dd = document.getElementById('mention-dropdown')
-  if (dd) dd.style.display = 'none'
-  _mentionIndex = -1
-}
-
-function _aplicarMencao(textarea, primeiroNome) {
-  const pos   = textarea.selectionStart
-  const antes = textarea.value.slice(0, pos)
-  const novoAntes = antes.replace(/@([\wÀ-ÿ]*)$/, `@${primeiroNome} `)
-  textarea.value = novoAntes + textarea.value.slice(pos)
-  textarea.selectionStart = textarea.selectionEnd = novoAntes.length
-  _fecharMentionDropdown()
-  textarea.focus()
-}
-
-function _destacarMentionItem(dd) {
-  dd.querySelectorAll('.mention-item').forEach((item, i) => {
-    item.classList.toggle('mention-item-active', i === _mentionIndex)
-  })
-}
-
-function _handleMentionKeydown(e) {
-  if (!_mentionAberto()) return false
-  const dd = document.getElementById('mention-dropdown')
-  const itens = dd.querySelectorAll('.mention-item')
-  if (!itens.length) return false
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    _mentionIndex = (_mentionIndex + 1) % itens.length
-    _destacarMentionItem(dd)
-    return true
-  }
-  if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    _mentionIndex = (_mentionIndex - 1 + itens.length) % itens.length
-    _destacarMentionItem(dd)
-    return true
-  }
-  if ((e.key === 'Enter' || e.key === 'Tab') && _mentionIndex >= 0) {
-    e.preventDefault()
-    _aplicarMencao(e.target, itens[_mentionIndex].dataset.nome)
-    return true
-  }
-  return false
-}
-
-function _handleMentionInput(e) {
-  const textarea = e.target
-  const pos = textarea.selectionStart
-  const antes = textarea.value.slice(0, pos)
-  const match = antes.match(/@([\wÀ-ÿ]*)$/)
-  const dd = document.getElementById('mention-dropdown')
-  if (!dd) return
-
-  if (!match) { _fecharMentionDropdown(); return }
-
-  const query = normalizarTexto(match[1])
-  const empresaId = _pedido?.empresaId
-  // Gestores leem a lista de usuários; os demais perfis mencionam quem já participou do pedido
-  let base = _usuarios.filter(u => {
-    if (u.ativo === false) return false
-    if (u.perfil === PERFIS.SUPREMO || !empresaId) return true
-    return empresasDoUsuario(u).includes(empresaId)
-  })
-  if (_notaInterna && _ehEquipe()) base = base.filter(u => u.perfil !== PERFIS.SOLICITANTE)
-  if (!base.length) {
-    const vistos = new Map()
-    ;[..._historico, ..._comentarios].forEach(x => { if (x.autorId && x.autorNome && !vistos.has(x.autorId)) vistos.set(x.autorId, { id: x.autorId, nome: x.autorNome }) })
-    base = [...vistos.values()]
-  }
-  const sugestoes = base
-    .filter(u => u.id !== sessao.usuario.id && normalizarTexto(u.nome || '').includes(query))
-    .slice(0, 6)
-
-  if (!sugestoes.length) { _fecharMentionDropdown(); return }
-
-  _mentionIndex = 0
-  dd.innerHTML = `<div class="mention-titulo">${t('mencionar')}</div>` + sugestoes.map(u => `
-    <div class="mention-item" role="option" data-nome="${esc(u.nome.split(' ')[0])}">
-      <div class="avatar avatar-sm" aria-hidden="true">${gerarIniciais(u.nome)}</div>
-      <span class="mention-nome">${esc(u.nome)}</span>
-      ${u.perfil ? `<span class="mention-perfil">${PERFIS_LABEL[u.perfil] || ''}</span>` : ''}
-    </div>
-  `).join('')
-  dd.style.display = 'block'
-  _destacarMentionItem(dd)
-
-  dd.querySelectorAll('.mention-item').forEach((item, i) => {
-    item.addEventListener('mouseenter', () => {
-      _mentionIndex = i
-      _destacarMentionItem(dd)
-    })
-    item.addEventListener('mousedown', ev => {
-      ev.preventDefault()
-      _aplicarMencao(textarea, item.dataset.nome)
-    })
-  })
-}
-
-async function _enviarComentario() {
-  const input = document.getElementById('input-comentario')
-  const btn   = document.getElementById('btn-enviar-comentario')
-  const texto = input?.value.trim()
-  if (!texto) return
-  if (!exigirConexao()) return
-  if (btn) btn.disabled = true
-
-  // Extrai @menções (nomes/apelidos após @)
-  const mencoes = [...new Set((texto.match(/@([\wÀ-ÿ]+)/g) || []).map(m => m.slice(1)))]
-
-  // Nota interna (só a equipe) ou comentário para todos os envolvidos
-  const interno = _ehEquipe() && _notaInterna
-  const colecao = interno ? _COL_INTERNA : 'comentarios'
-
-  // Optimistic: insere na UI imediatamente; removido no rollback se a escrita falhar
-  const tempId = `temp-${Date.now()}`
-  _comentarios.push({
-    id:        tempId,
-    _col:      colecao,
-    interno,
-    texto,
-    autorId:   sessao.usuario.id,
-    autorNome: sessao.usuario.nome,
-    mencoes,
-    criadoEm:  new Date(),
-  })
-  const feedEl = document.getElementById('activity-feed')
-  if (feedEl) feedEl.innerHTML = _renderActivityFeed()
-  if (input) input.value = ''
-
-  try {
-    await addDoc(collection(db, 'pedidos', _pedidoId, colecao), {
-      texto,
-      autorId:   sessao.usuario.id,
-      autorNome: sessao.usuario.nome,
-      mencoes,
-      criadoEm:  serverTimestamp(),
-    })
-    // A marca de "comentário não lido" do cartão é de todos: a nota interna não a acende
-    if (!interno) updateDoc(doc(db, 'pedidos', _pedidoId), { ultimoComentarioEm: serverTimestamp() }).catch(() => {})
-    await _refreshComentarios()
-
-    // Notifica usuários mencionados (best-effort; _usuarios pode ser [] para não-gestor)
-    for (const m of mencoes) {
-      const mNorm = normalizarTexto(m)
-      const user  = _usuarios.find(u => normalizarTexto((u.nome || '').split(' ')[0]) === mNorm)
-      if (user && user.id !== sessao.usuario.id && !(interno && user.perfil === PERFIS.SOLICITANTE)) {
-        addDoc(collection(db, 'notificacoes', user.id, 'items'), {
-          evento:   'mencao_comentario',
-          titulo:   t('notifMencaoTitulo'),
-          corpo:    t('notifMencaoCorpo', { nome: sessao.usuario.nome, titulo: _pedido.titulo }),
-          pedidoId: _pedidoId,
-          lida:     false,
-          criadaEm: serverTimestamp(),
-          autorId:  auth.currentUser?.uid || '', // as regras conferem quem avisou
-        }).catch(() => {}) // não-bloqueia se falhar
-      }
-    }
-  } catch (err) {
-    // Rollback: remove o comentário otimista e devolve o texto ao campo
-    _comentarios = _comentarios.filter(c => c.id !== tempId)
-    const el = document.getElementById('activity-feed')
-    if (el) el.innerHTML = _renderActivityFeed()
-    if (input) input.value = texto
-    prxToast(t('erroEnviarComentario'), 'error')
-  } finally {
-    if (btn) btn.disabled = false
-  }
-}
-
-// ── Comentário: o autor edita o próprio; o gestor e o supremo apagam ──
-// As regras deixam só o autor trocar o texto (com editadoEm e o texto anterior
-// em versoes) e o gestor da empresa do pedido (o supremo, de qualquer uma)
-// apagar. Vale também para a nota interna. A edição não avisa de novo quem foi
-// mencionado.
-function _podeApagarComentario() {
-  const u = sessao.usuario
-  return u.perfil === PERFIS.SUPREMO || (u.perfil === PERFIS.GESTOR && empresasDoUsuario(u).includes(_pedido.empresaId))
-}
-
-function _redesenharAtividade() {
-  const el = document.getElementById('activity-feed')
-  if (el) el.innerHTML = _renderActivityFeed()
-}
-
-function _focarComentario(id, seletor) {
-  const el = document.querySelector(`#activity-feed [data-coment-id="${CSS.escape(id)}"]${seletor}`)
-  el?.focus()
-  return el
-}
-
-function _abrirEdicaoComentario(id) {
-  const c = _comentarios.find(x => x.id === id)
-  if (!c) return
-  _comentEditando = { id, rascunho: c.texto || '' }
-  _redesenharAtividade()
-  const ta = document.getElementById(`coment-edit-${id}`)
-  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
-}
-
-function _fecharEdicaoComentario(id) {
-  _comentEditando = null
-  _redesenharAtividade()
-  _focarComentario(id, '[data-coment-acao="editar"]')
-}
-
-async function _salvarComentario(id) {
-  const c = _comentarios.find(x => x.id === id)
-  const texto = (_comentEditando?.id === id ? _comentEditando.rascunho : '').trim()
-  if (!c) return
-  if (!texto) {
-    prxToast(t('comentVazio'), 'error')
-    document.getElementById(`coment-edit-${id}`)?.focus()
-    return
-  }
-  if (texto === c.texto) { _fecharEdicaoComentario(id); return }
-  if (!exigirConexao()) return
-  const botoes = [...document.querySelectorAll(`#activity-feed .coment-edicao button`)]
-  botoes.forEach(b => { b.disabled = true })
-  try {
-    // O texto anterior vai para versoes, com a data dele (as regras conferem)
-    const versoes = [...(c.versoes || []), { texto: c.texto, em: c.editadoEm || c.criadoEm || null }]
-    await updateDoc(doc(db, 'pedidos', _pedidoId, c._col, id), { texto, editadoEm: serverTimestamp(), versoes })
-    _comentEditando = null
-    await _refreshComentarios()
-    _focarComentario(id, '[data-coment-acao="editar"]')
-    prxToast(t('comentAtualizado'), 'success')
-  } catch (err) {
-    console.warn('Editar comentário:', err)
-    botoes.forEach(b => { b.disabled = false })
-    prxToast(t('erroEditarComentario'), 'error')
-  }
-}
-
-async function _apagarComentario(id) {
-  const c = _comentarios.find(x => x.id === id)
-  if (!c) return
-  const ok = await prxConfirm(t('comentApagarTitulo'), t('acaoIrreversivel'), t('comentApagar'), t('btnCancelar'), true)
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    await deleteDoc(doc(db, 'pedidos', _pedidoId, c._col, id))
-    await _refreshComentarios()
-    prxToast(t('comentApagado'), 'success')
-  } catch (err) {
-    console.warn('Apagar comentário:', err)
-    prxToast(t('erroApagarComentario'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _indicarCotacao(cotacaoId) {
-  const c = _cotacoes.find(x => x.id === cotacaoId)
-  let motivoCotacaoUnica = null
-  if (_pedido.status === STATUS.AG_COTACAO) {
-    if (_cotacoes.filter(x => !x.semProduto).length === 1) {
-      motivoCotacaoUnica = await _perguntarCotacaoUnica(c)
-      if (!motivoCotacaoUnica) return
-    } else {
-      const ok = await prxConfirm(t('dtIndicarConfirmaTitulo'),
-        c ? `${c.fornecedorNome}, ${formatCurrency(c.valor)}. ${t('dtIndicarConfirmaTexto')}` : t('dtIndicarConfirmaTexto'),
-        t('dtIndicarConfirmaOk'), t('btnCancelar'))
-      if (!ok) return
-    }
-  }
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    // Troca a indicação e, se ainda em cotação, avança para aprovação: tudo
-    // num lote só, com a entrada do histórico. O pedido guarda qual cotação
-    // foi indicada, e as regras só o deixam seguir com ela (firestore.rules).
-    // Com alçada na empresa, o pedido guarda também o retrato da faixa em que
-    // cai o valor da cotação (js/alcadas.js), conferido pelas regras
-    const retrato = _pedido.status === STATUS.AG_COTACAO && c ? retratoAprovacao(await _alcadaDaEmpresa(), c.valor) : null
-    const lote = writeBatch(db)
-    for (const c of _cotacoes) {
-      if (c.indicada && c.id !== cotacaoId) lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', c.id), { indicada: false })
-    }
-    lote.update(doc(db, 'pedidos', _pedidoId, 'cotacoes', cotacaoId), { indicada: true })
-    if (_pedido.status === STATUS.AG_COTACAO) {
-      lote.update(doc(db, 'pedidos', _pedidoId), {
-        status: STATUS.EM_APROVACAO,
-        cotacaoIndicadaId: cotacaoId,
-        ...(motivoCotacaoUnica ? { motivoCotacaoUnica } : {}),
-        ...(retrato || {}),
-        atualizadoEm: serverTimestamp(),
-      })
-      _historicoJunto(lote, STATUS.EM_APROVACAO, { chave: 'notaIndicada' })
-    }
-    await lote.commit()
-    prxToast(t('cotacaoIndicada'), 'success')
-  } catch (err) {
-    prxToast(t('erroIndicarCotacao'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-// A alçada da empresa do pedido, ou null quando ela não tem (na demo, a
-// leitura de um documento que não existe é negada: também vale como sem)
-async function _alcadaDaEmpresa() {
-  try {
-    const snap = await getDoc(doc(db, 'alcadas', _pedido.empresaId))
-    return snap.exists() ? snap.data() : null
-  } catch (err) {
-    if (!eContaDemo()) console.warn('Alçada indisponível:', err?.code || err?.message)
-    return null
-  }
-}
-
-async function _pagarParcela(parcelaId) {
-  const par = _parcelas.find(x => x.id === parcelaId)
-  const ok = await prxConfirm(t('dlgParcelaTitulo'),
-    par ? t('dlgParcelaTexto', { parcela: `${par.numero}/${par.total}`, valor: formatCurrency(par.valor), d: formatDate(par.vencimento) }) : '',
-    t('dlgParcelaOk'), t('btnCancelar'))
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    // A última parcela paga conclui o pedido no mesmo lote, com o histórico
-    const todasPagas = _parcelas.every(p => p.id === parcelaId ? true : p.pago)
-    const conclui = todasPagas && _pedido.status === STATUS.ENTREGUE
-    const lote = writeBatch(db)
-    lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
-      pago: true,
-      pagoEm: serverTimestamp(),
-    })
-    if (conclui) {
-      lote.update(doc(db, 'pedidos', _pedidoId), { status: STATUS.PAGO, atualizadoEm: serverTimestamp() })
-      _historicoJunto(lote, STATUS.PAGO, { chave: 'notaUltimaParcela' })
-    }
-    await lote.commit()
-    if (!conclui) await _refreshParcelas()
-    prxToast(t('pagamentoRegistrado'), 'success')
-  } catch (err) {
-    prxToast(t('erroRegistrarPagamento'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _anexarComprovante(parcelaId, file) {
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const parc = _parcelas.find(p => p.id === parcelaId)
-    const caminho = STORAGE_PATHS.comprovante(_pedidoId, parcelaId) + '/' + file.name
-    // O comprovante e a entrada do histórico vão no mesmo lote, e a parcela
-    // aponta para a entrada (as regras recusam o comprovante sem ela)
-    await _enviarEGravar(caminho, file, undefined, (lote, url) => {
-      const entrada = doc(collection(db, 'pedidos', _pedidoId, 'historico'))
-      lote.update(doc(db, 'pedidos', _pedidoId, 'parcelas', parcelaId), {
-        comprovante: url, comprovanteEventoId: entrada.id,
-      })
-      lote.set(entrada, {
-        tipo:          'comprovante',
-        parcelaNumero: parc ? `${parc.numero}/${parc.total}` : '',
-        autorId:       sessao.usuario.id,
-        autorNome:     sessao.usuario.nome,
-        criadoEm:      serverTimestamp(),
-      })
-    })
-    await _refreshParcelas()
-    prxToast(t('comprovanteAnexado'), 'success')
-  } catch (err) {
-    prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroAnexarComprovante'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _mostrarModalCotacao() {
-  const { fechar } = _montarOverlay('modal-cotacao', `
-    <div class="modal" style="max-width:520px" role="dialog" aria-modal="true" aria-labelledby="modal-cotacao-titulo">
-      ${_cabModal('modal-cotacao-titulo', t('dtRegistrarCotacao'), 'data-fechar')}
-      <div class="modal-body">
-        <div class="form-grid form-grid-2">
-          <div class="form-group col-span-2">
-            <label for="cot-forn">${t('fornecedorLabel')} *</label>
-            <input type="text" id="cot-forn" placeholder="${t('cotFornecedorBusca')}" autocomplete="off">
-          </div>
-          <div class="form-group col-span-2">
-            <label class="cot-sem-produto-op">
-              <input type="checkbox" id="cot-sem">
-              <span><strong>${t('cotSemProduto')}</strong><small>${t('cotSemProdutoDesc')}</small></span>
-            </label>
-          </div>
-          <div class="form-group cot-com-produto">
-            <label for="cot-valor">${t('colValor')} *</label>
-            <input type="text" id="cot-valor" inputmode="decimal" placeholder="R$ 0,00">
-          </div>
-          <div class="form-group cot-com-produto">
-            <label for="cot-prazo">${t('cotPrazoEntrega')}</label>
-            <input type="text" id="cot-prazo" placeholder="${t('cotPrazoExemplo')}">
-          </div>
-          <div class="form-group col-span-2">
-            <label for="cot-cond">${t('cotCondicoes')}</label>
-            <input type="text" id="cot-cond" placeholder="${t('cotCondicoesExemplo')}">
-          </div>
-          <div class="form-group col-span-2">
-            <label for="cot-link">${t('cotLink')} <span class="np-opcional">${t('opcional')}</span></label>
-            <input type="url" id="cot-link" inputmode="url" placeholder="${t('cotLinkPlaceholder')}" autocomplete="off">
-          </div>
-          ${_enviaArquivos() ? `
-          <div class="form-group col-span-2">
-            <span class="form-label-falso">${t('cotArquivo')}</span>
-            <label class="dropzone" for="cot-arquivo">
-              ${ICO.clipe}
-              <span id="cot-arquivo-nome">${t('cotSelecionarArquivo')}</span>
-              <input type="file" id="cot-arquivo" accept=".pdf,image/*" class="sr-only">
-            </label>
-          </div>` : `
-          <div class="form-group col-span-2"><p class="form-hint">${t('dtCotacaoSemArquivo')}</p></div>`}
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" data-fechar>${t('btnCancelar')}</button>
-        <button class="btn-secondary" id="salvar-cotacao-outra">${t('cotSalvarOutra')}</button>
-        <button class="btn-primary" id="salvar-cotacao">${t('cotSalvar')}</button>
-      </div>
-    </div>
-  `)
-  autocompletar(document.getElementById('cot-forn'), _opcoesFornecedor)
-  // "Salvar e cotar outra": a janela fica aberta e volta limpa ao fornecedor,
-  // para quem cota três lugares seguidos não abrir a janela três vezes
-  const limpar = () => {
-    for (const id of ['cot-forn', 'cot-valor', 'cot-prazo', 'cot-cond', 'cot-link']) {
-      const el = document.getElementById(id)
-      if (el) el.value = ''
-    }
-    const sem = document.getElementById('cot-sem')
-    if (sem?.checked) { sem.checked = false; sem.dispatchEvent(new Event('change')) }
-    const arquivo = document.getElementById('cot-arquivo')
-    if (arquivo?.value) { arquivo.value = ''; arquivo.dispatchEvent(new Event('change')) }
-    document.querySelector('#modal-cotacao .modal-body')?.scrollTo(0, 0)
-    document.getElementById('cot-forn')?.focus()
-  }
-  // Sem o produto: some o valor e o prazo (o lugar fica registrado sem preço)
-  document.getElementById('cot-sem')?.addEventListener('change', e => {
-    document.querySelectorAll('#modal-cotacao .cot-com-produto').forEach(g => { g.hidden = e.target.checked })
-  })
-  document.getElementById('cot-arquivo')?.addEventListener('change', e => {
-    const f = e.target.files?.[0]
-    const el = document.getElementById('cot-arquivo-nome')
-    if (el) el.textContent = f ? f.name : t('cotSelecionarArquivo')
-  })
-
-  const salvar = async outra => {
-    const fornNome = document.getElementById('cot-forn')?.value.trim()
-    const valorStr = document.getElementById('cot-valor')?.value.trim()
-    const prazo    = document.getElementById('cot-prazo')?.value.trim()
-    const cond     = document.getElementById('cot-cond')?.value.trim()
-    const arquivoInp = document.getElementById('cot-arquivo')
-    const arquivo  = arquivoInp?.files[0]
-    const semProduto = document.getElementById('cot-sem')?.checked === true
-    const link     = document.getElementById('cot-link')?.value.trim()
-    const valor = semProduto ? null : parseMoeda(valorStr)
-
-    if (!fornNome || (!semProduto && !valor)) { prxToast(t('fornecedorValorObrig'), 'error'); return }
-    if (link && !/^https?:\/\/\S+$/i.test(link)) { prxToast(t('lancLinkInvalido'), 'error'); return }
-
-    const botoes = ['salvar-cotacao', 'salvar-cotacao-outra'].map(id => document.getElementById(id)).filter(Boolean)
-    botoes.forEach(b => { b.disabled = true })
-    mostrarSpinner()
-    try {
-      const cotRef = doc(collection(db, 'pedidos', _pedidoId, 'cotacoes'))
-      const caminho = arquivo
-        ? STORAGE_PATHS.cotacao(_pedidoId, cotRef.id) + '/' + arquivo.name
-        : null
-      // Fornecedor, cotação e histórico num lote só; a entrada do histórico usa
-      // o ID da cotação, como as regras exigem
-      const forn = await _enviarEGravar(caminho, arquivo, undefined, async (lote, url) => {
-        const f = await _fornecedorNoLote(fornNome, lote)
-        lote.set(cotRef, {
-          fornecedorId: f.id,
-          fornecedorNome: fornNome,
-          valor, prazoEntrega: semProduto ? '' : prazo, condicoesComerciais: cond,
-          semProduto, link: link || null,
-          arquivoUrl: url, arquivoNome: arquivo ? arquivo.name : null,
-          indicada: false,
-          criadaEm: serverTimestamp(),
-          compradorId: sessao.usuario.id,
-        })
-        lote.set(doc(db, 'pedidos', _pedidoId, 'historico', cotRef.id), {
-          tipo: 'cotacao',
-          fornecedorNome: fornNome,
-          valor,
-          semProduto,
-          autorId:   sessao.usuario.id,
-          autorNome: sessao.usuario.nome,
-          criadoEm:  serverTimestamp(),
-        })
-        return f
-      })
-      if (forn.novo) _fornecedores.push(forn.novo)
-      if (outra) limpar()
-      else fechar()
-      await _refreshCotacoes()
-      prxToast(t('cotacaoAdicionada'), 'success')
-    } catch (err) {
-      prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroSalvarCotacao'), 'error')
-    } finally {
-      botoes.forEach(b => { b.disabled = false })
-      esconderSpinner()
-    }
-  }
-  document.getElementById('salvar-cotacao')?.addEventListener('click', () => salvar(false))
-  document.getElementById('salvar-cotacao-outra')?.addEventListener('click', () => salvar(true))
-}
-
-// ── Helpers de permissão ──────────────────────────────────────
-function _podeAssumir() {
-  const p = _pedido
-  const perfil = sessao.usuario.perfil
-  return p.status === STATUS.SOLICITADO && !p.compradorId &&
-         [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
-}
-
-// Aprova ou reprova quem tem o perfil, menos quem abriu ou cotou o pedido (o
-// supremo pode), como nas regras do Firestore
-function _podeDecidir() {
-  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
-         !impedimentoDeFuncao(_pedido, sessao.usuario, 'decidir')
-}
-
-function _podeLiberar() {
-  const perfil = sessao.usuario.perfil
-  // Só faz sentido devolver à fila enquanto o comprador reúne cotações
-  return [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && !!_pedido.compradorId &&
-         _pedido.status === STATUS.AG_COTACAO
-}
-
-function _podeAnexarCotacao() {
-  const p = _pedido
-  const perfil = sessao.usuario.perfil
-  return p.status === STATUS.AG_COTACAO &&
-         ([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) &&
-         (p.compradorId === sessao.usuario.id || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil))
-}
-
-function _podeIndicarCotacao() {
-  return _podeAnexarCotacao() && _cotacoes.some(c => !c.semProduto)
-}
-
-// Registra o pagamento (parcelas, comprovante e conclusão) o financeiro ou um
-// gestor, menos quem aprovou o pedido (o supremo pode)
-function _podePagarParcela() {
-  return [PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
-         !impedimentoDeFuncao(_pedido, sessao.usuario, 'pagar')
-}
-
-// Por que quem teria o perfil para o passo não pode dá-lo neste pedido (a
-// separação de funções), para o painel explicar em vez de só esconder a ação
-function _avisoDeFuncao(acao, perfisDoPasso) {
-  if (!perfisDoPasso.includes(sessao.usuario.perfil)) return ''
-  const motivo = impedimentoDeFuncao(_pedido, sessao.usuario, acao)
-  if (!motivo) return ''
-  if (acao === 'decidir') {
-    if (motivo === 'votou') return t('dtJaVotou')
-    if (motivo === 'foraDoNivel') return t('dtForaDoNivel', { nome: esc(situacaoAprovacao(_pedido)?.nome || '') })
-    return motivo === 'abriu' ? t('dtNaoDecideAbriu') : t('dtNaoDecideCotou')
-  }
-  return acao === 'comprar' ? t('dtNaoCompraAprovou') : t('dtNaoPagaAprovou')
-}
-
-// ── Refresh parcial de subcoleções ────────────────────────────
-// Gera o PDF com os dados já carregados: sem internet, funciona se o jsPDF já
-// foi baixado uma vez (o service worker guarda o arquivo)
-async function _exportarPedidoPDF() {
-  mostrarSpinner()
-  try {
-    const { jsPDF } = await carregarBiblioteca('jspdf')
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
-    const p   = _pedido
-
-    const empresa   = _empresas.find(e => e.id === p.empresaId)
-    const categoria = _categorias.find(c => c.id === p.categoriaId)
-    const numero    = p.numeroPedido || '—'
-
-    pdf.setProperties({ title: `Praxis · ${numero}`, subject: p.titulo || '', author: 'Praxis', creator: 'Praxis' })
-
-    // O papel do relatório de compras (js/pdf-papel.js): tinta, argila e terracota
-    const COR = PAPEL
-    const M = 16, LARG = 210 - M * 2, LIMITE = 297 - 22
-    let y = 0
-
-    const cor   = c => pdf.setTextColor(...c)
-    const fonte = (tam, estilo = 'normal') => { pdf.setFont('helvetica', estilo); pdf.setFontSize(tam) }
-    const tsStr = ts => {
-      if (!ts) return '—'
-      const d = ts.toDate ? ts.toDate() : new Date(ts)
-      if (isNaN(d)) return '—'
-      return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-    }
-    const emitido = tsStr(new Date())
-    const novaPagina = () => { pdf.addPage(); y = 30 }
-    const garantir = h => { if (y + h > LIMITE) novaPagina() }
-    const fio = (yy, grosso = true) => {
-      pdf.setDrawColor(...(grosso ? COR.tinta : COR.linha)); pdf.setLineWidth(grosso ? 0.55 : 0.2)
-      pdf.line(M, yy, M + LARG, yy)
-    }
-
-    // Seção: fio de tinta e o título em frase normal, como no relatório
-    const secao = titulo => {
-      garantir(22)
-      y += 5
-      fio(y)
-      fonte(9.5, 'bold'); cor(COR.tinta)
-      pdf.text(titulo, M, y + 5.5)
-      y += 10.5
-    }
-    const rotulo = (txt, x, yy, c = COR.texto3) => { fonte(7.4, 'bold'); cor(c); pdf.text(txt, x, yy) }
-
-    // Tabela simples com quebra de página e cabeçalho repetido
-    const tabela = (colunas, linhas) => {
-      const pad = 2.2, lh = 4
-      const cabecalho = () => {
-        pdf.setFillColor(...COR.argila)
-        pdf.rect(M, y, LARG, 7, 'F')
-        pdf.setDrawColor(...COR.tinta); pdf.setLineWidth(0.45)
-        pdf.line(M, y + 7, M + LARG, y + 7)
-        fonte(7.4, 'bold'); cor(COR.tinta)
-        let x = M
-        colunas.forEach(c => {
-          const direita = c.alinhar === 'right'
-          pdf.text(c.titulo, direita ? x + c.w - pad : x + pad, y + 4.6, { align: direita ? 'right' : 'left' })
-          x += c.w
-        })
-        y += 7.3
-      }
-      garantir(16)
-      cabecalho()
-      linhas.forEach(l => {
-        fonte(8.5, 'normal')
-        const partes = l.celulas.map((txt, i) => pdf.splitTextToSize(String(txt ?? '—'), colunas[i].w - pad * 2))
-        const h = Math.max(...partes.map(pt => pt.length)) * lh + pad * 2
-        if (y + h > LIMITE) { novaPagina(); cabecalho() }
-        if (l.destaque) { pdf.setFillColor(...COR.argilaClara); pdf.rect(M, y, LARG, h, 'F') }
-        let x = M
-        partes.forEach((pt, i) => {
-          const c = colunas[i]
-          const estilo = (c.negrito || (l.negrito && i === 0)) ? 'bold' : 'normal'
-          fonte(8.5, estilo)
-          cor(l.cores?.[i] || (i === 0 ? COR.tinta : COR.texto2))
-          const tx = c.alinhar === 'right' ? x + c.w - pad : x + pad
-          pdf.text(pt, tx, y + pad + 3.1, { align: c.alinhar === 'right' ? 'right' : 'left', lineHeightFactor: 1.35 })
-          x += c.w
-        })
-        y += h
-        pdf.setDrawColor(...COR.linha); pdf.setLineWidth(0.15)
-        pdf.line(M, y, M + LARG, y)
-      })
-      y += 2
-    }
-
-    // ── Cabeçalho: símbolo em terracota + PRAXIS espaçado; à direita, o número
-    y = 14
-    desenharSimbolo(pdf, M, y, 9, COR.terracota, COR.branco)
-    fonte(16, 'normal'); cor(COR.tinta)
-    textoEspacado(pdf, 'PRAXIS', M + 13, y + 8.6, 1.9)
-    fonte(12.5, 'bold'); cor(COR.tinta)
-    textoEspacado(pdf, numero, M + LARG, y + 4, 0.55, true)
-    fonte(8.5, 'normal'); cor(COR.texto3)
-    pdf.text(t('pdfEmitido', { d: emitido }), M + LARG, y + 9, { align: 'right' })
-    y += 13
-    fio(y)
-    y += 11
-
-    fonte(15, 'bold'); cor(COR.tinta)
-    const tituloLinhas = pdf.splitTextToSize(p.titulo || '', LARG)
-    pdf.text(tituloLinhas, M, y, { lineHeightFactor: 1.25 })
-    y += tituloLinhas.length * 6.6
-
-    // Etapa em pílula, o selo de urgente (como no quadro) e a abertura
-    const stLabel = STATUS_LABEL[p.status] || p.status
-    const stCor = [STATUS.REPROVADO, STATUS.CANCELADO].includes(p.status) ? COR.vermelho
-      : [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) ? COR.verde
-      : COR.terracotaTxt
-    fonte(8, 'bold')
-    const stW = pdf.getTextWidth(stLabel) + 6
-    pdf.setDrawColor(...stCor); pdf.setLineWidth(0.35)
-    pdf.roundedRect(M, y - 3.6, stW, 5.4, 2.7, 2.7, 'S')
-    cor(stCor); pdf.text(stLabel, M + 3, y)
-    let xs = M + stW + 3
-    if (p.urgente) {
-      fonte(7, 'bold')
-      const uW = larguraEspacada(pdf, 'URGENTE', 0.25) + 4
-      pdf.setFillColor(...COR.terracota)
-      pdf.rect(xs, y - 3.6, uW, 5.4, 'F')
-      cor(COR.branco); textoEspacado(pdf, t('urgente').toUpperCase(), xs + 2, y - 0.1, 0.25)
-      xs += uW + 3
-    }
-    fonte(8, 'normal'); cor(COR.texto3)
-    pdf.text(t('pdfAbertoEm', { d: tsStr(p.criadoEm) }), xs + 1, y)
-    y += 4
-
-    // ── Dados em grade (3 colunas)
-    secao(t('dtDadosPedido'))
-    const solicNome = _nomePorId(p.solicitanteId) || p.solicitanteNome || '—'
-    const dados = [
-      [t('colEmpresa'), empresa?.nome || '—'],
-      [t('npCategoria'), categoria?.nome || '—'],
-      [t('npCC'), p.centroCusto || '—'],
-      [t('npQuantidade'), `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()],
-      [t('npData'), p.dataNecessaria ? formatDate(p.dataNecessaria) : '—'],
-      ...(p.valorEstimado ? [[t('npValor'), formatCurrency(p.valorEstimado)]] : []),
-      [t('colSolicitante'), solicNome],
-      [t('colComprador'), p.compradorId ? (_nomePorId(p.compradorId) || '—') : (_quemFez(STATUS.AG_COTACAO)?.nome || t('pdfNaoAtribuido'))],
-      [t('pdfAprovacao'), (() => {
-        const ap = _quemFez(STATUS.APROVADO), rp = _quemFez(STATUS.REPROVADO)
-        if (p.aprovadoPor || ap) return `${_nomePorId(p.aprovadoPor) || ap?.nome || t('aprovadoStatus')}, ${tsStr(p.aprovadoEm || ap?.em).slice(0, 10)}`
-        if (p.reprovadoPor || rp) return t('pdfReprovadoPor', { nome: _nomePorId(p.reprovadoPor) || rp?.nome || '—' })
-        return p.status === STATUS.CANCELADO ? t('pdfNaoSeAplica') : t('pdfPendente')
-      })()],
-    ]
-    if (p.fornecedorNome) dados.push([t('fornecedorLabel'), p.fornecedorNome])
-    if (p.valorFinal) dados.push([t('metaValorFinal'), formatCurrency(p.valorFinal), true])
-    if (p.condicaoPagamento) dados.push([t('condicaoPagLabel'), CONDICAO_PAGAMENTO[p.condicaoPagamento] || p.condicaoPagamento])
-    if (p.dataCompra) dados.push([t('metaDataCompra'), formatDate(p.dataCompra)])
-    if (p.dataEntrega) dados.push([t('metaDataEntrega'), formatDate(p.dataEntrega)])
-    const colW = LARG / 3
-    for (let i = 0; i < dados.length; i += 3) {
-      garantir(11)
-      dados.slice(i, i + 3).forEach(([k, v, destaque], j) => {
-        const x = M + j * colW
-        rotulo(k, x, y)
-        fonte(9.5, destaque ? 'bold' : 'normal'); cor(destaque ? COR.terracotaTxt : COR.tinta)
-        pdf.text(pdf.splitTextToSize(String(v), colW - 4)[0], x, y + 4.6)
-      })
-      y += 11
-    }
-
-    if (p.descricao) {
-      garantir(14)
-      rotulo(t('dtDescricao'), M, y)
-      y += 4.4
-      fonte(9.5, 'normal'); cor(COR.texto2)
-      const linhasDesc = pdf.splitTextToSize(p.descricao, LARG)
-      linhasDesc.forEach(l => { garantir(5); pdf.text(l, M, y); y += 4.6 })
-    }
-
-    const motivoRep = p.motivoReprovacao === MOTIVO_OUTROS ? p.motivoReprovacaoOutros : rotuloMotivo(p.motivoReprovacao)
-    const motivoCan = p.motivoCancelamento === MOTIVO_OUTROS ? p.motivoCancelamentoOutros : rotuloMotivo(p.motivoCancelamento)
-    if ((p.status === STATUS.REPROVADO && motivoRep) || (p.status === STATUS.CANCELADO && motivoCan)) {
-      garantir(12); y += 2
-      rotulo(t(p.status === STATUS.REPROVADO ? 'pdfMotivoReprovacao' : 'pdfMotivoCancelamento'), M, y, COR.vermelho)
-      y += 4.4
-      fonte(9.5, 'normal'); cor(COR.texto2)
-      pdf.splitTextToSize(p.status === STATUS.REPROVADO ? motivoRep : motivoCan, LARG).forEach(l => { pdf.text(l, M, y); y += 4.6 })
-    }
-
-    // ── Cotações
-    if (_cotacoes.length) {
-      secao(`${t('secaoCotacoes')} (${_cotacoes.length})`)
-      const menor = Math.min(..._cotacoes.map(c => c.valor))
-      tabela([
-        { titulo: t('fornecedorLabel'), w: 48 },
-        { titulo: t('pdfColPrazo'), w: 24 },
-        { titulo: t('cmpCondicoes'), w: 50 },
-        { titulo: t('colValor'), w: 29, alinhar: 'right', negrito: true },
-        { titulo: t('pdfColSituacao'), w: LARG - 151 },
-      ], [..._cotacoes].sort((a, b) => a.valor - b.valor).map(c => ({
-        celulas: [c.fornecedorNome || '—', c.prazoEntrega || '—', c.condicoesComerciais || '—', formatCurrency(c.valor),
-          [c.indicada ? t('dtIndicada') : '', c.valor === menor && _cotacoes.length > 1 ? t('dtMenorValor') : ''].filter(Boolean).join(', ') || '—'],
-        destaque: !!c.indicada,
-        cores: { 4: c.indicada ? COR.terracotaTxt : COR.texto3 },
-      })))
-    }
-
-    // ── Parcelas
-    if (_parcelas.length) {
-      const total = _parcelas.reduce((s, x) => s + (x.valor || 0), 0)
-      const pago  = _parcelas.filter(x => x.pago).reduce((s, x) => s + (x.valor || 0), 0)
-      secao(`${t('secaoParcelas')} (${_parcelas.length})`)
-      tabela([
-        { titulo: t('dtParcela'), w: 24 },
-        { titulo: t('pdfColVencimento'), w: 34 },
-        { titulo: t('colValor'), w: 36, alinhar: 'right', negrito: true },
-        { titulo: t('pdfColSituacao'), w: 40 },
-        { titulo: t('pdfColPagoEm'), w: LARG - 134 },
-      ], _parcelas.map(par => {
-        const vencida = !par.pago && par.vencimento && par.vencimento < hojeISO()
-        return {
-          celulas: [`${par.numero}/${par.total}`, formatDate(par.vencimento), formatCurrency(par.valor),
-            par.pago ? t('parcPaga') : (vencida ? t('pdfVencida') : t('pdfEmAberto')), par.pago ? tsStr(par.pagoEm).slice(0, 10) : '—'],
-          cores: { 3: par.pago ? COR.verde : (vencida ? COR.vermelho : COR.texto2) },
-        }
-      }))
-      garantir(8)
-      fonte(9, 'bold'); cor(COR.tinta)
-      const totTxt = `${formatCurrency(pago)} ${t('dtDeValor', { valor: formatCurrency(total) })}`
-      const totW = pdf.getTextWidth(totTxt)
-      pdf.text(totTxt, M + LARG - 2.2, y + 3, { align: 'right' })
-      fonte(8.5, 'normal'); cor(COR.texto3)
-      pdf.text(t('pdfTotalPago'), M + LARG - 2.2 - totW - 3, y + 3, { align: 'right' })
-      y += 6
-    }
-
-    // ── Histórico
-    if (_historico.length) {
-      secao(t('pdfHistorico'))
-      tabela([
-        { titulo: t('colData'), w: 30 },
-        { titulo: t('pdfColEvento'), w: 62 },
-        { titulo: t('pdfColPor'), w: 36 },
-        { titulo: t('pdfColObservacao'), w: LARG - 128 },
-      ], _historico.map(h => {
-        const evento = h.tipo === 'cotacao'     ? `${t('pdfEvCotacao', { fornecedor: h.fornecedorNome || '—' })}${h.valor ? ' (' + formatCurrency(h.valor) + ')' : ''}`
-                     : h.tipo === 'comprovante' ? t('pdfEvComprovante', { parcela: h.parcelaNumero || '' })
-                     : h.tipo === 'edicao'      ? t('pdfEvEdicao', { campo: _rotuloCampo(h) })
-                     : h.tipo === 'anexo'       ? t('pdfEvAnexo', { arquivo: h.nomeArquivo || '—' })
-                     : h.tipo === 'voto'        ? t('pdfEvVoto', { nivel: h.nivel, total: h.nivelTotal, nome: h.nivelNome || '' })
-                     : t('pdfEvStatus', { etapa: STATUS_LABEL[h.status] || h.status || '—' })
-        const obs = h.tipo === 'edicao'
-          ? t('pdfDePara', { de: _valorEdicao(h, h.valorAnterior), para: _valorEdicao(h, h.valorNovo) })
-          : (_textoNota(h) || '—')
-        return { celulas: [tsStr(h.criadoEm), evento, h.autorNome || _nomePorId(h.autorId) || '—', obs] }
-      }))
-    }
-
-    // ── Cabeçalho corrido (páginas 2+) e rodapé em todas, como no relatório
-    const total = pdf.getNumberOfPages()
-    for (let i = 1; i <= total; i++) {
-      pdf.setPage(i)
-      if (i > 1) {
-        desenharSimbolo(pdf, M, 13, 5, COR.terracota, COR.branco)
-        fonte(9, 'normal'); cor(COR.tinta)
-        textoEspacado(pdf, 'PRAXIS', M + 7.5, 17.8, 1)
-        fonte(7.4, 'normal'); cor(COR.texto3)
-        pdf.text(`${numero} · ${pdf.splitTextToSize(p.titulo || '', 110)[0]}`, M + LARG, 17.8, { align: 'right' })
-        fio(21, false)
-      }
-      const yr = 297 - 10
-      fio(yr - 4, false)
-      fonte(7.2, 'bold')
-      cor(COR.afn); textoEspacado(pdf, 'AFN', M, yr, 0.4)
-      let fx = M + larguraEspacada(pdf, 'AFN', 0.4) + 1.6
-      cor(COR.cinzaAfn); textoEspacado(pdf, 'SYSTEMS', fx, yr, 0.4)
-      fx += larguraEspacada(pdf, 'SYSTEMS', 0.4) + 3
-      fonte(7.2, 'normal'); pdf.text('|  Praxis', fx, yr)
-      cor(COR.texto3)
-      pdf.text(t('pdfPagina', { i, total }), M + LARG, yr, { align: 'right' })
-    }
-
-    pdf.save(`praxis-pedido-${numero.replace('#', '')}.pdf`)
-    prxToast(t('pdfExportado'), 'success')
-  } catch (err) {
-    console.error(err)
-    prxToast(estaOnline() ? t('erroExportarPDF') : t('semConexaoAcao'), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _refreshComentarios() {
-  _comentarios = await _lerComentarios()
-  const el = document.getElementById('activity-feed')
-  if (el) el.innerHTML = _renderActivityFeed()
-}
-
-async function _refreshCotacoes() {
-  const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'cotacoes'))
-  _cotacoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _renderDetalhe()
-}
-
-async function _refreshParcelas() {
-  const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'parcelas'))
-  _parcelas = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.numero - b.numero)
-  _renderDetalhe()
-}
-
-// ── Utilitário ────────────────────────────────────────────────
-async function _reabrirPedido() {
-  if (!exigirConexao()) return
-  const justificativa = document.getElementById('reabrir-justificativa')?.value.trim()
-  if (!justificativa) {
-    prxToast(t('informarJustificativa'), 'error')
-    return
-  }
-  const btn = document.getElementById('btn-confirmar-reabrir')
-  await btnComLoading(btn, async () => {
-    const p = _pedido
-    const contadorRef = contadorPedidosRef()
-    let newId = null
-    let newNum = null
-
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(contadorRef)
-      const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
-      newNum = `PRX-${String(total).padStart(4, '0')}`
-      const novoRef = novoPedidoRef()
-      newId = novoRef.id
-
-      tx.set(novoRef, {
-        ...marcaDemo(),
-        numeroPedido:    newNum,
-        titulo:          p.titulo,
-        descricao:       p.descricao || '',
-        empresaId:       p.empresaId,
-        categoriaId:     p.categoriaId || '',
-        quantidade:      p.quantidade,
-        unidade:         p.unidade,
-        valorEstimado:   p.valorEstimado || null,
-        centroCusto:     p.centroCusto || '',
-        dataNecessaria:  p.dataNecessaria,
-        urgente:         p.urgente || false,
-        solicitanteId:   p.solicitanteId,
-        solicitanteNome: p.solicitanteNome || sessao.usuario.nome,
-        status:          STATUS.SOLICITADO,
-        reabertoDe:      p.id,
-        reabertaDeNum:   p.numeroPedido || '—',
-        justificativaReabertura: justificativa,
-        criadoEm:        serverTimestamp(),
-        atualizadoEm:    serverTimestamp(),
-      })
-
-      tx.update(doc(db, 'pedidos', p.id), {
-        reabertoPara:    newId,
-        reabertaParaNum: newNum,
-        atualizadoEm:    serverTimestamp(),
-      })
-
-      tx.set(contadorRef, { totalPedidos: total }, { merge: true })
-    })
-
-    // Historico no pedido novo (fire-and-forget)
-    addDoc(collection(db, 'pedidos', newId, 'historico'), {
-      status:    STATUS.SOLICITADO,
-      autorId:   sessao.usuario.id,
-      autorNome: sessao.usuario.nome,
-      nota:      null,
-      notaChave: 'notaReaberto',
-      notaDados: { numero: p.numeroPedido || p.id, justificativa },
-      criadoEm:  serverTimestamp(),
-    })
-
-    fecharModal('modal-reabrir')
-    prxToast(`${t('pedidoReabertoComo')} ${newNum}.`, 'success', 4000)
-    navegar('detalhe', { id: newId })
-  })
-}
-
-// Entrada do histórico gravada na mesma transação ou no mesmo lote da
-// mudança de status: o pedido nunca muda de etapa sem deixar o registro.
-// A nota é um texto (motivo, justificativa) ou { chave, dados }: a do sistema
-// fica gravada pela chave do dicionário e aparece no idioma de quem lê.
-function _historicoJunto(escrita, status, nota = null) {
-  const doSistema = nota !== null && typeof nota === 'object'
-  escrita.set(doc(collection(db, 'pedidos', _pedidoId, 'historico')), {
-    status,
-    autorId: sessao.usuario.id,
-    autorNome: sessao.usuario.nome || null,
-    nota: doSistema ? null : nota,
-    ...(doSistema ? { notaChave: nota.chave, notaDados: nota.dados || null } : {}),
-    criadoEm: serverTimestamp(),
-  })
-}
-
-// Texto da nota de uma entrada do histórico: a do sistema pela chave; a
-// gravada como texto passa por rotuloNota (js/constants.js)
-function _textoNota(h) {
-  if (h.notaChave) return t(h.notaChave, h.notaDados || undefined)
-  return h.nota ? rotuloNota(h.nota) : ''
-}
-
-const _tsMs = msDe
-
-// ── Anexos gerais (4.10) ──────────────────────────────────────
-function _renderAnexos() {
-  if (!_anexos.length) return estadoVazio({ variante: 'compacto', titulo: t('dtAnexosVazio'),
-    texto: _enviaArquivos() ? t('dtAnexosVazioTexto') : t('dtArquivosDesligados') })
-  const uid    = sessao.usuario.id
-  const perfil = sessao.usuario.perfil
-  return `<ul class="anexos-lista">${_anexos.map(a => {
-    const ext = (a.nome || '').includes('.') ? (a.nome || '').split('.').pop().toLowerCase() : ''
-    const autor = _nomePorId(a.autorId) || a.autorNome || '—'
-    const ts    = dataComRelativo(a.criadoEm)
-    const podeRemover = a.autorId === uid || [PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
-    return `
-      <li class="anexo-item">
-        <span class="anexo-tipo" aria-hidden="true">${esc((ext || 'arq').slice(0, 4))}</span>
-        <div class="anexo-info">
-          <a class="anexo-nome" href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" title="${esc(a.nome)}">${esc(a.nome)}</a>
-          <div class="anexo-meta">${_formatarTamanho(a.tamanho)} · ${esc(autor)} · <span title="${ts.title}">${ts.texto}</span></div>
-        </div>
-        <div class="anexo-acoes">
-          <a href="${esc(urlSegura(a.url))}" target="_blank" rel="noopener" class="btn-icon" aria-label="${t('anexoBaixarAria', { nome: esc(a.nome) })}" title="${t('anexoBaixar')}">${ICO.baixar}</a>
-          ${podeRemover ? `<button class="btn-icon btn-icon-perigo" data-remover-anexo="${esc(a.id)}" data-storage-path="${esc(a.storagePath || '')}" aria-label="${t('anexoRemoverAria', { nome: esc(a.nome) })}" title="${t('remover')}">${ICO.lixeira}</button>` : ''}
-        </div>
-      </li>
-    `
-  }).join('')}</ul>${_enviaArquivos() ? '' : `<p class="form-hint">${t('dtArquivosDesligados')}</p>`}`
-}
-
-function _formatarTamanho(bytes) {
-  if (!bytes) return '—'
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-}
-
-async function _uploadAnexo(file) {
-  const TIPOS = [
-    'application/pdf',
-    'image/jpeg', 'image/png', 'image/webp',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ]
-  if (!TIPOS.includes(file.type)) {
-    prxToast(t('tipoNaoPermitido'), 'error')
-    return
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    prxToast(`"${file.name}" ${t('arquivoMuitoGrande')}`, 'error')
-    return
-  }
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    const storagePath = STORAGE_PATHS.anexo(_pedidoId) + '/' + Date.now() + '_' + file.name
-    const anexoRef = doc(collection(db, 'pedidos', _pedidoId, 'anexos'))
-    // As regras do Storage só deixam apagar o anexo quem o enviou (ou um gestor
-    // da empresa). O anexo e a entrada do histórico, com o mesmo ID, vão no
-    // mesmo lote
-    await _enviarEGravar(storagePath, file,
-      { customMetadata: { autorUid: auth.currentUser?.uid || '' } },
-      (lote, url) => {
-        lote.set(anexoRef, {
-          nome: file.name,
-          tamanho: file.size,
-          tipo: file.type,
-          url,
-          storagePath,
-          autorId: sessao.usuario.id,
-          autorNome: sessao.usuario.nome || '',
-          criadoEm: serverTimestamp(),
-        })
-        lote.set(doc(db, 'pedidos', _pedidoId, 'historico', anexoRef.id), {
-          tipo: 'anexo',
-          nomeArquivo: file.name,
-          autorId: sessao.usuario.id,
-          autorNome: sessao.usuario.nome || '',
-          criadoEm: serverTimestamp(),
-        })
-      })
-    // Atualiza lista local
-    const snap = await getDocs(collection(db, 'pedidos', _pedidoId, 'anexos'))
-    _anexos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => _tsMs(a.criadoEm) - _tsMs(b.criadoEm))
-    _renderDetalhe()
-    prxToast(`${t('anexoAdicionado')} ${file.name}`, 'success')
-  } catch (err) {
-    prxToast(arquivoIndisponivel(err) ? t('arquivosIndisponiveis') : t('erroEnviarAnexo') + file.name, 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-async function _removerAnexo(anexoId, storagePath) {
-  const ok = await prxConfirm(t('anexoRemoverTitulo'), t('acaoIrreversivel'), t('remover'), t('btnCancelar'), true)
-  if (!ok) return
-  if (!exigirConexao()) return
-  mostrarSpinner()
-  try {
-    await deleteDoc(doc(db, 'pedidos', _pedidoId, 'anexos', anexoId))
-    if (storagePath) armazenamento().then(S => S.deleteObject(S.ref(storagePath))).catch(() => {})
-    _anexos = _anexos.filter(a => a.id !== anexoId)
-    _renderDetalhe()
-    prxToast(t('anexoRemovido'), 'success')
-  } catch (err) {
-    prxToast(mensagemDeErro(err, t('erroRemoverAnexo')), 'error')
-  } finally {
-    esconderSpinner()
-  }
-}
-
-function _bindAnexosEvents() {
-  document.querySelectorAll('[data-remover-anexo]').forEach(btn => {
-    btn.addEventListener('click', () => _removerAnexo(btn.dataset.removerAnexo, btn.dataset.storagePath))
-  })
-}
-
-// ── SLA timeline (4.11) ───────────────────────────────────────
-function _renderSLATimeline() {
-  // Em pedido encerrado, a última transição marca o fim (js/processo.js)
-  const terminal = _TERMINAIS.includes(_pedido.status)
-  const segmentos = segmentosDoPedido(_pedido, _historico)
-  if (!segmentos.length) return ''
-
-  const totalMs  = segmentos.reduce((s, seg) => s + seg.durMs, 0)
-  if (totalMs === 0) return ''
-  const maior = segmentos.reduce((m, s) => (s.durMs > m.durMs ? s : m), segmentos[0])
-
-  const linhas = segmentos.map(seg => {
-    const i = _ETAPAS.indexOf(seg.status)
-    const larg = maior.durMs ? Math.max(seg.durMs / maior.durMs * 100, 2) : 0
-    const cls = [seg.emAndamento ? 'agora' : '', seg === maior && segmentos.length > 1 ? 'maior' : ''].filter(Boolean).join(' ')
-    return `
-      <li class="tempo-item ${cls}">
-        <span class="tempo-num" aria-hidden="true">${i >= 0 ? _dois(i + 1) : '·'}</span>
-        <span class="tempo-nome">${STATUS_LABEL[seg.status] || esc(seg.status)}${seg.emAndamento ? `<span class="tempo-agora">${t('dtAgora')}</span>` : ''}</span>
-        <span class="tempo-dur">${formatarDuracao(seg.durMs)}</span>
-        <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
-      </li>`
-  }).join('')
-
-  const aberta = _secaoAberta('sla', false)
-  return `
-    <section class="dt-bloco ord-sla recolhivel${aberta ? '' : ' recolhida'}" aria-labelledby="sec-sla">
-      <div class="dt-card-head">
-        <h2 class="dt-secao" id="sec-sla">${t('dtTempoPorEtapa')}</h2>
-        <span class="tempo-total" title="${terminal ? '' : t('dtAteAgora')}"><span class="dt-numeral">${formatarDuracao(totalMs)}</span></span>
-        ${_botaoRecolher('sla', 'sec-sla', 'corpo-sla', aberta)}
-      </div>
-      <ol class="tempo-lista" id="corpo-sla">${linhas}</ol>
-    </section>
-  `
-}
-

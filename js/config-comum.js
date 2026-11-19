@@ -4,7 +4,7 @@
 import { db, collection, getDocs, consulta, consultaUsuarios } from './firebase.js'
 import { atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
-import { t, PERFIS_LABEL } from './constants.js'
+import { t, idioma, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais, cnpjValido } from './utils.js'
 import { estadoVazio, bordasDeRolagem } from './ui.js'
 
@@ -36,7 +36,7 @@ export function plural(n, sing, plur) {
 
 // Idioma das datas e valores (o mesmo de t())
 function _locale() {
-  try { return sessionStorage.getItem('praxis_lang') === 'en' ? 'en-US' : 'pt-BR' } catch { return 'pt-BR' }
+  return idioma() === 'en' ? 'en-US' : 'pt-BR'
 }
 
 // Número inteiro no idioma da sessão: "1.000" ou "1,000"
@@ -76,6 +76,13 @@ export function iniciais(nome) {
 // tem cor (verde já quer dizer "concluído" e azul, "em andamento")
 export function perfilHtml(perfil) {
   return `<span class="cfg-perfil">${esc(PERFIS_LABEL[perfil] || perfil || '—')}</span>`
+}
+
+// Resumo enquanto os números carregam: a mesma frase, com reticências no lugar
+// dos números. Antes a linha vazia virava duas quando os dados chegavam, e a
+// tela pulava 25 px (medido: deslocamento de layout de até 0,67 em Fornecedores)
+export function resumoCarregando(chaveDesc) {
+  return `<span class="cfg-resumo-num">…</span> ${t(chaveDesc)}`
 }
 
 // Cabeçalho de tela: título da inscrição e uma frase curta à esquerda, ações à direita

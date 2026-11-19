@@ -6,18 +6,26 @@
     "emuladores": "firebase emulators:start --only auth,firestore,functions,storage",
     "seed": "node scripts/seed-emulator.js",
     "servir": "npx --yes http-server . -p 8123 -c-1",
-    "testar-unidade": "node --test tests/unidade.test.mjs tests/textos.test.mjs tests/functions.test.mjs tests/sistema.test.mjs",
+    "testar-unidade": "node --test tests/unidade.test.mjs tests/textos.test.mjs tests/functions.test.mjs tests/sistema.test.mjs tests/pwa.test.mjs",
     "testar-regras": "firebase emulators:exec --only firestore,storage --project demo-praxis \"node --test tests/regras.test.mjs\"",
-    "testar-e2e": "firebase emulators:exec --only auth,firestore,storage --project demo-praxis-e2e \"node scripts/seed-emulator.js && node --test tests/e2e.test.mjs\"",
-    "lint": "eslint ."
+    "testar-e2e": "firebase emulators:exec --only auth,firestore,storage --project demo-praxis-e2e \"node scripts/seed-emulator.js && node --test --test-concurrency=1 tests/e2e.test.mjs tests/celular.test.mjs\"",
+    "lint": "eslint .",
+    "tipos": "tsc -p tsconfig.json",
+    "lighthouse": "node scripts/lighthouse.mjs",
+    "gerar-entrada": "node scripts/gerar-entrada.mjs",
+    "gerar-sw": "node scripts/gerar-sw.mjs",
+    "medir-desempenho": "firebase emulators:exec --only auth,firestore,storage --project demo-praxis-e2e \"node scripts/seed-emulator.js && node scripts/medir-desempenho.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "6.0.0",
+    "axe-core": "4.14.1",
     "eslint": "^10.14.0",
     "firebase": "13.3.0",
     "firebase-tools": "^15.36.0",
     "globals": "^17.14.0",
-    "playwright": "1.65.0"
+    "lighthouse": "13.6.0",
+    "playwright": "1.65.0",
+    "typescript": "7.0.2"
   }
 }

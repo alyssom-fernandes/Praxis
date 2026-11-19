@@ -35,7 +35,7 @@ input[type="checkbox"], input[type="radio"] {
 }
 
 /* Responsive — Tablet */
-@media (max-width: 1023px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .dash-grid-1 { grid-template-columns: 1fr 1fr; }
   .dash-grid-2 { grid-template-columns: 1fr 1fr; }
   /* Detalhe: uma coluna; as seções das duas colunas entram numa ordem única,
@@ -51,7 +51,7 @@ input[type="checkbox"], input[type="radio"] {
 .pull-indicator { display: none; }
 
 /* Responsive — Mobile */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .main-content { padding: var(--esp-200); }
 
 
@@ -575,7 +575,7 @@ input[type="checkbox"], input[type="radio"] {
 /* ── Bottom Navigation Bar ───────────────────────────── */
 .bottom-nav { display: none; }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .bottom-nav {
     display: flex;
     position: fixed;
@@ -668,7 +668,7 @@ input[type="checkbox"], input[type="radio"] {
 /* Quadro no celular: o resumo numa linha e os filtros rápidos no topo da
    folha "Filtros" (js/pedidos.js move o elemento), para o primeiro pedido
    aparecer mais cedo */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   /* Até duas linhas, sem cortar a frase no meio */
   .pedidos-resumo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .pf-corpo > .pedidos-rapidos { order: -1; flex-wrap: wrap; align-self: stretch; overflow: visible; }
@@ -679,10 +679,10 @@ input[type="checkbox"], input[type="radio"] {
    texto de 14 px (o iPhone dá zoom ao tocar), botões abaixo de 44 px e o
    rodapé de site no meio da tela. Aqui, o toque de app */
 .um-so-movel { display: none; }
-@media (max-width: 1023px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   .ord-lancamento { order: 1; }
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   html { -webkit-tap-highlight-color: transparent; }
   button, a, label, summary, [role="button"], [role="tab"], .chip { touch-action: manipulation; }
   .main-footer { display: none; }
@@ -741,4 +741,21 @@ input[type="checkbox"], input[type="radio"] {
   }
   .bnav-novo-circulo svg { width: 20px; height: 20px; }
   .bnav-novo:active .bnav-novo-circulo { background: var(--gold-fill-hover); }
+}
+
+/* Tablet (600 a 1023 px): o mesmo app do celular (barra de baixo, folhas,
+   toques de 44 px), com mais espaço. Antes o tablet recebia a barra lateral do
+   computador e via três colunas e meia do quadro. Aqui os cartões da etapa e
+   "Meus pedidos" vão em duas colunas e a margem cresce */
+@media (min-width: 600px) and (max-width: 1023px), (min-width: 600px) and (max-width: 1279px) and (pointer: coarse) {
+  .main-content { padding-left: var(--esp-400); padding-right: var(--esp-400); }
+  .kanban-col.atual .kanban-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .kanban-col.atual .kanban-ver-mais, .kanban-col.atual .kanban-vazio { grid-column: 1 / -1; }
+  .meus-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .kanban-wrap .regua { margin: 0 calc(var(--esp-400) * -1); padding: 0 var(--esp-300); }
+}
+
+/* Tablet em paisagem (toque, 1024 a 1279 px): três colunas */
+@media (min-width: 1024px) and (max-width: 1279px) and (pointer: coarse) {
+  .kanban-col.atual .kanban-cards, .meus-lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

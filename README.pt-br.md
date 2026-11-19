@@ -62,9 +62,11 @@ Capturadas do modo demonstração.
 - **Seis perfis** (supremo, gestor, aprovador, comprador, financeiro e solicitante), com as permissões validadas no servidor pelas regras do Firestore e do Storage: cada etapa do pedido só anda pelas mãos do perfil responsável. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
 - **Várias empresas.** Cada usuário trabalha só com os pedidos das empresas às quais pertence, e o gestor só vê e edita pessoas e empresas das dele; o supremo vê todas.
 - **Notificações em tempo real** no app. As @menções saem do próprio app; as automáticas (aprovações, entregas, parcelas a vencer) vêm das Cloud Functions, com envio por e-mail via Resend quando a chave é configurada.
-- **Paleta de comandos** (Ctrl+K), tour guiado, PWA instalável, tema claro e escuro e layout próprio para o celular.
+- **Paleta de comandos** (Ctrl+K), tour guiado, tema claro e escuro, português e inglês (na entrada e em Ajustes) e layout próprio para o celular.
+- **App instalável que abre sem internet.** O service worker guarda a versão inteira do app no aparelho e a cópia local do Firestore guarda os dados já vistos: quem já entrou abre o quadro sem esperar a rede, e também sem conexão. Versão nova publicada só assume quando a pessoa toca em "Atualizar". No Android, o ícone instalado tem atalhos para Novo pedido, Compra já feita e Minha fila.
 - **Compra já feita.** Para o que foi comprado antes de passar pelo Praxis (alguém foi buscar na loja, algo urgente ou já decidido): lança o que foi, onde, quanto, a nota, quem pediu, quem autorizou e quem comprou, e por que foi direto. A autorização de quem não é gestor fica pendente até a pessoa apontada ou um gestor confirmar.
-- **Celular como app.** Barra inferior com o "+" para pedir ou lançar uma compra, campos de 16 px (sem zoom no iPhone), botões de 44 px e o voltar do Android fechando a janela aberta.
+- **Celular e tablet como app.** Barra inferior com o "+" para pedir ou lançar uma compra, campos de 16 px (sem zoom no iPhone), botões de 44 px e o voltar do Android fechando a janela aberta. Quem só pede compras abre em "Meus pedidos", cada um com o caminho das sete etapas e com quem está; no tablet, o mesmo app em duas colunas.
+- **Movimento com função.** Abrir um pedido pelo quadro leva o título do cartão até o cabeçalho do pedido, e o voltar faz o caminho inverso; aprovar, reprovar, comprar, receber e pagar terminam com um selo de bronze (e uma vibração curta no Android). Tudo respeita o movimento reduzido.
 - **Cópia dos dados.** Em Ajustes, o gestor baixa num arquivo JSON tudo das empresas dele (o supremo, de todas): pedidos com histórico, cotações, parcelas, comentários e notas, cadastros, usuários, convites, alçadas e auditoria, com as contagens para conferir.
 - **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, recriados todo dia.
 
@@ -124,13 +126,13 @@ Para rodar os testes das regras de segurança (eles sobem e derrubam os próprio
 npm run testar-regras
 ```
 
-Os testes de unidade não precisam de emulador. Eles cobrem a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário), o contraste das cores nos dois temas (texto a 4,5:1; anel de foco e borda de campo a 3:1, pelo WCAG) com um só estilo de foco nos CSS, e as regras dos avisos das Cloud Functions (quem recebe cada aviso, um aviso por evento, datas no horário de São Paulo):
+Os testes de unidade não precisam de emulador. Eles cobrem a lista do service worker (`npm run gerar-sw` depois de mudar js/, css/, index.html, fontes ou ícones; o teste falha enquanto ela estiver velha), o manifest e as versões dos CSS, a conferência dos textos da interface (toda chave nos dois idiomas, nenhum texto fora do dicionário), o contraste das cores nos dois temas (texto a 4,5:1; anel de foco e borda de campo a 3:1, pelo WCAG) com um só estilo de foco nos CSS, e as regras dos avisos das Cloud Functions (quem recebe cada aviso, um aviso por evento, datas no horário de São Paulo):
 
 ```bash
 npm run testar-unidade
 ```
 
-O teste de ponta a ponta abre o app num navegador sem janela (Playwright), contra os emuladores com os dados do seed, e leva um pedido da abertura à aprovação, cada passo com o seu perfil (solicitante, comprador e aprovador). Na primeira vez, baixe o navegador:
+O teste de ponta a ponta abre o app num navegador sem janela (Playwright), contra os emuladores com os dados do seed, e leva um pedido da abertura à aprovação, cada passo com o seu perfil (solicitante, comprador e aprovador). No mesmo comando, `tests/celular.test.mjs` passa pelas telas principais de cada perfil a 390 e a 360 px (sem rolagem lateral, toques de 44 px, nome acessível em todo controle, campos de 16 px, contraste AA e nenhum erro de console) e abre o app sem internet, pelo service worker e pela cópia local. Na primeira vez, baixe o navegador:
 
 ```bash
 npx playwright install chromium
@@ -139,6 +141,20 @@ npx playwright install chromium
 ```bash
 npm run testar-e2e
 ```
+
+O desempenho é medido num celular simulado (390 × 844, "4G lento" do Lighthouse e CPU 4 vezes mais lenta), contra os emuladores: primeira visita até a entrada, entrar até o quadro, reabrir o app até o quadro e abrir sem internet, com a mediana de três rodadas:
+
+```bash
+npm run medir-desempenho
+```
+
+E o Lighthouse na entrada, servida como no Firebase Hosting (o CI exige 90 nas quatro notas):
+
+```bash
+npm run lighthouse
+```
+
+A checagem de tipos (TypeScript, sem compilar) cobre as regras do app: `npm run tipos`.
 
 Em `localhost` o app se conecta sozinho aos emuladores. Na entrada, use **Acessar modo demo**
 ou entre com `supremo@`, `gestor@`, `aprovador@`, `comprador@`, `financeiro@` ou `solicitante@praxis.app`,
@@ -158,22 +174,29 @@ todos com a senha `demo1234`, para ver o sistema por cada perfil.
 ## Estrutura
 
 ```
-index.html            entrada única; carrega js/app.js como módulo
-css/                  tokens → base → componentes → telas → temas
+index.html            entrada única, com a tela de entrada já escrita (scripts/gerar-entrada.mjs)
+css/                  tokens → base → componentes → views (entrada) → telas (do app) → temas
 js/
-  app.js              entrada e saída, rotas (?tela=), barra lateral, navegação
+  entrada.js          ponto de entrada: a entrada aparece sem esperar o Firebase
+  app.js              sessão, rotas (?tela=), barra lateral, navegação, cartão ↔ pedido
   estado.js           a sessão e os ganchos que os módulos compartilham, sem globais na janela
-  constants.js        etapas, perfis e os textos da interface (português e inglês)
-  pedidos.js          quadro e lista, filtros, visões salvas, ações em massa
-  pedido-detalhe.js   fluxo do pedido, cotações, parcelas, comentários, anexos, PDF
-  relatorios.js       painel, gráficos e exportações
+  constants.js        etapas, perfis, t() e idioma()
+  textos-pt.js        textos da interface em português (vem com o app)
+  textos-en.js        textos em inglês (baixados só por quem escolhe o inglês)
+  pedidos*.js         quadro e lista, "Meus pedidos", filtros, visões salvas, ações em massa
+  pedido-detalhe.js   o detalhe do pedido; detalhe-*.js: decisão, ações, comentários, anexos
+  relatorios*.js      painel, gráficos e exportações
+  ui.js, tour.js      componentes comuns (avisos, janelas, selo da decisão) e o tour
   config-*.js         usuários, cadastros e preferências
   demo-*.js           pessoas da demonstração e a recriação diária
 functions/            gatilhos, rotinas agendadas e o seed da demonstração
 vendor/               jsPDF e ExcelJS, copiados do npm sem alteração, com as licenças
-scripts/              seed dos emuladores (npm run seed)
-tests/                testes das regras (emulador), de unidade, dos textos, dos avisos das Functions e de ponta a ponta
-docs/                 arquitetura, fluxo de pedidos e permissões
+scripts/              seed dos emuladores, lista do service worker e CSP (gerar-sw), entrada estática
+                      (gerar-entrada), desempenho (medir-desempenho) e Lighthouse
+service-worker.js     a versão do app guardada no aparelho (lista gerada por scripts/gerar-sw.mjs)
+tests/                regras (emulador), unidade, textos, app instalável, avisos das Functions, ponta a ponta
+                      e celular (390 e 360 px, axe-core, CSP da produção, sem internet)
+docs/                 arquitetura, decisões, fluxo de pedidos, glossário e permissões
 ```
 
 ## Licença

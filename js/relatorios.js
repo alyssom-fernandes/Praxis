@@ -1,27 +1,31 @@
+// Relatórios: período e empresa, cálculo dos números e o painel (gráficos,
+// tempo do processo, parcelas). As exportações (Excel, PDF, impressão) ficam
+// em relatorios-exportar.js; o estado, em relatorios-estado.js.
 import { db, collection, where, getDocs, consulta } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
 import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
-import { prxToast, marcaPraxis, carregarBiblioteca, estaOnline, estadoVazio } from './ui.js'
+import { marcaPraxis, estadoVazio } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
-import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario, baixarArquivo } from './utils.js'
-import { PAPEL, desenharSimbolo, larguraEspacada, textoEspacado } from './pdf-papel.js'
+import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor, idioma } from './constants.js'
+import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
 import { resumoDoProcesso, formatarDuracao } from './processo.js'
+import { _exportarExcel, _exportarPDF } from './relatorios-exportar.js'
+import { R } from './relatorios-estado.js'
 
 // ── Textos da tela (PT e EN): js/textos-relatorios.js ─────────
-const TXT = TEXTOS_RELATORIOS
-function _lang() { try { return sessionStorage.getItem('praxis_lang') || 'pt' } catch { return 'pt' } }
-function tr(chave, vars) {
+export const TXT = TEXTOS_RELATORIOS
+export function _lang() { return idioma() }
+export function tr(chave, vars) {
   let s = (TXT[_lang()] || TXT.pt)[chave] ?? TXT.pt[chave] ?? t(chave)
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v)
   return s
 }
-function _locale() { return _lang() === 'en' ? 'en-US' : 'pt-BR' }
+export function _locale() { return _lang() === 'en' ? 'en-US' : 'pt-BR' }
 
 // ── Ícones (traço 2, mesma família) ───────────────────────────
-const ic = (d, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
-const ICONE = {
+export const ic = (d, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
+export const ICONE = {
   imprimir: ic('<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/>'),
   baixar: ic('<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
   seta: ic('<path d="m6 9 6 6 6-6"/>', 14),
@@ -36,48 +40,35 @@ const ICONE = {
 }
 
 // ── Estado ────────────────────────────────────────────────────
-let _todos      = []   // todos os pedidos visíveis ao usuário
-let _parcelas   = []   // { id, pedidoId, ...parcela }
-let _cotacoes   = {}   // { pedidoId: [cotacao] }
-let _historicos = {}   // { pedidoId: [entrada do histórico] }, para o tempo do processo
-let _empresas   = []
-let _categorias = []
-let _filtroPer  = '30d'
-let _filtroEmp  = 'todas'
-let _dataIni    = ''
-let _dataFim    = ''
-let _vistaMensal = 'grafico'
 // Celular: só o gasto mensal e o dinheiro começam abertos; as outras seções
 // mostram o título e o resumo e abrem com um toque. O que a pessoa abre ou fecha
 // vale enquanto o app estiver aberto. No computador o botão não aparece e a
 // classe não muda nada (css/themes.css)
-const _ABERTAS_NO_CELULAR = new Set(['bloco-vazio', 'bloco-mensal', 'bloco-dinheiro'])
-const _secoesAlternadas = {}
-let _carregado  = false
-let _geracao    = 0
+export const _ABERTAS_NO_CELULAR = new Set(['bloco-vazio', 'bloco-mensal', 'bloco-dinheiro'])
+export const _secoesAlternadas = {}
 
-const CONCLUIDOS = [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
+export const CONCLUIDOS = [STATUS.APROVADO, STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
 // As sete etapas do caminho, na ordem do quadro; reprovados e cancelados ficam à parte
-const ETAPAS = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO,
+export const ETAPAS = [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO,
   STATUS.COMPRADO, STATUS.ENTREGUE, STATUS.PAGO]
-const FORA = [STATUS.REPROVADO, STATUS.CANCELADO]
-const ORDEM_STATUS = [...ETAPAS, ...FORA]
+export const FORA = [STATUS.REPROVADO, STATUS.CANCELADO]
+export const ORDEM_STATUS = [...ETAPAS, ...FORA]
 
 // Tons das categorias: a cor cadastrada escolhe o matiz, e o tom vem da paleta
-// quente da tela (variáveis --rel-* em views.css, uma por tema). Nada de azul
+// quente da tela (variáveis --rel-* em telas.css, uma por tema). Nada de azul
 // ou vermelho saturados. A ordem é a de desempate quando dois matizes coincidem.
-const TONS = ['ocre', 'oliva', 'egeu', 'vinho', 'areia', 'mar', 'ametista', 'rosa', 'argila']
+export const TONS = ['ocre', 'oliva', 'egeu', 'vinho', 'areia', 'mar', 'ametista', 'rosa', 'argila']
 // Os mesmos tons no papel (PDF), iguais aos do tema claro
-const TONS_PAPEL = {
+export const TONS_PAPEL = {
   ocre: [154, 106, 20], oliva: [79, 122, 58], egeu: [65, 103, 140], vinho: [142, 63, 51], areia: [140, 115, 70],
   mar: [61, 117, 108], ametista: [108, 88, 136], rosa: [154, 84, 98], argila: [125, 110, 92],
 }
 // Atribui um tom por categoria da lista, sem repetir tons na mesma lista
-function _tonsDaLista(ids) {
+export function _tonsDaLista(ids) {
   const usados = new Set(), mapa = {}
   ids.forEach(id => {
     if (id === '__outras__') return
-    let tom = tomDaCor(_categorias.find(c => c.id === id)?.cor) || TONS[0]
+    let tom = tomDaCor(R.categorias.find(c => c.id === id)?.cor) || TONS[0]
     if (usados.has(tom)) tom = TONS.find(x => !usados.has(x)) || tom
     usados.add(tom); mapa[id] = tom
   })
@@ -85,51 +76,51 @@ function _tonsDaLista(ids) {
 }
 
 // Aprovador NÃO acessa relatórios financeiros consolidados (spec §8.4)
-function _podeVerFinanceiro() {
+export function _podeVerFinanceiro() {
   return [PERFIS.SUPREMO, PERFIS.GESTOR, PERFIS.FINANCEIRO].includes(sessao.usuario?.perfil)
 }
 
 // ── Datas ─────────────────────────────────────────────────────
-const _pad = n => String(n).padStart(2, '0')
-const _iso = d => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`
-const _deIso = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1) }
-const _somaDias = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
-const _hoje = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
-const _diasEntre = (a, b) => Math.round((_deIso(b) - _deIso(a)) / 86400000)
-function _menosMeses(d, k) {
+export const _pad = n => String(n).padStart(2, '0')
+export const _iso = d => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`
+export const _deIso = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1) }
+export const _somaDias = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+export const _hoje = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+export const _diasEntre = (a, b) => Math.round((_deIso(b) - _deIso(a)) / 86400000)
+export function _menosMeses(d, k) {
   const alvo = new Date(d.getFullYear(), d.getMonth() - k, 1)
   const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate()
   alvo.setDate(Math.min(d.getDate(), ultimo))
   return alvo
 }
-function _dataPedido(p) {
+export function _dataPedido(p) {
   if (!p.criadoEm) return null
   const d = p.criadoEm.toDate ? p.criadoEm.toDate() : new Date(p.criadoEm)
   return isNaN(d) ? null : d
 }
-function _isoPedido(p) { const d = _dataPedido(p); return d ? _iso(d) : null }
-const _capital = s => s.charAt(0).toUpperCase() + s.slice(1)
+export function _isoPedido(p) { const d = _dataPedido(p); return d ? _iso(d) : null }
+export const _capital = s => s.charAt(0).toUpperCase() + s.slice(1)
 
 // Intervalo atual e o período anterior equivalente (para comparação)
-function _intervalo() {
+export function _intervalo() {
   const hoje = _hoje()
   let ini, fim = hoje, antIni, antFim, nome, vs
   const y = hoje.getFullYear(), m = hoje.getMonth()
-  if (_filtroPer === 'mes') {
+  if (R.filtroPer === 'mes') {
     ini = new Date(y, m, 1)
     antIni = _menosMeses(ini, 1); antFim = _menosMeses(fim, 1)
     nome = _capital(ini.toLocaleDateString(_locale(), { month: 'long', year: 'numeric' })); vs = tr('vsMes')
-  } else if (_filtroPer === 'tri') {
+  } else if (R.filtroPer === 'tri') {
     const q = Math.floor(m / 3)
     ini = new Date(y, q * 3, 1)
     antIni = _menosMeses(ini, 3); antFim = _menosMeses(fim, 3)
     nome = _lang() === 'en' ? `Q${q + 1} ${y}` : `${q + 1}${tr('triN')} ${y}`; vs = tr('vsTri')
-  } else if (_filtroPer === 'ano') {
+  } else if (R.filtroPer === 'ano') {
     ini = new Date(y, 0, 1)
     antIni = _menosMeses(ini, 12); antFim = _menosMeses(fim, 12)
     nome = String(y); vs = tr('vsAno')
-  } else if (_filtroPer === 'livre' && _dataIni && _dataFim) {
-    ini = _deIso(_dataIni); fim = _deIso(_dataFim)
+  } else if (R.filtroPer === 'livre' && R.dataIni && R.dataFim) {
+    ini = _deIso(R.dataIni); fim = _deIso(R.dataFim)
     if (ini > fim) [ini, fim] = [fim, ini]
     const dias = Math.round((fim - ini) / 86400000) + 1
     antFim = _somaDias(ini, -1); antIni = _somaDias(antFim, -(dias - 1))
@@ -141,35 +132,35 @@ function _intervalo() {
   }
   if (antFim >= ini) antFim = _somaDias(ini, -1)
   const dm = d => `${_pad(d.getDate())}/${_pad(d.getMonth() + 1)}`
-  if (_filtroPer === 'ano') vs = tr('vsMesmo', { a: antIni.getFullYear() })
-  else if (_filtroPer !== '30d') vs = `vs. ${dm(antIni)} ${tr('a')} ${dm(antFim)}`
+  if (R.filtroPer === 'ano') vs = tr('vsMesmo', { a: antIni.getFullYear() })
+  else if (R.filtroPer !== '30d') vs = `vs. ${dm(antIni)} ${tr('a')} ${dm(antFim)}`
   return { ini: _iso(ini), fim: _iso(fim), antIni: _iso(antIni), antFim: _iso(antFim), nome, vs }
 }
 
 // ── Formatação ────────────────────────────────────────────────
-function _brl(v) { return formatCurrency(v || 0) }
-function _brlCompacto(v) {
+export function _brl(v) { return formatCurrency(v || 0) }
+export function _brlCompacto(v) {
   if (!v) return 'R$ 0'
   if (Math.abs(v) < 1000) return 'R$ ' + Math.round(v).toLocaleString(_locale())
   return 'R$ ' + new Intl.NumberFormat(_locale(), { notation: 'compact', maximumFractionDigits: 1 }).format(v)
 }
 // Valor em numeral grande: "R$" e centavos menores, a parte inteira manda
-function _numMoeda(v) {
+export function _numMoeda(v) {
   const s = _brl(v).replace(/\s/g, ' ')
   const m = /^(-?)R\$ ?(.+?)([,.]\d{2})$/.exec(s)
   if (!m) return esc(s)
   return `<span class="rel-moeda">R$</span>${m[1]}${m[2]}<span class="rel-cent">${m[3]}</span>`
 }
-function _pct(parte, total) { return total ? Math.round((parte / total) * 100) : 0 }
-const _nomeEmpresa = id => _empresas.find(e => e.id === id)?.nome || '—'
-const _nomeCategoria = id => id ? (_categorias.find(c => c.id === id)?.nome || tr('semCategoria')) : tr('semCategoria')
-const _plural = (n, s, p) => `${n} ${n === 1 ? s : p}`
-const _num = n => Number(n).toLocaleString(_locale(), { maximumFractionDigits: 1 })
+export function _pct(parte, total) { return total ? Math.round((parte / total) * 100) : 0 }
+export const _nomeEmpresa = id => R.empresas.find(e => e.id === id)?.nome || '—'
+export const _nomeCategoria = id => id ? (R.categorias.find(c => c.id === id)?.nome || tr('semCategoria')) : tr('semCategoria')
+export const _plural = (n, s, p) => `${n} ${n === 1 ? s : p}`
+export const _num = n => Number(n).toLocaleString(_locale(), { maximumFractionDigits: 1 })
 
 // ── Render da página ──────────────────────────────────────────
 export async function renderRelatorios() {
   const fin = _podeVerFinanceiro()
-  _carregado = false
+  R.carregado = false
   const app = document.getElementById('app')
   const pers = ['30d', 'mes', 'tri', 'ano', 'livre']
   const rotPer = { '30d': tr('per30d'), mes: tr('perMes'), tri: tr('perTri'), ano: tr('perAno'), livre: tr('perLivre') }
@@ -202,9 +193,9 @@ export async function renderRelatorios() {
 
         <div class="rel-barra">
           <div class="rel-seg" id="period-pills" role="group" aria-label="${tr('periodo')}">
-            ${pers.map(p => `<button type="button" class="rel-seg-btn${p === _filtroPer ? ' active' : ''}" data-per="${p}" aria-pressed="${p === _filtroPer}">${rotPer[p]}</button>`).join('')}
+            ${pers.map(p => `<button type="button" class="rel-seg-btn${p === R.filtroPer ? ' active' : ''}" data-per="${p}" aria-pressed="${p === R.filtroPer}">${rotPer[p]}</button>`).join('')}
           </div>
-          <div class="rel-datas" id="date-range-wrap" ${_filtroPer === 'livre' ? '' : 'hidden'}>
+          <div class="rel-datas" id="date-range-wrap" ${R.filtroPer === 'livre' ? '' : 'hidden'}>
             <input type="date" id="data-ini" aria-label="${tr('dataIni')}">
             <span class="rel-datas-ate">${tr('a')}</span>
             <input type="date" id="data-fim" aria-label="${tr('dataFim')}">
@@ -226,46 +217,46 @@ export async function renderRelatorios() {
   initTopbarEvents(false)
   renderNotificacoes()
   _bindEvents()
-  if (_filtroPer === 'livre') {
+  if (R.filtroPer === 'livre') {
     const a = document.getElementById('data-ini'), b = document.getElementById('data-fim')
-    if (a) a.value = _dataIni
-    if (b) b.value = _dataFim
+    if (a) a.value = R.dataIni
+    if (b) b.value = R.dataFim
   }
   await _carregar()
 }
 
-function _itemMenu(attr, icone, titulo, desc) {
+export function _itemMenu(attr, icone, titulo, desc) {
   return `<button class="rel-menu-item" role="menuitem" type="button" ${attr}>
     ${icone}<span class="rel-menu-txt"><strong>${titulo}</strong><small>${desc}</small></span>
   </button>`
 }
 
-function _skeleton(fin) {
+export function _skeleton(fin) {
   const n = fin ? 5 : 4
-  const kpi = i => `<div class="rel-kpi${fin && i === 0 ? ' destaque' : ''}"><div class="skeleton" style="height:38px;width:${i === 0 ? 78 : 52}%"></div><div class="skeleton skeleton-text" style="width:46%;margin-top:var(--esp-150)"></div><div class="skeleton skeleton-text" style="width:64%"></div></div>`
+  const kpi = i => `<div class="rel-kpi${fin && i === 0 ? ' destaque' : ''}"><div class="skeleton" data-estilo="height:38px;width:${i === 0 ? 78 : 52}%"></div><div class="skeleton skeleton-text" data-estilo="width:46%;margin-top:var(--esp-150)"></div><div class="skeleton skeleton-text" data-estilo="width:64%"></div></div>`
   return `<div class="rel-dash" aria-busy="true">
     <div class="rel-kpis rel-kpis-${n}">${Array.from({ length: n }, (_, i) => kpi(i)).join('')}</div>
     <div class="rel-grade">
       <section class="rel-secao rel-larg-12">
-        <div class="skeleton skeleton-title" style="width:180px"></div>
-        <div class="skeleton skeleton-text" style="width:240px"></div>
-        <div class="skeleton" style="height:230px;margin-top:var(--esp-200)"></div>
+        <div class="skeleton skeleton-title" data-estilo="width:180px"></div>
+        <div class="skeleton skeleton-text" data-estilo="width:240px"></div>
+        <div class="skeleton" data-estilo="height:230px;margin-top:var(--esp-200)"></div>
       </section>
     </div>
   </div>`
 }
 
-async function _carregar() {
-  const geracao = ++_geracao
+export async function _carregar() {
+  const geracao = ++R.geracao
   const container = document.getElementById('dash-content')
   try {
     await _carregarDados()
-    if (geracao !== _geracao || !document.getElementById('dash-content')) return
+    if (geracao !== R.geracao || !document.getElementById('dash-content')) return
     _preencherEmpresas()
-    _carregado = true
+    R.carregado = true
     _renderDash()
   } catch (err) {
-    if (geracao !== _geracao) return
+    if (geracao !== R.geracao) return
     console.warn('Relatórios: falha ao carregar', err)
     if (container) container.innerHTML = `
       ${estadoVazio({ erro: true, icone: ICONE.alerta, titulo: tr('erroTit'), texto: tr('erroTxt'),
@@ -277,10 +268,10 @@ async function _carregar() {
   }
 }
 
-function _bindEvents() {
+export function _bindEvents() {
   document.getElementById('period-pills')?.addEventListener('click', e => {
     const btn = e.target.closest('[data-per]')
-    if (!btn || btn.dataset.per === _filtroPer) return
+    if (!btn || btn.dataset.per === R.filtroPer) return
     _definirPeriodo(btn.dataset.per)
   })
 
@@ -288,15 +279,15 @@ function _bindEvents() {
   const fimEl = document.getElementById('data-fim')
   const aoMudarData = () => {
     if (!iniEl.value || !fimEl.value) return
-    _dataIni = iniEl.value; _dataFim = fimEl.value
-    if (_dataIni > _dataFim) { [_dataIni, _dataFim] = [_dataFim, _dataIni]; iniEl.value = _dataIni; fimEl.value = _dataFim }
+    R.dataIni = iniEl.value; R.dataFim = fimEl.value
+    if (R.dataIni > R.dataFim) { [R.dataIni, R.dataFim] = [R.dataFim, R.dataIni]; iniEl.value = R.dataIni; fimEl.value = R.dataFim }
     _renderDash()
   }
   iniEl?.addEventListener('change', aoMudarData)
   fimEl?.addEventListener('change', aoMudarData)
 
   document.getElementById('filtro-empresa')?.addEventListener('change', e => {
-    _filtroEmp = e.target.value
+    R.filtroEmp = e.target.value
     _renderDash()
   })
 
@@ -357,7 +348,7 @@ function _bindEvents() {
       return
     }
     const vista = e.target.closest('[data-vista]')
-    if (vista) { _vistaMensal = vista.dataset.vista; _renderDash(); return }
+    if (vista) { R.vistaMensal = vista.dataset.vista; _renderDash(); return }
     const per = e.target.closest('[data-ir-per]')
     if (per) { _definirPeriodo(per.dataset.irPer); return }
     const ped = e.target.closest('[data-pedido]')
@@ -367,8 +358,8 @@ function _bindEvents() {
   })
 }
 
-function _definirPeriodo(per) {
-  _filtroPer = per
+export function _definirPeriodo(per) {
+  R.filtroPer = per
   document.querySelectorAll('#period-pills .rel-seg-btn').forEach(b => {
     const ativo = b.dataset.per === per
     b.classList.toggle('active', ativo)
@@ -377,19 +368,19 @@ function _definirPeriodo(per) {
   const wrap = document.getElementById('date-range-wrap')
   if (per === 'livre') {
     // Começa nos últimos 30 dias, para nunca ficar vazio
-    if (!_dataIni || !_dataFim) {
+    if (!R.dataIni || !R.dataFim) {
       const hoje = _hoje()
-      _dataIni = _iso(_somaDias(hoje, -29)); _dataFim = _iso(hoje)
+      R.dataIni = _iso(_somaDias(hoje, -29)); R.dataFim = _iso(hoje)
     }
     const a = document.getElementById('data-ini'), b = document.getElementById('data-fim')
-    if (a) a.value = _dataIni
-    if (b) b.value = _dataFim
+    if (a) a.value = R.dataIni
+    if (b) b.value = R.dataFim
   }
   if (wrap) wrap.hidden = per !== 'livre'
   _renderDash()
 }
 
-async function _carregarDados() {
+export async function _carregarDados() {
   const perfil = sessao.usuario.perfil
   const ids    = empresasDoUsuario(sessao.usuario)
   const fin    = _podeVerFinanceiro()
@@ -401,39 +392,39 @@ async function _carregarDados() {
       ? getDocs(consulta(collection(db, 'pedidos')))
       : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 30)))) : Promise.resolve(null)),
   ])
-  _empresas   = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _categorias = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-  _todos      = pedSnap ? pedSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
-  _parcelas   = []
-  _cotacoes   = {}
-  _historicos = {}
+  R.empresas   = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  R.categorias = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+  R.todos      = pedSnap ? pedSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
+  R.parcelas   = []
+  R.cotacoes   = {}
+  R.historicos = {}
 
   // Histórico de cada pedido: o tempo do processo sai das mudanças de etapa
   // (js/processo.js). Uma leitura por pedido, como as cotações e as parcelas
-  await Promise.all(_todos.map(async p => {
+  await Promise.all(R.todos.map(async p => {
     const hSnap = await getDocs(collection(db, 'pedidos', p.id, 'historico')).catch(() => null)
-    _historicos[p.id] = hSnap ? hSnap.docs.map(d => d.data()) : []
+    R.historicos[p.id] = hSnap ? hSnap.docs.map(d => d.data()) : []
   }))
   if (!fin) return
 
   // Parcelas e cotações só existem em pedidos com valor final
-  const comValor = _todos.filter(p => p.valorFinal)
+  const comValor = R.todos.filter(p => p.valorFinal)
   await Promise.all(comValor.map(async p => {
     const [pSnap, cSnap] = await Promise.all([
       getDocs(collection(db, 'pedidos', p.id, 'parcelas')).catch(() => null),
       getDocs(collection(db, 'pedidos', p.id, 'cotacoes')).catch(() => null),
     ])
-    pSnap?.docs.forEach(d => _parcelas.push({ id: d.id, pedidoId: p.id, ...d.data() }))
-    _cotacoes[p.id] = cSnap ? cSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
+    pSnap?.docs.forEach(d => R.parcelas.push({ id: d.id, pedidoId: p.id, ...d.data() }))
+    R.cotacoes[p.id] = cSnap ? cSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
   }))
 }
 
-function _preencherEmpresas() {
+export function _preencherEmpresas() {
   const sel = document.getElementById('filtro-empresa')
   if (!sel || sel.options.length > 1) return
   const perfil = sessao.usuario.perfil
   const ids    = empresasDoUsuario(sessao.usuario)
-  _empresas
+  R.empresas
     .filter(e => perfil === PERFIS.SUPREMO || ids.includes(e.id))
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
     .forEach(e => {
@@ -441,15 +432,15 @@ function _preencherEmpresas() {
       opt.value = e.id; opt.textContent = e.nome
       sel.appendChild(opt)
     })
-  sel.value = _filtroEmp
-  if (sel.value !== _filtroEmp) { _filtroEmp = 'todas'; sel.value = 'todas' }
+  sel.value = R.filtroEmp
+  if (sel.value !== R.filtroEmp) { R.filtroEmp = 'todas'; sel.value = 'todas' }
 }
 
 // ── Cálculo dos dados do painel ───────────────────────────────
-function _calcular() {
+export function _calcular() {
   const iv = _intervalo()
-  const daEmpresa = p => _filtroEmp === 'todas' || p.empresaId === _filtroEmp
-  const base = _todos.filter(daEmpresa)
+  const daEmpresa = p => R.filtroEmp === 'todas' || p.empresaId === R.filtroEmp
+  const base = R.todos.filter(daEmpresa)
   const noIntervalo = (p, a, b) => { const d = _isoPedido(p); return d && d >= a && d <= b }
   const ped = base.filter(p => noIntervalo(p, iv.ini, iv.fim))
     .sort((a, b) => (_dataPedido(b) || 0) - (_dataPedido(a) || 0))
@@ -464,7 +455,7 @@ function _calcular() {
 
   let economia = 0, nEconomia = 0
   comGasto(ped).forEach(p => {
-    const cots = _cotacoes[p.id] || []
+    const cots = R.cotacoes[p.id] || []
     const ind = cots.find(c => c.indicada)
     if (cots.length < 2 || !ind) return
     const s = Math.max(...cots.map(c => Number(c.valor) || 0)) - (Number(ind.valor) || 0)
@@ -474,7 +465,7 @@ function _calcular() {
   // Parcelas em aberto (independem do período: são vencimentos)
   const idsBase = new Set(base.map(p => p.id))
   const hoje = _iso(_hoje()), em7 = _iso(_somaDias(_hoje(), 7)), em30 = _iso(_somaDias(_hoje(), 30))
-  const abertas = _parcelas.filter(pc => idsBase.has(pc.pedidoId) && !pc.pago && pc.vencimento)
+  const abertas = R.parcelas.filter(pc => idsBase.has(pc.pedidoId) && !pc.pago && pc.vencimento)
     .sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)))
   const vencer7 = abertas.filter(pc => pc.vencimento >= hoje && pc.vencimento <= em7)
   const vencidas = abertas.filter(pc => pc.vencimento < hoje)
@@ -521,7 +512,7 @@ function _calcular() {
   // Tempo do processo: passagens concluídas no período, de todos os pedidos da
   // empresa (a data que conta é a do fim, não a da abertura)
   const janela = { ini: _deIso(iv.ini).getTime(), fim: _somaDias(_deIso(iv.fim), 1).getTime() - 1 }
-  const processo = resumoDoProcesso(base.map(p => ({ pedido: p, historico: _historicos[p.id] || [] })), janela)
+  const processo = resumoDoProcesso(base.map(p => ({ pedido: p, historico: R.historicos[p.id] || [] })), janela)
 
   return {
     iv, ped, ant, gasto, gastoAnt, emAprov, urgentes, economia, nEconomia, processo,
@@ -533,11 +524,11 @@ function _calcular() {
   }
 }
 
-function _nomeFornecedor(p) {
+export function _nomeFornecedor(p) {
   if (p.fornecedorNome) return p.fornecedorNome
-  return (_cotacoes[p.id] || []).find(c => c.indicada)?.fornecedorNome || ''
+  return (R.cotacoes[p.id] || []).find(c => c.indicada)?.fornecedorNome || ''
 }
-function _porFornecedor(lista) {
+export function _porFornecedor(lista) {
   const m = {}
   lista.forEach(p => {
     const k = _nomeFornecedor(p)
@@ -551,14 +542,14 @@ function _porFornecedor(lista) {
 // ── Render do painel ──────────────────────────────────────────
 // Ordem: indicadores → mensal → para onde vai o dinheiro → parcelas e
 // maiores compras (ou a fila, para o aprovador) → régua das etapas
-function _renderDash() {
+export function _renderDash() {
   const container = document.getElementById('dash-content')
-  if (!container || !_carregado) return
+  if (!container || !R.carregado) return
   _esconderDica()
   const fin = _podeVerFinanceiro()
   const D = _calcular()
   const sub = document.getElementById('rel-sub')
-  const emp = _filtroEmp === 'todas' ? t('todasEmpresas') : _nomeEmpresa(_filtroEmp)
+  const emp = R.filtroEmp === 'todas' ? t('todasEmpresas') : _nomeEmpresa(R.filtroEmp)
   if (sub) sub.innerHTML = `<span>${esc(D.iv.nome)}</span><span class="rel-frase-sep" aria-hidden="true">·</span><span class="num">${formatDate(D.iv.ini)} ${tr('a')} ${formatDate(D.iv.fim)}</span><span class="rel-frase-sep rel-frase-emp" aria-hidden="true">·</span><span class="rel-frase-emp">${esc(emp)}</span>`
 
   const kpis = fin ? _kpisFinanceiro(D) : _kpisAprovador(D)
@@ -568,13 +559,13 @@ function _renderDash() {
     grade = `
       ${_secao({ id: 'bloco-vazio', larg: 12, titulo: tr('pedidosPeriodo'), corpo: _vazio(tr('vazioTit'),
         tr('vazioTxt', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) }),
-        _filtroPer !== 'ano' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="ano">${tr('verAno')}</button>` : '') })}
+        R.filtroPer !== 'ano' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="ano">${tr('verAno')}</button>` : '') })}
       ${_blocoMensal(D)}
       ${fin ? _blocoParcelas(D, 12) : ''}
       ${_blocoProcesso(D)}`
   } else if (fin) {
     const semCompras = !D.maiores.length
-    const acao = _filtroPer !== '30d' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="30d">${tr('ver30')}</button>` : ''
+    const acao = R.filtroPer !== '30d' ? `<button class="btn-secondary btn-sm" type="button" data-ir-per="30d">${tr('ver30')}</button>` : ''
     grade = `
       ${_blocoMensal(D)}
       ${semCompras
@@ -594,7 +585,7 @@ function _renderDash() {
       ${_blocoProcesso(D)}`
   }
   container.innerHTML = `
-    <div class="rel-dash" data-pronto="1" data-per="${_filtroPer}">
+    <div class="rel-dash" data-pronto="1" data-per="${R.filtroPer}">
       <div class="rel-kpis rel-kpis-${nK}">${kpis}</div>
       <div class="rel-grade">${grade}</div>
     </div>`
@@ -603,7 +594,7 @@ function _renderDash() {
 
 // Variação contra o período anterior: seta e percentual em texto pequeno, sem cor
 // de "bom" ou "ruim" (gastar mais não é bom nem ruim por si)
-function _delta(atual, anterior, vs) {
+export function _delta(atual, anterior, vs) {
   if (!anterior && !atual) return `<span class="rel-var">${ICONE.igual}0%</span><span>${vs}</span>`
   if (!anterior) return `<span>${tr('semBase')}</span>`
   const pct = Math.round(((atual - anterior) / anterior) * 100)
@@ -611,9 +602,9 @@ function _delta(atual, anterior, vs) {
   const txt = (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct).toLocaleString(_locale()) + '%'
   return `<span class="rel-var">${icone}${txt}</span><span>${vs}</span>`
 }
-const _alerta = (txt, cor) => `<span class="rel-alerta" style="--cor:${cor}">${txt}</span>`
+export const _alerta = (txt, cor) => `<span class="rel-alerta" data-estilo="--cor:${cor}">${txt}</span>`
 
-function _kpi({ rotulo, valor, sub, destaque = false }) {
+export function _kpi({ rotulo, valor, sub, destaque = false }) {
   return `<div class="rel-kpi${destaque ? ' destaque' : ''}">
     <div class="rel-kpi-valor">${valor}</div>
     <div class="rel-kpi-rotulo">${rotulo}</div>
@@ -621,7 +612,7 @@ function _kpi({ rotulo, valor, sub, destaque = false }) {
   </div>`
 }
 
-function _kpisFinanceiro(D) {
+export function _kpisFinanceiro(D) {
   const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--red)') : `<span>${tr('semUrgentes')}</span>`
   const totalV7 = D.vencer7.reduce((s, p) => s + (Number(p.valor) || 0), 0)
   const venc = `<span>${_plural(D.vencer7.length, tr('parcela1'), tr('parcelaN'))}</span>${D.vencidas.length ? _alerta(_plural(D.vencidas.length, tr('vencida1'), tr('vencidaN')), 'var(--red)') : ''}`
@@ -636,7 +627,7 @@ function _kpisFinanceiro(D) {
 }
 
 // Sem dados financeiros: o número que pede ação é a fila de aprovação
-function _kpisAprovador(D) {
+export function _kpisAprovador(D) {
   const urg = D.urgentes ? _alerta(_plural(D.urgentes, tr('urgente1'), tr('urgenteN')), 'var(--red)') : `<span>${tr('semUrgentes')}</span>`
   const taxa = D.decididos ? `${_pct(D.aprovados, D.decididos)}% ${tr('taxaAprov')}` : tr('noPeriodo')
   return [
@@ -647,7 +638,7 @@ function _kpisAprovador(D) {
   ].join('')
 }
 
-function _secao({ id, larg = 12, titulo, meta = '', acoes = '', corpo, cls = '' }) {
+export function _secao({ id, larg = 12, titulo, meta = '', acoes = '', corpo, cls = '' }) {
   const aberta = id in _secoesAlternadas ? _secoesAlternadas[id] : _ABERTAS_NO_CELULAR.has(id)
   return `<section class="rel-secao rel-larg-${larg}${cls ? ' ' + cls : ''}${aberta ? '' : ' recolhida'}" id="${id}" aria-labelledby="${id}-tit">
     <header class="rel-secao-cab">
@@ -661,12 +652,12 @@ function _secao({ id, larg = 12, titulo, meta = '', acoes = '', corpo, cls = '' 
 
 // Estado vazio de um bloco: o componente único (js/ui.js), variante "solto";
 // .rel-vazio só o centra na altura do bloco
-function _vazio(titulo, texto, acao = '') {
+export function _vazio(titulo, texto, acao = '') {
   return estadoVazio({ variante: 'solto', classe: 'rel-vazio', titulo, texto, acao })
 }
 
 // Escala "bonita" para o eixo Y
-function _escala(max, n = 4, inteiro = false) {
+export function _escala(max, n = 4, inteiro = false) {
   if (max <= 0) return { topo: n, passo: 1, n }
   const bruto = max / n
   const mag = Math.pow(10, Math.floor(Math.log10(bruto)))
@@ -680,7 +671,7 @@ function _escala(max, n = 4, inteiro = false) {
 // Leitura dos 6 meses: média dos meses fechados, o maior mês e o mês corrente.
 // A média começa no primeiro mês com pedidos: meses antes do início do uso
 // não são "zero gasto", são falta de dado
-function _leituraMeses(D) {
+export function _leituraMeses(D) {
   const todos = D.meses.filter(m => !m.atual)
   const inicio = todos.findIndex(m => m.qtd > 0)
   const fechados = inicio > 0 ? todos.slice(inicio) : todos
@@ -690,7 +681,7 @@ function _leituraMeses(D) {
   return { media, maior, atual, fechados }
 }
 
-function _blocoMensal(D) {
+export function _blocoMensal(D) {
   const fin = _podeVerFinanceiro()
   const loc = _locale()
   const nomeMes = m => new Date(m.ano, m.mes, 1).toLocaleDateString(loc, { month: 'short' }).replace('.', '')
@@ -702,14 +693,14 @@ function _blocoMensal(D) {
   const titulo = fin ? tr('tMensal') : tr('tMensalQtd')
   const L = _leituraMeses(D)
   const toggle = `<div class="rel-mini-seg" role="group" aria-label="${tr('grafico')} / ${tr('tabela')}">
-      <button type="button" class="${_vistaMensal === 'grafico' ? 'active' : ''}" data-vista="grafico" aria-pressed="${_vistaMensal === 'grafico'}" aria-label="${tr('grafico')}" data-tooltip="${tr('grafico')}">${ICONE.grafico}</button>
-      <button type="button" class="${_vistaMensal === 'tabela' ? 'active' : ''}" data-vista="tabela" aria-pressed="${_vistaMensal === 'tabela'}" aria-label="${tr('tabela')}" data-tooltip="${tr('tabela')}">${ICONE.tabela}</button>
+      <button type="button" class="${R.vistaMensal === 'grafico' ? 'active' : ''}" data-vista="grafico" aria-pressed="${R.vistaMensal === 'grafico'}" aria-label="${tr('grafico')}" data-tooltip="${tr('grafico')}">${ICONE.grafico}</button>
+      <button type="button" class="${R.vistaMensal === 'tabela' ? 'active' : ''}" data-vista="tabela" aria-pressed="${R.vistaMensal === 'tabela'}" aria-label="${tr('tabela')}" data-tooltip="${tr('tabela')}">${ICONE.tabela}</button>
     </div>`
 
   let grafico
   if (!max) {
     grafico = _vazio(tr('vazioMensal'), '')
-  } else if (_vistaMensal === 'tabela') {
+  } else if (R.vistaMensal === 'tabela') {
     grafico = `<div class="rel-tabela-wrap"><table class="rel-tabela">
       <thead><tr><th>${tr('mes')}</th><th class="dir">${tr('colQtd')}</th>${fin ? `<th class="dir">${tr('kGasto')}</th>` : ''}<th class="dir">${tr('variacao')}</th></tr></thead>
       <tbody>${D.meses.map((m, i) => {
@@ -725,12 +716,12 @@ function _blocoMensal(D) {
     const esc4 = _escala(max, 4, !fin)
     const linhas = Array.from({ length: esc4.n + 1 }, (_, i) => {
       const v = esc4.passo * i
-      return `<div class="rel-grade-linha${i === 0 ? ' base' : ''}" style="bottom:${(v / esc4.topo) * 100}%"><span>${fmtEixo(v)}</span></div>`
+      return `<div class="rel-grade-linha${i === 0 ? ' base' : ''}" data-estilo="bottom:${(v / esc4.topo) * 100}%"><span>${fmtEixo(v)}</span></div>`
     }).join('')
     const media = L.media > 0
-      ? `<div class="rel-media" style="bottom:${(L.media / esc4.topo) * 100}%" aria-hidden="true"></div>`
+      ? `<div class="rel-media" data-estilo="bottom:${(L.media / esc4.topo) * 100}%" aria-hidden="true"></div>`
       : ''
-    grafico = `<div class="rel-colchart" role="img" aria-label="${tr('graficoMensalAria', { t: titulo.toLowerCase() })}">
+    grafico = `<div class="rel-colchart" role="group" aria-label="${tr('graficoMensalAria', { t: titulo.toLowerCase() })}">
       <div class="rel-plot">
         ${linhas}
         ${media}
@@ -743,7 +734,7 @@ function _blocoMensal(D) {
                 data-titulo="${esc(nomeMesLongo(m))}${m.atual ? ' · ' + tr('parcial') : ''}" data-valor="${esc(fin ? _brl(m.valor) : qtdTxt)}" data-sub="${esc(fin ? qtdTxt : '')}"
                 aria-label="${esc(nomeMesLongo(m))}: ${esc(fin ? _brl(m.valor) : qtdTxt)}">
                 <span class="rel-col-valor num">${rotulo}</span>
-                <span class="rel-col-barra" style="height:${m.valor ? Math.max(h, 1.5) : 0}%"></span>
+                <span class="rel-col-barra" data-estilo="height:${m.valor ? Math.max(h, 1.5) : 0}%"></span>
               </button>`
           }).join('')}
         </div>
@@ -768,7 +759,7 @@ function _blocoMensal(D) {
 }
 
 // Categoria e empresa lado a lado, na mesma escala: a barra é a fatia do total
-function _blocoDinheiro(D) {
+export function _blocoDinheiro(D) {
   const fin = _podeVerFinanceiro()
   const met = x => fin ? x.valor : x.qtd
   const total = fin ? D.gasto : D.ped.length
@@ -782,21 +773,21 @@ function _blocoDinheiro(D) {
   const corCat = x => x.id === '__outras__' ? 'var(--rel-outras)' : `var(--rel-${tons[x.id]})`
   const nomeCat = x => x.id === '__outras__' ? tr('outras') : _nomeCategoria(x.id)
 
-  const porForn = _filtroEmp !== 'todas' && fin
+  const porForn = R.filtroEmp !== 'todas' && fin
   const seg = porForn ? top(D.porFornecedor, 6) : top(D.porEmpresa, 6)
   const nomeSeg = x => x.id === '__outras__' ? tr('outras') : porForn ? (x.id || tr('semFornecedor')) : _nomeEmpresa(x.id)
 
   const lista = (itens, nome, cor, cls) => `<ul class="rel-barras ${cls}">${itens.map(x => {
     const p = _pct(met(x), total)
     const largura = total ? (met(x) / total) * 100 : 0
-    return `<li class="rel-barra-item" style="--cor:${cor(x)}">
+    return `<li class="rel-barra-item" data-estilo="--cor:${cor(x)}">
       <div class="rel-barra-topo">
         <span class="rel-barra-cor" aria-hidden="true"></span>
         <span class="rel-barra-nome">${esc(nome(x))}${fin ? `<span class="rel-barra-qtd">${_plural(x.qtd, tr('pedido'), tr('pedidos'))}</span>` : ''}</span>
         <span class="rel-barra-valor num">${fin ? _brl(x.valor) : x.qtd}</span>
         <span class="rel-barra-pct num">${p}%</span>
       </div>
-      <div class="rel-trilho" aria-hidden="true"><span style="width:${Math.max(largura, 0.6)}%"></span></div>
+      <div class="rel-trilho" aria-hidden="true"><span data-estilo="width:${Math.max(largura, 0.6)}%"></span></div>
     </li>`
   }).join('')}</ul>`
 
@@ -812,16 +803,16 @@ function _blocoDinheiro(D) {
   return _secao({ id: 'bloco-dinheiro', larg: 12, titulo: fin ? tr('tDinheiro') : tr('tDinheiroQtd'), meta, corpo })
 }
 
-function _estadoVenc(iso) {
+export function _estadoVenc(iso) {
   const diff = _diasEntre(_iso(_hoje()), iso)
-  if (diff < 0) return `<span class="rel-estado atraso" style="--cor:var(--red)">${diff === -1 ? tr('vencidaHa1') : tr('vencidaHaN', { n: -diff })}</span>`
-  if (diff === 0) return `<span class="rel-estado forte" style="--cor:var(--amber)">${tr('venceHoje')}</span>`
-  if (diff === 1) return `<span class="rel-estado" style="--cor:var(--amber)">${tr('venceAmanha')}</span>`
+  if (diff < 0) return `<span class="rel-estado atraso" data-estilo="--cor:var(--red)">${diff === -1 ? tr('vencidaHa1') : tr('vencidaHaN', { n: -diff })}</span>`
+  if (diff === 0) return `<span class="rel-estado forte" data-estilo="--cor:var(--amber)">${tr('venceHoje')}</span>`
+  if (diff === 1) return `<span class="rel-estado" data-estilo="--cor:var(--amber)">${tr('venceAmanha')}</span>`
   return `<span class="rel-estado sem-ponto">${tr('emDias', { n: diff })}</span>`
 }
-const _cod = p => p?.numeroPedido ? `<span class="rel-cod">${esc(p.numeroPedido)}</span>` : ''
+export const _cod = p => p?.numeroPedido ? `<span class="rel-cod">${esc(p.numeroPedido)}</span>` : ''
 
-function _blocoParcelas(D, larg) {
+export function _blocoParcelas(D, larg) {
   const lista = D.proximas
   const totalAberto = lista.reduce((s, p) => s + (Number(p.valor) || 0), 0)
   if (!lista.length) {
@@ -830,7 +821,7 @@ function _blocoParcelas(D, larg) {
   }
   const loc = _locale()
   const linhas = lista.slice(0, 6).map(pc => {
-    const p = _todos.find(x => x.id === pc.pedidoId)
+    const p = R.todos.find(x => x.id === pc.pedidoId)
     const d = _deIso(pc.vencimento)
     return `<li><button type="button" class="rel-linha" data-pedido="${esc(pc.pedidoId)}">
       <span class="rel-data" title="${dataAbsoluta(d)}"><strong>${_pad(d.getDate())}</strong><small>${d.toLocaleDateString(loc, { month: 'short' }).replace('.', '')}</small></span>
@@ -848,7 +839,7 @@ function _blocoParcelas(D, larg) {
   return _secao({ id: 'bloco-parcelas', larg, titulo: tr('tParcelas'), meta, corpo: `<ul class="rel-linhas">${linhas}</ul>` })
 }
 
-function _blocoMaiores(D) {
+export function _blocoMaiores(D) {
   const linhas = D.maiores.map((p, i) => `
     <li><button type="button" class="rel-linha" data-pedido="${esc(p.id)}">
       <span class="rel-rank" aria-hidden="true">${_pad(i + 1)}</span>
@@ -858,13 +849,13 @@ function _blocoMaiores(D) {
       </span>
       <span class="rel-linha-fim">
         <span class="rel-linha-valor num">${_brl(p.valorFinal)}</span>
-        <span class="rel-estado" style="--cor:${COR_DA_ETAPA[p.status] || 'var(--text3)'}">${STATUS_LABEL[p.status] || p.status}</span>
+        <span class="rel-estado" data-estilo="--cor:${COR_DA_ETAPA[p.status] || 'var(--text3)'}">${STATUS_LABEL[p.status] || p.status}</span>
       </span>
     </button></li>`).join('')
   return _secao({ id: 'bloco-maiores', larg: 6, titulo: tr('tMaiores'), meta: tr('compradasPeriodo'), corpo: `<ul class="rel-linhas">${linhas}</ul>` })
 }
 
-function _blocoFila(D) {
+export function _blocoFila(D) {
   const fila = [...D.emAprov].sort((a, b) => (b.urgente ? 1 : 0) - (a.urgente ? 1 : 0) || (_dataPedido(a) || 0) - (_dataPedido(b) || 0))
   if (!fila.length) return _secao({ id: 'bloco-fila', larg: 12, titulo: tr('tFila'), corpo: _vazio(tr('vazioFilaTit'), tr('vazioFilaTxt')) })
   const linhas = fila.slice(0, 6).map((p, i) => {
@@ -879,7 +870,7 @@ function _blocoFila(D) {
       </span>
       <span class="rel-linha-fim">
         <span class="rel-quando">${_capital(ha)}</span>
-        ${p.urgente ? `<span class="rel-estado forte" style="--cor:var(--red)">${t('urgente')}</span>` : ''}
+        ${p.urgente ? `<span class="rel-estado forte" data-estilo="--cor:var(--red)">${t('urgente')}</span>` : ''}
       </span>
     </button></li>`
   }).join('')
@@ -889,7 +880,7 @@ function _blocoFila(D) {
 // Tempo do processo: ciclo (da abertura à compra e ao pagamento) à esquerda,
 // mediana de cada etapa à direita, com o gargalo em tinta; depois, para quem
 // gere a equipe, a cotação e a compra de cada comprador
-function _blocoProcesso(D) {
+export function _blocoProcesso(D) {
   const P = D.processo
   const meta = tr('processoMeta', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) })
   const temDados = P.ciclo.compra.n || P.ciclo.pagamento.n || P.etapas.some(e => e.n || e.agora)
@@ -918,7 +909,7 @@ function _blocoProcesso(D) {
         <span class="tempo-num" aria-hidden="true">${_pad(i + 1)}</span>
         <span class="tempo-nome">${STATUS_LABEL[e.status]}${gargalo ? `<span class="rel-gargalo" title="${tr('gargaloTitle')}">${tr('gargalo')}</span>` : ''}</span>
         <span class="tempo-dur">${e.n ? formatarDuracao(e.mediana) : '—'}</span>
-        <span class="tempo-barra" aria-hidden="true"><span style="width:${larg.toFixed(1)}%"></span></span>
+        <span class="tempo-barra" aria-hidden="true"><span data-estilo="width:${larg.toFixed(1)}%"></span></span>
         <span class="rel-tempo-sub">${partes.length ? partes.join(' · ') : tr('etapaSem')}</span>
       </li>`
   }).join('')
@@ -932,7 +923,7 @@ function _blocoProcesso(D) {
     (gere && P.compradores.length ? _blocoCompradores(P.compradores) : '')
 }
 
-function _blocoCompradores(lista) {
+export function _blocoCompradores(lista) {
   const med = r => r.n ? formatarDuracao(r.mediana) : '—'
   const corpo = `<div class="rel-tabela-wrap"><table class="rel-tabela">
     <thead><tr><th>${tr('colComprador')}</th><th class="dir">${tr('colCotacoes')}</th><th class="dir">${tr('colMedCotacao')}</th><th class="dir">${tr('colCompras')}</th><th class="dir">${tr('colMedCompra')}</th></tr></thead>
@@ -942,7 +933,7 @@ function _blocoCompradores(lista) {
 }
 
 // Régua das sete etapas, como o cabeçalho do quadro: numeral por etapa
-function _blocoEtapas(D) {
+export function _blocoEtapas(D) {
   const fin = _podeVerFinanceiro()
   const total = D.ped.length
   const celula = (s, fora = false) => {
@@ -964,8 +955,8 @@ function _blocoEtapas(D) {
 }
 
 // ── Dica do gráfico de colunas ────────────────────────────────
-function _temHover() { try { return matchMedia('(hover: hover) and (pointer: fine)').matches } catch { return true } }
-function _ligarDicas() {
+export function _temHover() { try { return matchMedia('(hover: hover) and (pointer: fine)').matches } catch { return true } }
+export function _ligarDicas() {
   document.querySelectorAll('#bloco-mensal .rel-col').forEach(col => {
     // Só mouse de verdade abre a dica no hover; no toque ela abre pelo clique.
     // pointermove (e não pointerenter): só movimento real do mouse abre a dica,
@@ -976,7 +967,7 @@ function _ligarDicas() {
     col.addEventListener('blur', _esconderDica)
   })
 }
-function _mostrarDica(col) {
+export function _mostrarDica(col) {
   const dica = document.getElementById('rel-dica')
   if (!dica) return
   document.querySelectorAll('.rel-col.ativa').forEach(c => c.classList.remove('ativa'))
@@ -993,546 +984,8 @@ function _mostrarDica(col) {
   dica.style.left = x + 'px'
   dica.style.top = y + 'px'
 }
-function _esconderDica() {
+export function _esconderDica() {
   const dica = document.getElementById('rel-dica')
   if (dica) dica.hidden = true
   document.querySelectorAll('.rel-col.ativa').forEach(c => c.classList.remove('ativa'))
-}
-
-// ── Exportações ───────────────────────────────────────────────
-const _hex = rgb => 'FF' + rgb.map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase()
-
-function _nomeArquivo(ext) {
-  const iv = _intervalo()
-  return `praxis-relatorio-${iv.ini}_a_${iv.fim}.${ext}`
-}
-
-const _dataUTC = d => `${_pad(d.getUTCDate())}/${_pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`
-
-function _linhasExport(D) {
-  return D.ped.map(p => {
-    const d = _dataPedido(p)
-    return {
-      num: p.numeroPedido || '',
-      titulo: p.titulo || '',
-      empresa: _nomeEmpresa(p.empresaId),
-      categoria: _nomeCategoria(p.categoriaId),
-      status: STATUS_LABEL[p.status] || p.status || '',
-      urgente: p.urgente ? tr('sim') : tr('nao'),
-      data: d ? new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) : null,
-      estimado: Number(p.valorEstimado) || null,
-      final: Number(p.valorFinal) || null,
-    }
-  })
-}
-
-async function _comBotao(fn) {
-  const btn = document.getElementById('btn-exportar')
-  if (btn) { btn.disabled = true; btn.classList.add('loading') }
-  try { await fn() } catch (err) {
-    console.warn('Relatórios: falha na exportação', err)
-    prxToast(estaOnline() ? tr('erroExport') : t('semConexaoAcao'), 'error')
-  } finally { if (btn) { btn.disabled = false; btn.classList.remove('loading') } }
-}
-
-async function _exportarExcel() {
-  if (!_podeVerFinanceiro()) { prxToast(tr('semPermissao'), 'warning'); return }
-  await _comBotao(async () => {
-    const ExcelJS = await carregarBiblioteca('exceljs')
-    const D = _calcular()
-    const wb = new ExcelJS.Workbook()
-    wb.creator = 'Praxis'; wb.created = new Date()
-    const C = {
-      tinta: _hex(PAPEL.tinta), texto3: _hex(PAPEL.texto3), terracota: _hex(PAPEL.terracota),
-      argila: _hex(PAPEL.argila), argilaClara: _hex(PAPEL.argilaClara), linha: _hex(PAPEL.linha), linhaForte: _hex(PAPEL.linhaForte),
-    }
-    const FONTE = 'Calibri'
-    const FMT_BRL = '"R$" #,##0.00;-"R$" #,##0.00'
-    const FMT_DATA = 'dd/mm/yyyy'
-    const solido = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
-    // Cabeçalho de tabela: argila com o fio de tinta embaixo, como nas inscrições
-    const cabecalho = row => {
-      row.height = 22
-      row.eachCell(c => {
-        c.font = { name: FONTE, bold: true, color: { argb: C.tinta }, size: 10 }
-        c.fill = solido(C.argila)
-        c.border = { bottom: { style: 'medium', color: { argb: C.tinta } } }
-        c.alignment = { vertical: 'middle', horizontal: c.alignment?.horizontal || 'left' }
-      })
-    }
-    const zebra = (ws, de, ate, cols) => {
-      for (let r = de; r <= ate; r++) {
-        const row = ws.getRow(r)
-        for (let c = 1; c <= cols; c++) {
-          const cel = row.getCell(c)
-          cel.font = { name: FONTE, size: 10, color: { argb: C.tinta } }
-          cel.border = { bottom: { style: 'thin', color: { argb: C.linha } } }
-          if ((r - de) % 2 === 1) cel.fill = solido(C.argilaClara)
-        }
-      }
-    }
-    const totais = row => row.eachCell({ includeEmpty: true }, c => {
-      c.font = { name: FONTE, bold: true, size: 10, color: { argb: C.tinta } }
-      c.border = { top: { style: 'thin', color: { argb: C.tinta } } }
-      c.fill = solido(C.argila)
-    })
-    const emp = _filtroEmp === 'todas' ? tr('todas') : _nomeEmpresa(_filtroEmp)
-
-    // Ordem das abas: Resumo, Pedidos, Parcelas
-    const wr = wb.addWorksheet(tr('resumo'), { properties: { tabColor: { argb: C.terracota } }, views: [{ showGridLines: false }] })
-
-    // Aba Pedidos
-    const ws = wb.addWorksheet(tr('abaPedidos'), { properties: { tabColor: { argb: C.tinta } }, views: [{ state: 'frozen', ySplit: 1 }] })
-    ws.columns = [
-      { header: tr('colNum'), key: 'num', width: 12 },
-      { header: tr('colTitulo'), key: 'titulo', width: 44 },
-      { header: tr('colEmpresa'), key: 'empresa', width: 24 },
-      { header: tr('colCategoria'), key: 'categoria', width: 20 },
-      { header: tr('colStatus'), key: 'status', width: 15 },
-      { header: tr('colUrgente'), key: 'urgente', width: 10 },
-      { header: tr('colCriado'), key: 'data', width: 13, style: { numFmt: FMT_DATA } },
-      { header: tr('colEstimado'), key: 'estimado', width: 17, style: { numFmt: FMT_BRL } },
-      { header: tr('colFinal'), key: 'final', width: 17, style: { numFmt: FMT_BRL } },
-    ]
-    const linhas = _linhasExport(D)
-    linhas.forEach(l => ws.addRow(l))
-    const n = linhas.length
-    zebra(ws, 2, n + 1, 9)
-    ;['estimado', 'final'].forEach(k => { ws.getColumn(k).alignment = { horizontal: 'right' } })
-    ws.getColumn('data').alignment = { horizontal: 'center' }
-    ws.getColumn('urgente').alignment = { horizontal: 'center' }
-    cabecalho(ws.getRow(1))
-    if (n) {
-      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: n + 1, column: 9 } }
-      const somaE = linhas.reduce((s, l) => s + (l.estimado || 0), 0)
-      const somaF = linhas.reduce((s, l) => s + (l.final || 0), 0)
-      const tot = ws.addRow({ num: tr('total'), titulo: _plural(n, tr('pedido'), tr('pedidos')) })
-      tot.getCell('estimado').value = { formula: `SUM(H2:H${n + 1})`, result: somaE }
-      tot.getCell('final').value = { formula: `SUM(I2:I${n + 1})`, result: somaF }
-      totais(tot)
-    }
-
-    // Aba Parcelas (em aberto e próximas)
-    const wp = wb.addWorksheet(tr('abaParcelas'), { properties: { tabColor: { argb: C.linhaForte } }, views: [{ state: 'frozen', ySplit: 1 }] })
-    wp.columns = [
-      { header: tr('colVenc'), key: 'venc', width: 13, style: { numFmt: FMT_DATA, alignment: { horizontal: 'center' } } },
-      { header: tr('colNum'), key: 'num', width: 12 },
-      { header: tr('colTitulo'), key: 'titulo', width: 44 },
-      { header: tr('colEmpresa'), key: 'empresa', width: 24 },
-      { header: tr('colParcela'), key: 'parc', width: 10, style: { alignment: { horizontal: 'center' } } },
-      { header: tr('colValor'), key: 'valor', width: 17, style: { numFmt: FMT_BRL, alignment: { horizontal: 'right' } } },
-      { header: tr('colSituacao'), key: 'sit', width: 13 },
-    ]
-    D.abertas.forEach(pc => {
-      const p = _todos.find(x => x.id === pc.pedidoId)
-      const diff = _diasEntre(_iso(_hoje()), pc.vencimento)
-      const [vy, vm, vd] = pc.vencimento.split('-').map(Number)
-      wp.addRow({ venc: new Date(Date.UTC(vy, vm - 1, vd)), num: p?.numeroPedido || '', titulo: p?.titulo || '', empresa: _nomeEmpresa(p?.empresaId),
-        parc: `${pc.numero}/${pc.total}`, valor: Number(pc.valor) || 0, sit: diff < 0 ? tr('vencida') : tr('aberta') })
-    })
-    const m = D.abertas.length
-    zebra(wp, 2, m + 1, 7)
-    for (let r = 2; r <= m + 1; r++) {
-      const sit = wp.getRow(r).getCell('sit')
-      if (sit.value === tr('vencida')) sit.font = { name: FONTE, size: 10, bold: true, color: { argb: _hex([179, 38, 30]) } }
-    }
-    cabecalho(wp.getRow(1))
-    if (m) {
-      wp.autoFilter = { from: { row: 1, column: 1 }, to: { row: m + 1, column: 7 } }
-      const tot = wp.addRow({ venc: null, num: tr('total'), titulo: _plural(m, tr('parcela1'), tr('parcelaN')) })
-      tot.getCell('valor').value = { formula: `SUM(F2:F${m + 1})`, result: D.abertas.reduce((s, p) => s + (Number(p.valor) || 0), 0) }
-      totais(tot)
-    }
-
-    // Aba Resumo: letreiro, período e as tabelas da tela
-    wb.views = [{ activeTab: 0 }]
-    wr.columns = [{ width: 34 }, { width: 20 }, { width: 12 }, { width: 10 }]
-    const r1 = wr.addRow(['PRAXIS'])
-    r1.height = 30
-    r1.getCell(1).font = { name: FONTE, size: 20, bold: true, color: { argb: C.tinta } }
-    const r2 = wr.addRow([tr('relatorioCompras')])
-    r2.getCell(1).font = { name: FONTE, size: 12, bold: true, color: { argb: C.terracota } }
-    for (let c = 1; c <= 4; c++) r2.getCell(c).border = { bottom: { style: 'medium', color: { argb: C.tinta } } }
-    wr.addRow([])
-    wr.addRow([tr('periodo'), `${D.iv.nome} (${formatDate(D.iv.ini)} ${tr('a')} ${formatDate(D.iv.fim)})`])
-    wr.addRow([tr('empresa'), emp])
-    const ag = new Date()
-    wr.addRow([tr('geradoEm'), `${formatDate(_iso(ag))} ${_pad(ag.getHours())}:${_pad(ag.getMinutes())}`])
-    ;[4, 5, 6].forEach(r => {
-      wr.getRow(r).getCell(1).font = { name: FONTE, size: 10, color: { argb: C.texto3 } }
-      wr.getRow(r).getCell(2).font = { name: FONTE, size: 10, color: { argb: C.tinta } }
-      wr.getRow(r).getCell(2).alignment = { horizontal: 'left' }
-    })
-    wr.addRow([])
-    const secao = (titulos, linhasSec, fmts) => {
-      cabecalho(wr.addRow(titulos))
-      const de = wr.rowCount + 1
-      linhasSec.forEach(l => {
-        const r = wr.addRow(l)
-        fmts.forEach((f, i) => { if (f) r.getCell(i + 1).numFmt = f })
-        for (let i = 2; i <= l.length; i++) r.getCell(i).alignment = { horizontal: 'right' }
-      })
-      zebra(wr, de, wr.rowCount, titulos.length)
-      wr.addRow([])
-      return de
-    }
-    const totalV7 = D.vencer7.reduce((s, p) => s + (Number(p.valor) || 0), 0)
-    const ini = secao([tr('indicador'), tr('colValor')], [
-      [tr('kGasto'), D.gasto], [tr('kPedidos'), D.ped.length], [tr('kAprov'), D.emAprov.length],
-      [tr('kEconomia'), D.economia], [tr('kVencer'), totalV7],
-    ], [null, null])
-    ;[0, 3, 4].forEach(k => { wr.getRow(ini + k).getCell(2).numFmt = FMT_BRL })
-    // O gasto é o destaque, em terracota, como na tela
-    wr.getRow(ini).getCell(2).font = { name: FONTE, size: 10, bold: true, color: { argb: C.terracota } }
-    const totEmp = D.porEmpresa.reduce((s, x) => s + x.valor, 0) || 1
-    secao([tr('colEmpresa'), tr('kGasto'), tr('colQtd'), tr('colPct')],
-      D.porEmpresa.map(x => [_nomeEmpresa(x.id), x.valor, x.qtd, x.valor / totEmp]), [null, FMT_BRL, null, '0%'])
-    const totCat = D.porCategoria.reduce((s, x) => s + x.valor, 0) || 1
-    secao([tr('colCategoria'), tr('kGasto'), tr('colQtd'), tr('colPct')],
-      D.porCategoria.map(x => [_nomeCategoria(x.id), x.valor, x.qtd, x.valor / totCat]), [null, FMT_BRL, null, '0%'])
-    const totF = D.porFornecedor.reduce((s, x) => s + x.valor, 0) || 1
-    secao([_capital(tr('fornecedor1')), tr('kGasto'), tr('colQtd'), tr('colPct')],
-      D.porFornecedor.map(x => [x.id || tr('semFornecedor'), x.valor, x.qtd, x.valor / totF]), [null, FMT_BRL, null, '0%'])
-    secao([tr('colStatus'), tr('colQtd')], ORDEM_STATUS.filter(s => D.porStatus[s]).map(s => [STATUS_LABEL[s], D.porStatus[s]]), [null, null])
-
-    // Impressão das abas: paisagem, uma página de largura, rodapé com a marca e a paginação
-    wb.eachSheet(aba => {
-      aba.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-        margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } }
-      aba.headerFooter = { oddFooter: `&L&8PRAXIS · ${tr('relatorioCompras')}&R&8${tr('pagina')} &P ${tr('de')} &N` }
-    })
-
-    const buf = await wb.xlsx.writeBuffer()
-    baixarArquivo(_nomeArquivo('xlsx'), new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-  })
-}
-
-async function _exportarPDF() {
-  if (!_podeVerFinanceiro()) { prxToast(tr('semPermissao'), 'warning'); return }
-  await _comBotao(async () => {
-    const lib = await carregarBiblioteca('jspdf')
-    const { jsPDF } = lib
-    const D = _calcular()
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-    doc.setProperties({ title: `Praxis · ${tr('relatorioCompras')}`, subject: _nomeArquivo('pdf'), author: 'Praxis', creator: 'Praxis' })
-    const W = 297, H = 210, M = 14, LARG = W - 2 * M
-    const TOPO_CONT = M + 14                  // início do conteúdo nas páginas seguintes
-    // eslint-disable-next-line no-control-regex -- a fonte padrão do PDF só aceita Latin-1: o intervalo \x00-\xFF é o alvo
-    const limpo = s => String(s ?? '').replace(/[  ]/g, ' ').replace(/[–—−]/g, '-').replace(/[^\x00-\xFF]/g, '')
-    const brl = v => limpo(_brl(v))
-    const compacto = v => limpo(_brlCompacto(v))
-    const cor = (rgb, tipo = 'text') => doc[tipo === 'text' ? 'setTextColor' : tipo === 'fill' ? 'setFillColor' : 'setDrawColor'](...rgb)
-    const fonte = (peso, tam) => { doc.setFont('helvetica', peso); doc.setFontSize(tam) }
-    const corta = (s, w) => {
-      s = limpo(s)
-      if (doc.getTextWidth(s) <= w) return s
-      while (s.length > 1 && doc.getTextWidth(s + '...') > w) s = s.slice(0, -1)
-      return s.trimEnd() + '...'
-    }
-    const dir = (s, x, yy) => doc.text(s, x, yy, { align: 'right' })
-    const larguraEsp = (s, cs) => larguraEspacada(doc, s, cs)
-    const espacado = (s, x, yy, cs, aDireita = false) => textoEspacado(doc, s, x, yy, cs, aDireita)
-    const fio = (x1, yy, x2, grosso = true) => { cor(grosso ? PAPEL.tinta : PAPEL.linha, 'draw'); doc.setLineWidth(grosso ? 0.55 : 0.25); doc.line(x1, yy, x2, yy) }
-    const tituloSecao = (x, yy, w, titulo, meta) => {
-      fio(x, yy, x + w)
-      fonte('bold', 9.5); cor(PAPEL.tinta)
-      doc.text(limpo(titulo), x, yy + 5.5)
-      if (meta) { fonte('normal', 7.2); cor(PAPEL.texto3); dir(limpo(meta), x + w, yy + 5.5) }
-      return yy + 10
-    }
-    const vazio = (x, yy, txt) => { fonte('normal', 7.8); cor(PAPEL.texto3); doc.text(limpo(txt), x, yy + 3.5); return yy + 8 }
-    const emp = _filtroEmp === 'todas' ? tr('todas') : _nomeEmpresa(_filtroEmp)
-    const periodo = limpo(`${D.iv.nome} · ${formatDate(D.iv.ini)} ${tr('a')} ${formatDate(D.iv.fim)} · ${emp}`)
-    const agora = new Date()
-    const hojeIso = _iso(_hoje())
-    const VERMELHO = [179, 38, 30]
-
-    // ── Página 1: o resumo, na mesma ordem da tela ──
-    // Cabeçalho: símbolo em terracota + PRAXIS espaçado; à direita, o documento
-    let y = M
-    desenharSimbolo(doc, M, y, 9, PAPEL.terracota, PAPEL.branco)
-    fonte('normal', 16); cor(PAPEL.tinta)
-    espacado('PRAXIS', M + 13, y + 8.6, 1.9)
-    fonte('bold', 12.5); cor(PAPEL.tinta)
-    espacado(limpo(tr('relatorioCompras')).toUpperCase(), W - M, y + 4, 0.55, true)
-    fonte('normal', 8.5); cor(PAPEL.texto3)
-    dir(periodo, W - M, y + 9)
-    y += 13
-    fio(M, y, W - M)
-    y += 8
-
-    // Indicadores: numeral sob o fio de tinta, sem caixa; o gasto em terracota
-    const totalV7 = D.vencer7.reduce((s, p) => s + (Number(p.valor) || 0), 0)
-    const variacao = (a, b) => {
-      if (!b) return a ? tr('semBase') : '0%'
-      const p = Math.round(((a - b) / b) * 100)
-      return `${p > 0 ? '+' : p < 0 ? '-' : ''}${Math.abs(p)}% ${D.iv.vs}`
-    }
-    const kpis = [
-      [brl(D.gasto), tr('kGasto'), variacao(D.gasto, D.gastoAnt)],
-      [String(D.ped.length), tr('kPedidos'), variacao(D.ped.length, D.ant.length)],
-      [String(D.emAprov.length), tr('kAprov'), D.urgentes ? _plural(D.urgentes, tr('urgente1'), tr('urgenteN')) : tr('semUrgentes')],
-      [brl(D.economia), tr('kEconomia'), D.nEconomia ? tr('economiaSubN', { n: _plural(D.nEconomia, tr('compra1'), tr('compraN')) }) : tr('economiaSub')],
-      [brl(totalV7), tr('kVencer'), `${_plural(D.vencer7.length, tr('parcela1'), tr('parcelaN'))}${D.vencidas.length ? ' · ' + _plural(D.vencidas.length, tr('vencida1'), tr('vencidaN')) : ''}`],
-    ]
-    const gapK = 6, pesos = [1.35, 1, 1, 1, 1], somaP = pesos.reduce((a, b) => a + b, 0)
-    let kx = M
-    kpis.forEach(([val, rot, sub], i) => {
-      const kw = (LARG - gapK * 4) * pesos[i] / somaP
-      fio(kx, y, kx + kw)
-      fonte('bold', i === 0 ? 20 : 16); cor(i === 0 ? PAPEL.terracota : PAPEL.tinta)
-      doc.text(val, kx, y + 9.5)
-      fonte('bold', 8.2); cor(PAPEL.tinta)
-      doc.text(limpo(rot), kx, y + 15)
-      fonte('normal', 7); cor(PAPEL.texto3)
-      doc.text(corta(sub, kw - 1), kx, y + 19)
-      kx += kw + gapK
-    })
-    y += 26
-
-    // Três colunas: gasto mensal, categoria, empresa (ou fornecedor)
-    const gapC = 10, cw = (LARG - 2 * gapC) / 3
-    const topoLinha = y
-    const xm = M
-    const ym = tituloSecao(xm, y, cw, tr('tMensal'), tr('seisMeses'))
-    const maxM = Math.max(...D.meses.map(mm => mm.valor), 0)
-    const altG = 26, baseG = ym + 5 + altG
-    let fimMensal
-    if (maxM) {
-      const passo = cw / 6
-      const L = _leituraMeses(D)
-      // Média dos meses fechados, tracejada, atrás das colunas
-      if (L.media > 0) {
-        const yMed = baseG - (L.media / maxM) * altG
-        cor(PAPEL.texto2, 'draw'); doc.setLineWidth(0.2); doc.setLineDashPattern([0.8, 0.8], 0)
-        doc.line(xm, yMed, xm + cw, yMed); doc.setLineDashPattern([], 0)
-      }
-      D.meses.forEach((mm, i) => {
-        const h = (mm.valor / maxM) * altG
-        const bx = xm + i * passo + passo * 0.2, bw = passo * 0.6
-        // Como na tela: meses fechados em terracota cheia; o mês em andamento,
-        // parcial, em contorno sobre a terracota clara
-        if (h > 0 && !mm.atual) { cor(PAPEL.terracota, 'fill'); doc.rect(bx, baseG - h, bw, h, 'F') }
-        else if (h > 0) { cor(PAPEL.apagada, 'fill'); cor(PAPEL.terracota, 'draw'); doc.setLineWidth(0.5); doc.rect(bx, baseG - h, bw, h, 'FD') }
-        else if (mm.atual) { cor(PAPEL.terracota, 'fill'); doc.rect(bx, baseG - 0.5, bw, 0.5, 'F') }
-        fonte('bold', 6.4); cor(mm.atual ? PAPEL.tinta : PAPEL.texto2)
-        if (mm.valor) {
-          // Fundo do papel atrás do rótulo: a média tracejada nunca corta o número
-          const rot = compacto(mm.valor), lw = doc.getTextWidth(rot)
-          cor(PAPEL.branco, 'fill'); doc.rect(bx + bw / 2 - lw / 2 - 0.8, baseG - h - 4, lw + 1.6, 3.2, 'F')
-          doc.text(rot, bx + bw / 2, baseG - h - 1.5, { align: 'center' })
-        }
-        cor(mm.atual ? PAPEL.tinta : PAPEL.texto3)
-        const nm = new Date(mm.ano, mm.mes, 1).toLocaleDateString(_locale(), { month: 'short' }).replace('.', '')
-        doc.text(limpo(nm), bx + bw / 2, baseG + 4, { align: 'center' })
-      })
-      cor(PAPEL.texto3, 'draw'); doc.setLineWidth(0.25); doc.line(xm, baseG, xm + cw, baseG)
-      // Legenda: a média e o mês corrente
-      const yl = baseG + 9.5
-      cor(PAPEL.texto2, 'draw'); doc.setLineWidth(0.2); doc.setLineDashPattern([0.8, 0.8], 0); doc.line(xm, yl - 1, xm + 5, yl - 1); doc.setLineDashPattern([], 0)
-      fonte('normal', 6.6); cor(PAPEL.texto3)
-      doc.text(limpo(`${tr('mediaMensal')} ${brl(L.media)}`), xm + 7, yl)
-      const meio = xm + cw / 2 + 2
-      cor(PAPEL.apagada, 'fill'); cor(PAPEL.terracota, 'draw'); doc.setLineWidth(0.35); doc.rect(meio, yl - 2.1, 2, 2, 'FD')
-      doc.text(limpo(`${tr('esteMes')} ${brl(L.atual.valor)}`), meio + 3.5, yl)
-      fimMensal = yl + 2
-    } else {
-      fimMensal = vazio(xm, ym, tr('vazioMensal'))
-    }
-
-    // Listas com barras finas na mesma escala (fatia do total do período)
-    const topo5 = itens => itens.length <= 5 ? itens
-      : [...itens.slice(0, 4), { id: '__outras__', valor: itens.slice(4).reduce((s, x) => s + x.valor, 0), qtd: itens.slice(4).reduce((s, x) => s + x.qtd, 0) }]
-    const listaBarras = (x, yy, w, itens, nome, corItem) => {
-      const total = D.gasto || 1
-      if (!itens.length) return vazio(x, yy, tr('vazioCompras'))
-      topo5(itens).forEach(it => {
-        const c = it.id === '__outras__' ? PAPEL.linhaForte : corItem(it)
-        cor(c, 'fill'); doc.rect(x, yy + 0.9, 2, 2, 'F')
-        fonte('normal', 7.8); cor(PAPEL.tinta)
-        doc.text(corta(it.id === '__outras__' ? tr('outras') : nome(it), w - 50), x + 4, yy + 2.8)
-        fonte('bold', 7.8); dir(brl(it.valor), x + w - 11, yy + 2.8)
-        fonte('normal', 7.2); cor(PAPEL.texto3); dir(`${_pct(it.valor, total)}%`, x + w, yy + 2.8)
-        cor(PAPEL.argila, 'fill'); doc.rect(x + 4, yy + 4.6, w - 4, 0.8, 'F')
-        cor(c, 'fill'); doc.rect(x + 4, yy + 4.6, Math.max(0.4, (w - 4) * (it.valor / total)), 0.8, 'F')
-        yy += 7.8
-      })
-      return yy
-    }
-    const xc = M + cw + gapC
-    const yc = tituloSecao(xc, y, cw, tr('porCategoria'), brl(D.gasto))
-    const tons = _tonsDaLista(topo5(D.porCategoria).map(x => x.id))
-    const fimCat = listaBarras(xc, yc, cw, D.porCategoria, x => _nomeCategoria(x.id), x => TONS_PAPEL[tons[x.id]] || PAPEL.neutra)
-    const xe = M + 2 * (cw + gapC)
-    const porForn = _filtroEmp !== 'todas'
-    const ye = tituloSecao(xe, y, cw, porForn ? tr('porFornecedor') : tr('porEmpresa'),
-      porForn ? _plural(D.porFornecedor.length, tr('fornecedor1'), tr('fornecedorN')) : _plural(D.porEmpresa.length, tr('empresa1'), tr('empresaN')))
-    const fimEmp = porForn
-      ? listaBarras(xe, ye, cw, D.porFornecedor, x => x.id || tr('semFornecedor'), () => PAPEL.neutra)
-      : listaBarras(xe, ye, cw, D.porEmpresa, x => _nomeEmpresa(x.id), () => PAPEL.neutra)
-    y = Math.max(fimMensal, fimCat, fimEmp, topoLinha + 46) + 5
-
-    // Parcelas a vencer e maiores compras, lado a lado
-    const hw = (LARG - gapC) / 2, ALTL = 6.1
-    const linhaLista = (yy, x, w) => { cor(PAPEL.linha, 'draw'); doc.setLineWidth(0.15); doc.line(x, yy, x + w, yy) }
-    const totalProx = D.proximas.reduce((s, p) => s + (Number(p.valor) || 0), 0)
-    let yp = tituloSecao(M, y, hw, tr('tParcelas'), D.proximas.length ? `${brl(totalProx)} · ${tr('totalParcelas', { n: D.proximas.length })}` : tr('proximos30')) - 1.5
-    if (!D.proximas.length) yp = vazio(M, yp, tr('vazioParcelasTit'))
-    D.proximas.slice(0, 5).forEach(pc => {
-      const p = _todos.find(x => x.id === pc.pedidoId)
-      const diff = _diasEntre(hojeIso, pc.vencimento)
-      const sit = diff < 0 ? (diff === -1 ? tr('vencidaHa1') : tr('vencidaHaN', { n: -diff })) : diff === 0 ? tr('venceHoje') : diff === 1 ? tr('venceAmanha') : tr('emDias', { n: diff })
-      fonte('bold', 7.6); cor(PAPEL.tinta)
-      doc.text(formatDate(pc.vencimento).slice(0, 5), M, yp + 4)
-      fonte('normal', 7.6)
-      doc.text(corta(p?.titulo || '-', hw - 13 - 12 - 26 - 30), M + 13, yp + 4)
-      fonte('normal', 7); cor(PAPEL.texto3); dir(`${pc.numero}/${pc.total}`, M + hw - 58, yp + 4)
-      fonte('bold', 7.6); cor(PAPEL.tinta); dir(brl(pc.valor), M + hw - 30, yp + 4)
-      fonte(diff < 0 ? 'bold' : 'normal', 7); cor(diff < 0 ? VERMELHO : diff === 0 ? PAPEL.terracotaTxt : PAPEL.texto2)
-      dir(limpo(sit), M + hw, yp + 4)
-      yp += ALTL; linhaLista(yp, M, hw)
-    })
-    const xmc = M + hw + gapC
-    let yc2 = tituloSecao(xmc, y, hw, tr('tMaiores'), tr('compradasPeriodo')) - 1.5
-    if (!D.maiores.length) yc2 = vazio(xmc, yc2, tr('vazioCompras'))
-    D.maiores.forEach((p, i) => {
-      fonte('bold', 7.6); cor(PAPEL.texto3)
-      doc.text(_pad(i + 1), xmc, yc2 + 4)
-      cor(PAPEL.tinta); fonte('normal', 7.6)
-      doc.text(corta(p.titulo, hw - 8 - 77), xmc + 8, yc2 + 4)
-      fonte('normal', 7); cor(PAPEL.texto3)
-      doc.text(corta(_nomeEmpresa(p.empresaId), 36), xmc + hw - 74, yc2 + 4)
-      cor(PAPEL.texto2); doc.text(limpo(STATUS_LABEL[p.status] || p.status), xmc + hw - 35, yc2 + 4)
-      fonte('bold', 7.6); cor(PAPEL.tinta); dir(brl(p.valorFinal), xmc + hw, yc2 + 4)
-      yc2 += ALTL; linhaLista(yc2, xmc, hw)
-    })
-    y = Math.max(yp, yc2) + 7
-
-    // Régua das etapas: sete numerais e, à parte, reprovados e cancelados
-    y = tituloSecao(M, y, LARG, tr('tEtapas'), D.ped.length === 1 ? tr('etapasMeta1') : tr('etapasMetaN', { n: D.ped.length })) - 2
-    const gE = 4, sepE = 8
-    const ew = (LARG - sepE - gE * 7) / (7 + 2 * 0.85)
-    let ex = M
-    ORDEM_STATUS.forEach((s, i) => {
-      const fora = i >= 7
-      const w = fora ? ew * 0.85 : ew
-      if (i === 7) ex += sepE - gE
-      const n = D.porStatus[s] || 0
-      cor(fora ? PAPEL.linhaForte : PAPEL.tinta, 'draw'); doc.setLineWidth(fora ? 0.25 : 0.45); doc.line(ex, y, ex + w, y)
-      fonte('bold', 15); cor(n ? PAPEL.tinta : PAPEL.linhaForte)
-      doc.text(_pad(n), ex, y + 7.4)
-      fonte('bold', 7.4); cor(PAPEL.tinta); doc.text(corta(STATUS_LABEL[s], w - 1), ex, y + 11.6)
-      fonte('normal', 6.8); cor(PAPEL.texto3); doc.text(n ? compacto(D.valorStatus[s] || 0) : '-', ex, y + 15)
-      ex += w + gE
-    })
-
-    // ── Páginas seguintes: o detalhe, em tabelas ──
-    const ALT = 6.2
-    const novaPagina = () => { doc.addPage(); y = TOPO_CONT }
-    const tabela = (titulo, cols, linhas, rodape) => {
-      const larguraFixa = cols.reduce((s, c) => s + (c.w || 0), 0)
-      const flex = cols.filter(c => !c.w).length
-      const larg = cols.map(c => c.w || ((LARG - larguraFixa) / flex))
-      const desenharCab = () => {
-        cor(PAPEL.argila, 'fill'); doc.rect(M, y, LARG, ALT + 0.6, 'F')
-        fio(M, y + ALT + 0.6, W - M)
-        fonte('bold', 7.4); cor(PAPEL.tinta)
-        let cx = M
-        cols.forEach((c, i) => {
-          const rot = limpo(c.t)
-          if (c.dir) dir(rot, cx + larg[i] - 2.5, y + 4.4)
-          else doc.text(rot, cx + 2.5, y + 4.4)
-          cx += larg[i]
-        })
-        y += ALT + 0.9
-      }
-      const precisaPagina = h => { if (y + h > H - M - 8) { novaPagina(); return true } return false }
-      precisaPagina(ALT * 4 + 12)
-      y = tituloSecao(M, y, LARG, titulo, '') - 2.5
-      desenharCab()
-      linhas.forEach((l, li) => {
-        // A última linha desce junto com o total: nada de total órfão no alto da página
-        if (precisaPagina(li === linhas.length - 1 && rodape ? ALT * 2 + 1 : ALT)) desenharCab()
-        if (li % 2 === 1) { cor(PAPEL.argilaClara, 'fill'); doc.rect(M, y, LARG, ALT, 'F') }
-        let cx = M
-        cols.forEach((c, i) => {
-          const atraso = c.atraso && l[i] === tr('vencida')
-          cor(c.sub ? PAPEL.texto3 : atraso ? VERMELHO : PAPEL.tinta)
-          fonte(c.sub || atraso ? 'bold' : 'normal', c.sub ? 7.4 : 7.8)
-          const s = corta(l[i], larg[i] - 5)
-          if (c.dir) dir(s, cx + larg[i] - 2.5, y + 4.2)
-          else if (c.sub) espacado(s, cx + 2.5, y + 4.2, 0.2)
-          else doc.text(s, cx + 2.5, y + 4.2)
-          cx += larg[i]
-        })
-        y += ALT
-        cor(PAPEL.linha, 'draw'); doc.setLineWidth(0.15); doc.line(M, y, W - M, y)
-      })
-      if (rodape) {
-        precisaPagina(ALT + 1)
-        fio(M, y, W - M)
-        fonte('bold', 7.8); cor(PAPEL.tinta)
-        let cx = M
-        cols.forEach((c, i) => {
-          if (rodape[i]) {
-            if (c.dir) dir(limpo(rodape[i]), cx + larg[i] - 2.5, y + 4.4)
-            else doc.text(limpo(rodape[i]), cx + 2.5, y + 4.4)
-          }
-          cx += larg[i]
-        })
-        y += ALT + 1
-      }
-      y += 9
-    }
-
-    novaPagina()
-    const linhasPed = _linhasExport(D)
-    if (linhasPed.length) {
-      const somaE = linhasPed.reduce((s, l) => s + (l.estimado || 0), 0)
-      const somaF = linhasPed.reduce((s, l) => s + (l.final || 0), 0)
-      tabela(`${tr('pedidosPeriodo')} (${linhasPed.length})`, [
-        { t: tr('colNum'), w: 22, sub: true }, { t: tr('colTitulo') }, { t: tr('colEmpresa'), w: 42 }, { t: tr('colCategoria'), w: 32 },
-        { t: tr('colStatus'), w: 25 }, { t: tr('colCriado'), w: 22 }, { t: tr('colEstimado'), w: 30, dir: true }, { t: tr('colFinal'), w: 30, dir: true },
-      ], linhasPed.map(l => [l.num, l.titulo, l.empresa, l.categoria, l.status, l.data ? _dataUTC(l.data) : '-',
-        l.estimado ? brl(l.estimado) : '-', l.final ? brl(l.final) : '-']),
-      [tr('total'), _plural(linhasPed.length, tr('pedido'), tr('pedidos')), '', '', '', '', brl(somaE), brl(somaF)])
-    } else {
-      y = tituloSecao(M, y, LARG, tr('pedidosPeriodo'), '')
-      y = vazio(M, y, tr('vazioTxt', { ini: formatDate(D.iv.ini), fim: formatDate(D.iv.fim) })) + 8
-    }
-
-    if (D.abertas.length) {
-      tabela(tr('parcelasAbertas'), [
-        { t: tr('colVenc'), w: 24 }, { t: tr('colNum'), w: 22, sub: true }, { t: tr('colTitulo') }, { t: tr('colEmpresa'), w: 48 },
-        { t: tr('colParcela'), w: 22, dir: true }, { t: tr('colValor'), w: 32, dir: true }, { t: tr('colSituacao'), w: 26, atraso: true },
-      ], D.abertas.map(pc => {
-        const p = _todos.find(x => x.id === pc.pedidoId)
-        const diff = _diasEntre(hojeIso, pc.vencimento)
-        return [formatDate(pc.vencimento), p?.numeroPedido || '', p?.titulo || '', _nomeEmpresa(p?.empresaId), `${pc.numero}/${pc.total}`, brl(pc.valor), diff < 0 ? tr('vencida') : tr('aberta')]
-      }), [tr('total'), '', _plural(D.abertas.length, tr('parcela1'), tr('parcelaN')), '', '', brl(D.abertas.reduce((s, p) => s + (Number(p.valor) || 0), 0)), ''])
-    }
-
-    // Cabeçalho corrido (páginas 2+) e rodapé em todas: assinatura AFN, data e paginação
-    const total = doc.getNumberOfPages()
-    const gerado = `${tr('geradoEm')} ${agora.toLocaleDateString('pt-BR')} ${_pad(agora.getHours())}:${_pad(agora.getMinutes())}`
-    for (let i = 1; i <= total; i++) {
-      doc.setPage(i)
-      if (i > 1) {
-        desenharSimbolo(doc, M, M - 1, 5, PAPEL.terracota, PAPEL.branco)
-        fonte('normal', 9); cor(PAPEL.tinta); espacado('PRAXIS', M + 7.5, M + 3.8, 1)
-        fonte('normal', 7.4); cor(PAPEL.texto3); dir(`${limpo(tr('relatorioCompras'))} · ${periodo}`, W - M, M + 3.8)
-        fio(M, M + 7, W - M, false)
-      }
-      fio(M, H - 10, W - M, false)
-      fonte('bold', 7.2)
-      cor(PAPEL.afn); espacado('AFN', M, H - 6, 0.4)
-      let fx = M + larguraEsp('AFN', 0.4) + 1.6
-      cor(PAPEL.cinzaAfn); espacado('SYSTEMS', fx, H - 6, 0.4)
-      fx += larguraEsp('SYSTEMS', 0.4) + 3
-      fonte('normal', 7.2); doc.text('|  Praxis', fx, H - 6)
-      cor(PAPEL.texto3); doc.text(limpo(gerado), W / 2, H - 6, { align: 'center' })
-      dir(`${tr('pagina')} ${i} ${tr('de')} ${total}`, W - M, H - 6)
-    }
-    doc.save(_nomeArquivo('pdf'))
-  })
 }

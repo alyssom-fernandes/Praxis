@@ -24,7 +24,10 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromCache,
+  getDocFromServer,
   getDocs,
+  getDocsFromCache,
   addDoc,
   setDoc,
   updateDoc,
@@ -61,9 +64,11 @@ const auth      = initializeAuth(app, {
 const db        = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
+// Local: localhost, 127.0.0.1 e *.localhost (os testes usam praxis.localhost,
+// onde o service worker registra; ver tests/celular.test.mjs)
 const _isLocal =
   typeof location !== 'undefined' &&
-  (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.endsWith('.localhost'))
 
 if (_isLocal && !globalThis.__praxisEmuladoresConectados) {
   try {
@@ -151,12 +156,54 @@ function novoPedidoRef() {
 // depois disso ele não serve mais nesta página, e quem chama recarrega. Com
 // outra aba do Praxis aberta, a cópia continua em uso e não é apagada
 async function apagarCopiaLocal() {
+  esquecerMemorias()
   try {
     await terminate(db)
     await clearIndexedDbPersistence(db)
   } catch (e) {
     console.warn('Cópia local do Firestore não apagada:', e?.code || e?.message || e)
   }
+}
+
+// Leitura rápida para abrir uma tela: com a cópia local já preenchida, usa
+// ela na hora e busca a do servidor em seguida (mantém a cópia em dia e entrega
+// o resultado a aoAtualizar, se houver). Sem cópia, espera o servidor. Para
+// listas que mudam pouco (empresas, categorias, usuários). Com as idas ao
+// servidor fora do caminho, reabrir até o quadro caiu de 4,8 s para 3,0 s no
+// celular simulado (4G lento, CPU 4x; scripts/medir-desempenho.mjs)
+// memoria: chave de uma cópia pequena no próprio navegador (localStorage),
+// lida sem esperar o Firestore abrir a cópia dele; sai junto com a sessão
+// (esquecerMemorias). Só para listas curtas: empresas e categorias
+const _PREFIXO_MEMORIA = 'praxis_memo_'
+function _guardarMemoria(chave, snap) {
+  try { localStorage.setItem(_PREFIXO_MEMORIA + chave, JSON.stringify(snap.docs.map(d => [d.id, d.data()]))) } catch { /* cheio ou bloqueado */ }
+}
+function _lerMemoria(chave) {
+  try {
+    const lista = JSON.parse(localStorage.getItem(_PREFIXO_MEMORIA + chave) || 'null')
+    if (!Array.isArray(lista) || !lista.length) return null
+    return { empty: false, size: lista.length, docs: lista.map(([id, dados]) => ({ id, data: () => dados })) }
+  } catch { return null }
+}
+function esquecerMemorias() {
+  try { Object.keys(localStorage).filter(k => k.startsWith(_PREFIXO_MEMORIA)).forEach(k => localStorage.removeItem(k)) } catch { /* bloqueado */ }
+}
+
+async function lerRapido(consultaOuRef, aoAtualizar, memoria) {
+  const doServidor = () => getDocs(consultaOuRef).then(s => { if (memoria) _guardarMemoria(memoria, s); return s })
+  const guardado = memoria ? _lerMemoria(memoria) : null
+  if (guardado) {
+    doServidor().then(s => aoAtualizar?.(s)).catch(() => {})
+    return guardado
+  }
+  try {
+    const local = await getDocsFromCache(consultaOuRef)
+    if (!local.empty) {
+      doServidor().then(s => aoAtualizar?.(s)).catch(() => {})
+      return local
+    }
+  } catch { /* sem cópia local */ }
+  return doServidor()
 }
 
 // Contador dos números de pedido (PRX-0001…)
@@ -168,7 +215,7 @@ export {
   app, auth, db,
   // Área da demonstração
   eContaDemo, consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
-  apagarCopiaLocal,
+  apagarCopiaLocal, lerRapido, esquecerMemorias,
   // Auth
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -177,7 +224,7 @@ export {
   signOut,
   sendPasswordResetEmail,
   // Firestore
-  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocFromCache, getDocFromServer, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, runTransaction,
   serverTimestamp, Timestamp, writeBatch, increment,
   // Storage (sob demanda)
