@@ -95,6 +95,7 @@ jobs:
         run: npm run lighthouse
         env:
           LIMITE: 90
+          RODADAS: 3
 
   functions:
     name: Lint das Cloud Functions

@@ -30,7 +30,10 @@ export async function listaDoSw() {
   const resumo = createHash('sha256')
   for (const url of locais) {
     resumo.update(url)
-    resumo.update(await readFile(join(RAIZ, url.split('?')[0])))
+    const arquivo = url.split('?')[0]
+    const bytes = await readFile(join(RAIZ, arquivo))
+    // Texto entra com LF: no Windows o git entrega CRLF, e a versão não pode mudar por isso
+    resumo.update(/\.(js|css|html|json|svg)$/.test(arquivo) ? bytes.toString('utf8').replace(/\r\n/g, '\n') : bytes)
   }
   // O SDK do Firebase (versão fixa no endereço) e o config.js entram na lista,
   // mas não no resumo

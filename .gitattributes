@@ -1,5 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Páginas sempre com LF: a CSP traz o hash dos blocos <style>, e o hash muda com o fim de linha
+*.html text eol=lf
+
 # Bibliotecas de terceiros: os bytes ficam iguais aos publicados no npm
 vendor/** -text
