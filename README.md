@@ -99,7 +99,7 @@ Every number below was measured, with the date and the command that repeats it. 
 
 | What | Result | Measured | Command |
 |---|---|---|---|
-| Lighthouse on the live site: performance, accessibility, best practices, SEO | 99 · 100 · 100 · 100 | Nov 19, 2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
+| Lighthouse on the live site: performance, accessibility, best practices, SEO | 98 · 100 · 100 · 100 | Nov 19, 2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
 | Sign-in screen painted, first visit, on a phone | 1.4 s | Nov 19, 2026 | `npm run medir-desempenho` |
 | Reopening the app, up to the board | 2.4 s | Nov 19, 2026 | `npm run medir-desempenho` |
 | Opening with no connection, up to the board | 0.4 s | Nov 19, 2026 | `npm run medir-desempenho` |

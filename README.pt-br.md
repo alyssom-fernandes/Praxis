@@ -98,7 +98,7 @@ Cada número abaixo foi medido, com a data e o comando que o repete. As medidas 
 
 | O quê | Resultado | Medido em | Comando |
 |---|---|---|---|
-| Lighthouse no site no ar: desempenho, acessibilidade, boas práticas, SEO | 99 · 100 · 100 · 100 | 19/11/2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
+| Lighthouse no site no ar: desempenho, acessibilidade, boas práticas, SEO | 98 · 100 · 100 · 100 | 19/11/2026 | `URL=https://praxis-af618.web.app/ RODADAS=3 npm run lighthouse` |
 | Entrada pintada, primeira visita, no celular | 1,4 s | 19/11/2026 | `npm run medir-desempenho` |
 | Reabrir o app, até o quadro | 2,4 s | 19/11/2026 | `npm run medir-desempenho` |
 | Abrir sem internet, até o quadro | 0,4 s | 19/11/2026 | `npm run medir-desempenho` |
