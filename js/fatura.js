@@ -11,6 +11,7 @@ import { prxToast, mostrarSpinner, esconderSpinner, exigirConexao, abrirModal, f
 import { STATUS, t } from './constants.js'
 import { esc, formatCurrency, formatDate, mensagemDeErro } from './utils.js'
 import { comprasDaFatura } from './requisicao.js'
+import { ICO } from './pedido-detalhe.js'
 
 export async function abrirFatura(base) {
   if (!exigirConexao()) return
@@ -42,7 +43,7 @@ export async function abrirFatura(base) {
           <h2 id="fat-titulo">${t('fatTitulo')}</h2>
           <p class="np-sub">${esc(base.fornecedorNome || '')}</p>
         </div>
-        <button type="button" class="btn-icon" data-fechar aria-label="${t('fechar')}">×</button>
+        <button type="button" class="btn-icon" data-fechar aria-label="${t('fechar')}">${ICO.fechar}</button>
       </div>
       <div class="modal-body">
         <p class="modal-intro">${t('fatIntro')}</p>
@@ -70,7 +71,7 @@ export async function abrirFatura(base) {
   const somar = () => {
     const m = marcados()
     const total = m.reduce((s, c) => s + Number(c.dataset.valor), 0)
-    overlay.querySelector('.fat-total').textContent = t('fatTotal', { n: m.length, valor: formatCurrency(total) })
+    overlay.querySelector('.fat-total').textContent = t(m.length === 1 ? 'fatTotal1' : 'fatTotal', { n: m.length, valor: formatCurrency(total) })
     overlay.querySelector('#fat-pagar').disabled = !m.length
   }
   overlay.querySelector('.fat-lista').addEventListener('change', somar)
@@ -103,10 +104,10 @@ export async function abrirFatura(base) {
         pagos++
       }
       fechar()
-      prxToast(t('fatPaga', { n: pagos, valor: formatCurrency(total) }), 'success')
+      prxToast(t(pagos === 1 ? 'fatPaga1' : 'fatPaga', { n: pagos, valor: formatCurrency(total) }), 'success')
     } catch (err) {
       console.error(err)
-      prxToast(pagos ? t('fatParcial', { n: pagos }) : mensagemDeErro(err, t('erroConfirmarPagamento')), 'error')
+      prxToast(pagos ? t(pagos === 1 ? 'fatParcial1' : 'fatParcial', { n: pagos }) : mensagemDeErro(err, t('erroConfirmarPagamento')), 'error')
     } finally {
       esconderSpinner()
     }

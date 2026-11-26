@@ -103,9 +103,14 @@ export function _renderDecisao(acoes) {
       const h = _quemFez(STATUS.APROVADO)
       const quem = _nomePorId(p.aprovadoPor) || p.aprovadoPorNome || h?.nome
       const em = p.aprovadoEm || h?.em
-      titulo = acoes.length ? t('dtAprovadoTituloPode') : t('dtAprovadoTitulo')
-      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${acoes.length ? t('dtAprovadoTextoPode')
-        : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
+      // A requisição não passa pela compra: quem pediu busca no fornecedor
+      const req = !!p.requisicao
+      titulo = acoes.length ? t(req ? 'reqAprovadoTituloPode' : 'dtAprovadoTituloPode') : t(req ? 'reqAprovadoTitulo' : 'dtAprovadoTitulo')
+      texto = `${quem ? `${t(em ? 'dtAprovadoPorEm' : 'dtAprovadoPor', { nome: esc(quem), d: em ? dataAbsoluta(em) : '' })} ` : ''}${req
+        ? t(acoes.length ? 'reqAprovadoTextoPode' : 'reqAprovadoTexto')
+        : acoes.length ? t('dtAprovadoTextoPode')
+          : (_avisoDeFuncao('comprar', [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO]) || t('dtAprovadoTexto'))}`
+      if (req && p.fornecedorNome) fatos.push([t('npReqFornecedor'), esc(p.fornecedorNome)])
       if (ind) fatos.push([t('dtValorAprovado'), dinheiro(ind.valor), esc(ind.fornecedorNome)])
       else if (p.valorEstimado) fatos.push([t('metaValorEst'), dinheiro(p.valorEstimado)])
       fatoPrazo()

@@ -397,9 +397,14 @@ export function _renderCaminho() {
   const ent = p.lancamento ? { ...ent0, [STATUS.COMPRADO]: ent0[STATUS.COMPRADO] || p.dataCompra, [STATUS.ENTREGUE]: ent0[STATUS.ENTREGUE] || p.dataEntrega, [STATUS.PAGO]: ent0[STATUS.PAGO] || (p.lancamento.pago ? p.dataCompra : null) } : ent0
   const fim = parou === STATUS.REPROVADO ? (p.reprovadoEm || _quemFez(STATUS.REPROVADO)?.em)
     : parou === STATUS.CANCELADO ? (p.canceladoEm || _quemFez(STATUS.CANCELADO)?.em) : null
+  // Etapas que o caminho pula: a requisição não tem cotação nem compra (a
+  // retirada leva de Aprovado a Entregue); a compra já feita nasce em Comprado
+  const puladas = p.requisicao ? [STATUS.AG_COTACAO, STATUS.COMPRADO]
+    : p.lancamento ? [STATUS.SOLICITADO, STATUS.AG_COTACAO, STATUS.EM_APROVACAO, STATUS.APROVADO] : []
   const etapas = _ETAPAS.map((st, i) => {
     let cls, sub = '', leitor = '', dica = ''
-    if (i < atual) { cls = 'feita'; sub = dataAbsoluta(ent[st]); leitor = t('dtEtapaConcluida') }
+    if (i < atual && puladas.includes(st)) { cls = 'pulada'; sub = t('dtEtapaPulada'); leitor = t('dtEtapaPulada') }
+    else if (i < atual) { cls = 'feita'; sub = dataAbsoluta(ent[st]); leitor = t('dtEtapaConcluida') }
     else if (i === atual && parou) {
       cls = 'parou'
       sub = fim ? t(parou === STATUS.REPROVADO ? 'prazoReprovadoEm' : 'prazoCanceladoEm', { d: dataAbsoluta(fim) }) : STATUS_LABEL[parou]
@@ -766,7 +771,7 @@ export function _renderItens(p) {
     </tr>`).join('')
   return `
     <section class="dt-bloco ord-itens" aria-labelledby="sec-itens">
-      <div class="dt-card-head"><h2 class="dt-secao" id="sec-itens">${t('dtItens')} <span class="dt-secao-n">${itens.length}</span></h2></div>
+      <div class="dt-card-head"><h2 class="dt-secao" id="sec-itens">${t('dtItens')}${itens.length > 1 ? ` <span class="dt-secao-n">${itens.length}</span>` : ''}</h2></div>
       <table class="dt-itens">
         <thead class="sr-only"><tr><th>${t('itemDescricao')}</th><th>${t('npQuantidade')}</th>${sub != null ? `<th>${t('itemTotal')}</th>` : ''}</tr></thead>
         <tbody>${linhas}</tbody>
@@ -920,8 +925,11 @@ export function _acoesDoPedido() {
     painel.push(`<button class="btn-primary" id="btn-executar-compra">${ICO.carrinho}${t('btnExecutarCompra')}</button>`)
   }
   // Requisição aprovada: quem foi buscar registra a retirada (R4)
+  // Quem aprovou não registra (separação de funções, como nas regras), menos
+  // na autoaprovação, em que quem pediu aprovou o próprio pedido
   if (p.status === STATUS.APROVADO && p.requisicao && (p.solicitanteId === uid || gestorMais ||
-      (perfil === PERFIS.COMPRADOR && p.compradorId === uid))) {
+      (perfil === PERFIS.COMPRADOR && p.compradorId === uid)) &&
+      (p.aprovadoPor === p.solicitanteId || !impedimentoDeFuncao(p, sessao.usuario, 'comprar'))) {
     painel.push(`<button class="btn-primary" id="btn-registrar-retirada">${ICO.caixa}${t('btnRegistrarRetirada')}</button>`)
   }
   // A autorização para mostrar ao fornecedor (R5)

@@ -42,6 +42,12 @@
 | Gerenciar usuários | ✅ | ✅ | — | — | — | — |
 | Gerenciar empresas | ✅ | ✅ | — | — | — | — |
 | Gerenciar categorias | ✅ | ✅ | — | — | — | — |
+| Ligar requisição, autoaprovação e fatura mensal da empresa | ✅ | ⚠️ das empresas dele | — | — | — | — |
+| Abrir requisição sem cotação (se a empresa ligou, até o limite) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Aprovar o próprio pedido (autoaprovação ligada, até o limite) | ✅ | ✅ | ✅ | — | — | — |
+| Registrar a retirada da requisição aprovada (menos quem a aprovou, salvo na autoaprovação) | ✅ | ✅ | — | ⚠️ só o responsável | — | ⚠️ só as suas |
+| Pagar a fatura do fornecedor (menos os pedidos que aprovou) | ✅ | ✅ | — | — | ✅ | — |
+| Criar acesso sem e-mail (usuário e senha inicial) | ✅ | ✅ | — | — | — | — |
 
 ## Onde as permissões são aplicadas
 

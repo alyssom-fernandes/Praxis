@@ -71,12 +71,17 @@ No celular, a partir da fila do aprovador: o título do cartão vira o título d
 - **Cotações.** Várias propostas por pedido, comparadas lado a lado com a diferença para a menor, e um cadastro de fornecedores que nunca duplica nomes, com importação por CSV.
 - **Aprovação rastreável.** Aprovar, ou reprovar com motivo; o pedido reprovado pode ser reaberto com justificativa. As alçadas por valor definem quantas pessoas aprovam, e quem.
 - **Compra, entrega e parcelas.** Fornecedor, valor final e parcelas; cada parcela é paga com o comprovante, e a última encerra o pedido.
-- **Compra já feita.** Para o que foi comprado fora do Praxis: o quê, onde, quanto, a nota fiscal (digitada ou lida pelo QR), quem autorizou e por quê.
+- **Compra já feita.** Para o que foi comprado fora do Praxis: o quê, onde, quanto, a nota fiscal (digitada ou lida pelo QR), quem autorizou e por quê. Se já chegou e já foi paga, registra num passo só.
+- **Vários itens por pedido.** Até 30 itens com quantidade, unidade e valor unitário, desconto em R$ ou %, e o veículo (placa antiga ou Mercosul, no mesmo registro) com o KM. Ao digitar, o histórico sugere unidade, último preço, fornecedor e categoria.
+- **Requisição sem cotação.** Para o fornecedor de sempre, se a empresa ligar a opção (com limite de valor): o pedido vai direto para a aprovação, a autorização sai em PDF para mostrar no balcão e quem foi buscar registra a retirada. A empresa também pode deixar o aprovador que abriu o pedido aprová-lo até um valor, com registro no histórico.
+- **Fatura do fornecedor.** Se a empresa ligar a opção, o financeiro paga de uma vez as compras entregues do mesmo fornecedor.
+- **Comprar de novo e "Costuma acabar".** Os pedidos concluídos repetem com um toque, e a fila de quem compra avisa o item que costuma acabar, pelo intervalo típico das compras anteriores.
 
 **Controle**
 
 - **Seis perfis, garantidos no servidor.** Cada etapa só anda pelo perfil dono dela, e quem abre ou cota um pedido não pode aprová-lo. Matriz em [`docs/permissoes.md`](docs/permissoes.md).
 - **Várias empresas.** Cada pessoa trabalha só com as empresas a que pertence; o perfil supremo vê todas.
+- **Acesso sem e-mail.** Para a equipe que não tem e-mail, o gestor cria usuário e senha inicial, e a pessoa escolhe a dela no primeiro acesso.
 - **Auditoria e cópia dos dados.** As mudanças administrativas ficam registradas com quem e quando, e o gestor baixa tudo das empresas dele em JSON, com as contagens para conferir.
 
 **Relatórios**
@@ -87,7 +92,8 @@ No celular, a partir da fila do aprovador: o título do cartão vira o título d
 
 - **O próximo passo sempre à vista.** Cada pedido diz quem age agora e o que falta.
 - **Celular, tablet e computador.** No celular, a barra de baixo com o "+", toques de 44 px e o voltar do Android fechando a janela aberta. Quem só pede abre em "Meus pedidos". O tablet deitado mostra o pedido em duas colunas, como no computador.
-- **Instalável e sem internet.** A versão inteira do app fica no aparelho: ele abre sem rede, e a versão nova só entra quando a pessoa toca em "Atualizar".
+- **Instalável e sem internet.** A versão inteira do app fica no aparelho: ele abre sem rede, e a versão nova só entra quando a pessoa toca em "Atualizar". O pedido aberto sem internet fica guardado no aparelho e segue sozinho quando a conexão volta.
+- **Busca e aviso pelo WhatsApp.** A busca acha pelo número, pelo item, pelo fornecedor e pela placa; o pedido que espera alguém tem o "Avisar no WhatsApp" com a mensagem e o link prontos.
 - **Movimento com função, teclado e paleta.** As transições acima, a paleta de comandos (Ctrl+K) e atalhos de uma tecla, o tour guiado, os temas claro e escuro, e português e inglês.
 - **Comentários com @menções, anexos e o histórico completo** numa linha do tempo só, e avisos no app em tempo real (os automáticos vêm das Cloud Functions, com e-mail quando há chave de API).
 - **Modo demonstração** com dados fictícios cujas datas acompanham o dia de hoje, refeitos todo dia.
@@ -225,6 +231,10 @@ js/
   textos-en.js        textos em inglês (baixados só por quem escolhe o inglês)
   pedidos*.js         quadro e lista, "Meus pedidos", filtros, visões salvas, ações em massa
   pedido-detalhe.js   o detalhe do pedido; detalhe-*.js: decisão, ações, comentários, anexos
+  itens*.js           os itens do pedido (desconto, placa, sugestões, busca, "Costuma acabar")
+  novo-pedido.js      itens, veículo, centro de custo e requisição no formulário do pedido
+  requisicao.js       requisição: autorização em PDF e contas da fatura; detalhe-requisicao.js, a retirada
+  fatura.js           a fatura do fornecedor; acesso.js e senha-nova.js, o acesso sem e-mail
   relatorios*.js      painel, gráficos e exportações
   ui.js, tour.js      componentes comuns (avisos, janelas, selo da decisão) e o tour
   config-*.js         usuários, cadastros e preferências

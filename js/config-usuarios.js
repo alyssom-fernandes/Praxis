@@ -104,12 +104,12 @@ export async function renderConfigUsuarios() {
               <input type="text" id="usr-nome" placeholder="${t('cfgNomeCompleto')}" maxlength="80" autocomplete="off">
             </div>
             <div class="form-group col-span-2" data-campo="usr-email">
-              <label for="usr-email" id="usr-email-rotulo">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
-              <input type="email" id="usr-email" placeholder="${t('cfgEmailPlaceholder')}" autocomplete="off">
-              <span class="form-hint" id="usr-email-dica" hidden></span>
               <label class="emp-opcao-check usr-sem-email" id="usr-sem-email-linha" hidden>
                 <input type="checkbox" id="usr-sem-email"> <span>${t('cfgSemEmail')}</span>
               </label>
+              <label for="usr-email" id="usr-email-rotulo">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <input type="email" id="usr-email" placeholder="${t('cfgEmailPlaceholder')}" autocomplete="off">
+              <span class="form-hint" id="usr-email-dica" hidden></span>
             </div>
             <div class="form-group" data-campo="usr-perfil">
               <label for="usr-perfil">${t('cfgColPerfil')} <span class="cfg-req" aria-hidden="true">*</span></label>

@@ -182,6 +182,8 @@ onAuthStateChanged(auth, async (fireUser) => {
     // A3: quem entrou com a senha inicial do gestor troca antes de seguir
     if (usuario.trocarSenha && !sessao.isDemo) {
       const { pedirSenhaNova } = await import('./senha-nova.js')
+      // O carregando sai antes: por cima da janela, ele barrava o toque
+      esconderSpinner()
       await pedirSenhaNova(usuario)
     }
     setTimeout(_registrarServiceWorkerUmaVez, 3000)

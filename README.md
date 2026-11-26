@@ -72,12 +72,17 @@ On a phone, from the approver's queue: the card title travels into the order hea
 - **Quotes.** Several proposals per order, compared side by side with the difference to the lowest, and a supplier registry that never duplicates names, with CSV import.
 - **Approval with a trail.** Approve, or reject with a reason; a rejected order can be reopened with a justification. Approval tiers by value set how many people approve, and who.
 - **Purchase, delivery and installments.** Supplier, final amount and installments; each installment is paid with its receipt, and the last one closes the order.
-- **Purchase already made.** For what was bought outside Praxis: what, where, how much, the invoice (typed or read from its QR code), who authorized it and why.
+- **Purchase already made.** For what was bought outside Praxis: what, where, how much, the invoice (typed or read from its QR code), who authorized it and why. If it has arrived and is paid, it is recorded in one step.
+- **Several items per order.** Up to 30 items with quantity, unit and unit price, a discount in R$ or %, and the vehicle (old or Mercosur plate, as one record) with the mileage. While typing, the history suggests the unit, last price, supplier and category.
+- **Requisition without quotes.** For the usual supplier, when the company turns it on (with an amount limit): the order goes straight to approval, the authorization comes out as a PDF to show at the counter, and whoever picked it up records the pickup. The company can also let the approver who opened an order approve it up to an amount, logged in the history.
+- **Supplier invoice.** When the company turns it on, finance pays at once the delivered purchases from the same supplier.
+- **Buy again and "Usually runs out".** Finished orders repeat with one tap, and the buyer's queue flags the item that usually runs out, from the typical interval of past purchases.
 
 **Control**
 
 - **Six roles, enforced on the server.** Each stage moves only by the role that owns it, and whoever opens or quotes an order cannot approve it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).
 - **Several companies.** Each person works only with the companies they belong to; the top role sees all of them.
+- **Access without e-mail.** For staff without e-mail, the manager creates a username and a first password, and the person picks their own on first sign-in.
 - **Audit and a copy of the data.** Administrative changes are logged with who and when, and a manager downloads everything from their companies as JSON, with counts to check against.
 
 **Reports**
@@ -88,7 +93,8 @@ On a phone, from the approver's queue: the card title travels into the order hea
 
 - **The next step is always visible.** Each order says who acts next and what is missing.
 - **Phone, tablet and desktop.** On a phone, a bottom bar with "+", 44 px touch targets and the Android back button closing the open window. Requesters open on "My orders". A tablet lying down shows the order in two columns, as on a desktop.
-- **Installable and offline.** The whole app version stays on the device: it opens without network, and a new version only takes over when the person taps "Update".
+- **Installable and offline.** The whole app version stays on the device: it opens without network, and a new version only takes over when the person taps "Update". An order opened offline is kept on the device and goes out by itself when the connection returns.
+- **Search and a WhatsApp nudge.** Search finds by number, item, supplier and plate; an order waiting on someone has "Notify on WhatsApp" with the message and link ready.
 - **Motion with a purpose, keyboard and palette.** The transitions above, a command palette (Ctrl+K) and one-key shortcuts, a guided tour, light and dark themes, and Portuguese and English.
 - **Comments with @mentions, attachments and the full history** in one timeline, and in-app notifications in real time (the automatic ones come from Cloud Functions, with e-mail once an API key is set).
 - **Demo mode** with fictitious data whose dates follow today's date, rebuilt every day.
@@ -226,6 +232,10 @@ js/
   textos-en.js        English text (downloaded only when English is chosen)
   pedidos*.js         board and list, "My orders", filters, saved views, bulk actions
   pedido-detalhe.js   the order page; detalhe-*.js: decision, actions, comments, attachments
+  itens*.js           order items (discount, plate, suggestions, search, "Usually runs out")
+  novo-pedido.js      items, vehicle, cost center and requisition in the order form
+  requisicao.js       requisition: PDF authorization and invoice math; detalhe-requisicao.js, the pickup
+  fatura.js           the supplier invoice; acesso.js and senha-nova.js, access without e-mail
   relatorios*.js      dashboard, charts and exports
   ui.js, tour.js      shared components (notices, dialogs, decision seal) and the tour
   config-*.js         users, registries and preferences

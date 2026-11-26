@@ -97,8 +97,8 @@ export function montarEditorItens(raiz, { prefixo = 'np', comValor = true, histo
     const d = desconto(tipoDesconto, parseMoeda(raiz.querySelector(`#${prefixo}-desconto`).value))
     const vd = valorDoDesconto(sub, d)
     raiz.querySelector('.itens-ed-soma').innerHTML = vd
-      ? `${t('itemSubtotal')} ${formatCurrency(sub)} · ${t('itemDesconto')} −${formatCurrency(vd)} · <strong>${t('itemTotal')} ${formatCurrency(totalComDesconto(sub, d))}</strong>`
-      : `<strong>${t('itemTotal')} ${formatCurrency(sub)}</strong>`
+      ? `<span class="nq">${t('itemSubtotal')} ${formatCurrency(sub)}</span> · <span class="nq">${t('itemDesconto')} −${formatCurrency(vd)}</span> · <strong class="nq">${t('itemTotal')} ${formatCurrency(totalComDesconto(sub, d))}</strong>`
+      : `<strong class="nq">${t('itemTotal')} ${formatCurrency(sub)}</strong>`
   }
 
   function sugerir(input) {

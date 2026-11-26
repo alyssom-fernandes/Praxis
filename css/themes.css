@@ -145,7 +145,8 @@ select option {
     -webkit-backdrop-filter: saturate(140%) blur(12px);
     border-top: 1px solid var(--line);
   }
-  .decisao-acoes > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 var(--esp-150); }
+  /* Dois botões a 360 px: o rótulo quebra em duas linhas em vez de vazar */
+  .decisao-acoes > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: var(--esp-050) var(--esp-150); white-space: normal; line-height: 1.2; text-wrap: balance; }
   body:has(.decisao-acoes) .main-footer { padding-bottom: calc(var(--barra-inferior-h) + var(--acoes-fixas-h) + env(safe-area-inset-bottom, 0px) + var(--esp-200)); }
   /* O aviso sobe acima da barra de decisão e, com uma janela aberta, acima
      do rodapé dela. O :has(#bottom-nav) iguala a especificidade da regra
@@ -659,6 +660,10 @@ select option {
 @media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
   /* Até duas linhas, sem cortar a frase no meio */
   .pedidos-resumo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* A explicação da fila e o "Ver os antigos" não podem sumir no corte: o
+     resumo fica numa linha e a explicação, inteira, na de baixo */
+  .pedidos-resumo:has(.resumo-extra) { display: block; overflow: visible; }
+  .pedidos-resumo .resumo-extra { display: block; }
   .pf-corpo > .pedidos-rapidos { order: -1; flex-wrap: wrap; align-self: stretch; overflow: visible; }
 }
 

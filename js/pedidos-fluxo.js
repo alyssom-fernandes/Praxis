@@ -193,6 +193,7 @@ export async function _submeterNovoPedido() {
   if (!navigator.onLine && !sessao.isDemo) {
     guardarParaEnviar(dados)
     _guardarUltimaEmpresa(empresaId)
+    _ficarNoQuadro()
     fecharModal('modal-novo-pedido')
     prxToast(t('aEnviarGuardado'), 'info', 8000)
     _renderView()
@@ -205,6 +206,7 @@ export async function _submeterNovoPedido() {
   try {
     const pedidoRef = await _gravarPedidoNovo(dados)
     _guardarUltimaEmpresa(empresaId)
+    _ficarNoQuadro()
     fecharModal('modal-novo-pedido')
     prxToast(t(req ? 'requisicaoEnviada' : 'pedidoAberto'), 'success', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id: pedidoRef.id }) }] })
   } catch (err) {
@@ -237,6 +239,12 @@ async function _gravarPedidoNovo(dados) {
 // ── S7: pedidos guardados sem internet ─────────────────────────
 // Ficam no aparelho (por pessoa) até a conexão voltar; cada um vira o pedido
 // de verdade, com o número da vez. Se um falhar por outra razão, fica na fila
+// Pedido criado: a cópia aberta de um pedido não volta a ele (js/pedidos.js)
+function _ficarNoQuadro() {
+  const ov = document.getElementById('modal-novo-pedido')
+  if (ov) ov._aoFechar = null
+}
+
 const _chaveAEnviar = () => `praxis_a_enviar_${sessao.usuario?.id || ''}`
 export function pedidosAEnviar() {
   try { return JSON.parse(localStorage.getItem(_chaveAEnviar()) || '[]') } catch { return [] }
@@ -261,7 +269,7 @@ export async function enviarGuardados() {
       } catch (err) { console.error(err) }
     }
   } finally { _enviando = false }
-  if (enviados) prxToast(t('aEnviarEnviados', { n: enviados }), 'success')
+  if (enviados) prxToast(t(enviados === 1 ? 'aEnviarEnviados1' : 'aEnviarEnviados', { n: enviados }), 'success')
   _renderView()
 }
 

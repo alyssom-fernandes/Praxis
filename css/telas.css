@@ -2727,8 +2727,8 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   gap: var(--esp-150);
   font-size: var(--t-corpo);
 }
-.rel-barra-cor { align-self: center; width: 8px; height: 8px; background: var(--cor); }
-.rel-barra-nome { min-width: 0; overflow: hidden; font-weight: 500; color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.rel-barra-cor { align-self: start; margin-top: var(--esp-100); width: 8px; height: 8px; background: var(--cor); }
+.rel-barra-nome { min-width: 0; overflow-wrap: anywhere; font-weight: 500; color: var(--text); }
 .rel-barra-qtd { margin-left: var(--esp-100); font-size: var(--t-pequeno); font-weight: 400; color: var(--text3); }
 .rel-barra-valor { font-weight: 600; color: var(--text); text-align: right; white-space: nowrap; }
 .rel-barra-pct { font-size: var(--t-pequeno); color: var(--text3); text-align: right; white-space: nowrap; }
@@ -3405,9 +3405,8 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .dropzone:focus-within { color: var(--text); outline: 2px solid var(--foco); outline-offset: 1px; }
 .dropzone span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .modal-comparar { max-width: 920px; }
-/* Sugestões de fornecedor (datalist) sem a seta nativa do navegador */
-#modal-compra input[list]::-webkit-calendar-picker-indicator,
-#modal-cotacao input[list]::-webkit-calendar-picker-indicator { display: none !important; }
+/* Sugestões (fornecedor, item, placa) sem a seta nativa do navegador, em todas as janelas */
+.modal input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 
 /* ── Banner de reabertura (4.7) ──────────────────────── */
 .reaberto-banner {
@@ -3878,7 +3877,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 
 /* Interruptor de cantos retos (a pílula fica só para avatar e ponto) */
 .cfg-interruptor {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--esp-025);
   border-radius: var(--radius-sm);
   outline: none;
@@ -4305,7 +4304,8 @@ input.cfg-mono { font-size: var(--t-corpo); }
   display: flex; align-items: baseline; gap: var(--esp-100); margin: 0;
   font-size: var(--t-pequeno); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text2);
 }
-.meus-grupo-titulo .numeral { color: var(--gold); letter-spacing: 0; }
+/* Contagem pequena na fonte do texto: o "1" da Neohellenic, sozinho, parece um "I" */
+.meus-grupo-titulo .numeral { font-family: var(--font); font-variant-numeric: tabular-nums; color: var(--gold); letter-spacing: 0; }
 .meus-lista { display: flex; flex-direction: column; gap: var(--esp-150); }
 /* No computador, os cartões em grade (o mesmo cartão do quadro, mais largo) */
 @media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
@@ -4353,6 +4353,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .itens-ed-tipo button[aria-pressed="true"] { background: var(--gold-dim); color: var(--gold); }
 .itens-ed-soma { margin: 0; font-size: var(--t-corpo); color: var(--text2); font-variant-numeric: tabular-nums; }
 .itens-ed-soma strong { color: var(--text); }
+.itens-ed-soma .nq { white-space: nowrap; }
 .np-dica { margin: var(--esp-050) 0 0; font-size: var(--t-pequeno); color: var(--text3); }
 @media (max-width: 600px) {
   /* No celular: a descrição na linha de cima, quantidade, unidade e valor embaixo */
@@ -4375,7 +4376,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .dt-itens .dt-it-valor { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%; }
 .dt-itens tfoot td { color: var(--text2); border-bottom: 0; padding-top: var(--esp-075); padding-bottom: 0; }
 .dt-itens .dt-it-total td { color: var(--text); font-weight: 600; padding-top: var(--esp-100); }
-.dt-secao-n { margin-left: var(--esp-075); color: var(--text3); font-weight: 400; font-variant-numeric: tabular-nums; }
+.dt-secao-n { margin-left: var(--esp-075); font-family: var(--font); color: var(--text3); font-weight: 400; font-variant-numeric: tabular-nums; }
 
 /* "Comprar de novo" nos concluídos de Meus pedidos, abaixo do cartão */
 .meus-item { display: flex; flex-direction: column; gap: var(--esp-050); }
@@ -4402,6 +4403,8 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .emp-opcao { display: flex; flex-direction: column; gap: var(--esp-075); }
 .emp-opcao-check { display: inline-flex; align-items: center; gap: var(--esp-100); font-weight: 600; cursor: pointer; min-height: 32px; }
 .emp-opcao-check input { width: 18px; height: 18px; accent-color: var(--gold-fill); }
+/* Acesso sem e-mail: a escolha vem antes do campo que ela muda (e-mail ou usuário) */
+.usr-sem-email { align-self: flex-start; margin-bottom: var(--esp-100); }
 .emp-opcao-limite { display: flex; flex-direction: column; gap: var(--esp-050); max-width: 220px; }
 .emp-opcao-limite label { font-size: var(--t-pequeno); color: var(--text2); }
 .np-req-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-150); margin-top: var(--esp-150); }
@@ -4426,4 +4429,10 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .lembrete { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-150); font-size: var(--t-corpo); }
 .lembrete-txt { color: var(--text2); }
 .lembrete-txt strong { color: var(--text); }
-@media (max-width: 600px) { .lembrete { flex-direction: column; align-items: flex-start; } .lembrete .btn-sm { min-height: 44px; } }
+/* No celular o botão desce para baixo do texto, alinhado à margem dele (o
+   recuo do botão fantasma sai pela margem negativa) */
+@media (max-width: 600px) { .lembrete { flex-direction: column; align-items: flex-start; gap: 0; } .lembrete .btn-sm { min-height: 44px; margin-left: calc(var(--esp-150) * -1); } .lembrete + .lembrete { padding-top: var(--esp-100); border-top: 1px solid var(--gold-border); } }
+
+/* Troca de senha no primeiro acesso (js/senha-nova.js): o mesmo respiro entre
+   os campos das outras janelas */
+#form-senha-nova { display: flex; flex-direction: column; gap: var(--esp-250); }

@@ -806,6 +806,11 @@ export function fecharModal(id) {
   if (!overlay || !overlay.classList.contains('visible')) return
   const voltar = overlay._voltar || _pilhaVoltar.find(i => i.chave === id)
   if (voltar) { desempilharVoltar(voltar); overlay._voltar = null }
+  // Quem abriu a janela pode pedir um passo a mais ao fechar (a cópia aberta
+  // do pedido volta ao pedido), depois que o voltar da própria janela termina
+  const aoFechar = overlay._aoFechar
+  overlay._aoFechar = null
+  if (aoFechar) quandoHistoricoLivre(aoFechar)
 
   // Remove trap e restaura foco ao elemento que abriu o modal
   if (overlay._trapHandler) {

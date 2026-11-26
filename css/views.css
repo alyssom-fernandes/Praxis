@@ -96,7 +96,7 @@
   justify-content: space-between;
   gap: var(--esp-150);
 }
-.bv-acoes button { min-height: 42px; padding-inline: var(--esp-250); }
+.bv-acoes button { min-height: 44px; padding-inline: var(--esp-250); }
 .bv-acoes .btn-ghost { margin-left: calc(var(--esp-150) * -1); border-color: transparent; color: var(--text3); }
 .bv-acoes .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: transparent; }
 .bv-friso { flex-shrink: 0; }

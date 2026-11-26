@@ -106,3 +106,42 @@ mediana de três rodadas).
 **O que se perde:** uma regra de toque nova precisa ir para o `base.css`.
 Conferido: a entrada fica igual, pixel a pixel, com e sem o `themes.css`, a 390,
 768 e 1440 px.
+
+## 12. A demo num projeto Firebase próprio (26/11/2026)
+
+**Decisão:** quando configurada (`js/config.js`), a conta de demonstração roda
+num projeto Firebase separado; o projeto real fica só com os dados da empresa.
+**Por quê:** a renovação diária da demo regravava centenas de documentos no
+mesmo banco e dividia com ele a cota gratuita de leituras e gravações.
+**O que se perde:** dois projetos para manter (regras publicadas nos dois).
+
+## 13. Menos leituras: o quadro escuta o que está em andamento (26/11/2026)
+
+**Decisão:** o quadro escuta os pedidos em andamento e os 100 encerrados mais
+recentes; "Ver os antigos" traz o resto sob pedido. O "visto por" vai num
+documento da pessoa (`lidos/{uid}`), e os cadastros são relidos do servidor no
+máximo a cada 10 minutos.
+**Por quê:** no plano gratuito, cada abertura do quadro lia todos os pedidos já
+encerrados, e cada pedido aberto regravava o próprio documento.
+**O que se perde:** a busca por um pedido antigo pede um toque a mais.
+
+## 14. Acesso sem e-mail (26/11/2026)
+
+**Decisão:** a pessoa sem e-mail entra com um usuário (`joao.oficina`), guardado
+no Auth como `joao.oficina@usuarios.praxis.invalid`. O gestor cria a conta numa
+instância à parte do Firebase (sem derrubar a própria sessão) com uma senha
+inicial que aparece só uma vez, e a pessoa troca a senha no primeiro acesso.
+**Por quê:** parte da equipe tem celular mas não tem e-mail, e o plano gratuito
+não tem Cloud Functions para criar contas no servidor.
+**O que se perde:** não há "esqueci a senha" para essas contas (o domínio
+`.invalid` não recebe e-mail); o gestor cria um acesso novo.
+
+## 15. Pedido guardado sem internet (26/11/2026)
+
+**Decisão:** sem conexão, o pedido novo fica no aparelho (`localStorage`, por
+pessoa) e é enviado sozinho quando a conexão volta, com o número dado nesse
+momento.
+**Por quê:** a gravação do pedido usa uma transação (o número sequencial), que
+o Firestore não faz sem internet.
+**O que se perde:** o pedido só ganha número e aparece para os outros depois do
+envio; o resumo do quadro mostra quantos estão "a enviar".

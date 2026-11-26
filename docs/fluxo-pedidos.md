@@ -69,6 +69,16 @@ Para a compra que aconteceu antes de passar pelo Praxis (o gerente manda alguém
 
 Sem solicitação, cotação, aprovação nem alçada. A autorização fica confirmada quando quem lança é o gestor (ou o supremo) que autorizou; nos outros casos fica pendente até a pessoa apontada, ou um gestor da empresa que não lançou, confirmar ou marcar como não reconhecida (a compra continua registrada, com o selo). Tudo vai para o histórico. As compras já feitas ficam fora do tempo do processo nos relatórios, porque não passaram pelas etapas.
 
+## Requisição sem cotação
+
+Para a compra miúda no fornecedor de sempre, se a empresa ligar a opção (com ou sem limite de valor). O pedido nasce em **Em aprovação**, sem comprador nem cotação, com o fornecedor e o valor estimado; as regras conferem o limite. Aprovado, a autorização sai em PDF para mostrar ao fornecedor, e quem foi buscar (quem pediu, ou quem compra na empresa) registra a retirada: o valor da nota, a data, quem retirou e as parcelas. O pedido vai a **Entregue**, ou a **Pago** quando quem registra é do financeiro e marca "Já foi pago". Quem aprovou não registra a retirada, menos na autoaprovação.
+
+**Autoaprovação.** A empresa pode deixar o aprovador (ou o gestor) que abriu o pedido aprová-lo, até um valor. Fica no histórico como qualquer aprovação.
+
+## Fatura do fornecedor
+
+Para o fornecedor que manda uma fatura por mês, se a empresa ligar a opção: no pedido entregue, o financeiro abre "Pagar a fatura", vê as compras entregues do mesmo fornecedor na mesma empresa (menos as que aprovou), desmarca o que não está na fatura e registra o pagamento de todas de uma vez. Cada pedido vai a **Pago**, com a parcela e a linha no histórico.
+
 ## Concorrência
 
 Duas operações usam `runTransaction` obrigatoriamente:

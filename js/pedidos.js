@@ -464,6 +464,10 @@ export async function renderPedidos() {
     _resetarModalNovoPedido()
     _preencherModalDuplicar(fonteDuplicar, { deNovo: !!Q.duplicarDeNovo })
     abrirModal('modal-novo-pedido')
+    // Veio do pedido ("Duplicar" ou "Comprar de novo"): fechar sem criar,
+    // pelo X, por Cancelar ou pelo voltar, devolve a pessoa ao pedido
+    const ov = document.getElementById('modal-novo-pedido')
+    if (ov) ov._aoFechar = () => history.back()
   } else if (Q.abrirNovoAoEntrar) {
     Q.abrirNovoAoEntrar = false
     _resetarModalNovoPedido()

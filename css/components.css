@@ -99,6 +99,10 @@
 .regua-etapa.parou .regua-sub { white-space: normal; }
 .regua-etapa.futura .regua-n { opacity: 0.45; }
 .regua-etapa.cortada { border-top-style: dashed; }
+/* Etapa que o caminho pula (requisição, compra já feita): fio tracejado em tinta */
+.regua-etapa.pulada { border-top-style: dashed; border-top-color: var(--tinta); }
+.regua-etapa.pulada .regua-n { opacity: 0.35; }
+.regua-etapa.pulada .regua-nome, .regua-etapa.pulada .regua-sub { color: var(--text3); }
 .regua-etapa.cortada .regua-n { opacity: 0.25; }
 .regua-etapa.cortada .regua-nome { text-decoration: line-through; text-decoration-color: var(--text3); }
 
@@ -171,6 +175,7 @@
   display: flex;
   align-items: center;
   gap: var(--esp-150);
+  min-height: 44px;
   cursor: pointer;
 }
 .toggle {
@@ -419,6 +424,12 @@ body.com-offline { padding-bottom: var(--esp-800); }
 }
 .demo-faixa-lista button:hover:not(:disabled) { background: var(--card2); }
 .demo-faixa-lista button:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; background: var(--card2); }
+/* No toque (celular e tablet) a faixa fica fina e o botão ganha área de toque
+   por cima e por baixo, até 44 px */
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
+  #demo-faixa-menu { position: relative; }
+  #demo-faixa-menu::after { content: ''; position: absolute; top: max(-8px, calc((44px - 100%) / -2)); bottom: max(-8px, calc((44px - 100%) / -2)); left: 0; right: 0; }
+}
 body.com-demo { padding-top: var(--faixa-demo-h); }
 body.com-demo .main-layout { min-height: calc(100vh - var(--faixa-demo-h)); }
 body.com-demo .lateral { top: var(--faixa-demo-h); height: calc(100dvh - var(--faixa-demo-h)); }
