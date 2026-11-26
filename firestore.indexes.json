@@ -4,6 +4,52 @@
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "solicitanteId","order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDemo",     "order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDemo",     "order": "ASCENDING" },
+        { "fieldPath": "empresaId",  "order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDemo",     "order": "ASCENDING" },
+        { "fieldPath": "solicitanteId","order": "ASCENDING" },
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "criadoEm",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pedidos",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "empresaId",  "order": "ASCENDING" },
         { "fieldPath": "status",     "order": "ASCENDING" },
         { "fieldPath": "criadoEm",   "order": "DESCENDING" }

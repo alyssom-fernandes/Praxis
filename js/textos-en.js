@@ -929,6 +929,8 @@ export default {
   visualizacao:          'View',
   nestaEtapa:            'in this stage',
   resumoEncerrados:      'Rejected and cancelled orders stay here for reference.',
+  encerradosRecentes:    'The board shows the {n} most recent closed orders.',
+  verEncerradosAntigos:  'Show older ones',
   resumoNenhum:          'No orders',
   filaDescGestor:        'Open orders that are urgent or have been idle for more than two days land here.',
   filaDescAprovador:     'Orders waiting for your approval land here.',

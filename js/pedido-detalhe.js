@@ -4,11 +4,11 @@
 // etapa, comparador, edição, menções, comentários) e detalhe-dados.js
 // (permissões, releituras, anexos, tempo por etapa); o estado em detalhe-estado.js.
 import {
-  db, armazenamento, doc, collection, where, getDocs, updateDoc, onSnapshot, writeBatch,
-  serverTimestamp, increment, consulta, consultaUsuarios, marcaDemo, eContaDemo,
+  db, auth, armazenamento, doc, collection, where, getDocs, setDoc, onSnapshot, writeBatch,
+  serverTimestamp, increment, consulta, consultaUsuarios, marcaDemo, eContaDemo, lerCadastro,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
-import { sessao } from './estado.js'
+import { sessao, chaveLido } from './estado.js'
 import { prxToast, avisoNoFormulario, prxConfirm, mostrarSpinner, esconderSpinner, exigirConexao, bordasDeRolagem } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import {
@@ -114,8 +114,10 @@ export function _iniciarListener() {
       _assinatura = assinatura
       if (!_vistoMarcado) {
         _vistoMarcado = true
-        const seenKey = `vistoPor.${sessao.usuario.id}`
-        updateDoc(doc(db, 'pedidos', D.pedidoId), { [seenKey]: serverTimestamp() }).catch(() => {})
+        // No documento da pessoa, não no pedido: gravar no pedido fazia todo
+        // quadro aberto reler o pedido a cada abertura
+        const uid = auth.currentUser?.uid
+        if (uid) setDoc(doc(db, 'lidos', uid), { pedidos: { [chaveLido(D.pedidoId)]: serverTimestamp() } }, { merge: true }).catch(() => {})
       }
       await _carregarSubcollections()
       _renderDetalhe()
@@ -177,16 +179,16 @@ export async function _carregarSubcollections() {
 
 export async function _carregarAuxiliares() {
   const [empSnap, catSnap, fornSnap] = await Promise.all([
-    getDocs(consulta(collection(db, 'empresas'))),
-    getDocs(consulta(collection(db, 'categorias'))),
-    getDocs(consulta(collection(db, 'fornecedores'))),
+    lerCadastro('empresas', consulta(collection(db, 'empresas'))),
+    lerCadastro('categorias', consulta(collection(db, 'categorias'))),
+    lerCadastro('fornecedores', consulta(collection(db, 'fornecedores'))),
   ])
   D.empresas    = empSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   D.categorias  = catSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   D.fornecedores = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
   // usuarios: regra permite list apenas para gestor+; demais perfis recebem lista vazia
   try {
-    const usrSnap = await getDocs(consultaUsuarios(sessao.usuario))
+    const usrSnap = await lerCadastro('usuarios', consultaUsuarios(sessao.usuario))
     D.usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não é uma pessoa: fica fora das menções e listas
       .filter(u => !(sessao.isDemo && u.email === 'demo@praxis.app'))

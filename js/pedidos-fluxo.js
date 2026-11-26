@@ -2,7 +2,7 @@
 // cabeçalho, rolagem do quadro, régua do celular e arrastar e soltar
 // (ver js/pedidos.js).
 import {
-  db, collection, where, orderBy, onSnapshot, doc, runTransaction, serverTimestamp, writeBatch,
+  db, collection, where, orderBy, limit, onSnapshot, doc, runTransaction, serverTimestamp, writeBatch,
   consulta, marcaDemo, novoPedidoRef, contadorPedidosRef,
 } from './firebase.js'
 import { navegar, registrarLimpador, atualizarLateral } from './app.js'
@@ -206,20 +206,14 @@ export function _iniciarListenerPedidos() {
   _mudouEm.clear()
 
   const perfil = sessao.usuario.perfil
+  const ref = collection(db, 'pedidos')
 
-  let q
-  if (perfil === PERFIS.SUPREMO) {
-    // Supremo enxerga todos os pedidos sem filtro por empresa
-    q = consulta(collection(db, 'pedidos'), orderBy('criadoEm', 'desc'))
-  } else if (perfil === PERFIS.SOLICITANTE) {
-    // Solicitante vê apenas pedidos que ele mesmo abriu
-    q = consulta(
-      collection(db, 'pedidos'),
-      where('solicitanteId', '==', sessao.usuario.id),
-      orderBy('criadoEm', 'desc')
-    )
-  } else {
-    // Demais perfis veem todos os pedidos das empresas que têm acesso
+  // Quem vê o quê: o supremo, tudo; o solicitante, os pedidos que abriu; os
+  // demais, os das empresas que têm
+  let porPerfil = []
+  if (perfil === PERFIS.SOLICITANTE) {
+    porPerfil = [where('solicitanteId', '==', sessao.usuario.id)]
+  } else if (perfil !== PERFIS.SUPREMO) {
     const empresas = empresasDoUsuario(sessao.usuario)
     if (!empresas.length) {
       Q.pedidos = []
@@ -229,16 +223,28 @@ export function _iniciarListenerPedidos() {
     // O Firestore aceita até 30 valores num 'in'; acima disso, avisa em vez de
     // cortar em silêncio
     if (empresas.length > 30) console.warn(`Praxis: ${empresas.length} empresas; a lista mostra os pedidos das 30 primeiras.`)
-    q = consulta(
-      collection(db, 'pedidos'),
-      where('empresaId', 'in', empresas.slice(0, 30)),
-      orderBy('criadoEm', 'desc')
-    )
+    porPerfil = [where('empresaId', 'in', empresas.slice(0, 30))]
   }
+  const nEmpresas = perfil === PERFIS.SUPREMO || perfil === PERFIS.SOLICITANTE ? 1 : Math.min(empresasDoUsuario(sessao.usuario).length, 30)
 
-  const aplicar = snap => {
+  // O quadro escuta os pedidos em andamento e só os encerrados mais recentes
+  // (pago, reprovado, cancelado): antes ele escutava todos, e cada pedido
+  // antigo custava uma leitura a cada abertura. "Ver os encerrados antigos"
+  // (Q.verTodos) volta à escuta de tudo nesta visita. O Firestore aceita até
+  // 30 combinações de 'in' numa consulta: com muitas empresas, escuta tudo
+  const ordem = orderBy('criadoEm', 'desc')
+  const emAndamento = Object.values(STATUS).filter(s => !_TERMINAIS.includes(s))
+  const divide = !Q.verTodos && nEmpresas * emAndamento.length <= 30
+  const consultas = divide
+    ? [
+        consulta(ref, ...porPerfil, where('status', 'in', emAndamento), ordem),
+        consulta(ref, ...porPerfil, where('status', 'in', _TERMINAIS), ordem, limit(_LIMITE_ENCERRADOS)),
+      ]
+    : [consulta(ref, ...porPerfil, ordem)]
+
+  const aplicar = docs => {
     Q.recebeuPedidos = true
-    Q.pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    Q.pedidos = docs.map(d => ({ id: d.id, ...d.data() }))
     _guardarQuadro()
     const antes = Q.etapaAntes
     Q.etapaAntes = new Map(Q.pedidos.map(p => [p.id, p.status]))
@@ -254,11 +260,22 @@ export function _iniciarListenerPedidos() {
     if (Q.arrastoAtivo) { Q.renderPendente = true; return }
     _renderMostrandoMudancas()
   }
-  Q.unsubPedidos = onSnapshot(q, snap => {
-    // Chegou antes de empresas e categorias (renderPedidos): espera por elas
-    if (Q.esperaAuxiliares) Q.esperaAuxiliares.then(() => aplicar(snap))
-    else aplicar(snap)
-  }, err => {
+
+  // As duas escutas viram uma lista só, do mais novo para o mais antigo. Um
+  // pedido que acabou de ser pago pode aparecer nas duas por um instante: fica
+  // a versão mais nova
+  const partes = consultas.map(() => null)
+  const juntar = () => {
+    if (partes.some(p => p === null)) return null
+    Q.encerradosNoLimite = divide && partes[1].length >= _LIMITE_ENCERRADOS
+    const porId = new Map()
+    for (const d of partes.flat()) {
+      const atual = porId.get(d.id)
+      if (!atual || _tsMs(d.data().atualizadoEm) >= _tsMs(atual.data().atualizadoEm)) porId.set(d.id, d)
+    }
+    return [...porId.values()].sort((a, b) => _tsMs(b.data().criadoEm) - _tsMs(a.data().criadoEm))
+  }
+  const erro = err => {
     // O erro fica na própria área, com o que fazer (um aviso a mais repetiria)
     console.error(err)
     const container = document.getElementById('pedidos-view')
@@ -271,11 +288,36 @@ export function _iniciarListenerPedidos() {
       })
       container.querySelector('#btn-empty-recarregar')?.addEventListener('click', () => window.location.reload())
     }
-  })
+  }
+  const escutas = consultas.map((q, i) => onSnapshot(q, snap => {
+    partes[i] = snap.docs
+    const docs = juntar()
+    if (!docs) return
+    // Chegou antes de empresas e categorias (renderPedidos): espera por elas
+    if (Q.esperaAuxiliares) Q.esperaAuxiliares.then(() => aplicar(docs))
+    else aplicar(docs)
+  }, erro))
+  // Os pedidos que a pessoa já abriu (o selo de comentário novo)
+  const uid = sessao.fireUser?.uid
+  if (uid) {
+    escutas.push(onSnapshot(doc(db, 'lidos', uid), snap => {
+      Q.lidos = snap.data()?.pedidos || {}
+      if (Q.recebeuPedidos && !Q.arrastoAtivo) _renderView()
+    }, () => {}))
+  }
+  Q.unsubPedidos = () => escutas.forEach(parar => parar())
 
   registrarLimpador(() => {
     if (Q.unsubPedidos) { Q.unsubPedidos(); Q.unsubPedidos = null }
   })
+}
+
+// Encerrados que o quadro escuta (os mais recentes); os demais vêm com "Ver
+// os encerrados antigos"
+export const _LIMITE_ENCERRADOS = 100
+export function _verEncerradosAntigos() {
+  Q.verTodos = true
+  _iniciarListenerPedidos()
 }
 
 // ── Filtragem ─────────────────────────────────────────────────
@@ -465,7 +507,14 @@ export function _atualizarResumo(lista) {
   let extra = ''
   if (Q.filtroAtivo === 'pendentes') extra = _descricaoFila()
   else if (Q.filtroAtivo === 'encerrados') extra = t('resumoEncerrados')
+  // Procurando um pedido antigo (encerrados, busca ou datas) com só os
+  // encerrados recentes na escuta: o aviso e o botão que traz os demais
+  const procurandoAntigo = Q.filtroAtivo === 'encerrados' || Q.termoBusca || Q.filtroDataIni || Q.filtroDataFim
+  if (Q.encerradosNoLimite && !Q.verTodos && procurandoAntigo) {
+    extra = `${t('encerradosRecentes').replace('{n}', _LIMITE_ENCERRADOS)} <button type="button" class="cfg-link" id="btn-encerrados-antigos">${t('verEncerradosAntigos')}</button>`
+  }
   el.innerHTML = `${partes.join(', ')}.${extra ? ` <span class="resumo-extra">${extra}</span>` : ''}`
+  el.querySelector('#btn-encerrados-antigos')?.addEventListener('click', _verEncerradosAntigos)
 }
 
 // ── Render view ───────────────────────────────────────────────

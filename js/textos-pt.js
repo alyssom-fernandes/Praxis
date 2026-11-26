@@ -929,6 +929,8 @@ export default {
   visualizacao:          'Visualização',
   nestaEtapa:            'nesta etapa',
   resumoEncerrados:      'Reprovados e cancelados ficam aqui para consulta.',
+  encerradosRecentes:    'O quadro mostra os {n} encerrados mais recentes.',
+  verEncerradosAntigos:  'Ver os antigos',
   resumoNenhum:          'Nenhum pedido',
   filaDescGestor:        'Entram aqui os pedidos em aberto que são urgentes ou estão parados há mais de dois dias.',
   filaDescAprovador:     'Entram aqui os pedidos que esperam a sua aprovação.',

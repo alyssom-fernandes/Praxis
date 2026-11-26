@@ -1,7 +1,7 @@
 // Tela de pedidos: o quadro e a lista, os estados vazios, empresas, categorias
 // e usuários, as visões salvas e as ações em massa (ver js/pedidos.js).
 import { db, collection, doc, serverTimestamp, writeBatch, consulta, consultaUsuarios, lerRapido } from './firebase.js'
-import { sessao } from './estado.js'
+import { sessao, chaveLido } from './estado.js'
 import {
   prxToast, prxConfirm, estadoVazio, mostrarSpinner, esconderSpinner, abrirModal, fecharModal,
   exigirConexao, estaOnline,
@@ -185,7 +185,9 @@ export function _podeArrastar(status) {
 }
 
 export function _temComentarioNaoLido(p) {
-  return p.ultimoComentarioEm && _tsMs(p.ultimoComentarioEm) > _tsMs(p.vistoPor?.[sessao.usuario.id])
+  // Pedidos antigos ainda podem ter a marca dentro deles (vistoPor)
+  const visto = Q.lidos?.[chaveLido(p.id)] || p.vistoPor?.[sessao.usuario.id]
+  return p.ultimoComentarioEm && _tsMs(p.ultimoComentarioEm) > _tsMs(visto)
 }
 
 // ── "Meus pedidos" da solicitante ─────────────────────────────

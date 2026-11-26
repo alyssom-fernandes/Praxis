@@ -1,12 +1,12 @@
 // O Firebase vem sob demanda: a tela de entrada aparece sem esperar o SDK
 // (js/entrada.js), e cada ação que fala com o Firebase espera por ele (_fb).
 // O download começa na carga deste módulo, em paralelo com o desenho da tela
-let auth, db, apagarCopiaLocal,
+let auth, db, apagarCopiaLocal, naProjetoDemo,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, sendPasswordResetEmail,
   doc, getDoc, getDocFromCache, getDocFromServer, setDoc, writeBatch, serverTimestamp
 const _firebase = import('./firebase.js').then(m => {
   ;({
-    auth, db, apagarCopiaLocal,
+    auth, db, apagarCopiaLocal, naProjetoDemo,
     signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, sendPasswordResetEmail,
     doc, getDoc, getDocFromCache, getDocFromServer, setDoc, writeBatch, serverTimestamp,
   } = m)
@@ -15,8 +15,8 @@ const _fb = () => _firebase
 import { prxToast, mostrarSpinner, esconderSpinner, mostrarCeu, marcaPraxis, frisoGrego } from './ui.js'
 import { abrirEscolhaPessoa } from './demo-pessoas.js'
 import { t, idioma, trocarIdioma, STATUS, STATUS_LABEL } from './constants.js'
-import { DEMO_CREDENTIALS } from './config.js'
-import { esc } from './utils.js'
+import { DEMO_CREDENTIALS, FIREBASE_CONFIG_DEMO } from './config.js'
+import { esc, marcarProjetoDemo } from './utils.js'
 
 const DEMO_EMAIL    = DEMO_CREDENTIALS.email
 const DEMO_PASSWORD = DEMO_CREDENTIALS.password
@@ -444,18 +444,43 @@ function _mostrarBoasVindas() {
   })
 }
 
+// Com projeto próprio da demo (js/config.js), a página recarrega já nele e
+// a entrada continua sozinha (continuarEntradaNaDemo, chamada por js/app.js)
+const _CHAVE_ENTRAR_DEMO = 'praxis_entrar_demo'
 async function _entrarDemo() {
   mostrarSpinner()
   try {
     await _fb()
+    if (FIREBASE_CONFIG_DEMO && !naProjetoDemo) {
+      marcarProjetoDemo(true)
+      try { sessionStorage.setItem(_CHAVE_ENTRAR_DEMO, '1') } catch { /* sem armazenamento */ }
+      location.reload()
+      return
+    }
     await signInWithEmailAndPassword(auth, DEMO_EMAIL, DEMO_PASSWORD)
   } catch (err) {
+    if (naProjetoDemo) {
+      // A entrada de verdade não pode ficar no projeto da demo
+      marcarProjetoDemo(false)
+      avisarNaEntrada(t('erroAcessarDemo'))
+      location.reload()
+      return
+    }
     prxToast(t('erroAcessarDemo'), 'error')
     _irParaView('login')
-  } finally {
-    esconderSpinner()
   }
+  esconderSpinner()
 }
+
+// Depois da recarga para o projeto da demo: true uma vez só
+export function entradaNaDemoPendente() {
+  try {
+    const pendente = sessionStorage.getItem(_CHAVE_ENTRAR_DEMO) === '1'
+    sessionStorage.removeItem(_CHAVE_ENTRAR_DEMO)
+    return pendente
+  } catch { return false }
+}
+export function continuarEntradaNaDemo() { return _entrarDemo() }
 
 // ── Recuperação de senha ─────────────────────────────────────
 async function _enviarResetSenha(email) {
@@ -516,6 +541,8 @@ export async function fazerLogout() {
   // senão cada escuta recebe o erro do encerramento e reage a ele
   window.dispatchEvent(new Event('praxis:saindo'))
   await apagarCopiaLocal()
+  // A próxima entrada volta ao projeto real
+  marcarProjetoDemo(false)
   try {
     await signOut(auth)
   } catch (err) {

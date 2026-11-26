@@ -35,4 +35,9 @@ export const Q = {
   tGuardarQuadro: null,
   recebeuPedidos: false,
   esperaAuxiliares: null,
+  // Escuta só os encerrados recentes (js/pedidos-fluxo.js); verTodos traz os
+  // demais nesta visita
+  encerradosNoLimite: false,
+  lidos: {}, // pedidos que a pessoa já abriu (lidos/{uid}, js/pedidos-fluxo.js)
+  verTodos: false,
 }

@@ -17,6 +17,12 @@ export const FIREBASE_CONFIG = {
   appId:             'praxis-local',
 }
 
+// Projeto só da demonstração pública, com a mesma forma do FIREBASE_CONFIG.
+// Com null, a demo fica no projeto acima, separada pelas regras (é assim nos
+// emuladores). Com um projeto próprio, quem usa a demo não gasta a cota
+// gratuita do projeto real
+export const FIREBASE_CONFIG_DEMO = null
+
 export const DEMO_CREDENTIALS = {
   email:    'demo@praxis.app',
   password: 'demo1234',

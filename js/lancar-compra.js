@@ -3,8 +3,8 @@
 // gravar e o que validar vêm de js/lancamento.js, o mesmo que as regras
 // conferem. O pedido, o número e as parcelas entram numa transação só.
 import {
-  db, collection, doc, getDocs, runTransaction, serverTimestamp,
-  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
+  db, collection, doc, runTransaction, serverTimestamp,
+  consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef, lerCadastro,
 } from './firebase.js'
 import { navegar } from './app.js'
 import { sessao } from './estado.js'
@@ -35,10 +35,10 @@ export async function abrirLancamento({ aoConcluir } = {}) {
   const supremo = u.perfil === PERFIS.SUPREMO
   const minhas = empresasDoUsuario(u)
   const [empSnap, catSnap, fornSnap, usrSnap] = await Promise.all([
-    getDocs(consulta(collection(db, 'empresas'))).catch(() => null),
-    getDocs(consulta(collection(db, 'categorias'))).catch(() => null),
-    getDocs(consulta(collection(db, 'fornecedores'))).catch(() => null),
-    _gestor() ? getDocs(consultaUsuarios(u)).catch(() => null) : Promise.resolve(null),
+    lerCadastro('empresas', consulta(collection(db, 'empresas'))).catch(() => null),
+    lerCadastro('categorias', consulta(collection(db, 'categorias'))).catch(() => null),
+    lerCadastro('fornecedores', consulta(collection(db, 'fornecedores'))).catch(() => null),
+    _gestor() ? lerCadastro('usuarios', consultaUsuarios(u)).catch(() => null) : Promise.resolve(null),
   ])
   _empresas = (empSnap?.docs || []).map(d => ({ id: d.id, ...d.data() }))
     .filter(e => e.ativa !== false && (supremo || sessao.isDemo || minhas.includes(e.id)))

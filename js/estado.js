@@ -31,3 +31,10 @@ export function pedidosCarregados() { return _ganchos.pedidos?.() || [] }
 // app.js registra a troca de pessoa da demo; a faixa da demo a chama
 export function registrarTrocaDePessoa(fn) { _ganchos.trocarPessoa = fn }
 export function trocarPessoa(id) { return _ganchos.trocarPessoa?.(id) }
+
+// "Visto por": os pedidos que a pessoa já abriu ficam num documento só dela
+// (lidos/{uid da conta}, mapa pedidos → quando). Na demo, a conta é uma para
+// todas as pessoas de exemplo: a chave leva a pessoa junto
+export function chaveLido(pedidoId) {
+  return sessao.isDemo ? `${sessao.usuario?.id}__${pedidoId}` : pedidoId
+}

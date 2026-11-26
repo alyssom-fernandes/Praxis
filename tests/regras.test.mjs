@@ -154,6 +154,30 @@ test('cada um vê só os pedidos das suas empresas', async () => {
   await assertSucceeds(getDocs(query(collection(db('solicitante'), 'pedidos'), where('solicitanteId', '==', 'u-sol'))))
 })
 
+test('as consultas do quadro: em andamento e encerrados, por perfil', async () => {
+  const andamento = ['solicitado', 'ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue']
+  const encerrados = ['pago', 'reprovado', 'cancelado']
+  await assertSucceeds(getDocs(query(collection(db('supremo'), 'pedidos'), where('status', 'in', andamento))))
+  await assertSucceeds(getDocs(query(collection(db('comprador'), 'pedidos'), where('empresaId', 'in', ['e1']), where('status', 'in', encerrados))))
+  await assertFails(getDocs(query(collection(db('comprador'), 'pedidos'), where('status', 'in', andamento))))
+  await assertSucceeds(getDocs(query(collection(db('solicitante'), 'pedidos'), where('solicitanteId', '==', 'u-sol'), where('status', 'in', andamento))))
+  await assertSucceeds(getDocs(query(collection(db('demo'), 'pedidos'), where('isDemo', '==', true), where('status', 'in', andamento))))
+})
+
+// ── "Visto por": um documento por conta ────────────────────────
+test('lidos: cada conta lê e grava só o próprio, e o pedido não guarda mais o visto', async () => {
+  await assertSucceeds(setDoc(doc(db('comprador'), 'lidos/u-com'), { pedidos: { p1: serverTimestamp() } }, { merge: true }))
+  await assertSucceeds(getDoc(doc(db('comprador'), 'lidos/u-com')))
+  await assertFails(getDoc(doc(db('gestor'), 'lidos/u-com')))
+  await assertFails(setDoc(doc(db('gestor'), 'lidos/u-com'), { pedidos: {} }))
+  await assertFails(setDoc(doc(db('comprador'), 'lidos/u-com'), { pedidos: {}, outro: 1 }))
+  await assertFails(setDoc(doc(db('comprador'), 'lidos/u-com'), { pedidos: 'p1' }))
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'lidos/u-com')))
+  // A conta demo usa o dela, com a pessoa de exemplo na chave
+  await assertSucceeds(setDoc(doc(db('demo'), 'lidos/u-demo'), { pedidos: { 'demo-ana__demo-0001': serverTimestamp() } }, { merge: true }))
+  await assertFails(updateDoc(doc(db('comprador'), 'pedidos/p1'), { 'vistoPor.u-com': serverTimestamp() }))
+})
+
 // ── Usuários: ninguém se promove ───────────────────────────────
 test('o usuário não muda o próprio perfil nem as empresas', async () => {
   await assertFails(updateDoc(doc(db('solicitante'), 'usuarios/u-sol'), { perfil: 'supremo' }))

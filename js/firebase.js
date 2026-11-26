@@ -1,5 +1,5 @@
-import { FIREBASE_CONFIG } from './config.js'
-import { empresasDoUsuario } from './utils.js'
+import { FIREBASE_CONFIG, FIREBASE_CONFIG_DEMO } from './config.js'
+import { empresasDoUsuario, marcaProjetoDemo } from './utils.js'
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'
 import {
   initializeAuth,
@@ -49,7 +49,11 @@ import {
 // (as Functions reagem sozinhas a gravações no Firestore). Era um download a
 // mais em toda visita.
 
-const app       = initializeApp(FIREBASE_CONFIG)
+// A demonstração pública usa o projeto dela quando há um (ver
+// marcaProjetoDemo, em js/utils.js). Sem FIREBASE_CONFIG_DEMO (emuladores,
+// testes), a demo fica no mesmo projeto, separada pelas regras
+const naProjetoDemo = !!FIREBASE_CONFIG_DEMO && marcaProjetoDemo()
+const app       = initializeApp(naProjetoDemo ? FIREBASE_CONFIG_DEMO : FIREBASE_CONFIG)
 // Login só por e-mail e senha: sem o resolvedor de janela (popup/redirect)
 // que o getAuth() traz, o SDK não tenta carregar o script de apis.google.com,
 // que a política de segurança do site bloqueia. A sessão fica guardada como
@@ -190,10 +194,14 @@ function esquecerMemorias() {
 }
 
 async function lerRapido(consultaOuRef, aoAtualizar, memoria) {
-  const doServidor = () => getDocs(consultaOuRef).then(s => { if (memoria) _guardarMemoria(memoria, s); return s })
+  const doServidor = () => getDocs(consultaOuRef).then(s => {
+    if (memoria) { _guardarMemoria(memoria, s); _lidoNoServidor.set(memoria, Date.now()) }
+    return s
+  })
   const guardado = memoria ? _lerMemoria(memoria) : null
   if (guardado) {
-    doServidor().then(s => aoAtualizar?.(s)).catch(() => {})
+    // Lida no servidor há pouco (lerCadastro, abaixo): a cópia já está em dia
+    if (!_cadastroEmDia(memoria)) doServidor().then(s => aoAtualizar?.(s)).catch(() => {})
     return guardado
   }
   try {
@@ -206,16 +214,34 @@ async function lerRapido(consultaOuRef, aoAtualizar, memoria) {
   return doServidor()
 }
 
+// Cadastros (empresas, categorias, fornecedores, usuários) mudam pouco e eram
+// relidos inteiros a cada pedido aberto: com 200 fornecedores, 200 leituras
+// por abertura. Agora vão ao servidor no máximo uma vez a cada 10 minutos por
+// visita; no intervalo, vêm da cópia local do Firestore. O que a própria
+// pessoa grava entra na cópia na hora; o que outra pessoa grava aparece em
+// até 10 minutos (ou ao recarregar a página)
+const _VALIDADE_CADASTRO = 10 * 60 * 1000
+const _lidoNoServidor = new Map()
+const _cadastroEmDia = nome => Date.now() - (_lidoNoServidor.get(nome) || 0) < _VALIDADE_CADASTRO
+async function lerCadastro(nome, consultaOuRef) {
+  if (_cadastroEmDia(nome)) {
+    try { return await getDocsFromCache(consultaOuRef) } catch { /* sem cópia: vai ao servidor */ }
+  }
+  const snap = await getDocs(consultaOuRef)
+  _lidoNoServidor.set(nome, Date.now())
+  return snap
+}
+
 // Contador dos números de pedido (PRX-0001…)
 function contadorPedidosRef() {
   return doc(db, '_meta', eContaDemo() ? 'contadoresDemo' : 'contadores')
 }
 
 export {
-  app, auth, db,
+  app, auth, db, naProjetoDemo,
   // Área da demonstração
   eContaDemo, consulta, consultaUsuarios, marcaDemo, novoPedidoRef, contadorPedidosRef,
-  apagarCopiaLocal, lerRapido, esquecerMemorias,
+  apagarCopiaLocal, lerRapido, lerCadastro, esquecerMemorias,
   // Auth
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -224,7 +250,7 @@ export {
   signOut,
   sendPasswordResetEmail,
   // Firestore
-  collection, doc, getDoc, getDocFromCache, getDocFromServer, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocFromCache, getDocFromServer, getDocs, getDocsFromCache, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, runTransaction,
   serverTimestamp, Timestamp, writeBatch, increment,
   // Storage (sob demanda)

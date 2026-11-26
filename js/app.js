@@ -1,8 +1,8 @@
-import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js'
+import { auth, onAuthStateChanged, db, doc, getDoc, updateDoc, serverTimestamp, naProjetoDemo } from './firebase.js'
 import { initTheme, mostrarCeu, mostrarSpinner, esconderSpinner, mostrarDemoBanner, initOfflineWatcher, initCommandPalette, abrirCommandPalette, marcaPraxis, simboloPraxis, prxEscolha, consumirVoltarDeModal, quandoHistoricoLivre, empilharVoltar, desempilharVoltar } from './ui.js'
-import { mostrarEntrada, carregarUsuario, fazerLogout, avisarNaEntrada, pedirConfirmacaoNaEntrada, estaSaindo, lembrarSessao, esquecerSessao } from './auth.js'
+import { mostrarEntrada, carregarUsuario, fazerLogout, avisarNaEntrada, pedirConfirmacaoNaEntrada, estaSaindo, lembrarSessao, esquecerSessao, entradaNaDemoPendente, continuarEntradaNaDemo } from './auth.js'
 import { PERFIS, PERFIS_LABEL, t, carregarIdioma } from './constants.js'
-import { gerarIniciais, esc, prefereMenosMovimento } from './utils.js'
+import { gerarIniciais, esc, prefereMenosMovimento, marcarProjetoDemo } from './utils.js'
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 import { sessao, registrarNavegacao, registrarTrocaDePessoa } from './estado.js'
@@ -113,6 +113,16 @@ onAuthStateChanged(auth, async (fireUser) => {
   // Saindo: a página recarrega em seguida (fazerLogout, em js/auth.js); a
   // tela fica como está, com a espera, em vez de piscar a entrada
   if (!fireUser && estaSaindo()) return
+
+  // Projeto da demo (js/utils.js, marcaProjetoDemo): recém-recarregada para
+  // entrar na demo, a entrada continua com a pessoa já escolhida; fora disso,
+  // sem a conta demo aberta, a página volta ao projeto real
+  if (!fireUser && naProjetoDemo) {
+    if (entradaNaDemoPendente()) { continuarEntradaNaDemo(); return }
+    marcarProjetoDemo(false)
+    location.reload()
+    return
+  }
   esconderSpinner()
 
   if (!fireUser) {

@@ -24,7 +24,7 @@
 // documentos marcados com isDemo e pedidos com ID "demo-…"); nada de outros
 // usuários é lido nem tocado.
 import {
-  db, collection, doc, getDoc, getDocs, query, where, writeBatch, runTransaction,
+  db, collection, doc, getDoc, getDocs, setDoc, query, where, writeBatch, runTransaction,
   serverTimestamp, Timestamp,
 } from './firebase.js'
 import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
@@ -498,6 +498,8 @@ export async function renovarDemo(usuario, { forcar = false, aoComecar, aoProgre
     aoProgresso?.('limpando', 0)
     const antes = await _lerDemoAtual(usuario.id)
     await _aplicarSeed(seed, usuario, antes, aoProgresso)
+    // Os pedidos de exemplo voltam como não vistos (lidos/{uid}, js/estado.js)
+    await setDoc(doc(db, 'lidos', usuario.id), { pedidos: {} }).catch(() => {})
     await runTransaction(db, async tx => {
       tx.set(doc(db, '_meta', 'demo'), { dia: _hojeSP(), renovadaEm: serverTimestamp(), travadoAte: 0 }, { merge: true })
     })

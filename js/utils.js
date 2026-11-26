@@ -346,3 +346,17 @@ export function baixarArquivo(nomeArquivo, blob) {
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
 }
+
+// ── Projeto da demonstração ───────────────────────────────────
+// A demonstração pública mora num projeto Firebase só dela
+// (FIREBASE_CONFIG_DEMO, em js/config.js): quem a usa não gasta a cota
+// gratuita do projeto real. O projeto é escolhido na carga da página
+// (js/firebase.js lê esta marca); entrar na demo ou sair dela grava a marca e
+// recarrega (js/auth.js, js/app.js)
+const _CHAVE_PROJETO = 'praxis_projeto'
+export function marcaProjetoDemo() {
+  try { return localStorage.getItem(_CHAVE_PROJETO) === 'demo' } catch { return false }
+}
+export function marcarProjetoDemo(sim) {
+  try { sim ? localStorage.setItem(_CHAVE_PROJETO, 'demo') : localStorage.removeItem(_CHAVE_PROJETO) } catch { /* sem armazenamento */ }
+}

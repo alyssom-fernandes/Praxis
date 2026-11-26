@@ -363,6 +363,18 @@ service cloud.firestore {
       allow read, write: if eDemo();
     }
 
+    // ── Pedidos já abertos por cada conta ("visto por") ─────────
+    // Um documento por conta, que só ela lê e grava: o mapa pedidos → quando
+    // abriu. Antes a marca ficava no próprio pedido, e cada abertura fazia
+    // todo quadro aberto reler o pedido
+    match /lidos/{uid} {
+      allow read, delete: if estaLogado() && eu() == uid;
+      allow create, update: if estaLogado() && eu() == uid &&
+        request.resource.data.keys().hasOnly(['pedidos']) &&
+        request.resource.data.pedidos is map &&
+        request.resource.data.pedidos.size() <= 20000;
+    }
+
     // ── Pedidos ────────────────────────────────────────────────
     match /pedidos/{pedidoId} {
       // Cada passo do caminho, com quem pode dá-lo e o que pode mudar
@@ -493,12 +505,8 @@ service cloud.firestore {
           getAfter(caminhoHistorico(id)).data.get('autorId', '') == eu();
       }
 
-      // Marca de "visto" de quem abriu o pedido e data do último comentário
-      function visto() {
-        return mudouSo(['vistoPor']) &&
-          request.resource.data.get('vistoPor', {}).diff(resource.data.get('vistoPor', {}))
-            .affectedKeys().hasOnly([eu()]);
-      }
+      // Data do último comentário. O "visto por" saiu do pedido: fica em
+      // lidos/{uid}, abaixo
       function comentou() { return mudouSo(['ultimoComentarioEm']); }
 
       function assumir() {
@@ -678,7 +686,7 @@ service cloud.firestore {
         leDemo() || (temPerfil() &&
           alcancaEmpresa(resource.data.empresaId) &&
           request.resource.data.empresaId == resource.data.empresaId && (
-            visto() || comentou() || assumir() || liberar() || indicarCotacao() ||
+            comentou() || assumir() || liberar() || indicarCotacao() ||
             // O voto só é avaliado quando o pedido fica em aprovação ou é
             // aprovado: poupa expressões dos outros passos (limite de 1.000)
             aprovar() || (temAlcada() && request.resource.data.status in ['em_aprovacao', 'aprovado'] && votar()) ||

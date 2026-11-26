@@ -1,7 +1,7 @@
 // Relatórios: período e empresa, cálculo dos números e o painel (gráficos,
 // tempo do processo, parcelas). As exportações (Excel, PDF, impressão) ficam
 // em relatorios-exportar.js; o estado, em relatorios-estado.js.
-import { db, collection, where, getDocs, consulta } from './firebase.js'
+import { db, collection, where, getDocs, getDocsFromCache, consulta, lerCadastro } from './firebase.js'
 import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
 import { sessao } from './estado.js'
 import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
@@ -386,8 +386,8 @@ export async function _carregarDados() {
   const fin    = _podeVerFinanceiro()
 
   const [empSnap, catSnap, pedSnap] = await Promise.all([
-    getDocs(consulta(collection(db, 'empresas'))),
-    getDocs(consulta(collection(db, 'categorias'))),
+    lerCadastro('empresas', consulta(collection(db, 'empresas'))),
+    lerCadastro('categorias', consulta(collection(db, 'categorias'))),
     perfil === PERFIS.SUPREMO
       ? getDocs(consulta(collection(db, 'pedidos')))
       : (ids.length ? getDocs(consulta(collection(db, 'pedidos'), where('empresaId', 'in', ids.slice(0, 30)))) : Promise.resolve(null)),
@@ -399,24 +399,60 @@ export async function _carregarDados() {
   R.cotacoes   = {}
   R.historicos = {}
 
+  const memo = _lerMemoSub()
+
   // Histórico de cada pedido: o tempo do processo sai das mudanças de etapa
   // (js/processo.js). Uma leitura por pedido, como as cotações e as parcelas
   await Promise.all(R.todos.map(async p => {
-    const hSnap = await getDocs(collection(db, 'pedidos', p.id, 'historico')).catch(() => null)
+    const hSnap = await _subcolecao(p, 'historico', memo).catch(() => null)
     R.historicos[p.id] = hSnap ? hSnap.docs.map(d => d.data()) : []
   }))
-  if (!fin) return
+  if (fin) {
+    // Parcelas e cotações só existem em pedidos com valor final
+    const comValor = R.todos.filter(p => p.valorFinal)
+    await Promise.all(comValor.map(async p => {
+      const [pSnap, cSnap] = await Promise.all([
+        _subcolecao(p, 'parcelas', memo).catch(() => null),
+        _subcolecao(p, 'cotacoes', memo).catch(() => null),
+      ])
+      pSnap?.docs.forEach(d => R.parcelas.push({ id: d.id, pedidoId: p.id, ...d.data() }))
+      R.cotacoes[p.id] = cSnap ? cSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
+    }))
+  }
+  // Só os pedidos que ainda estão na lista
+  const naLista = new Set(R.todos.map(p => p.id))
+  _guardarMemoSub(Object.fromEntries(Object.entries(memo).filter(([id]) => naLista.has(id))))
+}
 
-  // Parcelas e cotações só existem em pedidos com valor final
-  const comValor = R.todos.filter(p => p.valorFinal)
-  await Promise.all(comValor.map(async p => {
-    const [pSnap, cSnap] = await Promise.all([
-      getDocs(collection(db, 'pedidos', p.id, 'parcelas')).catch(() => null),
-      getDocs(collection(db, 'pedidos', p.id, 'cotacoes')).catch(() => null),
-    ])
-    pSnap?.docs.forEach(d => R.parcelas.push({ id: d.id, pedidoId: p.id, ...d.data() }))
-    R.cotacoes[p.id] = cSnap ? cSnap.docs.map(d => ({ id: d.id, ...d.data() })) : []
-  }))
+// Pedido encerrado (pago, reprovado, cancelado) não muda mais: o histórico,
+// as parcelas e as cotações dele vêm da cópia local do Firestore depois da
+// primeira leitura. Antes, cada abertura dos relatórios relia tudo de todos
+// os pedidos. A marca de cada pedido (etapa e última gravação) e quantos
+// documentos ele tinha ficam no navegador; se o pedido mudou (foi reaberto)
+// ou a cópia local perdeu algum documento, a leitura vai ao servidor
+const _ENCERRADOS = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
+const _chaveMemoSub = () => `praxis_memo_rel_${sessao.fireUser?.uid || ''}`
+function _lerMemoSub() {
+  try { return JSON.parse(localStorage.getItem(_chaveMemoSub()) || '{}') || {} } catch { return {} }
+}
+function _guardarMemoSub(memo) {
+  try { localStorage.setItem(_chaveMemoSub(), JSON.stringify(memo)) } catch { /* cheio ou bloqueado */ }
+}
+const _marcaDoPedido = p => `${p.status}|${p.atualizadoEm?.toMillis?.() || 0}`
+async function _subcolecao(p, nome, memo) {
+  const ref = collection(db, 'pedidos', p.id, nome)
+  if (!_ENCERRADOS.includes(p.status)) return getDocs(ref)
+  const guardado = memo[p.id]?.m === _marcaDoPedido(p) ? memo[p.id][nome] : undefined
+  if (guardado !== undefined) {
+    try {
+      const local = await getDocsFromCache(ref)
+      if (local.size === guardado) return local
+    } catch { /* sem cópia local: vai ao servidor */ }
+  }
+  const snap = await getDocs(ref)
+  if (memo[p.id]?.m !== _marcaDoPedido(p)) memo[p.id] = { m: _marcaDoPedido(p) }
+  memo[p.id][nome] = snap.size
+  return snap
 }
 
 export function _preencherEmpresas() {

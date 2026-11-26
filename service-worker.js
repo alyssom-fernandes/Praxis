@@ -9,7 +9,7 @@
 // uma página nunca mistura módulos de duas versões.
 
 // <gerado por scripts/gerar-sw.mjs: não editar à mão>
-const VERSAO = '97b8eb44d20d'
+const VERSAO = '5356594fcc19'
 const ARQUIVOS = [
   '/index.html',
   '/manifest.json',
