@@ -15,7 +15,7 @@ import { STATUS, KANBAN_COLUNAS, MOTIVO_OUTROS, t } from './constants.js'
 import { hojeISO, maisXDiasISO, debounce, prefereMenosMovimento } from './utils.js'
 import {
   _limparErroCampo, _resetarModalNovoPedido, _marcarPrazo, _submeterNovoPedido,
-  _iniciarListenerPedidos, _renderView, _moverPorTeclado, _andarEntreItens,
+  _iniciarListenerPedidos, _renderView, _moverPorTeclado, _andarEntreItens, enviarGuardados,
 } from './pedidos-fluxo.js'
 import {
   _carregarDadosAuxiliares, _preencherFiltros, _preencherModalNovoPedido, _preencherModalDuplicar,
@@ -24,7 +24,7 @@ import {
   _confirmarBulkCancel, _tituloTela,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
-import { _resumoAutomatico, _placaMudou, _centrosDeCusto, montarItensNovoPedido } from './novo-pedido.js'
+import { _resumoAutomatico, _placaMudou, _centrosDeCusto, montarItensNovoPedido, _opcaoRequisicao, _ligarRequisicao } from './novo-pedido.js'
 
 export function agendarDuplicar(pedido, { deNovo = false } = {}) { Q.pedidoFonteDuplicar = pedido; Q.duplicarDeNovo = deNovo }
 
@@ -290,6 +290,27 @@ export async function renderPedidos() {
                 <label for="np-km">${t('npKm')} <span class="np-opcional">${t('opcional')}</span></label>
                 <input type="text" id="np-km" inputmode="numeric" maxlength="9" autocomplete="off" disabled>
               </div>
+              <!-- Requisição (R4): só nas empresas que a ligaram -->
+              <div class="form-group col-span-3 np-req" id="np-req-grupo" hidden>
+                <div class="toggle-wrap np-urgente" id="np-req-wrap" role="switch" aria-checked="false" tabindex="0" aria-labelledby="np-req-rotulo" aria-describedby="np-req-desc">
+                  <div class="np-urgente-txt">
+                    <span class="toggle-label" id="np-req-rotulo">${t('npRequisicao')}</span>
+                    <span class="np-urgente-desc" id="np-req-desc"></span>
+                  </div>
+                  <div class="toggle" id="np-req-toggle"></div>
+                </div>
+                <div class="np-req-campos" id="np-req-campos" hidden>
+                  <div class="form-group" data-campo="np-req-fornecedor">
+                    <label for="np-req-fornecedor">${t('npReqFornecedor')} <span class="np-req" aria-hidden="true">*</span></label>
+                    <input type="text" id="np-req-fornecedor" list="np-fornecedores" maxlength="120" autocomplete="off">
+                    <datalist id="np-fornecedores"></datalist>
+                  </div>
+                  <div class="form-group" data-campo="np-req-valor">
+                    <label for="np-req-valor">${t('npReqValor')} <span class="np-req" aria-hidden="true">*</span></label>
+                    <input type="text" id="np-req-valor" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off">
+                  </div>
+                </div>
+              </div>
               <div class="form-group col-span-3 np-prazo" data-campo="np-data">
                 <span class="form-label-falso" id="np-prazo-rot">${t('npPrazo')} <span class="np-opcional">${t('opcional')}</span></span>
                 <div class="category-chips np-prazos" id="np-prazos" role="group" aria-labelledby="np-prazo-rot">
@@ -451,7 +472,11 @@ export async function renderPedidos() {
 
   renderNotificacoes()
   _initPullToRefresh()
+  // S7: os pedidos guardados sem internet seguem agora e quando a conexão voltar
+  enviarGuardados()
+  if (!_ouvindoConexao) { _ouvindoConexao = true; window.addEventListener('online', () => enviarGuardados()) }
 }
+let _ouvindoConexao = false
 
 // Esqueleto: a mesma inscrição do quadro (fio, numeral, nome, soma) ou as
 // linhas da lista, para a tela não "pular" quando os dados chegam
@@ -882,7 +907,17 @@ export function _bindEvents() {
   })
   // Placa: o KM só vale com veículo; a empresa traz os centros de custo dela
   document.getElementById('np-placa')?.addEventListener('input', _placaMudou)
-  document.getElementById('np-empresa')?.addEventListener('change', () => _centrosDeCusto())
+  document.getElementById('np-empresa')?.addEventListener('change', () => { _centrosDeCusto(); _opcaoRequisicao() })
+  // Requisição: o interruptor mostra o fornecedor e o valor
+  const wrapReq = document.getElementById('np-req-wrap')
+  const alternarReq = () => _ligarRequisicao(!document.getElementById('np-req-toggle')?.classList.contains('on'))
+  wrapReq?.addEventListener('click', alternarReq)
+  wrapReq?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternarReq() } })
+  ;['np-req-fornecedor', 'np-req-valor'].forEach(id => document.getElementById(id)?.addEventListener('input', e => {
+    _limparErroCampo(id)
+    // O valor digitado à mão deixa de acompanhar o total dos itens
+    if (id === 'np-req-valor') e.target.dataset.manual = e.target.value.trim() ? '1' : ''
+  }))
 
   // Compra já feita: o formulário próprio (js/lancar-compra.js)
   document.getElementById('btn-lancar-compra')?.addEventListener('click', async () => {

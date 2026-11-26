@@ -179,6 +179,11 @@ onAuthStateChanged(auth, async (fireUser) => {
     // O CSS das telas (index.html, js/entrada.js) chega em paralelo com a entrada
     await window.__praxisCssTelas
     await _rotear()
+    // A3: quem entrou com a senha inicial do gestor troca antes de seguir
+    if (usuario.trocarSenha && !sessao.isDemo) {
+      const { pedirSenhaNova } = await import('./senha-nova.js')
+      await pedirSenhaNova(usuario)
+    }
     setTimeout(_registrarServiceWorkerUmaVez, 3000)
     // Primeiro acesso do dia: a demo volta aos dados de exemplo, com as datas
     // de hoje, depois que a tela já apareceu

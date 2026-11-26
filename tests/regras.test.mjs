@@ -1425,3 +1425,78 @@ test('cotação única com motivo, cotação sem o produto e a nota fiscal da co
   await assertSucceeds(informar('comprador'))
   await assertSucceeds(informar('solicitante'))
 })
+
+// ── Fase 2: requisição (R4), autoaprovação (A4) e compra num passo (S5) ──
+const opcoesE1 = async (opcoes) => env.withSecurityRulesDisabled(async ctx => {
+  await setDoc(doc(ctx.firestore(), 'empresas/e1'), { nome: 'Empresa 1', ...opcoes })
+})
+const requisicao = (extra = {}) => pedido({
+  status: 'em_aprovacao', requisicao: true, valorEstimado: 300, fornecedorNome: 'Auto Peças',
+  aprovadoPor: null, cotacaoIndicadaId: null, aprovacao: null, ...extra,
+})
+
+test('requisição: nasce em aprovação, sem cotação, dentro do limite da empresa', async () => {
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/r1'), requisicao()))
+  await opcoesE1({ requisicao: { ativa: true, limite: 500 } })
+  await assertSucceeds(setDoc(doc(db('solicitante'), 'pedidos/r1'), requisicao()))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/r2'), requisicao({ valorEstimado: 600 })))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/r3'), requisicao({ fornecedorNome: ' ' })))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/r4'), requisicao({ compradorId: 'u-com' })))
+  await assertFails(setDoc(doc(db('solicitante'), 'pedidos/r5'), requisicao({ solicitanteId: 'u-com' })))
+  // Sem limite: qualquer valor
+  await opcoesE1({ requisicao: { ativa: true, limite: null } })
+  await assertSucceeds(setDoc(doc(db('solicitante'), 'pedidos/r6'), requisicao({ valorEstimado: 9000 })))
+})
+
+test('autoaprovação: o aprovador que abriu aprova o próprio pedido só com a opção e no limite', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/minha'), requisicao({ solicitanteId: 'u-apr', valorEstimado: 300 }))
+  })
+  const aprovar = () => updateDoc(doc(db('aprovador'), 'pedidos/minha'), {
+    status: 'aprovado', aprovadoPor: 'u-apr', aprovadoPorNome: 'Apr', aprovadoEm: new Date(), atualizadoEm: new Date(),
+  })
+  await assertFails(aprovar())
+  await opcoesE1({ autoAprovacao: { ativa: true, limite: 200 } })
+  await assertFails(aprovar())
+  await opcoesE1({ autoAprovacao: { ativa: true, limite: 1000 } })
+  await assertSucceeds(aprovar())
+})
+
+test('requisição aprovada: quem pediu registra a retirada; pago só o financeiro', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/req'), requisicao({ status: 'aprovado', aprovadoPor: 'u-apr' }))
+  })
+  const retirada = (quem, status) => updateDoc(doc(db(quem), 'pedidos/req'), {
+    status, fornecedorNome: 'Auto Peças', valorFinal: 280, condicaoPagamento: 'apos_recebimento',
+    dataCompra: '2026-11-26', dataEntrega: '2026-11-26', retiradoPor: { id: 'u-sol', nome: 'Sol' }, atualizadoEm: new Date(),
+  })
+  await assertFails(retirada('solicitante', 'pago'))
+  await assertFails(retirada('aprovador', 'entregue'))
+  // O caminho da cotação não serve para a requisição
+  await assertFails(updateDoc(doc(db('gestor'), 'pedidos/req'), { status: 'comprado', valorFinal: 280, atualizadoEm: new Date() }))
+  await assertSucceeds(retirada('solicitante', 'entregue'))
+  await assertSucceeds(setDoc(doc(db('solicitante'), 'pedidos/req/parcelas/x1'), {
+    numero: 1, total: 1, valor: 280, vencimento: '2026-12-26', pago: false, pagoEm: null, comprovante: null,
+  }))
+})
+
+test('compra num passo: chegou vai a Entregue; pago, só para quem é do financeiro', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), 'pedidos/apr'), pedido({ status: 'aprovado', compradorId: 'u-com', aprovadoPor: 'u-apr' }))
+  })
+  const comprar = (quem, status) => updateDoc(doc(db(quem), 'pedidos/apr'), {
+    status, fornecedorNome: 'Loja', valorFinal: 100, condicaoPagamento: 'a_vista', dataCompra: '2026-11-26',
+    dataEntrega: '2026-11-26', atualizadoEm: new Date(),
+  })
+  await assertFails(comprar('comprador', 'pago'))
+  await assertSucceeds(comprar('comprador', 'entregue'))
+})
+
+test('acesso sem e-mail: a pessoa só marca que trocou a senha inicial', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await updateDoc(doc(ctx.firestore(), 'usuarios/u-sol'), { trocarSenha: true })
+  })
+  await assertFails(updateDoc(doc(db('solicitante'), 'usuarios/u-sol'), { trocarSenha: true, perfil: 'gestor' }))
+  await assertFails(updateDoc(doc(db('solicitante'), 'usuarios/u-sol'), { trocarSenha: 'talvez' }))
+  await assertSucceeds(updateDoc(doc(db('solicitante'), 'usuarios/u-sol'), { trocarSenha: false }))
+})

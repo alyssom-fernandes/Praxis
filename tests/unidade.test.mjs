@@ -802,3 +802,63 @@ test('WhatsApp: quem o pedido espera e a mensagem pronta', () => {
   assert.equal(link, 'https://wa.me/?text=' + encodeURIComponent('PRX-0001: Toner & papel. waEsperaAprovacao. https://x/?id=1'))
   assert.equal(linkWhatsApp({ status: 'cancelado' }, 'u', tx), null)
 })
+
+// ── Fase 2: requisição, autoaprovação (js/requisicao.js), acesso sem e-mail (js/acesso.js) e busca ──
+import { cabeNoLimite, valorEmAprovacao, autoAprovaPermitida, validadeDaAutorizacao } from '../js/requisicao.js'
+import {
+  normalizarLogin, loginValido, emailDoLogin, eAcessoSemEmail, loginDoEmail, emailParaEntrar, senhaInicial, erroDaSenhaNova,
+} from '../js/acesso.js'
+import { casaBusca } from '../js/itens.js'
+
+test('requisição e autoaprovação: limite, valor e quem pode', () => {
+  assert.equal(cabeNoLimite(null, 10), false)
+  assert.equal(cabeNoLimite({ ativa: false, limite: null }, 10), false)
+  assert.equal(cabeNoLimite({ ativa: true, limite: null }, 99999), true)
+  assert.equal(cabeNoLimite({ ativa: true, limite: 500 }, 500), true)
+  assert.equal(cabeNoLimite({ ativa: true, limite: 500 }, 500.01), false)
+  assert.equal(valorEmAprovacao({ requisicao: true, valorEstimado: 300 }), 300)
+  assert.equal(valorEmAprovacao({}, [{ valor: 10 }, { valor: 20, indicada: true }]), 20)
+  const empresa = { autoAprovacao: { ativa: true, limite: 1000 } }
+  const eu = { id: 'u1' }
+  assert.equal(autoAprovaPermitida({ solicitanteId: 'u1', requisicao: true, valorEstimado: 300 }, eu, empresa), true)
+  assert.equal(autoAprovaPermitida({ solicitanteId: 'u2', requisicao: true, valorEstimado: 300 }, eu, empresa), false)
+  assert.equal(autoAprovaPermitida({ solicitanteId: 'u1', compradorId: 'u1', valorEstimado: 300, requisicao: true }, eu, empresa), false)
+  assert.equal(autoAprovaPermitida({ solicitanteId: 'u1', requisicao: true, valorEstimado: 3000 }, eu, empresa), false)
+  assert.equal(autoAprovaPermitida({ solicitanteId: 'u1', aprovacao: { faixa: 0 }, requisicao: true, valorEstimado: 1 }, eu, empresa), false)
+  const ms = new Date(2026, 10, 26, 12).getTime()
+  assert.equal(validadeDaAutorizacao({}, ms), '2026-12-03')
+  assert.equal(validadeDaAutorizacao({ dataNecessaria: '2026-12-20' }, ms), '2026-12-20')
+})
+
+test('acesso sem e-mail: login, endereço que não recebe e-mail e senha inicial', () => {
+  assert.equal(normalizarLogin(' João Oficina '), 'joao.oficina')
+  assert.equal(loginValido('joao.oficina'), true)
+  assert.equal(loginValido('jo'), false)
+  assert.equal(loginValido('.joao'), false)
+  assert.equal(emailDoLogin('Joao.Oficina'), 'joao.oficina@usuarios.praxis.invalid')
+  assert.equal(eAcessoSemEmail('joao.oficina@usuarios.praxis.invalid'), true)
+  assert.equal(eAcessoSemEmail('joao@empresa.com'), false)
+  assert.equal(loginDoEmail('joao.oficina@usuarios.praxis.invalid'), 'joao.oficina')
+  assert.equal(emailParaEntrar('joao.oficina'), 'joao.oficina@usuarios.praxis.invalid')
+  assert.equal(emailParaEntrar('joao@empresa.com'), 'joao@empresa.com')
+  let i = 0
+  const senha = senhaInicial(n => (i++ * 7) % n)
+  assert.match(senha, /^[a-z]{4}-\d{4}-[a-z]{4}$/)
+  assert.ok(senha.length >= 12)
+  assert.equal(erroDaSenhaNova('curta', 'curta'), 'senhaCurta')
+  assert.equal(erroDaSenhaNova('umasenha1', 'outra'), 'senhasDiferentes')
+  assert.equal(erroDaSenhaNova('umasenha1', 'umasenha1'), null)
+})
+
+test('busca: título, fornecedor, item e placa em qualquer formato', () => {
+  const p = { titulo: 'Revisão', fornecedorNome: 'Auto Peças Rosário', itens: [{ descricao: 'Filtro de óleo', quantidade: 1, unidade: 'un' }],
+    veiculo: { placa: 'ABC1C34', chave: 'ABC1234' }, numeroPedido: 'PRX-0042' }
+  assert.equal(casaBusca(p, 'revisao'), true)
+  assert.equal(casaBusca(p, 'rosario'), true)
+  assert.equal(casaBusca(p, 'filtro'), true)
+  assert.equal(casaBusca(p, 'abc-1234'), true)
+  assert.equal(casaBusca(p, 'abc1c34'), true)
+  assert.equal(casaBusca(p, 'prx-0042'), true)
+  assert.equal(casaBusca(p, 'Empresa X', ['Empresa X']), true)
+  assert.equal(casaBusca(p, 'pneu'), false)
+})

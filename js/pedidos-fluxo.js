@@ -21,8 +21,8 @@ import {
   _renderKanban, _usaMeusPedidos, _tituloTela, _renderMeusPedidos, _tsMs, _nomeEmpresa, _bindEmptyActions, _renderLista, _tsToISO, _atualizarBulkBar, _preencherModalDuplicar,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
-import { editorNovoPedido, resetarItensNovoPedido, prepararItensNovoPedido, _resumoAutomatico } from './novo-pedido.js'
-import { errosDosItens, erroDaPlaca, resumoDosItens, subtotalDosItens, totalComDesconto, veiculo } from './itens.js'
+import { editorNovoPedido, resetarItensNovoPedido, prepararItensNovoPedido, _resumoAutomatico, requisicaoLigada, lerRequisicao } from './novo-pedido.js'
+import { errosDosItens, erroDaPlaca, resumoDosItens, subtotalDosItens, totalComDesconto, veiculo, casaBusca } from './itens.js'
 
 // ── Validação inline ──────────────────────────────────────────
 export function _marcarErroCampo(campo, msg) {
@@ -129,6 +129,10 @@ export async function _submeterNovoPedido() {
 
   document.querySelectorAll('#form-novo-pedido [data-campo]').forEach(g => _limparErroCampo(g.dataset.campo))
   const erros = _validarNovoPedido({ itens: itensCampos, empresaId, placa: placaTxt, data, categoriaId })
+  // Requisição (R4): sem cotação, direto para a aprovação, com o fornecedor
+  // de sempre e o valor dentro do limite da empresa
+  const req = requisicaoLigada() ? lerRequisicao() : null
+  if (req) erros.push(...req.erros)
   if (erros.length) {
     erros.forEach(([campo, msg]) => _marcarErroCampo(campo, msg))
     const primeiro = document.getElementById(erros[0][0])
@@ -139,68 +143,70 @@ export async function _submeterNovoPedido() {
     return
   }
 
+  // Os campos do pedido; o número e as horas entram na gravação
+  const dados = {
+    ...marcaDemo(),
+    titulo,
+    descricao:       obs || '',
+    empresaId,
+    // Os itens (Fase 1). Quantidade e unidade do primeiro ficam também
+    // nos campos de antes, que as telas e a exportação antigas leem
+    itens,
+    quantidade:      itens[0].quantidade,
+    unidade:         itens[0].unidade,
+    desconto:        subtotal != null ? desconto : null,
+    veiculo:         veic,
+    dataNecessaria:  data || null,
+    // O valor estimado saiu do formulário (16/11/2026); volta quando os
+    // itens têm valor unitário (a soma, menos o desconto) e na requisição
+    valorEstimado:   req ? req.valor : (subtotal != null ? totalComDesconto(subtotal, desconto) : null),
+    centroCusto:     cc || null,
+    categoriaId,
+    urgente,
+    status:          req ? STATUS.EM_APROVACAO : STATUS.SOLICITADO,
+    ...(req ? { requisicao: true, fornecedorNome: req.fornecedorNome } : {}),
+    solicitanteId:   sessao.usuario.id,
+    solicitanteNome: sessao.usuario.nome || null,
+    compradorId:     null,
+    compradorAssumiuEm: null,
+    aprovadorIds:    [],
+    aprovadoPor:     null,
+    aprovadoEm:      null,
+    reprovadoPor:    null,
+    reprovadoEm:     null,
+    motivoReprovacao: null,
+    motivoReprovacaoOutros: null,
+    canceladoPor:    null,
+    canceladoEm:     null,
+    motivoCancelamento: null,
+    motivoCancelamentoOutros: null,
+    cotacaoIndicadaId: null,
+    fornecedorId:    null,
+    valorFinal:      null,
+    condicaoPagamento: null,
+    dataCompra:      null,
+    dataEntrega:     null,
+  }
+
+  // S7: sem internet, o pedido fica guardado neste aparelho e segue sozinho
+  // quando a conexão volta (enviarGuardados)
+  if (!navigator.onLine && !sessao.isDemo) {
+    guardarParaEnviar(dados)
+    _guardarUltimaEmpresa(empresaId)
+    fecharModal('modal-novo-pedido')
+    prxToast(t('aEnviarGuardado'), 'info', 8000)
+    _renderView()
+    return
+  }
   if (!exigirConexao()) return
   const btnAbrir = document.getElementById('btn-abrir-pedido')
   if (btnAbrir) btnAbrir.disabled = true
   mostrarSpinner()
   try {
-    const contadorRef  = contadorPedidosRef()
-    const pedidoRef    = novoPedidoRef()
-    await runTransaction(db, async (tx) => {
-      const snap  = await tx.get(contadorRef)
-      const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
-      const numeroPedido = `PRX-${String(total).padStart(4, '0')}`
-      tx.set(pedidoRef, {
-        ...marcaDemo(),
-        titulo,
-        descricao:       obs || '',
-        empresaId,
-        // Os itens (Fase 1). Quantidade e unidade do primeiro ficam também
-        // nos campos de antes, que as telas e a exportação antigas leem
-        itens,
-        quantidade:      itens[0].quantidade,
-        unidade:         itens[0].unidade,
-        desconto:        subtotal != null ? desconto : null,
-        veiculo:         veic,
-        dataNecessaria:  data || null,
-        // O valor estimado saiu do formulário (16/11/2026); volta só quando
-        // os itens têm valor unitário: a soma, menos o desconto
-        valorEstimado:   subtotal != null ? totalComDesconto(subtotal, desconto) : null,
-        centroCusto:     cc || null,
-        categoriaId,
-        urgente,
-        status:          STATUS.SOLICITADO,
-        solicitanteId:   sessao.usuario.id,
-        solicitanteNome: sessao.usuario.nome || null,
-        compradorId:     null,
-        compradorAssumiuEm: null,
-        aprovadorIds:    [],
-        aprovadoPor:     null,
-        aprovadoEm:      null,
-        reprovadoPor:    null,
-        reprovadoEm:     null,
-        motivoReprovacao: null,
-        motivoReprovacaoOutros: null,
-        canceladoPor:    null,
-        canceladoEm:     null,
-        motivoCancelamento: null,
-        motivoCancelamentoOutros: null,
-        cotacaoIndicadaId: null,
-        fornecedorId:    null,
-        valorFinal:      null,
-        condicaoPagamento: null,
-        dataCompra:      null,
-        dataEntrega:     null,
-        numeroPedido,
-        criadoEm:        serverTimestamp(),
-        atualizadoEm:    serverTimestamp(),
-      })
-      tx.set(contadorRef, { totalPedidos: total }, { merge: true })
-    })
-
+    const pedidoRef = await _gravarPedidoNovo(dados)
     _guardarUltimaEmpresa(empresaId)
     fecharModal('modal-novo-pedido')
-    prxToast(t('pedidoAberto'), 'success', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id: pedidoRef.id }) }] })
+    prxToast(t(req ? 'requisicaoEnviada' : 'pedidoAberto'), 'success', { acoes: [{ rotulo: t('verPedido'), fn: () => navegar('detalhe', { id: pedidoRef.id }) }] })
   } catch (err) {
     prxToast(t('erroAbrirPedido'), 'error')
     console.error(err)
@@ -208,6 +214,55 @@ export async function _submeterNovoPedido() {
     esconderSpinner()
     if (btnAbrir) btnAbrir.disabled = false
   }
+}
+
+// O pedido novo com o número da sequência, numa transação com o contador
+async function _gravarPedidoNovo(dados) {
+  const contadorRef = contadorPedidosRef()
+  const pedidoRef   = novoPedidoRef()
+  await runTransaction(db, async (tx) => {
+    const snap  = await tx.get(contadorRef)
+    const total = ((snap.exists() ? snap.data().totalPedidos : 0) || 0) + 1
+    tx.set(pedidoRef, {
+      ...dados,
+      numeroPedido: `PRX-${String(total).padStart(4, '0')}`,
+      criadoEm:     serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    })
+    tx.set(contadorRef, { totalPedidos: total }, { merge: true })
+  })
+  return pedidoRef
+}
+
+// ── S7: pedidos guardados sem internet ─────────────────────────
+// Ficam no aparelho (por pessoa) até a conexão voltar; cada um vira o pedido
+// de verdade, com o número da vez. Se um falhar por outra razão, fica na fila
+const _chaveAEnviar = () => `praxis_a_enviar_${sessao.usuario?.id || ''}`
+export function pedidosAEnviar() {
+  try { return JSON.parse(localStorage.getItem(_chaveAEnviar()) || '[]') } catch { return [] }
+}
+function _salvarAEnviar(lista) {
+  try { lista.length ? localStorage.setItem(_chaveAEnviar(), JSON.stringify(lista)) : localStorage.removeItem(_chaveAEnviar()) } catch { /* sem armazenamento */ }
+}
+function guardarParaEnviar(dados) { _salvarAEnviar([...pedidosAEnviar(), { dados, em: Date.now() }]) }
+let _enviando = false
+export async function enviarGuardados() {
+  if (_enviando || !navigator.onLine || !sessao.usuario) return
+  const fila = pedidosAEnviar()
+  if (!fila.length) return
+  _enviando = true
+  let enviados = 0
+  try {
+    for (const item of fila) {
+      try {
+        await _gravarPedidoNovo(item.dados)
+        enviados++
+        _salvarAEnviar(pedidosAEnviar().filter(x => x.em !== item.em))
+      } catch (err) { console.error(err) }
+    }
+  } finally { _enviando = false }
+  if (enviados) prxToast(t('aEnviarEnviados', { n: enviados }), 'success')
+  _renderView()
 }
 
 // ── Listener em tempo real ────────────────────────────────────
@@ -422,13 +477,9 @@ export function _aplicarExtras(origem) {
   }
 
   if (Q.termoBusca.trim()) {
-    const termo = normalizarTexto(Q.termoBusca.trim())
-    lista = lista.filter(p =>
-      normalizarTexto(p.titulo || '').includes(termo) ||
-      normalizarTexto(p.descricao || '').includes(termo) ||
-      normalizarTexto(p.numeroPedido || '').includes(termo) ||
-      normalizarTexto(_nomeEmpresa(p.empresaId)).includes(termo)
-    )
+    // Título, descrição, número, empresa, fornecedor, itens e placa (js/itens.js)
+    const termo = Q.termoBusca.trim()
+    lista = lista.filter(p => casaBusca(p, termo, [_nomeEmpresa(p.empresaId)]))
   }
   return lista
 }
@@ -528,7 +579,10 @@ export function _atualizarResumo(lista) {
   if (Q.encerradosNoLimite && !Q.verTodos && procurandoAntigo) {
     extra = `${t('encerradosRecentes').replace('{n}', _LIMITE_ENCERRADOS)} <button type="button" class="cfg-link" id="btn-encerrados-antigos">${t('verEncerradosAntigos')}</button>`
   }
-  el.innerHTML = `${partes.join(', ')}.${extra ? ` <span class="resumo-extra">${extra}</span>` : ''}`
+  // S7: os pedidos guardados sem internet, ainda a enviar
+  const aEnviar = pedidosAEnviar().length
+  const selo = aEnviar ? ` <span class="selo-lanc selo-lanc-pendente" title="${t('aEnviarGuardado')}">${t('aEnviarFila', { n: aEnviar })}</span>` : ''
+  el.innerHTML = `${partes.join(', ')}.${selo}${extra ? ` <span class="resumo-extra">${extra}</span>` : ''}`
   el.querySelector('#btn-encerrados-antigos')?.addEventListener('click', _verEncerradosAntigos)
 }
 

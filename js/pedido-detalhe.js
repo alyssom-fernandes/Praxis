@@ -452,6 +452,7 @@ export function _renderCabecalho(menu) {
           <span class="detalhe-num" aria-current="page">${esc(p.numeroPedido || '—')}</span>
         </nav>
         ${p.urgente ? `<span class="detalhe-urgente">${t('urgente')}</span>` : ''}
+        ${p.requisicao ? `<span class="selo-lanc selo-req" title="${esc(t('reqTitulo'))}">${t('reqTag')}</span>` : ''}
         ${_renderMenuAcoes(menu)}
       </div>
       <h1 class="detalhe-titulo">${esc(p.titulo)}</h1>
@@ -740,6 +741,12 @@ export function _corpoModalCompra() {
         <label for="mc-nota">${t('lancNota')} <span class="np-opcional">${t('opcional')}</span></label>
         <input type="text" id="mc-nota" inputmode="numeric" maxlength="60" placeholder="${t('lancNotaPlaceholder')}" autocomplete="off">
       </div>
+      <!-- S5: a compra de balcão fecha de uma vez; pago só para quem é do financeiro -->
+      <div class="form-group col-span-2 mc-de-uma-vez">
+        <label class="emp-opcao-check"><input type="checkbox" id="mc-chegou"> <span>${t('compraJaChegou')}</span></label>
+        ${[PERFIS.FINANCEIRO, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil)
+          ? `<label class="emp-opcao-check"><input type="checkbox" id="mc-pago" disabled> <span>${t('compraJaPaga')}</span></label>` : ''}
+      </div>
     </div>`
 }
 
@@ -908,9 +915,18 @@ export function _acoesDoPedido() {
     painel.push(`<button class="btn-primary" id="btn-aprovar">${ICO.check}${t('btnAprovar')}</button>`)
   }
 
-  if (p.status === STATUS.APROVADO && [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
+  if (p.status === STATUS.APROVADO && !p.requisicao && [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
       (p.compradorId === uid || gestorMais) && !impedimentoDeFuncao(p, sessao.usuario, 'comprar')) {
     painel.push(`<button class="btn-primary" id="btn-executar-compra">${ICO.carrinho}${t('btnExecutarCompra')}</button>`)
+  }
+  // Requisição aprovada: quem foi buscar registra a retirada (R4)
+  if (p.status === STATUS.APROVADO && p.requisicao && (p.solicitanteId === uid || gestorMais ||
+      (perfil === PERFIS.COMPRADOR && p.compradorId === uid))) {
+    painel.push(`<button class="btn-primary" id="btn-registrar-retirada">${ICO.caixa}${t('btnRegistrarRetirada')}</button>`)
+  }
+  // A autorização para mostrar ao fornecedor (R5)
+  if (p.status === STATUS.APROVADO) {
+    painel.push(`<button class="btn-secondary" id="btn-autorizacao">${ICO.doc}${t('btnAutorizacao')}</button>`)
   }
 
   if (p.status === STATUS.COMPRADO &&

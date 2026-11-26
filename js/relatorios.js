@@ -8,7 +8,8 @@ import { TEXTOS_RELATORIOS } from './textos-relatorios.js'
 import { marcaPraxis, estadoVazio } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { STATUS, STATUS_LABEL, COR_DA_ETAPA, PERFIS, t, tomDaCor, idioma } from './constants.js'
-import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario } from './utils.js'
+import { formatCurrency, formatDate, dataAbsoluta, esc, empresasDoUsuario, normalizarTexto } from './utils.js'
+import { itensDoPedido, placaParaExibir } from './itens.js'
 import { resumoDoProcesso, formatarDuracao } from './processo.js'
 import { _exportarExcel, _exportarPDF } from './relatorios-exportar.js'
 import { R } from './relatorios-estado.js'
@@ -550,7 +551,39 @@ export function _calcular() {
   const janela = { ini: _deIso(iv.ini).getTime(), fim: _somaDias(_deIso(iv.fim), 1).getTime() - 1 }
   const processo = resumoDoProcesso(base.map(p => ({ pedido: p, historico: R.historicos[p.id] || [] })), janela)
 
+  // V1: por veículo, por quem pediu, compras diretas × com pedido e os itens
+  // mais comprados (contagem para o aprovador, valor para quem vê financeiro)
+  const fonteDet = fin ? comGasto(ped) : ped
+  const agruparPor = chaveDe => {
+    const m = {}
+    fonteDet.forEach(p => {
+      const k = chaveDe(p)
+      if (k == null) return
+      m[k] = m[k] || { id: k, valor: 0, qtd: 0 }
+      m[k].valor += Number(p.valorFinal) || 0
+      m[k].qtd++
+    })
+    return Object.values(m).sort((a, b) => fin ? b.valor - a.valor || b.qtd - a.qtd : b.qtd - a.qtd)
+  }
+  const placaDe = {}
+  fonteDet.forEach(p => { if (p.veiculo?.chave) placaDe[p.veiculo.chave] = placaDe[p.veiculo.chave] || p.veiculo.placa })
+  const porVeiculo = agruparPor(p => p.veiculo?.chave || null).map(x => ({ ...x, nome: placaParaExibir(placaDe[x.id]) }))
+  const porPessoa = agruparPor(p => p.lancamento?.pedidoPor?.nome || p.solicitanteNome || null)
+  const porCaminho = agruparPor(p => (p.lancamento ? 'direta' : 'pedido'))
+  const contaItens = {}
+  ped.filter(p => ![STATUS.CANCELADO, STATUS.REPROVADO].includes(p.status)).forEach(p => {
+    itensDoPedido(p).forEach(i => {
+      const k = normalizarTexto(i.descricao)
+      if (!k) return
+      const x = contaItens[k] = contaItens[k] || { id: k, nome: i.descricao, qtd: 0, valor: 0, unidade: i.unidade, quantidade: 0 }
+      x.qtd++
+      if (x.unidade === i.unidade) x.quantidade += i.quantidade
+    })
+  })
+  const itensMais = Object.values(contaItens).sort((a, b) => b.qtd - a.qtd || b.quantidade - a.quantidade).slice(0, 8)
+
   return {
+    porVeiculo, porPessoa, porCaminho, itensMais,
     iv, ped, ant, gasto, gastoAnt, emAprov, urgentes, economia, nEconomia, processo,
     abertas, vencer7, vencidas, proximas, porStatus, valorStatus, decididos, aprovados,
     porCategoria: agrupar('categoriaId'), porEmpresa: agrupar('empresaId'), porFornecedor: _porFornecedor(comGasto(ped)), meses,
@@ -608,6 +641,7 @@ export function _renderDash() {
         ? _secao({ id: 'bloco-dinheiro', larg: 12, titulo: tr('tDinheiro'), corpo: _vazio(tr('semComprasTit'),
             `${D.ped.length === 1 ? tr('semComprasTxt1') : tr('semComprasTxtN', { n: D.ped.length })} ${tr('semComprasTxt')}`, acao) })
         : _blocoDinheiro(D)}
+      ${semCompras ? '' : _blocoDetalhe(D)}
       ${_blocoParcelas(D, semCompras ? 12 : 6)}
       ${semCompras ? '' : _blocoMaiores(D)}
       ${_blocoEtapas(D)}
@@ -616,6 +650,7 @@ export function _renderDash() {
     grade = `
       ${_blocoMensal(D)}
       ${_blocoDinheiro(D)}
+      ${_blocoDetalhe(D)}
       ${_blocoFila(D)}
       ${_blocoEtapas(D)}
       ${_blocoProcesso(D)}`
@@ -841,6 +876,38 @@ export function _blocoDinheiro(D) {
     ? `<span class="num">${_brl(D.gasto)}</span> · ${_plural(D.compras, tr('compra1'), tr('compraN'))}`
     : `<span class="num">${_plural(D.ped.length, tr('pedido'), tr('pedidos'))}</span>`
   return _secao({ id: 'bloco-dinheiro', larg: 12, titulo: fin ? tr('tDinheiro') : tr('tDinheiroQtd'), meta, corpo })
+}
+
+// V1: o detalhe de para onde vai o dinheiro. Cada coluna aparece quando tem
+// o que mostrar (sem veículo nenhum no período, a coluna de veículos some)
+export function _blocoDetalhe(D) {
+  const fin = _podeVerFinanceiro()
+  const met = x => fin ? x.valor : x.qtd
+  const total = fin ? D.gasto : D.ped.length
+  const barras = (itens, nome, valorTxt = x => (fin ? _brl(x.valor) : x.qtd)) => `<ul class="rel-barras rel-barras-seg">${itens.map(x => {
+    const largura = total ? (met(x) / total) * 100 : 0
+    return `<li class="rel-barra-item" data-estilo="--cor:var(--rel-neutra)">
+      <div class="rel-barra-topo">
+        <span class="rel-barra-cor" aria-hidden="true"></span>
+        <span class="rel-barra-nome">${esc(nome(x))}${fin ? `<span class="rel-barra-qtd">${_plural(x.qtd, tr('pedido'), tr('pedidos'))}</span>` : ''}</span>
+        <span class="rel-barra-valor num">${valorTxt(x)}</span>
+        <span class="rel-barra-pct num">${_pct(met(x), total)}%</span>
+      </div>
+      <div class="rel-trilho" aria-hidden="true"><span data-estilo="width:${Math.max(largura, 0.6)}%"></span></div>
+    </li>`
+  }).join('')}</ul>`
+  const coluna = (titulo, corpo) => `<div class="rel-dinheiro-col"><h3 class="rel-subtit">${titulo}</h3>${corpo}</div>`
+  const cols = []
+  if (D.porVeiculo.length) cols.push(coluna(tr('porVeiculo'), barras(D.porVeiculo.slice(0, 6), x => x.nome)))
+  if (D.porFornecedor.length && fin) cols.push(coluna(tr('porFornecedor'), barras(D.porFornecedor.slice(0, 6), x => x.id || tr('semFornecedor'))))
+  if (D.porPessoa.length) cols.push(coluna(tr('porPessoa'), barras(D.porPessoa.slice(0, 6), x => x.id)))
+  if (D.porCaminho.length > 1) cols.push(coluna(tr('porCaminho'), barras(D.porCaminho, x => tr(x.id === 'direta' ? 'caminhoDireta' : 'caminhoPedido'))))
+  if (D.itensMais.length) {
+    const linhas = D.itensMais.map(x => `<li class="rel-item-mais"><span class="rel-barra-nome">${esc(x.nome)}</span><span class="num">${_plural(x.qtd, tr('pedido'), tr('pedidos'))}</span></li>`).join('')
+    cols.push(coluna(tr('itensMais'), `<ul class="rel-itens-mais">${linhas}</ul>`))
+  }
+  if (!cols.length) return ''
+  return _secao({ id: 'bloco-detalhe', larg: 12, titulo: tr('tDetalhe'), meta: tr('tDetalheMeta'), corpo: `<div class="rel-dinheiro rel-detalhe">${cols.join('')}</div>` })
 }
 
 export function _estadoVenc(iso) {

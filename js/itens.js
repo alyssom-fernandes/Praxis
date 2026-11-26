@@ -191,6 +191,24 @@ export function placasDoHistorico(pedidos) {
   return [...vistas.values()]
 }
 
+// ── Busca (V2) ────────────────────────────────────────────────
+// O pedido aparece na busca pelo título, pela descrição, pelo número, pela
+// empresa (`extras`), pelo fornecedor, por qualquer item e pela placa. A
+// placa vale em qualquer forma: "abc-1234", "ABC1C34" e "abc1c34" acham o
+// mesmo veículo
+export function casaBusca(p, texto, extras = []) {
+  const termo = normalizarTexto(texto || '')
+  if (!termo) return true
+  const pl = lerPlaca(texto)
+  if (pl && !pl.invalida && p?.veiculo?.chave === pl.chave) return true
+  const campos = [
+    p?.titulo, p?.descricao, p?.numeroPedido, p?.fornecedorNome, p?.centroCusto,
+    p?.veiculo?.placa, p?.veiculo?.placa ? placaParaExibir(p.veiculo.placa) : '',
+    ...itensDoPedido(p).map(i => i.descricao), ...extras,
+  ]
+  return campos.some(c => c && normalizarTexto(c).includes(termo))
+}
+
 // ── Aviso pelo WhatsApp ───────────────────────────────────────
 // Quem o pedido espera agora (chave do texto) ou null
 export function esperaDoPedido(p) {

@@ -1,11 +1,13 @@
 import { FIREBASE_CONFIG, FIREBASE_CONFIG_DEMO } from './config.js'
 import { empresasDoUsuario, marcaProjetoDemo } from './utils.js'
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'
+import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'
 import {
   initializeAuth,
   indexedDBLocalPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
+  updatePassword,
   connectAuthEmulator,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -233,6 +235,23 @@ async function lerCadastro(nome, consultaOuRef) {
 }
 
 // Contador dos números de pedido (PRX-0001…)
+// ── Acesso sem e-mail (A3) ────────────────────────────────────
+// O gestor cria a conta de login de outra pessoa sem sair da própria sessão:
+// numa instância à parte do app, só na memória, que é apagada em seguida.
+// Devolve o UID da conta nova
+async function criarContaDeLogin(email, senha) {
+  const sec = initializeApp(naProjetoDemo ? FIREBASE_CONFIG_DEMO : FIREBASE_CONFIG, `criar-acesso-${Date.now()}`)
+  try {
+    const a = initializeAuth(sec, { persistence: inMemoryPersistence })
+    if (_isLocal) connectAuthEmulator(a, 'http://localhost:9099', { disableWarnings: true })
+    const cred = await createUserWithEmailAndPassword(a, email, senha)
+    await signOut(a)
+    return cred.user.uid
+  } finally {
+    await deleteApp(sec).catch(() => {})
+  }
+}
+
 function contadorPedidosRef() {
   return doc(db, '_meta', eContaDemo() ? 'contadoresDemo' : 'contadores')
 }
@@ -249,6 +268,8 @@ export {
   sendEmailVerification,
   signOut,
   sendPasswordResetEmail,
+  updatePassword,
+  criarContaDeLogin,
   // Firestore
   collection, doc, getDoc, getDocFromCache, getDocFromServer, getDocs, getDocsFromCache, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, onSnapshot, runTransaction,

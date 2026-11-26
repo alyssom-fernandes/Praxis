@@ -2,6 +2,7 @@ import { t, PERFIS_LABEL, STATUS_LABEL, STATUS_DOT_COLOR } from './constants.js'
 import { esc } from './utils.js'
 import { sessao, navegar, podeNavegar, pedidosCarregados, trocarPessoa } from './estado.js'
 import { abrirTour, _tourAtivo, _tourFinalizar } from './tour.js'
+import { casaBusca } from './itens.js'
 
 // ── Estilos sem atributo style ───────────────────────────────
 // A política de segurança do site (CSP, firebase.json) não aceita estilo
@@ -168,7 +169,7 @@ export function _cmdRenderResultados(query) {
   const pedidos = pedidosCarregados()
   const pedidosMatch = !q
     ? [...pedidos].sort((a, b) => _tsMs(b.atualizadoEm || b.criadoEm) - _tsMs(a.atualizadoEm || a.criadoEm)).slice(0, 4)
-    : pedidos.filter(p => _normalizar(p.numeroPedido).includes(q) || _normalizar(p.titulo).includes(q)).slice(0, 7)
+    : pedidos.filter(p => casaBusca(p, query.trim())).slice(0, 7)
 
   if (!acoesMatch.length && !pedidosMatch.length) {
     // Vazio na voz do quadro: o numeral zerado, como uma etapa sem pedidos
@@ -314,7 +315,7 @@ export function _cmdGetAcoes() {
         return
       }
       const modal = [...document.querySelectorAll('.modal-overlay.visible')].at(-1)
-      if (modal) {
+      if (modal && !modal.dataset.fixo) {
         fecharModal(modal.id)
         modal._onClose?.()
       }

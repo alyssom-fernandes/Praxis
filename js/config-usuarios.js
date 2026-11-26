@@ -1,10 +1,11 @@
 import {
   db, collection, getDocs, query, where, serverTimestamp, Timestamp,
-  consulta, consultaUsuarios,
+  consulta, consultaUsuarios, criarContaDeLogin,
 } from './firebase.js'
 import { renderTopbar, initTopbarEvents, renderFooter, atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
-import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
+import { prxToast, prxConfirm, prxAlert, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
+import { normalizarLogin, loginValido, emailDoLogin, senhaInicial, eAcessoSemEmail, loginDoEmail } from './acesso.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
@@ -103,9 +104,12 @@ export async function renderConfigUsuarios() {
               <input type="text" id="usr-nome" placeholder="${t('cfgNomeCompleto')}" maxlength="80" autocomplete="off">
             </div>
             <div class="form-group col-span-2" data-campo="usr-email">
-              <label for="usr-email">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <label for="usr-email" id="usr-email-rotulo">${t('cfgEmail')} <span class="cfg-req" aria-hidden="true">*</span></label>
               <input type="email" id="usr-email" placeholder="${t('cfgEmailPlaceholder')}" autocomplete="off">
               <span class="form-hint" id="usr-email-dica" hidden></span>
+              <label class="emp-opcao-check usr-sem-email" id="usr-sem-email-linha" hidden>
+                <input type="checkbox" id="usr-sem-email"> <span>${t('cfgSemEmail')}</span>
+              </label>
             </div>
             <div class="form-group" data-campo="usr-perfil">
               <label for="usr-perfil">${t('cfgColPerfil')} <span class="cfg-req" aria-hidden="true">*</span></label>
@@ -309,7 +313,7 @@ function _linha(u, eu) {
             <span class="avatar avatar-md usr-avatar" aria-hidden="true">${esc(iniciais(u.nome || u.email))}</span>
             <div class="usr-id">
               <div class="usr-nome"><span class="usr-nome-txt">${nome}</span>${marca}</div>
-              <div class="usr-email">${esc(u.email || '')}</div>
+              <div class="usr-email">${esc(eAcessoSemEmail(u.email) ? tf('cfgLoginMostrar', { login: loginDoEmail(u.email) }) : (u.email || ''))}</div>
             </div>
           </div>
         </td>
@@ -408,6 +412,26 @@ function _prepararModal(modo, { titulo, sub = '', dica = '' }) {
   document.getElementById('usr-ativo-grupo').hidden = modo !== 'editar'
   document.getElementById('cancelar-convite').hidden = modo !== 'convite'
   document.getElementById('salvar-usuario').textContent = modo === 'novo' ? t('cfgCriarConvite') : t('salvarLabel')
+  // A3: a opção de acesso sem e-mail só ao criar alguém
+  document.getElementById('usr-sem-email-linha').hidden = modo !== 'novo'
+  _semEmail(false)
+}
+
+// Sem e-mail: o campo vira o login (joao.oficina) e a senha inicial é gerada
+function _semEmail(on) {
+  const caixa = document.getElementById('usr-sem-email')
+  if (caixa) caixa.checked = on
+  const campo = document.getElementById('usr-email')
+  const rotulo = document.getElementById('usr-email-rotulo')
+  if (!campo || !rotulo) return
+  campo.type = on ? 'text' : 'email'
+  campo.placeholder = on ? t('cfgLoginPlaceholder') : t('cfgEmailPlaceholder')
+  campo.autocapitalize = on ? 'none' : ''
+  rotulo.firstChild.textContent = `${on ? t('cfgLogin') : t('cfgEmail')} `
+  const dica = document.getElementById('usr-email-dica')
+  if (_modo === 'novo' && dica) { dica.textContent = on ? t('cfgLoginDica') : t('cfgConviteDica'); dica.hidden = false }
+  if (_modo === 'novo') document.getElementById('salvar-usuario').textContent = on ? t('cfgCriarAcesso') : t('cfgCriarConvite')
+  limparErro('usr-email')
 }
 
 function _abrirModalNovo() {
@@ -433,7 +457,7 @@ function _abrirModalEdicao(u) {
   document.getElementById('usr-id').value = u.id
   document.getElementById('usr-nome').value = u.nome || ''
   const email = document.getElementById('usr-email')
-  email.value = u.email || ''
+  email.value = eAcessoSemEmail(u.email) ? loginDoEmail(u.email) : (u.email || '')
   email.disabled = true
   _opcoesPerfil(u.perfil || '')
   _definirAtivo(_ativo(u))
@@ -534,6 +558,7 @@ function _bindEvents() {
   })
 
   document.getElementById('salvar-usuario')?.addEventListener('click', _salvarUsuario)
+  document.getElementById('usr-sem-email')?.addEventListener('change', e => _semEmail(e.target.checked))
   document.getElementById('modal-usuario')?.addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target.matches('#usr-nome, #usr-email')) { e.preventDefault(); _salvarUsuario() }
   })
@@ -558,13 +583,16 @@ async function _salvarUsuario() {
   const ativo    = document.getElementById('usr-ativo-wrap').getAttribute('aria-checked') === 'true'
   const empresas = [...document.querySelectorAll('.emp-check:checked')].map(c => c.value)
 
-  const emailNorm = _emailNorm(email)
+  const semEmail  = _modo === 'novo' && !!document.getElementById('usr-sem-email')?.checked
+  const login     = semEmail ? normalizarLogin(email) : ''
+  const emailNorm = semEmail ? emailDoLogin(login) : _emailNorm(email)
   const editando  = _modo === 'editar'
 
   limparErros(modal)
   if (!nome)                        marcarErro('usr-nome', t('nomeObrigatorio'))
-  if (!email)                       marcarErro('usr-email', t('emailObrigatorio'))
-  else if (_modo === 'novo' && !validarEmail(email)) marcarErro('usr-email', t('emailInvalido'))
+  if (!email)                       marcarErro('usr-email', t(semEmail ? 'cfgLoginObrigatorio' : 'emailObrigatorio'))
+  else if (semEmail && !loginValido(login)) marcarErro('usr-email', t('cfgLoginInvalido'))
+  else if (!semEmail && _modo === 'novo' && !validarEmail(email)) marcarErro('usr-email', t('emailInvalido'))
   else if (_modo === 'novo' && _usuarios.some(u => _emailNorm(u.email) === emailNorm)) marcarErro('usr-email', t('cfgEmailJaUsado'))
   if (!perfil)                      marcarErro('usr-perfil', t('perfilObrigatorio'))
   if (!empresas.length)             marcarErro('usr-empresas', t('empresaObrigatoria'))
@@ -590,6 +618,21 @@ async function _salvarUsuario() {
         dados: { nome, perfil, ativo, empresas, atualizadoEm: serverTimestamp() },
         empresaIds: [...empresasDoUsuario(original || {}), ...empresas] })
       prxToast(t('usuarioAtualizado'), 'success')
+    } else if (semEmail) {
+      // A3: a conta de login (numa instância à parte, sem derrubar a sessão de
+      // quem cria) e o perfil, com a senha inicial a trocar no primeiro acesso
+      const senha = senhaInicial()
+      const uid = await criarContaDeLogin(emailNorm, senha)
+      await gravarAuditado({ colecao: 'usuarios', id: uid, tipo: 'criar', nome, empresaIds: empresas,
+        dados: {
+          nome, email: emailNorm, login, perfil, empresas, ativo: true, trocarSenha: true,
+          criadoPor: _meuId(), criadoEm: serverTimestamp(), ultimoAcesso: null,
+        } })
+      esconderSpinner()
+      fecharModal('modal-usuario')
+      await prxAlert(t('cfgAcessoCriadoTitulo'), tf('cfgAcessoCriadoMsg', { nome, login, senha }))
+      await _carregar()
+      return
     } else {
       // Pessoa nova entra por convite, guardado pelo e-mail; o perfil nasce no
       // primeiro acesso, com o UID da conta de login (js/auth.js)
@@ -608,7 +651,9 @@ async function _salvarUsuario() {
     fecharModal('modal-usuario')
     await _carregar()
   } catch (err) {
-    prxToast(t('erroSalvar'), 'error')
+    // O login já existe na conta de login (outra pessoa usa o mesmo)
+    if (err?.code === 'auth/email-already-in-use') marcarErro('usr-email', t('cfgLoginEmUso'))
+    else prxToast(t('erroSalvar'), 'error')
     console.error(err)
   } finally {
     esconderSpinner()

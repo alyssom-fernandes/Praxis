@@ -7,7 +7,7 @@ import { sessao } from './estado.js'
 import { prxToast, prxConfirm, mostrarSpinner, esconderSpinner, abrirModal, fecharModal } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { CATEGORIAS_PADRAO, TONS_CATEGORIA, CORES_CATEGORIA, corCategoria, tomDaCor, PERFIS, STATUS, t } from './constants.js'
-import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario } from './utils.js'
+import { formatCNPJ, debounce, normalizarTexto, empresasDoUsuario, parseMoeda } from './utils.js'
 import { gravarAuditado } from './auditoria.js'
 import { abrirImportacao } from './importar-fornecedores.js'
 import {
@@ -157,6 +157,25 @@ function _modalEmpresa() {
               <input type="text" id="emp-centros" placeholder="${t('cfgCentrosCustoPh')}" maxlength="400" autocomplete="off" aria-describedby="emp-centros-desc">
               <p class="cfg-linha-desc" id="emp-centros-desc">${t('cfgCentrosCustoDesc')}</p>
             </div>
+            <fieldset class="form-group col-span-2 emp-opcoes" data-campo="emp-opcoes">
+              <legend class="cfg-rotulo-campo">${t('cfgOpcoesCompra')}</legend>
+              <div class="emp-opcao">
+                <label class="emp-opcao-check"><input type="checkbox" id="emp-req"> <span>${t('cfgRequisicao')}</span></label>
+                <p class="cfg-linha-desc">${t('cfgRequisicaoDesc')}</p>
+                <div class="emp-opcao-limite" data-campo="emp-req-limite">
+                  <label for="emp-req-limite">${t('cfgLimite')} <span class="np-opcional">${t('cfgLimiteVazio')}</span></label>
+                  <input type="text" id="emp-req-limite" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off" disabled>
+                </div>
+              </div>
+              <div class="emp-opcao">
+                <label class="emp-opcao-check"><input type="checkbox" id="emp-auto"> <span>${t('cfgAutoAprovacao')}</span></label>
+                <p class="cfg-linha-desc">${t('cfgAutoAprovacaoDesc')}</p>
+                <div class="emp-opcao-limite" data-campo="emp-auto-limite">
+                  <label for="emp-auto-limite">${t('cfgLimite')} <span class="np-opcional">${t('cfgLimiteVazio')}</span></label>
+                  <input type="text" id="emp-auto-limite" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off" disabled>
+                </div>
+              </div>
+            </fieldset>
             <div class="form-group col-span-2" id="emp-ativa-grupo">
               <div class="cfg-linha-interruptor">
                 <div>
@@ -486,6 +505,16 @@ function _abrirModalEmpresa(emp = null) {
   document.getElementById('emp-cnpj').value     = mascararCNPJ(emp?.cnpj || '')
   document.getElementById('emp-segmento').value = emp?.segmento || ''
   document.getElementById('emp-centros').value  = (emp?.centrosCusto || []).join(', ')
+  // Opções da Fase 2: requisição sem cotação (R4) e autoaprovação (A4)
+  const opcao = (id, op) => {
+    const ligada = op?.ativa === true
+    document.getElementById(id).checked = ligada
+    const lim = document.getElementById(`${id}-limite`)
+    lim.disabled = !ligada
+    lim.value = op?.limite != null ? String(op.limite.toFixed(2)).replace('.', ',') : ''
+  }
+  opcao('emp-req', emp?.requisicao)
+  opcao('emp-auto', emp?.autoAprovacao)
   // Empresa nova nasce ativa; o interruptor só aparece na edição
   document.getElementById('emp-ativa-grupo').hidden = !emp
   _definirAtiva(emp ? emp.ativa !== false : true)
@@ -642,6 +671,11 @@ function _bindEvents() {
   document.getElementById('emp-nome')?.addEventListener('input', () => limparErro('emp-nome'))
   document.getElementById('emp-cnpj')?.addEventListener('input', () => limparErro('emp-cnpj'))
   document.getElementById('salvar-empresa')?.addEventListener('click', _salvarEmpresa)
+  ;['emp-req', 'emp-auto'].forEach(id => document.getElementById(id)?.addEventListener('change', e => {
+    const lim = document.getElementById(`${id}-limite`)
+    lim.disabled = !e.target.checked
+    if (e.target.checked) lim.focus()
+  }))
 
   // Categoria
   document.getElementById('btn-nova-categoria')?.addEventListener('click', () => _abrirModalCategoria())
@@ -679,6 +713,13 @@ async function _salvarEmpresa() {
   const segmento = document.getElementById('emp-segmento').value.trim()
   const ativa    = document.getElementById('emp-ativa-wrap').getAttribute('aria-checked') === 'true'
   // Centros de custo: separados por vírgula, sem repetir, até 30
+  const lerOpcao = id => {
+    if (!document.getElementById(id).checked) return { ativa: false, limite: null }
+    const v = parseMoeda(document.getElementById(`${id}-limite`).value)
+    return { ativa: true, limite: v > 0 ? Math.round(v * 100) / 100 : null }
+  }
+  const requisicao = lerOpcao('emp-req')
+  const autoAprovacao = lerOpcao('emp-auto')
   const centrosCusto = [...new Map(document.getElementById('emp-centros').value.split(/[,;\n]/)
     .map(s => s.trim().slice(0, 40)).filter(Boolean).map(s => [normalizarTexto(s), s])).values()].slice(0, 30)
 
@@ -702,11 +743,11 @@ async function _salvarEmpresa() {
   try {
     if (id) {
       await gravarAuditado({ colecao: 'empresas', id, tipo: 'editar', antes: _empresas.find(e => e.id === id), nome,
-        dados: { nome, cnpj, segmento, ativa, centrosCusto } })
+        dados: { nome, cnpj, segmento, ativa, centrosCusto, requisicao, autoAprovacao } })
       prxToast(t('empresaAtualizada'), 'success')
     } else {
       await gravarAuditado({ colecao: 'empresas', tipo: 'criar', nome,
-        dados: { nome, cnpj, segmento, centrosCusto, ativa: true, criadaEm: serverTimestamp() } })
+        dados: { nome, cnpj, segmento, centrosCusto, requisicao, autoAprovacao, ativa: true, criadaEm: serverTimestamp() } })
       prxToast(t('empresaCriada'), 'success')
     }
     fecharModal('modal-empresa')

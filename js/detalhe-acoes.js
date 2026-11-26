@@ -109,7 +109,9 @@ export async function _aprovarPedido() {
         aprovadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
       })
-      _historicoJunto(tx, STATUS.APROVADO)
+      // A4: a autoaprovação fica dita no histórico
+      const auto = D.pedido.solicitanteId === sessao.usuario.id && sessao.usuario.perfil !== PERFIS.SUPREMO
+      _historicoJunto(tx, STATUS.APROVADO, auto ? { chave: 'notaAutoAprovou' } : null)
     })
     seloDeDecisao(STATUS.APROVADO)
     prxToast(t('pedidoAprovado'), 'success')
@@ -218,6 +220,8 @@ export async function _executarCompra() {
   const numParc    = parseInt(document.getElementById('mc-parcelas')?.value) || 1
   const venc1      = document.getElementById('mc-venc1')?.value
   const nota       = document.getElementById('mc-nota')?.value.trim()
+  const chegou     = !!document.getElementById('mc-chegou')?.checked
+  const pago       = chegou && !!document.getElementById('mc-pago')?.checked
   const valorFinal = parseMoeda(valorStr)
 
   if (!fornecedor || !valorFinal || !condicao || !dataCompra || !venc1) {
@@ -235,13 +239,17 @@ export async function _executarCompra() {
     // lote só: a compra nunca fica registrada pela metade
     const lote = writeBatch(db)
     const forn = await _fornecedorNoLote(fornecedor, lote)
+    // S5: a compra que já chegou vai a Entregue; a que já foi paga (só quem
+    // é do financeiro marca), a Pago
+    const destino = pago ? STATUS.PAGO : chegou ? STATUS.ENTREGUE : STATUS.COMPRADO
     lote.update(doc(db, 'pedidos', D.pedidoId), {
-      status: STATUS.COMPRADO,
+      status: destino,
       fornecedorId: forn.id,
       fornecedorNome: fornecedor,
       valorFinal,
       condicaoPagamento: condicao,
       dataCompra,
+      ...(chegou ? { dataEntrega: dataCompra } : {}),
       ...(nota ? { notaFiscal: nota } : {}),
       atualizadoEm: serverTimestamp(),
     })
@@ -254,14 +262,22 @@ export async function _executarCompra() {
       lote.set(doc(collection(db, 'pedidos', D.pedidoId, 'parcelas')), {
         numero: i + 1, total: numParc,
         valor, vencimento: vencimentos[i],
-        pago: false, pagoEm: null, comprovante: null,
+        pago, pagoEm: pago ? serverTimestamp() : null, comprovante: null,
       })
     })
     await lote.commit()
+    // As entradas de "chegou" e "pago" vão num lote à parte: no mesmo lote,
+    // a compra passava do limite de expressões das regras
+    if (chegou) {
+      const depois = writeBatch(db)
+      _historicoJunto(depois, STATUS.ENTREGUE, { chave: 'notaChegouNaCompra' })
+      if (pago) _historicoJunto(depois, STATUS.PAGO, { chave: 'notaPagoNaCompra' })
+      await depois.commit().catch(err => console.error(err))
+    }
     if (forn.novo) D.fornecedores.push(forn.novo)
 
     fecharModal('modal-compra')
-    seloDeDecisao(STATUS.COMPRADO)
+    seloDeDecisao(destino)
     prxToast(t('compraRegistrada'), 'success')
   } catch (err) {
     prxToast(t('erroRegistrarCompra'), 'error')

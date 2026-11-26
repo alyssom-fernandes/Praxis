@@ -40,7 +40,15 @@
         "OP-004",
         "SEG-001",
         "TI-005"
-      ]
+      ],
+      "requisicao": {
+        "ativa": true,
+        "limite": 1000
+      },
+      "autoAprovacao": {
+        "ativa": true,
+        "limite": 500
+      }
     },
     {
       "key": "orbix",

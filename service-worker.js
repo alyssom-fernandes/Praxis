@@ -9,17 +9,18 @@
 // uma página nunca mistura módulos de duas versões.
 
 // <gerado por scripts/gerar-sw.mjs: não editar à mão>
-const VERSAO = '9ac97712fc3e'
+const VERSAO = 'e2ca9c520deb'
 const ARQUIVOS = [
   '/index.html',
   '/manifest.json',
-  '/css/fontes.css?v=41',
-  '/css/tokens.css?v=41',
-  '/css/base.css?v=41',
-  '/css/components.css?v=41',
-  '/css/views.css?v=41',
-  '/css/telas.css?v=41',
-  '/css/themes.css?v=41',
+  '/css/fontes.css?v=42',
+  '/css/tokens.css?v=42',
+  '/css/base.css?v=42',
+  '/css/components.css?v=42',
+  '/css/views.css?v=42',
+  '/css/telas.css?v=42',
+  '/css/themes.css?v=42',
+  '/js/acesso.js',
   '/js/alcadas.js',
   '/js/app.js',
   '/js/auditoria.js',
@@ -39,6 +40,7 @@ const ARQUIVOS = [
   '/js/detalhe-dados.js',
   '/js/detalhe-estado.js',
   '/js/detalhe-painel.js',
+  '/js/detalhe-requisicao.js',
   '/js/entrada.js',
   '/js/estado.js',
   '/js/exportacao.js',
@@ -65,6 +67,8 @@ const ARQUIVOS = [
   '/js/relatorios-estado.js',
   '/js/relatorios-exportar.js',
   '/js/relatorios.js',
+  '/js/requisicao.js',
+  '/js/senha-nova.js',
   '/js/sistema.js',
   '/js/textos-en.js',
   '/js/textos-pt.js',

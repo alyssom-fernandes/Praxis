@@ -272,6 +272,8 @@ export function _renderKcard(p, { caminho = false } = {}) {
 
 // Compra já feita: o selo, com a autorização a confirmar ou não reconhecida
 export function _seloLancamento(p) {
+  // Requisição (R4): pedido sem cotação
+  if (p.requisicao) return `<span class="selo-lanc selo-req" title="${esc(t('reqTitulo'))}">${t('reqTag')}</span>`
   const l = p.lancamento
   if (!l) return ''
   const titulo = l.autorizacao === 'pendente' ? t('lancAutPendente')

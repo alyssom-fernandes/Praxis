@@ -12,7 +12,7 @@ import { sessao } from './estado.js'
 import { prxToast } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
-import { dataEHora, empresasDoUsuario, hojeISO, baixarCSV } from './utils.js'
+import { dataEHora, empresasDoUsuario, hojeISO, baixarCSV, formatCurrency } from './utils.js'
 import { textoAlcada } from './config-alcadas.js'
 import { ICO, tf, cabecalho, linhaVazia, linhasEsqueleto, esc, revelarItemLateral, completarContagensLateral, linhasComMais } from './config-comum.js'
 
@@ -29,7 +29,8 @@ const _ENTIDADE_ROTULO = () => ({
 const _ACAO_ROTULO = () => ({ criar: t('audCriou'), editar: t('audEditou'), apagar: t('audApagou') })
 const _CAMPO_ROTULO = () => ({
   nome: t('cfgNome'), email: t('cfgEmail'), perfil: t('cfgColPerfil'), empresas: t('cfgColEmpresas'),
-  ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), centrosCusto: t('cfgCentrosCusto'), cor: t('audCor'),
+  ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), centrosCusto: t('cfgCentrosCusto'),
+  requisicao: t('cfgRequisicao'), autoAprovacao: t('cfgAutoAprovacao'), cor: t('audCor'),
   expiraEm: t('audExpira'), tipo: t('audTipo'), faixas: t('alcFaixas'),
 })
 // Campos que repetem outro no registro (o fornecedor guarda o nome em três formas)
@@ -43,6 +44,11 @@ function _valor(campo, v) {
   if (campo === 'empresas' && Array.isArray(v)) return v.map(id => _empresas[id] || id).join(', ') || '—'
   if (campo === 'faixas') return textoAlcada(v)
   if (typeof v === 'boolean') return v ? t('sim') : t('nao')
+  // Opções da empresa (requisição, autoaprovação): ligada, com o limite
+  if (['requisicao', 'autoAprovacao'].includes(campo) && typeof v === 'object') {
+    return !v.ativa ? t('nao') : v.limite != null ? `${t('sim')}, ${t('cfgAteValor', { valor: formatCurrency(v.limite) })}` : `${t('sim')}, ${t('cfgSemLimite')}`
+  }
+  if (campo === 'centrosCusto' && Array.isArray(v)) return v.join(', ') || '—'
   if (campo === 'expiraEm' || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v))) return dataEHora(v)
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)

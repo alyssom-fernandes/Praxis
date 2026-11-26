@@ -27,6 +27,7 @@ import {
 } from './pedido-detalhe.js'
 import { _renderActivityFeed } from './detalhe-painel.js'
 import { _rotuloCampo, _valorEdicao } from './detalhe-acoes.js'
+import { autoAprovaPermitida } from './requisicao.js'
 import { D } from './detalhe-estado.js'
 import { itensDoPedido, placaParaExibir } from './itens.js'
 
@@ -41,8 +42,13 @@ export function _podeAssumir() {
 // Aprova ou reprova quem tem o perfil, menos quem abriu ou cotou o pedido (o
 // supremo pode), como nas regras do Firestore
 export function _podeDecidir() {
-  return [PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil) &&
-         !impedimentoDeFuncao(D.pedido, sessao.usuario, 'decidir')
+  if (![PERFIS.APROVADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario.perfil)) return false
+  const imp = impedimentoDeFuncao(D.pedido, sessao.usuario, 'decidir')
+  // A4: quem abriu aprova o próprio pedido se a empresa deixa e o valor cabe
+  return !imp || (imp === 'abriu' && _autoAprova())
+}
+export function _autoAprova() {
+  return autoAprovaPermitida(D.pedido, sessao.usuario, D.empresas.find(e => e.id === D.pedido.empresaId), D.cotacoes)
 }
 
 export function _podeLiberar() {

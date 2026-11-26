@@ -17,6 +17,7 @@ import { abrirEscolhaPessoa } from './demo-pessoas.js'
 import { t, idioma, trocarIdioma, STATUS, STATUS_LABEL } from './constants.js'
 import { DEMO_CREDENTIALS, FIREBASE_CONFIG_DEMO } from './config.js'
 import { esc, marcarProjetoDemo } from './utils.js'
+import { emailParaEntrar } from './acesso.js'
 
 const DEMO_EMAIL    = DEMO_CREDENTIALS.email
 const DEMO_PASSWORD = DEMO_CREDENTIALS.password
@@ -111,8 +112,8 @@ export function renderLogin() {
             <p class="login-card-sub">${t('loginCardSub')}</p>
             <form class="login-form" id="form-login" novalidate>
               <div class="form-group">
-                <label for="input-email">${t('emailLabel')}</label>
-                <input type="email" id="input-email" placeholder="${t('emailPlaceholder')}" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
+                <label for="input-email">${t('emailOuLogin')}</label>
+                <input type="text" id="input-email" placeholder="${t('emailPlaceholder')}" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
               </div>
               <div class="form-group">
                 <div class="login-label-linha">
@@ -282,6 +283,8 @@ function _bindLoginEvents() {
   document.getElementById('link-forgot')?.addEventListener('click', () => {
     // Aproveita o e-mail já digitado
     const email = document.getElementById('input-email')?.value.trim()
+    // Quem entra sem e-mail não recebe link: a senha nova vem do gestor
+    if (email && !email.includes('@')) { _mostrarErro('login-erro', t('esqueciSemEmail')); return }
     if (email) document.getElementById('input-forgot-email').value = email
     _irParaView('forgot')
   })
@@ -357,6 +360,8 @@ function _botaoCarregando(btn, carregando, textoNormal, textoCarregando) {
 }
 
 async function _fazerLogin(email, senha) {
+  // A3: sem @, é o login curto de quem entra sem e-mail
+  email = emailParaEntrar(email)
   const btn = document.getElementById('btn-entrar')
   _mostrarErro('login-erro', '')
   _botaoCarregando(btn, true, t('btnEntrar'), t('entrando'))

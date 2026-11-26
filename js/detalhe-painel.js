@@ -31,6 +31,7 @@ import {
   _bindAnexosEvents,
 } from './detalhe-dados.js'
 import { D } from './detalhe-estado.js'
+import { _registrarRetirada, _gerarAutorizacao } from './detalhe-requisicao.js'
 
 // ── Painel de decisão: o que falta, quem responde e a ação ────
 export function _renderDecisao(acoes) {
@@ -797,6 +798,11 @@ export function _bindDetalheEvents() {
   prepararCampoNota(document.getElementById('mc-nota'))
   ;['mc-valor', 'mc-parcelas'].forEach(id => document.getElementById(id)?.addEventListener('input', _atualizarResumoParcelasCompra))
   document.getElementById('btn-confirmar-compra')?.addEventListener('click', _executarCompra)
+  // S5: "já pago" só depois de "já chegou"
+  document.getElementById('mc-chegou')?.addEventListener('change', e => {
+    const pago = document.getElementById('mc-pago')
+    if (pago) { pago.disabled = !e.target.checked; if (!e.target.checked) pago.checked = false }
+  })
 
   document.getElementById('btn-confirmar-entrega')?.addEventListener('click', _confirmarEntrega)
   document.getElementById('btn-lanc-confirmar')?.addEventListener('click', () => _revisarAutorizacao('confirmada'))
@@ -869,6 +875,8 @@ export function _bindDetalheEvents() {
     navegar('pedidos')
   }))
   document.getElementById('btn-exportar-pdf')?.addEventListener('click', _exportarPedidoPDF)
+  document.getElementById('btn-registrar-retirada')?.addEventListener('click', _registrarRetirada)
+  document.getElementById('btn-autorizacao')?.addEventListener('click', _gerarAutorizacao)
 
   _bindParcelasEvents()
 

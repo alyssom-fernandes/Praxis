@@ -4388,3 +4388,23 @@ input.cfg-mono { font-size: var(--t-corpo); }
 @media (max-width: 600px) {
   .itens-ed-linha + .itens-ed-linha { padding-top: var(--esp-100); border-top: 1px dashed var(--border); }
 }
+
+/* Relatórios em detalhe (V1): os itens mais comprados em lista simples */
+.rel-detalhe { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.rel-itens-mais { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rel-item-mais { display: flex; justify-content: space-between; gap: var(--esp-150); padding: var(--esp-075) 0; border-bottom: 1px solid var(--border); font-size: var(--t-corpo); }
+.rel-item-mais .num { color: var(--text3); white-space: nowrap; }
+.selo-req { color: var(--blue); border-color: var(--blue-border); background: var(--blue-dim); }
+
+/* Fase 2: opções da empresa, requisição e as perguntas da compra */
+.emp-opcoes { border: 1px solid var(--border); border-radius: var(--radius-card); padding: var(--esp-150) var(--esp-200); margin: 0; display: flex; flex-direction: column; gap: var(--esp-200); }
+.emp-opcoes legend { padding: 0 var(--esp-075); }
+.emp-opcao { display: flex; flex-direction: column; gap: var(--esp-075); }
+.emp-opcao-check { display: inline-flex; align-items: center; gap: var(--esp-100); font-weight: 600; cursor: pointer; min-height: 32px; }
+.emp-opcao-check input { width: 18px; height: 18px; accent-color: var(--gold-fill); }
+.emp-opcao-limite { display: flex; flex-direction: column; gap: var(--esp-050); max-width: 220px; }
+.emp-opcao-limite label { font-size: var(--t-pequeno); color: var(--text2); }
+.np-req-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-150); margin-top: var(--esp-150); }
+.np-req-campos[hidden], .np-req[hidden] { display: none; }
+.mc-de-uma-vez { display: flex; flex-wrap: wrap; gap: var(--esp-100) var(--esp-250); }
+@media (max-width: 600px) { .np-req-campos { grid-template-columns: minmax(0, 1fr); } .emp-opcao-check { min-height: 44px; } }
