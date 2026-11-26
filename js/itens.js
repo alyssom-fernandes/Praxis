@@ -191,6 +191,51 @@ export function placasDoHistorico(pedidos) {
   return [...vistas.values()]
 }
 
+// ── Lembretes de recorrência (S4) ──────────────────────────────
+// Para cada item comprado em três datas ou mais, o intervalo típico (a
+// mediana dos intervalos, em dias) e há quantos dias foi a última compra.
+// Avisa quando já passou de 85% do intervalo e não há pedido em andamento
+// com o item. Sem IA: uma conta sobre os pedidos que o app já leu
+const _DIA = 864e5
+const _EM_ANDAMENTO = ['solicitado', 'ag_cotacao', 'em_aprovacao', 'aprovado']
+const _COMPRADOS = ['comprado', 'entregue', 'pago']
+function _diaDaCompra(p) {
+  if (p.dataCompra && /^\d{4}-\d{2}-\d{2}/.test(p.dataCompra)) return Date.parse(p.dataCompra.slice(0, 10) + 'T12:00:00')
+  const ms = _ms(p.criadoEm)
+  return ms || null
+}
+export function lembretesDeRecorrencia(pedidos, hojeMs = Date.now(), max = 3) {
+  const compras = new Map()
+  const abertos = new Set()
+  for (const p of pedidos || []) {
+    const itens = itensPreenchidos(itensDoPedido(p))
+    if (_EM_ANDAMENTO.includes(p.status)) itens.forEach(i => abertos.add(normalizarTexto(i.descricao)))
+    if (!_COMPRADOS.includes(p.status)) continue
+    const dia = _diaDaCompra(p)
+    if (!dia) continue
+    itens.forEach(i => {
+      const k = normalizarTexto(i.descricao)
+      const x = compras.get(k) || { descricao: i.descricao, dias: new Set(), ultimo: null }
+      x.dias.add(Math.round(dia / _DIA))
+      if (!x.ultimo || dia > x.ultimo.dia) x.ultimo = { dia, pedidoId: p.id }
+      compras.set(k, x)
+    })
+  }
+  const hoje = Math.round(hojeMs / _DIA)
+  const lista = []
+  for (const [k, x] of compras) {
+    if (abertos.has(k) || x.dias.size < 3) continue
+    const dias = [...x.dias].sort((a, b) => a - b)
+    const intervalos = dias.slice(1).map((d, i) => d - dias[i]).sort((a, b) => a - b)
+    const meio = Math.floor(intervalos.length / 2)
+    const intervalo = intervalos.length % 2 ? intervalos[meio] : Math.round((intervalos[meio - 1] + intervalos[meio]) / 2)
+    const desde = hoje - dias[dias.length - 1]
+    if (intervalo < 3 || desde < intervalo * 0.85) continue
+    lista.push({ descricao: x.descricao, intervalo, desde, pedidoId: x.ultimo.pedidoId, razao: desde / intervalo })
+  }
+  return lista.sort((a, b) => b.razao - a.razao).slice(0, max)
+}
+
 // ── Busca (V2) ────────────────────────────────────────────────
 // O pedido aparece na busca pelo título, pela descrição, pelo número, pela
 // empresa (`extras`), pelo fornecedor, por qualquer item e pela placa. A

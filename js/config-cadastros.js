@@ -175,6 +175,10 @@ function _modalEmpresa() {
                   <input type="text" id="emp-auto-limite" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off" disabled>
                 </div>
               </div>
+              <div class="emp-opcao">
+                <label class="emp-opcao-check"><input type="checkbox" id="emp-fatura"> <span>${t('cfgFaturaMensal')}</span></label>
+                <p class="cfg-linha-desc">${t('cfgFaturaMensalDesc')}</p>
+              </div>
             </fieldset>
             <div class="form-group col-span-2" id="emp-ativa-grupo">
               <div class="cfg-linha-interruptor">
@@ -515,6 +519,7 @@ function _abrirModalEmpresa(emp = null) {
   }
   opcao('emp-req', emp?.requisicao)
   opcao('emp-auto', emp?.autoAprovacao)
+  document.getElementById('emp-fatura').checked = emp?.faturaMensal?.ativa === true
   // Empresa nova nasce ativa; o interruptor só aparece na edição
   document.getElementById('emp-ativa-grupo').hidden = !emp
   _definirAtiva(emp ? emp.ativa !== false : true)
@@ -720,6 +725,7 @@ async function _salvarEmpresa() {
   }
   const requisicao = lerOpcao('emp-req')
   const autoAprovacao = lerOpcao('emp-auto')
+  const faturaMensal = { ativa: !!document.getElementById('emp-fatura').checked }
   const centrosCusto = [...new Map(document.getElementById('emp-centros').value.split(/[,;\n]/)
     .map(s => s.trim().slice(0, 40)).filter(Boolean).map(s => [normalizarTexto(s), s])).values()].slice(0, 30)
 
@@ -743,11 +749,11 @@ async function _salvarEmpresa() {
   try {
     if (id) {
       await gravarAuditado({ colecao: 'empresas', id, tipo: 'editar', antes: _empresas.find(e => e.id === id), nome,
-        dados: { nome, cnpj, segmento, ativa, centrosCusto, requisicao, autoAprovacao } })
+        dados: { nome, cnpj, segmento, ativa, centrosCusto, requisicao, autoAprovacao, faturaMensal } })
       prxToast(t('empresaAtualizada'), 'success')
     } else {
       await gravarAuditado({ colecao: 'empresas', tipo: 'criar', nome,
-        dados: { nome, cnpj, segmento, centrosCusto, requisicao, autoAprovacao, ativa: true, criadaEm: serverTimestamp() } })
+        dados: { nome, cnpj, segmento, centrosCusto, requisicao, autoAprovacao, faturaMensal, ativa: true, criadaEm: serverTimestamp() } })
       prxToast(t('empresaCriada'), 'success')
     }
     fecharModal('modal-empresa')

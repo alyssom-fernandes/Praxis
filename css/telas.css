@@ -4408,3 +4408,22 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .np-req-campos[hidden], .np-req[hidden] { display: none; }
 .mc-de-uma-vez { display: flex; flex-wrap: wrap; gap: var(--esp-100) var(--esp-250); }
 @media (max-width: 600px) { .np-req-campos { grid-template-columns: minmax(0, 1fr); } .emp-opcao-check { min-height: 44px; } }
+
+/* Fase 3: a fatura do fornecedor (R6) e os lembretes na fila (S4) */
+.fat-modal { max-width: 620px; }
+.fat-lista { list-style: none; margin: 0 0 var(--esp-150); padding: 0; display: flex; flex-direction: column; }
+.fat-linha { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--esp-100); padding: var(--esp-100) 0; border-bottom: 1px solid var(--border); cursor: pointer; font-size: var(--t-corpo); }
+.fat-linha input { width: 18px; height: 18px; accent-color: var(--gold-fill); }
+.fat-num { font-family: var(--mono); font-size: var(--t-pequeno); color: var(--text3); }
+.fat-tit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fat-data { color: var(--text3); font-size: var(--t-pequeno); }
+.fat-valor { font-variant-numeric: tabular-nums; text-align: right; }
+.fat-total { margin: 0; font-weight: 600; text-align: right; }
+@media (max-width: 600px) { .fat-linha { grid-template-columns: 24px minmax(0, 1fr) auto; min-height: 44px; } .fat-num, .fat-data { display: none; } }
+.lembretes { margin: 0 0 var(--esp-200); padding: var(--esp-150) var(--esp-200); border: 1px solid var(--gold-border); background: var(--gold-dim); border-radius: var(--radius-card); }
+.lembretes-tit { margin: 0 0 var(--esp-075); font-size: var(--t-pequeno); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+.lembretes-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--esp-050); }
+.lembrete { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-150); font-size: var(--t-corpo); }
+.lembrete-txt { color: var(--text2); }
+.lembrete-txt strong { color: var(--text); }
+@media (max-width: 600px) { .lembrete { flex-direction: column; align-items: flex-start; } .lembrete .btn-sm { min-height: 44px; } }

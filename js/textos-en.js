@@ -1499,4 +1499,19 @@ export default {
   aEnviarGuardado:       'No internet: the order was saved on this device and will be sent when the connection returns.',
   aEnviarEnviados:       'Back online: {n} saved order(s) were sent.',
   aEnviarFila:           '{n} to send',
+
+  // ── Phase 3: supplier invoice (R6) and recurring reminders (S4) ──
+  cfgFaturaMensal:       'Monthly supplier invoice',
+  cfgFaturaMensalDesc:   'Finance pays at once the delivered purchases from the same supplier, as in the monthly invoice.',
+  fatBotao:              'Pay the supplier invoice',
+  fatTitulo:             'Pay the invoice',
+  fatIntro:              'Delivered purchases from this supplier at this company. Uncheck what is not on the invoice.',
+  fatPagar:              'Record the payment',
+  fatTotal:              '{n} purchase(s), {valor}',
+  fatPaga:               'Invoice paid: {n} purchase(s), {valor}.',
+  fatParcial:            '{n} purchase(s) were paid; the others were not. Try again.',
+  notaPagoNaFatura:      'Paid in the {fornecedor} invoice ({n} purchases, {valor})',
+  lembretesTitulo:       'Usually runs out',
+  lembreteTexto:         'is bought every {n} days; the last one was {dias} days ago.',
+  lembretePedir:         'Order again',
 }

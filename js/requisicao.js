@@ -2,6 +2,7 @@
 // fornecedor (R5). As contas não tocam Firebase nem DOM (os testes de
 // unidade as usam); o PDF usa o jsPDF do próprio site (vendor/). As regras
 // do Firestore conferem o mesmo: cabeNoLimite, autoAprova e requisicaoValida.
+import { normalizarTexto, impedimentoDeFuncao } from './utils.js'
 
 // Opção da empresa ({ ativa, limite }; limite null é sem limite) e o valor
 export function cabeNoLimite(op, valor) {
@@ -96,4 +97,14 @@ export async function pdfDaAutorizacao(p, dados, { jsPDF, PAPEL, desenharSimbolo
   fonte(7.5); cor(COR.texto3)
   pdf.text(pdf.splitTextToSize(t('autRodape'), LARG), M, y, { lineHeightFactor: 1.35 })
   return pdf.output('blob')
+}
+
+// ── R6: a fatura do fornecedor (a tela fica em js/fatura.js) ──
+// As compras da mesma fatura: entregues, do mesmo fornecedor (pelo nome, sem
+// acento nem caixa) e que a pessoa pode pagar (quem aprovou não paga)
+export function comprasDaFatura(pedidos, base, usuario) {
+  const forn = normalizarTexto(base?.fornecedorNome || '')
+  if (!forn) return []
+  return (pedidos || []).filter(p => p.status === 'entregue' && p.empresaId === base.empresaId &&
+    normalizarTexto(p.fornecedorNome || '') === forn && !impedimentoDeFuncao(p, usuario, 'pagar'))
 }

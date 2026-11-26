@@ -862,3 +862,32 @@ test('busca: título, fornecedor, item e placa em qualquer formato', () => {
   assert.equal(casaBusca(p, 'Empresa X', ['Empresa X']), true)
   assert.equal(casaBusca(p, 'pneu'), false)
 })
+
+// ── Fase 3: lembretes de recorrência (js/itens.js) e a fatura (js/fatura.js) ──
+import { lembretesDeRecorrencia } from '../js/itens.js'
+import { comprasDaFatura } from '../js/requisicao.js'
+
+test('lembretes: intervalo típico do item e aviso perto de acabar', () => {
+  const p = (id, data, descricao, status = 'pago') => ({ id, status, dataCompra: data, itens: [{ descricao, quantidade: 1, unidade: 'L' }] })
+  const pedidos = [
+    p('a', '2026-08-01', 'Óleo 15W40'), p('b', '2026-08-31', 'Óleo 15W40'), p('c', '2026-09-30', 'Óleo 15W40'), p('d', '2026-10-30', 'Óleo 15W40'),
+    p('e', '2026-10-01', 'Filtro'), p('f', '2026-10-20', 'Filtro'),
+    p('g', '2026-09-01', 'Toner'), p('h', '2026-10-01', 'Toner'), p('i', '2026-10-31', 'Toner'), p('j', '2026-11-20', 'Toner', 'solicitado'),
+  ]
+  const hoje = Date.parse('2026-11-26T12:00:00')
+  const l = lembretesDeRecorrencia(pedidos, hoje)
+  assert.deepEqual(l.map(x => [x.descricao, x.intervalo, x.desde, x.pedidoId]), [['Óleo 15W40', 30, 27, 'd']])
+  assert.deepEqual(lembretesDeRecorrencia(pedidos, Date.parse('2026-11-10T12:00:00')), [])
+})
+
+test('fatura: só as entregues do mesmo fornecedor e empresa, que a pessoa pode pagar', () => {
+  const base = { empresaId: 'e1', fornecedorNome: 'Auto Peças' }
+  const lista = [
+    { id: '1', status: 'entregue', empresaId: 'e1', fornecedorNome: 'auto pecas' },
+    { id: '2', status: 'pago', empresaId: 'e1', fornecedorNome: 'Auto Peças' },
+    { id: '3', status: 'entregue', empresaId: 'e2', fornecedorNome: 'Auto Peças' },
+    { id: '4', status: 'entregue', empresaId: 'e1', fornecedorNome: 'Outra' },
+    { id: '5', status: 'entregue', empresaId: 'e1', fornecedorNome: 'Auto Peças', aprovadoPor: 'u-fin' },
+  ]
+  assert.deepEqual(comprasDaFatura(lista, base, { id: 'u-fin', perfil: 'financeiro' }).map(p => p.id), ['1'])
+})

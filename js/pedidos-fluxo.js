@@ -11,7 +11,7 @@ import {
   prxToast, avisoNoFormulario, prxEscolha, estadoVazio, mostrarSpinner, esconderSpinner, fecharModal, abrirModal, exigirConexao,
 } from './ui.js'
 import { STATUS, STATUS_LABEL, PERFIS, KANBAN_COLUNAS, t } from './constants.js'
-import { formatCurrency, hojeISO, debounce, normalizarTexto, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
+import { formatCurrency, hojeISO, debounce, normalizarTexto, impedimentoDeFuncao, empresasDoUsuario, esc } from './utils.js'
 import { podeRevisarAutorizacao } from './lancamento.js'
 import {
   _PAGE_SIZE, _fimDoArrasto, _mudouEm, _renderMostrandoMudancas, _TERMINAIS, _guardarQuadro, ICO,
@@ -22,7 +22,7 @@ import {
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
 import { editorNovoPedido, resetarItensNovoPedido, prepararItensNovoPedido, _resumoAutomatico, requisicaoLigada, lerRequisicao } from './novo-pedido.js'
-import { errosDosItens, erroDaPlaca, resumoDosItens, subtotalDosItens, totalComDesconto, veiculo, casaBusca } from './itens.js'
+import { errosDosItens, erroDaPlaca, resumoDosItens, subtotalDosItens, totalComDesconto, veiculo, casaBusca, lembretesDeRecorrencia } from './itens.js'
 
 // ── Validação inline ──────────────────────────────────────────
 export function _marcarErroCampo(campo, msg) {
@@ -586,6 +586,23 @@ export function _atualizarResumo(lista) {
   el.querySelector('#btn-encerrados-antigos')?.addEventListener('click', _verEncerradosAntigos)
 }
 
+// ── S4: lembretes de recorrência na fila de quem compra ─────────
+// Os itens que costumam acabar, pela conta sobre o histórico (js/itens.js);
+// "Pedir de novo" abre o formulário com a última compra
+function _lembretes() {
+  if (Q.filtroAtivo !== 'pendentes' || ![PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(sessao.usuario?.perfil)) return ''
+  const lista = lembretesDeRecorrencia(Q.pedidos)
+  if (!lista.length) return ''
+  return `<section class="lembretes" aria-labelledby="lembretes-tit">
+    <h2 class="lembretes-tit" id="lembretes-tit">${t('lembretesTitulo')}</h2>
+    <ul class="lembretes-lista">${lista.map(l => `
+      <li class="lembrete">
+        <span class="lembrete-txt"><strong>${esc(l.descricao)}</strong> ${esc(t('lembreteTexto', { n: l.intervalo, dias: l.desde }))}</span>
+        <button type="button" class="btn-ghost btn-sm" data-de-novo="${esc(l.pedidoId)}">${t('lembretePedir')}</button>
+      </li>`).join('')}</ul>
+  </section>`
+}
+
 // ── Render view ───────────────────────────────────────────────
 export function _renderView() {
   const container = document.getElementById('pedidos-view')
@@ -602,7 +619,7 @@ export function _renderView() {
     _atualizarBulkBar()
     const scrollAnterior = container.querySelector('.kanban-board')?.scrollLeft || 0
     // A solicitante vê os pedidos dela como lista com o caminho
-    container.innerHTML = _usaMeusPedidos() ? _renderMeusPedidos(lista) : _renderKanban(lista)
+    container.innerHTML = _lembretes() + (_usaMeusPedidos() ? _renderMeusPedidos(lista) : _renderKanban(lista))
     container.querySelectorAll('.kcard').forEach(card => {
       card.addEventListener('click', () => navegar('detalhe', { id: card.dataset.id }))
       card.addEventListener('keydown', e => {

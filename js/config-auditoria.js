@@ -30,7 +30,7 @@ const _ACAO_ROTULO = () => ({ criar: t('audCriou'), editar: t('audEditou'), apag
 const _CAMPO_ROTULO = () => ({
   nome: t('cfgNome'), email: t('cfgEmail'), perfil: t('cfgColPerfil'), empresas: t('cfgColEmpresas'),
   ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), centrosCusto: t('cfgCentrosCusto'),
-  requisicao: t('cfgRequisicao'), autoAprovacao: t('cfgAutoAprovacao'), cor: t('audCor'),
+  requisicao: t('cfgRequisicao'), autoAprovacao: t('cfgAutoAprovacao'), faturaMensal: t('cfgFaturaMensal'), cor: t('audCor'),
   expiraEm: t('audExpira'), tipo: t('audTipo'), faixas: t('alcFaixas'),
 })
 // Campos que repetem outro no registro (o fornecedor guarda o nome em três formas)
@@ -45,6 +45,7 @@ function _valor(campo, v) {
   if (campo === 'faixas') return textoAlcada(v)
   if (typeof v === 'boolean') return v ? t('sim') : t('nao')
   // Opções da empresa (requisição, autoaprovação): ligada, com o limite
+  if (campo === 'faturaMensal' && typeof v === 'object') return v.ativa ? t('sim') : t('nao')
   if (['requisicao', 'autoAprovacao'].includes(campo) && typeof v === 'object') {
     return !v.ativa ? t('nao') : v.limite != null ? `${t('sim')}, ${t('cfgAteValor', { valor: formatCurrency(v.limite) })}` : `${t('sim')}, ${t('cfgSemLimite')}`
   }

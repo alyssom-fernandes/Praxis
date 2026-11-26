@@ -809,6 +809,10 @@ export function _bindDetalheEvents() {
   document.getElementById('btn-lanc-negar')?.addEventListener('click', () => _revisarAutorizacao('negada'))
   document.getElementById('btn-informar-nota')?.addEventListener('click', _informarNota)
   document.getElementById('btn-confirmar-pagamento')?.addEventListener('click', _confirmarPagamento)
+  document.getElementById('btn-pagar-fatura')?.addEventListener('click', async () => {
+    const { abrirFatura } = await import('./fatura.js')
+    abrirFatura(D.pedido)
+  })
 
   document.getElementById('btn-cancelar')?.addEventListener('click', () => abrirModal('modal-cancelar'))
   document.getElementById('cancel-motivo')?.addEventListener('change', e => {

@@ -935,6 +935,11 @@ export function _acoesDoPedido() {
     painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${ICO.caixa}${t('btnConfirmarEntrega')}</button>`)
   }
 
+  // R6: a fatura do fornecedor (a empresa liga a opção)
+  if (p.status === STATUS.ENTREGUE && _podePagarParcela() && p.fornecedorNome &&
+      D.empresas.find(e => e.id === p.empresaId)?.faturaMensal?.ativa === true) {
+    painel.push(`<button class="btn-secondary" id="btn-pagar-fatura">${ICO.moeda}${t('fatBotao')}</button>`)
+  }
   if (p.status === STATUS.ENTREGUE && _podePagarParcela()) {
     const proxima = _proximaParcela()
     if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${esc(proxima.id)}">${ICO.moeda}${t('dtRegistrarPagamento')}</button>`)

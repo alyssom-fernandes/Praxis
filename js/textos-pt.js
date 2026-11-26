@@ -1499,4 +1499,19 @@ export default {
   aEnviarGuardado:       'Sem internet: o pedido ficou guardado neste aparelho e segue sozinho quando a conexão voltar.',
   aEnviarEnviados:       'A internet voltou: {n} pedido(s) guardado(s) foram enviados.',
   aEnviarFila:           '{n} a enviar',
+
+  // ── Fase 3: fatura do fornecedor (R6) e lembretes de recorrência (S4) ──
+  cfgFaturaMensal:       'Fatura mensal do fornecedor',
+  cfgFaturaMensalDesc:   'O financeiro paga de uma vez as compras entregues do mesmo fornecedor, como na fatura do mês.',
+  fatBotao:              'Pagar a fatura do fornecedor',
+  fatTitulo:             'Pagar a fatura',
+  fatIntro:              'As compras entregues deste fornecedor nesta empresa. Desmarque o que não está na fatura.',
+  fatPagar:              'Registrar o pagamento',
+  fatTotal:              '{n} compra(s), {valor}',
+  fatPaga:               'Fatura paga: {n} compra(s), {valor}.',
+  fatParcial:            '{n} compra(s) ficaram pagas; as outras não. Tente de novo.',
+  notaPagoNaFatura:      'Pago na fatura de {fornecedor} ({n} compras, {valor})',
+  lembretesTitulo:       'Costuma acabar',
+  lembreteTexto:         'é comprado a cada {n} dias; o último foi há {dias} dias.',
+  lembretePedir:         'Pedir de novo',
 }

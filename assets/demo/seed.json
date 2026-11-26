@@ -68,7 +68,10 @@
         "OP-005",
         "RH-001",
         "RH-002"
-      ]
+      ],
+      "faturaMensal": {
+        "ativa": true
+      }
     }
   ],
   "fornecedores": [
