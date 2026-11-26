@@ -3,6 +3,7 @@
 // módulos leem e trocam os campos (Q.pedidos, Q.filtroAtivo...).
 export const Q = {
   pedidoFonteDuplicar: null,
+  duplicarDeNovo: false,
   abrirNovoAoEntrar: false,
   unsubPedidos: null,
   resizeLigado: false, // um só ouvinte de resize para as setas do quadro

@@ -14,8 +14,12 @@ import { esc, hojeISO, maisXDiasISO, parseMoeda, empresasDoUsuario, mensagemDeEr
 import { MOTIVOS_LANCAMENTO, MAX_NOTA, errosDoLancamento, montarLancamento, pessoa } from './lancamento.js'
 import { autocompletar } from './autocompletar.js'
 import { prepararCampoNota } from './ler-nota.js'
+import { montarEditorItens } from './itens-editor.js'
+import { historicoDeItens, resumoDosItens } from './itens.js'
+import { Q } from './pedidos-estado.js'
 
 const ID = 'modal-lancamento'
+let _editor = null
 const _ic = d => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
 const ICO_X = _ic('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>')
 
@@ -62,6 +66,25 @@ export async function abrirLancamento({ aoConcluir } = {}) {
   _preencherPessoas()
   autocompletar(document.getElementById('lc-fornecedor'), fornecedores.map(f => ({ nome: _nomeForn(f), usos: f.usos || 0 })))
   prepararCampoNota(document.getElementById('lc-nota'))
+  // Os itens, sem valor por item (o valor é o da nota); o resumo acompanha
+  // enquanto ninguém o escreve
+  const campoTitulo = document.getElementById('lc-titulo')
+  _editor = montarEditorItens(document.getElementById('lc-itens-ed'), {
+    prefixo: 'lc',
+    comValor: false,
+    historico: historicoDeItens(Q.pedidos),
+    aoEscolherDoHistorico: h => {
+      if (!h.categoriaId || overlay.querySelector('#lc-categorias .chip.selected')) return
+      const chip = overlay.querySelector(`#lc-categorias .chip[data-id="${CSS.escape(h.categoriaId)}"]`)
+      if (chip) { chip.classList.add('selected'); chip.setAttribute('aria-checked', 'true') }
+    },
+    aoMudar: () => {
+      const itens = _editor?.preenchidos() || []
+      document.getElementById('lc-titulo-grupo').hidden = itens.length < 2 && !campoTitulo.dataset.manual
+      if (!campoTitulo.dataset.manual) campoTitulo.value = resumoDosItens(itens, t)
+    },
+  })
+  campoTitulo?.addEventListener('input', () => { campoTitulo.dataset.manual = campoTitulo.value.trim() ? '1' : '' })
   _ligar(overlay, { fornecedores, aoConcluir })
   abrirModal(ID)
 }
@@ -97,7 +120,18 @@ function _html({ categorias }) {
         <form id="form-lancamento" class="lanc-form" novalidate>
           <section class="lanc-secao" aria-labelledby="lc-s1">
             <h3 class="lanc-secao-tit" id="lc-s1">${t('lancOQue')}</h3>
-            ${campo('lc-titulo', t('npTitulo'), `<input type="text" id="lc-titulo" placeholder="${t('lancOQuePlaceholder')}" maxlength="120" autocomplete="off" enterkeyhint="next">`)}
+            <div class="form-group" data-campo="lc-itens">
+              <span class="form-label-falso" id="lc-itens-rot">${t('dtItens')} <span class="np-req" aria-hidden="true">*</span></span>
+              <div id="lc-itens-ed" role="group" aria-labelledby="lc-itens-rot"></div>
+            </div>
+            <div class="form-group" data-campo="lc-titulo" id="lc-titulo-grupo" hidden>
+              <label for="lc-titulo">${t('npResumo')}</label>
+              <input type="text" id="lc-titulo" maxlength="120" autocomplete="off">
+            </div>
+            <div class="lanc-par">
+              ${campo('lc-placa', t('npVeiculo'), `<input type="text" id="lc-placa" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="${t('npPlacaPlaceholder')}">`, { obrigatorio: false })}
+              ${campo('lc-km', t('npKm'), `<input type="text" id="lc-km" inputmode="numeric" maxlength="9" autocomplete="off">`, { obrigatorio: false })}
+            </div>
             ${umaEmpresa
               ? `<input type="hidden" id="lc-empresa" value="${esc(_empresas[0].id)}">`
               : campo('lc-empresa', t('npEmpresa'), `<select id="lc-empresa"><option value="">${t('selecionar')}</option>${_empresas.map(e => `<option value="${esc(e.id)}"${e.id === _ultimaEmpresa() ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`)}
@@ -307,8 +341,12 @@ const _nomeForn = f => f.nomeExibicao || f.nomeOriginal || f.nome || ''
 function _ler(fornecedores) {
   const fornecedorNome = document.getElementById('lc-fornecedor')?.value.trim() || ''
   const forn = fornecedorNome ? fornecedores.find(f => normalizarTexto(_nomeForn(f)) === normalizarTexto(fornecedorNome)) : null
+  const itens = _editor?.itens() || []
   return {
-    titulo: document.getElementById('lc-titulo')?.value.trim(),
+    titulo: document.getElementById('lc-titulo')?.value.trim() || resumoDosItens(itens, t),
+    itens,
+    placa: document.getElementById('lc-placa')?.value || '',
+    km: document.getElementById('lc-km')?.value || '',
     empresaId: document.getElementById('lc-empresa')?.value,
     categoriaId: document.querySelector('#lc-categorias .chip.selected')?.dataset.id || '',
     fornecedorNome,

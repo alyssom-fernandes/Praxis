@@ -9,17 +9,17 @@
 // uma página nunca mistura módulos de duas versões.
 
 // <gerado por scripts/gerar-sw.mjs: não editar à mão>
-const VERSAO = '5356594fcc19'
+const VERSAO = '9ac97712fc3e'
 const ARQUIVOS = [
   '/index.html',
   '/manifest.json',
-  '/css/fontes.css?v=40',
-  '/css/tokens.css?v=40',
-  '/css/base.css?v=40',
-  '/css/components.css?v=40',
-  '/css/views.css?v=40',
-  '/css/telas.css?v=40',
-  '/css/themes.css?v=40',
+  '/css/fontes.css?v=41',
+  '/css/tokens.css?v=41',
+  '/css/base.css?v=41',
+  '/css/components.css?v=41',
+  '/css/views.css?v=41',
+  '/css/telas.css?v=41',
+  '/css/themes.css?v=41',
   '/js/alcadas.js',
   '/js/app.js',
   '/js/auditoria.js',
@@ -47,11 +47,14 @@ const ARQUIVOS = [
   '/js/fornecedores-csv.js',
   '/js/importar-fornecedores.js',
   '/js/inicio.js',
+  '/js/itens-editor.js',
+  '/js/itens.js',
   '/js/lancamento.js',
   '/js/lancar-compra.js',
   '/js/ler-nota.js',
   '/js/nota.js',
   '/js/notificacoes.js',
+  '/js/novo-pedido.js',
   '/js/pdf-papel.js',
   '/js/pedido-detalhe.js',
   '/js/pedidos-estado.js',

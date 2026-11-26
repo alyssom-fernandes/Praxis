@@ -98,7 +98,10 @@ service cloud.firestore {
     function pedidoValido() {
       return request.resource.data.status in
           ['solicitado', 'ag_cotacao', 'em_aprovacao', 'aprovado', 'comprado', 'entregue', 'pago', 'reprovado', 'cancelado'] &&
-        dataOk('dataNecessaria') && dataOk('dataCompra') && dataOk('dataEntrega');
+        dataOk('dataNecessaria') && dataOk('dataCompra') && dataOk('dataEntrega') &&
+        // Itens (Fase 1): uma lista de até 30
+        (request.resource.data.get('itens', null) == null ||
+          (request.resource.data.itens is list && request.resource.data.itens.size() <= 30));
     }
 
     // ── Usuários ───────────────────────────────────────────────
@@ -641,7 +644,10 @@ service cloud.firestore {
           (eGestor() && !(resource.data.status in ['pago', 'reprovado', 'cancelado']))
         ) &&
           mudouSo(['titulo', 'descricao', 'valorEstimado', 'dataNecessaria',
-                   'categoriaId', 'urgente', 'atualizadoEm', 'ultimaEdicaoId']) &&
+                   'categoriaId', 'urgente', 'atualizadoEm', 'ultimaEdicaoId',
+                   // Fase 1: os itens (com a quantidade e a unidade do
+                   // primeiro), o desconto, o veículo e o centro de custo
+                   'itens', 'quantidade', 'unidade', 'desconto', 'veiculo', 'centroCusto']) &&
           registraNoHistorico(request.resource.data.get('ultimaEdicaoId', ''), 'edicao');
       }
       function reabrir() {

@@ -19,6 +19,10 @@ import {
 import { retratoAprovacao, situacaoAprovacao, aplicarVoto } from './alcadas.js'
 import { conferirNota } from './nota.js'
 import { autocompletar } from './autocompletar.js'
+import { montarEditorItens } from './itens-editor.js'
+import {
+  itensDoPedido, resumoDosItens, errosDosItens, erroDaPlaca, subtotalDosItens, totalComDesconto, veiculo, placaParaExibir,
+} from './itens.js'
 import {
   _COL_INTERNA, _ehEquipe, _opcoesFornecedor, _fornecedorNoLote, _enviarEGravar, _enviaArquivos,
   ICO, _cabModal, _pct,
@@ -402,6 +406,7 @@ export function _compararCotacoes() {
 export const _CAMPO_CHAVE = {
   titulo: 'npTitulo', descricao: 'dtDescricao', valorEstimado: 'npValor',
   dataNecessaria: 'campoDataNecessaria', urgente: 'campoUrgencia', categoriaId: 'npCategoria',
+  itens: 'dtItens', desconto: 'itemDesconto', veiculo: 'metaVeiculo', centroCusto: 'npCC',
 }
 // Nome do campo de uma edição no idioma de quem lê (o rótulo gravado fica para
 // campos que o app não conhece mais)
@@ -411,15 +416,36 @@ export const _valorEdicao = (h, v) => h.campo === 'urgente' ? rotuloUrgencia(v) 
 export function _editarPedido() {
   const p = D.pedido
   const { fechar } = _montarOverlay('modal-editar-pedido', `
-    <div class="modal" data-estilo="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="modal-editar-titulo">
+    <div class="modal" data-estilo="max-width:680px" role="dialog" aria-modal="true" aria-labelledby="modal-editar-titulo">
       ${_cabModal('modal-editar-titulo', t('btnEditarPedido'), 'data-fechar')}
       <div class="modal-body">
         <p class="modal-intro">${t('editIntro')}</p>
         <div class="form-grid form-grid-2">
+          <div class="form-group col-span-2" data-campo="ed-itens">
+            <span class="form-label-falso" id="edit-itens-rot">${t('dtItens')} *</span>
+            <div id="edit-itens-ed" role="group" aria-labelledby="edit-itens-rot"></div>
+          </div>
           <div class="form-group col-span-2">
-            <label for="edit-titulo">${t('npTitulo')} *</label>
+            <label for="edit-titulo">${t('npResumo')} *</label>
             <input type="text" id="edit-titulo" value="${esc(p.titulo || '')}" maxlength="120">
           </div>
+          <div class="form-group">
+            <label for="edit-placa">${t('npVeiculo')}</label>
+            <input type="text" id="edit-placa" value="${esc(p.veiculo?.placa ? placaParaExibir(p.veiculo.placa) : '')}" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="${t('npPlacaPlaceholder')}">
+          </div>
+          <div class="form-group">
+            <label for="edit-km">${t('npKm')}</label>
+            <input type="text" id="edit-km" value="${esc(p.veiculo?.km ?? '')}" inputmode="numeric" maxlength="9" autocomplete="off">
+          </div>
+          ${(() => {
+            const lista = D.empresas.find(e => e.id === p.empresaId)?.centrosCusto || []
+            const ops = p.centroCusto && !lista.includes(p.centroCusto) ? [...lista, p.centroCusto] : lista
+            return ops.length ? `
+          <div class="form-group col-span-2">
+            <label for="edit-cc">${t('npCC')}</label>
+            <select id="edit-cc"><option value="">${t('selecionar')}</option>${ops.map(c => `<option value="${esc(c)}"${c === p.centroCusto ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+          </div>` : ''
+          })()}
           <div class="form-group col-span-2">
             <label for="edit-descricao">${t('dtDescricao')}</label>
             <textarea id="edit-descricao" rows="3" data-estilo="resize:vertical">${esc(p.descricao || '')}</textarea>
@@ -431,6 +457,7 @@ export function _editarPedido() {
           <div class="form-group">
             <label for="edit-categoria">${t('npCategoria')}</label>
             <select id="edit-categoria">
+              <option value=""${p.categoriaId ? '' : ' selected'}>—</option>
               ${D.categorias.map(c => `<option value="${esc(c.id)}" ${p.categoriaId === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
             </select>
           </div>
@@ -461,8 +488,25 @@ export function _editarPedido() {
   }
   wrap?.addEventListener('click', alternar)
   wrap?.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); alternar() } })
+  // Os itens no mesmo editor do novo pedido; o resumo acompanha enquanto é o
+  // automático
+  const campoTitulo = document.getElementById('edit-titulo')
+  let automatico = !p.titulo || p.titulo === resumoDosItens(itensDoPedido(p), t)
+  campoTitulo?.addEventListener('input', () => { automatico = false })
+  _editorEdicao = montarEditorItens(document.getElementById('edit-itens-ed'), {
+    prefixo: 'ed',
+    comValor: !p.lancamento,
+    aoMudar: () => { if (automatico && campoTitulo) campoTitulo.value = resumoDosItens(_editorEdicao?.preenchidos() || [], t) },
+  })
+  _editorEdicao.definir(itensDoPedido(p), p.desconto || null)
   document.getElementById('salvar-edicao')?.addEventListener('click', () => _salvarEdicaoPedido(fechar))
 }
+let _editorEdicao = null
+
+// Como cada campo aparece no histórico da edição
+const _textoItens = itens => (itens || []).map(i => `${String(i.quantidade).replace('.', ',')} ${i.unidade} ${i.descricao}`).join('; ')
+const _textoDesconto = d => (!d ? '—' : d.tipo === 'pct' ? `${String(d.valor).replace('.', ',')}%` : formatCurrency(d.valor))
+const _textoVeiculo = v => (!v ? '—' : `${placaParaExibir(v.placa)}${v.km ? ` · ${v.km.toLocaleString('pt-BR')} ${t('kmSufixo')}` : ''}`)
 
 export async function _salvarEdicaoPedido(fechar) {
   const titulo      = document.getElementById('edit-titulo')?.value.trim()
@@ -470,49 +514,84 @@ export async function _salvarEdicaoPedido(fechar) {
   const data        = document.getElementById('edit-data')?.value
   const categoriaId = document.getElementById('edit-categoria')?.value
   const urgente     = document.getElementById('edit-urgente-toggle')?.classList.contains('on')
-
-  if (!titulo) { prxToast(t('editTituloObrigatorio'), 'error'); return }
+  const placaTxt    = document.getElementById('edit-placa')?.value || ''
+  const ccCampo     = document.getElementById('edit-cc')
 
   const p = D.pedido
+  const errItens = errosDosItens(_editorEdicao?.itens() || [], { prefixo: 'ed' })
+  if (errItens.length) { prxToast(t(errItens[0][1] === 'campoObrigatorio' ? 'editItemObrigatorio' : errItens[0][1]), 'error'); return }
+  if (!titulo) { prxToast(t('editTituloObrigatorio'), 'error'); return }
+  if (erroDaPlaca(placaTxt)) { prxToast(t('placaInvalida'), 'error'); return }
 
-  const novos = { titulo, descricao, dataNecessaria: data, categoriaId, urgente }
+  const itens = _editorEdicao.preenchidos()
+  const sub = subtotalDosItens(itens)
+  const desconto = sub != null ? _editorEdicao.desconto() : null
+  const novos = {
+    // Vazio é null (como o pedido nasce): '' contra null não é mudança
+    titulo, descricao, dataNecessaria: data || null, categoriaId: categoriaId || '', urgente,
+    itens, desconto, veiculo: veiculo(placaTxt, document.getElementById('edit-km')?.value),
+    ...(ccCampo ? { centroCusto: ccCampo.value || null } : {}),
+  }
+  // Os campos de antes acompanham o primeiro item; o valor estimado, a soma
+  // dos itens com valor (o pedido antigo sem itens guarda o que tinha)
+  const derivados = {
+    quantidade: itens[0].quantidade, unidade: itens[0].unidade,
+    valorEstimado: sub != null ? totalComDesconto(sub, desconto) : (Array.isArray(p.itens) ? null : (p.valorEstimado ?? null)),
+  }
   const formatar = (campo, val) => {
     if (campo === 'valorEstimado')  return val ? formatCurrency(val) : '—'
     if (campo === 'dataNecessaria') return val ? formatDate(val) : '—'
     if (campo === 'urgente')        return val ? t('urgente') : t('campoNormal')
     if (campo === 'categoriaId')    return D.categorias.find(c => c.id === val)?.nome || val
+    if (campo === 'itens')          return _textoItens(val)
+    if (campo === 'desconto')       return _textoDesconto(val)
+    if (campo === 'veiculo')        return _textoVeiculo(val)
     return String(val ?? '—')
   }
 
+  // Comparação pelo conteúdo: itens, desconto e veículo são listas e mapas.
+  // Os itens do pedido antigo (sem a lista) contam como o item que ele tinha
+  const comoEra = k => (k === 'itens' ? itensDoPedido(p) : (p[k] ?? null))
   const alteracoes = Object.keys(novos).filter(k => {
-    const antes = p[k] ?? null
+    const antes = comoEra(k)
     const depois = novos[k] ?? null
-    return String(antes) !== String(depois)
+    return typeof depois === 'object' || typeof antes === 'object'
+      ? JSON.stringify(antes) !== JSON.stringify(depois)
+      : String(antes) !== String(depois)
   })
+  Object.assign(novos, derivados)
 
   if (!alteracoes.length) { prxToast(t('editSemAlteracao'), 'info'); fechar(); return }
 
   if (!exigirConexao()) return
   mostrarSpinner()
   try {
-    // A edição e as entradas do histórico (uma por campo) vão no mesmo lote, e
-    // o pedido aponta para a primeira: as regras recusam a edição sem ela
-    const lote = writeBatch(db)
+    // A edição e a primeira entrada do histórico vão no mesmo lote, e o pedido
+    // aponta para ela: as regras recusam a edição sem ela. As outras entradas
+    // (uma por campo) vão logo depois, num lote próprio: no mesmo lote, a
+    // edição de vários campos passava do limite de expressões das regras
     const entradas = alteracoes.map(() => doc(collection(db, 'pedidos', D.pedidoId, 'historico')))
-    lote.update(doc(db, 'pedidos', D.pedidoId), {
-      ...novos, ultimaEdicaoId: entradas[0].id, atualizadoEm: serverTimestamp(),
-    })
-    alteracoes.forEach((campo, i) => lote.set(entradas[i], {
+    const entrada = (campo, i) => [entradas[i], {
       tipo:          'edicao',
       campo,
       campoLabel:    _rotuloCampo({ campo }),
-      valorAnterior: formatar(campo, p[campo]),
+      valorAnterior: formatar(campo, comoEra(campo)),
       valorNovo:     formatar(campo, novos[campo]),
       autorId:       sessao.usuario.id,
       autorNome:     sessao.usuario.nome,
       criadoEm:      serverTimestamp(),
-    }))
+    }]
+    const lote = writeBatch(db)
+    lote.update(doc(db, 'pedidos', D.pedidoId), {
+      ...novos, ultimaEdicaoId: entradas[0].id, atualizadoEm: serverTimestamp(),
+    })
+    lote.set(...entrada(alteracoes[0], 0))
     await lote.commit()
+    if (alteracoes.length > 1) {
+      const resto = writeBatch(db)
+      alteracoes.slice(1).forEach((campo, i) => resto.set(...entrada(campo, i + 1)))
+      await resto.commit().catch(err => console.error(err))
+    }
     fechar()
     prxToast(t('pedidoAtualizado'), 'success')
   } catch (err) {

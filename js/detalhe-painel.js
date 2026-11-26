@@ -864,10 +864,10 @@ export function _bindDetalheEvents() {
   })
   document.getElementById('btn-confirmar-reabrir')?.addEventListener('click', _reabrirPedido)
 
-  document.getElementById('btn-duplicar-pedido')?.addEventListener('click', () => {
-    agendarDuplicar(D.pedido)
+  ;['btn-duplicar-pedido', 'btn-comprar-de-novo'].forEach(id => document.getElementById(id)?.addEventListener('click', () => {
+    agendarDuplicar(D.pedido, { deNovo: id === 'btn-comprar-de-novo' })
     navegar('pedidos')
-  })
+  }))
   document.getElementById('btn-exportar-pdf')?.addEventListener('click', _exportarPedidoPDF)
 
   _bindParcelasEvents()

@@ -29,7 +29,7 @@ const _ENTIDADE_ROTULO = () => ({
 const _ACAO_ROTULO = () => ({ criar: t('audCriou'), editar: t('audEditou'), apagar: t('audApagou') })
 const _CAMPO_ROTULO = () => ({
   nome: t('cfgNome'), email: t('cfgEmail'), perfil: t('cfgColPerfil'), empresas: t('cfgColEmpresas'),
-  ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), cor: t('audCor'),
+  ativo: t('audAtivo'), ativa: t('audAtivo'), cnpj: 'CNPJ', segmento: t('audSegmento'), centrosCusto: t('cfgCentrosCusto'), cor: t('audCor'),
   expiraEm: t('audExpira'), tipo: t('audTipo'), faixas: t('alcFaixas'),
 })
 // Campos que repetem outro no registro (o fornecedor guarda o nome em três formas)

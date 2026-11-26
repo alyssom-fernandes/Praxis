@@ -6,6 +6,7 @@
 import { STATUS, PERFIS } from './constants.js'
 import { dividirEmParcelas, vencimentosMensais, empresasDoUsuario } from './utils.js'
 import { conferirNota } from './nota.js'
+import { errosDosItens, erroDaPlaca, itensPreenchidos, veiculo } from './itens.js'
 
 // Por que a compra foi direto, sem solicitação nem cotação (rótulo em
 // lancMotivo_{chave}); "outro" pede a explicação no texto
@@ -30,7 +31,11 @@ const _url = s => /^https?:\/\/[^\s]+$/i.test(String(s || '').trim())
 export function errosDoLancamento(v, hoje) {
   const erros = []
   const exigir = (campo, ok) => { if (!ok) erros.push([campo, 'campoObrigatorio']) }
-  exigir('lc-titulo', String(v.titulo || '').trim())
+  // Com os itens (Fase 1), o título é o resumo deles; sem, o campo de antes
+  if (Array.isArray(v.itens)) erros.push(...errosDosItens(v.itens, { prefixo: 'lc' }))
+  else exigir('lc-titulo', String(v.titulo || '').trim())
+  const placa = erroDaPlaca(v.placa)
+  if (placa) erros.push(['lc-placa', placa])
   exigir('lc-empresa', v.empresaId)
   exigir('lc-fornecedor', String(v.fornecedorNome || '').trim())
   if (!(Number(v.valorFinal) > 0)) erros.push(['lc-valor', 'lancValorInvalido'])
@@ -66,12 +71,14 @@ export function montarLancamento(v, quem, ts) {
   // confirmada; os outros perfis passam pela revisão (como nas regras)
   const euAutorizei = autorizadoPor.id === quem.id && [PERFIS.GESTOR, PERFIS.SUPREMO].includes(quem.perfil)
   const valorFinal = Math.round(Number(v.valorFinal) * 100) / 100
+  const itens = Array.isArray(v.itens) ? itensPreenchidos(v.itens) : null
   const pedido = {
     titulo: String(v.titulo).trim().slice(0, 120),
     descricao: String(v.detalhes || '').trim(),
     empresaId: v.empresaId,
-    quantidade: Number(v.quantidade) >= 1 ? Number(v.quantidade) : 1,
-    unidade: v.unidade || 'un',
+    ...(itens ? { itens, veiculo: veiculo(v.placa, v.km) } : {}),
+    quantidade: itens ? itens[0].quantidade : (Number(v.quantidade) >= 1 ? Number(v.quantidade) : 1),
+    unidade: itens ? itens[0].unidade : (v.unidade || 'un'),
     dataNecessaria: null,
     valorEstimado: null,
     centroCusto: null,

@@ -28,6 +28,7 @@ import {
 import { _renderActivityFeed } from './detalhe-painel.js'
 import { _rotuloCampo, _valorEdicao } from './detalhe-acoes.js'
 import { D } from './detalhe-estado.js'
+import { itensDoPedido, placaParaExibir } from './itens.js'
 
 // ── Helpers de permissão ──────────────────────────────────────
 export function _podeAssumir() {
@@ -222,7 +223,11 @@ export async function _exportarPedidoPDF() {
       [t('colEmpresa'), empresa?.nome || '—'],
       [t('npCategoria'), categoria?.nome || '—'],
       [t('npCC'), p.centroCusto || '—'],
-      [t('npQuantidade'), `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()],
+      // Vários itens: a lista; um só, a quantidade (Fase 1)
+      ...(itensDoPedido(p).length > 1
+        ? [[t('dtItens'), itensDoPedido(p).map(i => `${String(i.quantidade).replace('.', ',')} ${i.unidade} ${i.descricao}`).join('; ')]]
+        : [[t('npQuantidade'), `${p.quantidade ?? '—'} ${p.unidade || ''}`.trim()]]),
+      ...(p.veiculo?.placa ? [[t('metaVeiculo'), `${placaParaExibir(p.veiculo.placa)}${p.veiculo.km ? ` · ${p.veiculo.km.toLocaleString('pt-BR')} ${t('kmSufixo')}` : ''}`]] : []),
       [t('npData'), p.dataNecessaria ? formatDate(p.dataNecessaria) : '—'],
       ...(p.valorEstimado ? [[t('npValor'), formatCurrency(p.valorEstimado)]] : []),
       [t('colSolicitante'), solicNome],
@@ -422,6 +427,8 @@ export async function _reabrirPedido() {
         categoriaId:     p.categoriaId || '',
         quantidade:      p.quantidade,
         unidade:         p.unidade,
+        ...(Array.isArray(p.itens) ? { itens: p.itens, desconto: p.desconto || null } : {}),
+        ...(p.veiculo ? { veiculo: p.veiculo } : {}),
         valorEstimado:   p.valorEstimado || null,
         centroCusto:     p.centroCusto || '',
         dataNecessaria:  p.dataNecessaria,

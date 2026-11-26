@@ -646,6 +646,27 @@ test('a edição do pedido só passa com o histórico no mesmo lote', async () =
   await assertSucceeds(editar('gestor', 'u-ges'))
 })
 
+// Fase 1: a edição muda também os itens, o desconto, o veículo e o centro de
+// custo; a lista de itens tem no máximo 30. O resto do pedido continua fora
+test('a edição troca itens, desconto, veículo e centro de custo, com o histórico', async () => {
+  const editarCom = (campos) => {
+    const f = db('solicitante')
+    const lote = writeBatch(f)
+    const entrada = doc(collection(f, 'pedidos/p1/historico'))
+    lote.update(doc(f, 'pedidos/p1'), { ...campos, ultimaEdicaoId: entrada.id, atualizadoEm: new Date() })
+    lote.set(entrada, { tipo: 'edicao', campo: 'itens', valorAnterior: 'a', valorNovo: 'b', autorId: 'u-sol', criadoEm: new Date() })
+    return lote.commit()
+  }
+  const itens = [{ descricao: 'Papel A4', quantidade: 10, unidade: 'cx', valorUnitario: 24.5 }, { descricao: 'Toner', quantidade: 2, unidade: 'un', valorUnitario: null }]
+  await assertSucceeds(editarCom({
+    itens, quantidade: 10, unidade: 'cx', desconto: { tipo: 'pct', valor: 5 }, valorEstimado: 232.75,
+    veiculo: { placa: 'ABC1C34', chave: 'ABC1234', km: 1000 }, centroCusto: 'Frota',
+  }))
+  await assertFails(editarCom({ itens: Array.from({ length: 31 }, () => itens[0]) }))
+  await assertFails(editarCom({ itens: 'Papel' }))
+  await assertFails(editarCom({ itens, valorFinal: 10 }))
+})
+
 test('a cotação nova só passa com o histórico de mesmo ID no mesmo lote', async () => {
   await assertFails(addDoc(collection(db('comprador'), 'pedidos/cotando/cotacoes'), { valor: 10 }))
   await assertFails(cotar('comprador', 'u-com', { historico: false }))

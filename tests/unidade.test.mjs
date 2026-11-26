@@ -716,3 +716,89 @@ test('alçada: o editor confere faixas e níveis antes de gravar', () => {
   assert.deepEqual(limparAlcada([{ ate: '1000', niveis: [{ nome: ' Dir ', perfis: ['gestor', 'aprovador'], usuarios: ['a', 'a'], minimo: '1' }] }]),
     [{ ate: null, niveis: [{ nome: 'Dir', perfis: ['aprovador', 'gestor'], usuarios: ['a'], minimo: 1 }] }])
 })
+
+// ── Itens, desconto, veículo e sugestões (Fase 1, js/itens.js) ──
+import {
+  item, itensDoPedido, resumoDosItens, subtotalDosItens, desconto, valorDoDesconto, totalComDesconto,
+  lerPlaca, placaParaExibir, veiculo, errosDosItens, erroDaPlaca, historicoDeItens, sugerirItens,
+  placasDoHistorico, esperaDoPedido, linkWhatsApp,
+} from '../js/itens.js'
+
+test('itens: o pedido antigo vira um item; o novo guarda a lista', () => {
+  assert.deepEqual(itensDoPedido({ titulo: 'Toner', quantidade: 2, unidade: 'un' }),
+    [{ descricao: 'Toner', quantidade: 2, unidade: 'un', valorUnitario: null }])
+  const p = { itens: [{ descricao: ' Papel ', quantidade: '10', unidade: 'cx', valorUnitario: '24.5' }] }
+  assert.deepEqual(itensDoPedido(p), [{ descricao: 'Papel', quantidade: 10, unidade: 'cx', valorUnitario: 24.5 }])
+  assert.equal(item({ quantidade: 0 }).quantidade, 1)
+  assert.equal(item({ valorUnitario: -3 }).valorUnitario, null)
+})
+
+test('itens: resumo, soma e desconto', () => {
+  const tx = (k, v) => k === 'itensResumoUm' ? `${v.nome} e mais 1 item` : `${v.nome} e mais ${v.n} itens`
+  assert.equal(resumoDosItens([{ descricao: 'Pastilha' }], tx), 'Pastilha')
+  assert.equal(resumoDosItens([{ descricao: 'Pastilha' }, { descricao: 'Disco' }], tx), 'Pastilha e mais 1 item')
+  assert.equal(resumoDosItens([{ descricao: 'A' }, { descricao: '' }, { descricao: 'B' }, { descricao: 'C' }], tx), 'A e mais 2 itens')
+  assert.equal(subtotalDosItens([{ descricao: 'A', quantidade: 2 }]), null)
+  const itens = [{ descricao: 'A', quantidade: 10, valorUnitario: 245 }, { descricao: 'B', quantidade: 4, valorUnitario: 389.9 }, { descricao: 'C', quantidade: 1 }]
+  assert.equal(subtotalDosItens(itens), 4009.6)
+  assert.equal(desconto('pct', 0), null)
+  assert.deepEqual(desconto('pct', 150), { tipo: 'pct', valor: 100 })
+  assert.equal(valorDoDesconto(4009.6, desconto('pct', 5)), 200.48)
+  assert.equal(totalComDesconto(4009.6, desconto('pct', 5)), 3809.12)
+  assert.equal(totalComDesconto(100, desconto('valor', 250)), 0)
+  assert.equal(totalComDesconto(null, desconto('valor', 10)), null)
+})
+
+test('veículo: placa antiga e Mercosul no mesmo registro', () => {
+  assert.deepEqual(lerPlaca('abc-1234'), { placa: 'ABC1234', chave: 'ABC1234' })
+  assert.deepEqual(lerPlaca('ABC1C34'), { placa: 'ABC1C34', chave: 'ABC1234' })
+  assert.equal(lerPlaca('RTA4F21').chave, 'RTA4521')
+  assert.equal(lerPlaca(''), null)
+  assert.equal(lerPlaca('AB123').invalida, true)
+  assert.equal(placaParaExibir('ABC1234'), 'ABC-1234')
+  assert.equal(placaParaExibir('ABC1C34'), 'ABC1C34')
+  assert.deepEqual(veiculo('abc1c34', '184.230'), { placa: 'ABC1C34', chave: 'ABC1234', km: 184230 })
+  assert.equal(veiculo('', '100'), null)
+  assert.equal(veiculo('ABC1234', '').km, null)
+  assert.equal(erroDaPlaca('XYZ'), 'placaInvalida')
+  assert.equal(erroDaPlaca(''), null)
+})
+
+test('itens: erros do formulário apontam a linha', () => {
+  assert.deepEqual(errosDosItens([{ descricao: '' }]), [['np-item-0', 'campoObrigatorio']])
+  assert.deepEqual(errosDosItens([{ descricao: 'A', quantidade: 1 }, { descricao: 'B', quantidade: 0 }], { prefixo: 'lc' }), [['lc-item-1', 'quantidadeMinima']])
+  assert.deepEqual(errosDosItens([{ descricao: 'A', quantidade: 2 }, { descricao: '', quantidade: '' }]), [])
+  assert.deepEqual(errosDosItens(Array.from({ length: 31 }, () => ({ descricao: 'x', quantidade: 1 }))), [['np-itens', 'itensDemais']])
+})
+
+test('sugestões: o histórico dos pedidos lidos, sem leitura a mais', () => {
+  const pedidos = [
+    { status: 'pago', criadoEm: 3000, categoriaId: 'man', fornecedorNome: 'Auto Peças', dataCompra: '2026-11-20', valorFinal: 360, titulo: 'Pastilha de freio', quantidade: 2, unidade: 'jg' },
+    { status: 'pago', criadoEm: 1000, categoriaId: 'man', fornecedorNome: 'Outra', valorFinal: 300, titulo: 'Pastilha de freio', quantidade: 2, unidade: 'jg' },
+    { status: 'cancelado', criadoEm: 4000, titulo: 'Pastel', quantidade: 1, unidade: 'un' },
+    { status: 'solicitado', criadoEm: 2000, itens: [{ descricao: 'Óleo 15W40', quantidade: 20, unidade: 'L', valorUnitario: 32 }, { descricao: 'Filtro de óleo', quantidade: 1, unidade: 'un' }],
+      veiculo: { placa: 'ABC1C34', chave: 'ABC1234' } },
+    { status: 'pago', criadoEm: 500, veiculo: { placa: 'ABC1234', chave: 'ABC1234' }, titulo: 'x' },
+  ]
+  const h = historicoDeItens(pedidos)
+  const pastilha = h.get('pastilha de freio')
+  assert.equal(pastilha.preco, 180)
+  assert.equal(pastilha.fornecedorNome, 'Auto Peças')
+  assert.equal(pastilha.vezes, 2)
+  assert.equal(h.has('pastel'), false)
+  assert.equal(h.get('oleo 15w40').preco, 32)
+  assert.deepEqual(sugerirItens(h, 'pa').map(x => x.descricao), ['Pastilha de freio'])
+  assert.deepEqual(sugerirItens(h, 'oleo').map(x => x.descricao), ['Óleo 15W40', 'Filtro de óleo'])
+  assert.deepEqual(sugerirItens(h, 'o'), [])
+  assert.deepEqual(placasDoHistorico(pedidos), ['ABC1C34'])
+})
+
+test('WhatsApp: quem o pedido espera e a mensagem pronta', () => {
+  const tx = (k, v) => (k === 'waMensagem' ? `${v.num}: ${v.titulo}. ${v.espera}. ${v.url}` : k)
+  assert.equal(esperaDoPedido({ status: 'em_aprovacao' }), 'waEsperaAprovacao')
+  assert.equal(esperaDoPedido({ status: 'pago' }), null)
+  assert.equal(esperaDoPedido({ status: 'comprado', lancamento: { autorizacao: 'pendente' } }), 'waEsperaAutorizacao')
+  const link = linkWhatsApp({ status: 'em_aprovacao', numeroPedido: 'PRX-0001', titulo: 'Toner & papel' }, 'https://x/?id=1', tx)
+  assert.equal(link, 'https://wa.me/?text=' + encodeURIComponent('PRX-0001: Toner & papel. waEsperaAprovacao. https://x/?id=1'))
+  assert.equal(linkWhatsApp({ status: 'cancelado' }, 'u', tx), null)
+})

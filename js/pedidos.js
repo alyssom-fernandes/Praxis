@@ -24,8 +24,9 @@ import {
   _confirmarBulkCancel, _tituloTela,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
+import { _resumoAutomatico, _placaMudou, _centrosDeCusto, montarItensNovoPedido } from './novo-pedido.js'
 
-export function agendarDuplicar(pedido) { Q.pedidoFonteDuplicar = pedido }
+export function agendarDuplicar(pedido, { deNovo = false } = {}) { Q.pedidoFonteDuplicar = pedido; Q.duplicarDeNovo = deNovo }
 
 // Novo pedido aberto de fora da tela (o "+" da barra inferior): na própria
 // tela abre na hora; em outra, abre ao chegar
@@ -122,6 +123,7 @@ export const ICO = {
   proibido: n => _svg(n, '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>'),
   alerta:   n => _svg(n, '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12.5"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
   marcador: n => _svg(n, '<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>'),
+  repetir:  n => _svg(n, '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>'),
 }
 
 // ── Filtros rápidos ───────────────────────────────────────────
@@ -266,21 +268,27 @@ export async function renderPedidos() {
         <div class="modal-body">
           <form id="form-novo-pedido" novalidate>
             <div class="form-grid form-grid-3 np-grid">
-              <div class="form-group col-span-3" data-campo="np-titulo">
-                <label for="np-titulo">${t('npTitulo')} <span class="np-req" aria-hidden="true">*</span></label>
-                <input type="text" id="np-titulo" placeholder="${t('npTituloPlaceholder')}" required maxlength="120" autocomplete="off">
+              <div class="form-group col-span-3 np-itens" data-campo="np-itens">
+                <span class="form-label-falso" id="np-itens-rot">${t('npItens')} <span class="np-req" aria-hidden="true">*</span></span>
+                <div id="np-itens-ed" role="group" aria-labelledby="np-itens-rot"></div>
+              </div>
+              <div class="form-group col-span-3" data-campo="np-titulo" id="np-titulo-grupo" hidden>
+                <label for="np-titulo">${t('npResumo')}</label>
+                <input type="text" id="np-titulo" maxlength="120" autocomplete="off" aria-describedby="np-titulo-dica">
+                <p class="np-dica" id="np-titulo-dica">${t('npResumoDica')}</p>
               </div>
               <div class="form-group" data-campo="np-empresa">
                 <label for="np-empresa">${t('npEmpresa')} <span class="np-req" aria-hidden="true">*</span></label>
                 <select id="np-empresa" required><option value="">${t('selecionar')}</option></select>
               </div>
-              <div class="form-group" data-campo="np-quantidade">
-                <label for="np-quantidade">${t('npQuantidade')} <span class="np-req" aria-hidden="true">*</span></label>
-                <input type="number" id="np-quantidade" value="1" min="1" step="1" inputmode="numeric" required>
+              <div class="form-group" data-campo="np-placa">
+                <label for="np-placa">${t('npVeiculo')} <span class="np-opcional">${t('opcional')}</span></label>
+                <input type="text" id="np-placa" list="np-placas" maxlength="8" autocomplete="off" autocapitalize="characters" placeholder="${t('npPlacaPlaceholder')}">
+                <datalist id="np-placas"></datalist>
               </div>
-              <div class="form-group" data-campo="np-unidade">
-                <label for="np-unidade">${t('npUnidade')} <span class="np-req" aria-hidden="true">*</span></label>
-                <select id="np-unidade" required><option value="">${t('selecionar')}</option></select>
+              <div class="form-group" data-campo="np-km">
+                <label for="np-km">${t('npKm')} <span class="np-opcional">${t('opcional')}</span></label>
+                <input type="text" id="np-km" inputmode="numeric" maxlength="9" autocomplete="off" disabled>
               </div>
               <div class="form-group col-span-3 np-prazo" data-campo="np-data">
                 <span class="form-label-falso" id="np-prazo-rot">${t('npPrazo')} <span class="np-opcional">${t('opcional')}</span></span>
@@ -308,9 +316,9 @@ export async function renderPedidos() {
                     <span class="form-label-falso" id="np-categorias-label">${t('npCategoria')} <span class="np-opcional">${t('opcional')}</span></span>
                     <div class="category-chips" id="np-categorias" role="radiogroup" aria-labelledby="np-categorias-label"></div>
                   </div>
-                  <div class="form-group" data-campo="np-cc">
+                  <div class="form-group" data-campo="np-cc" id="np-cc-grupo" hidden>
                     <label for="np-cc">${t('npCC')} <span class="np-opcional">${t('opcional')}</span></label>
-                    <input type="text" id="np-cc" maxlength="60" autocomplete="off">
+                    <select id="np-cc"><option value="">${t('selecionar')}</option></select>
                   </div>
                   <div class="form-group">
                     <label for="np-obs">${t('npObs')} <span class="np-opcional">${t('opcional')}</span></label>
@@ -414,6 +422,7 @@ export async function renderPedidos() {
   Q.esperaAuxiliares = null
   _preencherFiltros()
   _preencherModalNovoPedido()
+  montarItensNovoPedido()
   _bindEvents()
   _carregarViews()
   _sincronizarControles()
@@ -432,7 +441,7 @@ export async function renderPedidos() {
   Q.pedidoFonteDuplicar = null
   if (fonteDuplicar) {
     _resetarModalNovoPedido()
-    _preencherModalDuplicar(fonteDuplicar)
+    _preencherModalDuplicar(fonteDuplicar, { deNovo: !!Q.duplicarDeNovo })
     abrirModal('modal-novo-pedido')
   } else if (Q.abrirNovoAoEntrar) {
     Q.abrirNovoAoEntrar = false
@@ -856,11 +865,24 @@ export function _bindEvents() {
   })
 
   // Limpa o erro do campo assim que o usuário mexe nele
-  ;['np-titulo', 'np-empresa', 'np-quantidade', 'np-unidade', 'np-data'].forEach(id => {
+  ;['np-titulo', 'np-empresa', 'np-data', 'np-placa'].forEach(id => {
     const el = document.getElementById(id)
     el?.addEventListener('input', () => _limparErroCampo(id))
     el?.addEventListener('change', () => _limparErroCampo(id))
   })
+  // Itens: o erro some da linha que mudou
+  document.getElementById('np-itens-ed')?.addEventListener('input', e => {
+    const g = e.target.closest('[data-campo]')
+    if (g) _limparErroCampo(g.dataset.campo)
+  })
+  // Resumo: digitado à mão, deixa de acompanhar os itens
+  document.getElementById('np-titulo')?.addEventListener('input', e => {
+    e.target.dataset.manual = e.target.value.trim() ? '1' : ''
+    if (!e.target.dataset.manual) _resumoAutomatico()
+  })
+  // Placa: o KM só vale com veículo; a empresa traz os centros de custo dela
+  document.getElementById('np-placa')?.addEventListener('input', _placaMudou)
+  document.getElementById('np-empresa')?.addEventListener('change', () => _centrosDeCusto())
 
   // Compra já feita: o formulário próprio (js/lancar-compra.js)
   document.getElementById('btn-lancar-compra')?.addEventListener('click', async () => {

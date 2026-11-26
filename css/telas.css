@@ -4321,3 +4321,70 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .meus-etapa-nome { font-weight: 700; color: var(--text); }
 .meus-quem { color: var(--text2); }
 .meus-quem::before { content: '·'; margin-right: var(--esp-100); color: var(--text3); }
+
+/* ── Itens do pedido (Fase 1): linhas, desconto e total ───────── */
+.itens-ed { display: flex; flex-direction: column; gap: var(--esp-100); }
+.itens-ed-cab, .itens-ed-campos {
+  display: grid; align-items: center; gap: var(--esp-100);
+  grid-template-columns: minmax(0, 1fr) 76px 92px 104px 36px;
+}
+.itens-ed:not(:has(.it-vu)) :is(.itens-ed-cab, .itens-ed-campos) { grid-template-columns: minmax(0, 1fr) 76px 92px 36px; }
+.itens-ed-cab { font-size: var(--t-pequeno); color: var(--text3); letter-spacing: 0.04em; text-transform: uppercase; }
+.itens-ed-cab[hidden] { display: none; }
+.itens-ed-linhas { display: flex; flex-direction: column; gap: var(--esp-100); }
+.itens-ed-linha { margin: 0; }
+.itens-ed-campos > * { min-width: 0; }
+.itens-ed .it-tirar { width: 36px; height: 36px; color: var(--text3); }
+.itens-ed .it-tirar[hidden] { visibility: hidden; display: inline-flex; }
+.itens-ed .it-dica { margin: var(--esp-050) 0 0; font-size: var(--t-pequeno); color: var(--text3); }
+.itens-ed .it-dica[hidden] { display: none; }
+.itens-ed-mais { align-self: flex-start; gap: var(--esp-075); }
+.itens-ed-mais[hidden] { display: none; }
+.itens-ed-total {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--esp-150);
+  padding-top: var(--esp-150); border-top: 1px solid var(--border);
+}
+.itens-ed-total[hidden] { display: none; }
+.itens-ed-desc label { display: block; margin-bottom: var(--esp-050); font-size: var(--t-pequeno); color: var(--text2); }
+.itens-ed-desc-campos { display: flex; gap: var(--esp-075); }
+.itens-ed-desc-campos input { width: 110px; }
+.itens-ed-tipo { display: inline-flex; border: 1px solid var(--borda-campo); border-radius: var(--radius-input); overflow: hidden; }
+.itens-ed-tipo button { min-width: 40px; padding: 0 var(--esp-100); background: transparent; color: var(--text2); border: 0; font: inherit; cursor: pointer; }
+.itens-ed-tipo button[aria-pressed="true"] { background: var(--gold-dim); color: var(--gold); }
+.itens-ed-soma { margin: 0; font-size: var(--t-corpo); color: var(--text2); font-variant-numeric: tabular-nums; }
+.itens-ed-soma strong { color: var(--text); }
+.np-dica { margin: var(--esp-050) 0 0; font-size: var(--t-pequeno); color: var(--text3); }
+@media (max-width: 600px) {
+  /* No celular: a descrição na linha de cima, quantidade, unidade e valor embaixo */
+  .itens-ed-cab { display: none; }
+  .itens-ed-campos, .itens-ed:not(:has(.it-vu)) .itens-ed-campos { grid-template-columns: repeat(6, minmax(0, 1fr)) 44px; }
+  .itens-ed-campos .it-desc { grid-column: 1 / -2; }
+  .itens-ed-campos .it-tirar { grid-column: -2 / -1; grid-row: 1; width: 44px; height: 44px; }
+  .itens-ed-campos .it-qtd { grid-column: 1 / 3; }
+  .itens-ed-campos .it-un { grid-column: 3 / 5; }
+  .itens-ed-campos .it-vu { grid-column: 5 / -1; }
+  .itens-ed:not(:has(.it-vu)) .itens-ed-campos .it-un { grid-column: 3 / -1; }
+  .itens-ed-mais { min-height: 44px; }
+}
+
+/* Itens no detalhe */
+.dt-itens { width: 100%; border-collapse: collapse; font-size: var(--t-corpo); }
+.dt-itens td { padding: var(--esp-100) 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.dt-itens td + td { padding-left: var(--esp-150); }
+.dt-itens .dt-it-qtd { white-space: nowrap; color: var(--text2); width: 1%; }
+.dt-itens .dt-it-valor { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; width: 1%; }
+.dt-itens tfoot td { color: var(--text2); border-bottom: 0; padding-top: var(--esp-075); padding-bottom: 0; }
+.dt-itens .dt-it-total td { color: var(--text); font-weight: 600; padding-top: var(--esp-100); }
+.dt-secao-n { margin-left: var(--esp-075); color: var(--text3); font-weight: 400; font-variant-numeric: tabular-nums; }
+
+/* "Comprar de novo" nos concluídos de Meus pedidos, abaixo do cartão */
+.meus-item { display: flex; flex-direction: column; gap: var(--esp-050); }
+.meus-de-novo { align-self: flex-start; gap: var(--esp-075); color: var(--text2); }
+@media (max-width: 600px) { .meus-de-novo { min-height: 44px; } }
+
+/* Avisar no WhatsApp: botão de link no painel do próximo passo */
+.btn-whatsapp { gap: var(--esp-075); text-decoration: none; }
+.itens-ed ~ * input[id$="-placa"], input[id$="-placa"] { text-transform: uppercase; }
+@media (max-width: 600px) {
+  .itens-ed-linha + .itens-ed-linha { padding-top: var(--esp-100); border-top: 1px dashed var(--border); }
+}

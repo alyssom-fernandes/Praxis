@@ -127,10 +127,11 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   await sol.click('#btn-novo-pedido')
   await sol.waitForFunction(() => document.querySelectorAll('#np-empresa option').length > 1 &&
     document.querySelectorAll('#np-categorias .chip').length > 0)
-  await sol.fill('#np-titulo', TITULO)
+  // Um item só: o título do pedido é o próprio item (Fase 1)
+  await sol.fill('#np-item-0', TITULO)
+  await sol.fill('#np-itens .it-qtd', '2')
+  await sol.selectOption('#np-itens .it-un', { index: 1 })
   await sol.selectOption('#np-empresa', { index: 1 })
-  await sol.fill('#np-quantidade', '2')
-  await sol.selectOption('#np-unidade', { index: 1 })
   await sol.fill('#np-data', daqui(20))
   // Categoria, centro de custo e observação ficam em "Mais detalhes"
   await sol.click('#np-mais summary')
@@ -149,6 +150,8 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   assert.equal(aberto.status, 'solicitado')
   assert.match(aberto.numeroPedido, /^PRX-\d{4}$/)
   assert.equal(aberto.urgente, false)
+  assert.deepEqual(aberto.itens.map(i => i.descricao), [TITULO])
+  assert.equal(aberto.quantidade, 2)
   await sol.context().close()
 
   // 2. A compradora assume, registra uma cotação e a indica

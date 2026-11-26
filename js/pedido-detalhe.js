@@ -24,6 +24,7 @@ import { ETAPAS_CAMINHO, TERMINAIS, transicoes, entradas } from './processo.js'
 import { podeRevisarAutorizacao, revisaoDaAutorizacao } from './lancamento.js'
 import { conferirNota, formatarNota } from './nota.js'
 import { prepararCampoNota } from './ler-nota.js'
+import { itensDoPedido, subtotalDosItens, valorDoDesconto, totalComDesconto, placaParaExibir, linkWhatsApp } from './itens.js'
 import {
   _renderDecisao, _renderPessoa, _renderPessoaComprador, _renderPessoaAprovadores,
   _renderPessoaFinanceiro, _renderCotacoes, _renderActivityFeed, _renderParcelasBloco,
@@ -298,6 +299,8 @@ export const ICO = {
   mais2:     _svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', 14),
   conversa:  _svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>', 18),
   abaixo:    _svg('<polyline points="6 9 12 15 18 9"/>', 18),
+  // Balão de conversa com o fone: a ideia do WhatsApp, sem a marca
+  whatsapp:  _svg('<path d="M3 21l1.65-4.95A9 9 0 1112 21a8.96 8.96 0 01-4.05-.96z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 01-1.8-1.8l.8-1-1-2z"/>', 16),
 }
 
 export const _TERMINAIS = TERMINAIS
@@ -491,7 +494,9 @@ export function _renderDetalhe() {
   const dados = [
     [t('metaEmpresa'), esc(empresa?.nome || '—')],
     [t('metaCategoria'), esc(categ?.nome || '—')],
-    [t('metaQtd'), `<span class="dt-numeral">${esc(p.quantidade ?? '—')}</span> ${esc(p.unidade || '')}`],
+    // Com vários itens, a quantidade vai na lista de itens
+    ...(itensDoPedido(p).length < 2 ? [[t('metaQtd'), `<span class="dt-numeral">${esc(p.quantidade ?? '—')}</span> ${esc(p.unidade || '')}`]] : []),
+    ...(p.veiculo?.placa ? [[t('metaVeiculo'), `<span class="mono">${esc(placaParaExibir(p.veiculo.placa))}</span>${p.veiculo.km ? ` · ${esc(p.veiculo.km.toLocaleString('pt-BR'))} ${t('kmSufixo')}` : ''}`]] : []),
     [t('metaNecessario'), p.dataNecessaria ? `<span class="dt-numeral">${formatDate(p.dataNecessaria)}</span>` : '—'],
     // Pedidos antigos ainda trazem o valor estimado; os novos não têm o campo
     ...(p.valorEstimado ? [[t('metaValorEst'), `<span class="dt-numeral">${formatCurrency(p.valorEstimado)}</span>`]] : []),
@@ -532,6 +537,8 @@ export function _renderDetalhe() {
         <div class="detalhe-main">
 
           ${p.lancamento ? _renderLancamento() : ''}
+
+          ${_renderItens(p)}
 
           ${p.descricao ? `
             <section class="dt-bloco ord-descricao" aria-labelledby="sec-desc">
@@ -736,6 +743,35 @@ export function _corpoModalCompra() {
     </div>`
 }
 
+// ── Itens (js/itens.js) ───────────────────────────────────────
+// A lista aparece com dois itens ou mais, ou quando há valor por item; o
+// pedido de um item só, sem valor, continua com a quantidade nos dados
+export function _renderItens(p) {
+  const itens = itensDoPedido(p)
+  const sub = subtotalDosItens(itens)
+  if (itens.length < 2 && sub == null) return ''
+  const vd = valorDoDesconto(sub, p.desconto)
+  const linhas = itens.map(i => `
+    <tr>
+      <td class="dt-it-desc">${esc(i.descricao)}</td>
+      <td class="dt-it-qtd"><span class="dt-numeral">${esc(i.quantidade.toLocaleString('pt-BR'))}</span> ${esc(i.unidade)}</td>
+      ${sub != null ? `<td class="dt-it-valor">${i.valorUnitario != null ? formatCurrency(i.quantidade * i.valorUnitario) : '—'}</td>` : ''}
+    </tr>`).join('')
+  return `
+    <section class="dt-bloco ord-itens" aria-labelledby="sec-itens">
+      <div class="dt-card-head"><h2 class="dt-secao" id="sec-itens">${t('dtItens')} <span class="dt-secao-n">${itens.length}</span></h2></div>
+      <table class="dt-itens">
+        <thead class="sr-only"><tr><th>${t('itemDescricao')}</th><th>${t('npQuantidade')}</th>${sub != null ? `<th>${t('itemTotal')}</th>` : ''}</tr></thead>
+        <tbody>${linhas}</tbody>
+        ${sub != null ? `<tfoot>
+          ${vd ? `<tr><td colspan="2">${t('itemSubtotal')}</td><td class="dt-it-valor">${formatCurrency(sub)}</td></tr>
+          <tr><td colspan="2">${t('itemDesconto')}${p.desconto?.tipo === 'pct' ? ` (${esc(String(p.desconto.valor).replace('.', ','))}%)` : ''}</td><td class="dt-it-valor">−${formatCurrency(vd)}</td></tr>` : ''}
+          <tr class="dt-it-total"><td colspan="2">${t('itemTotalEstimado')}</td><td class="dt-it-valor">${formatCurrency(totalComDesconto(sub, p.desconto))}</td></tr>
+        </tfoot>` : ''}
+      </table>
+    </section>`
+}
+
 // ── Compra já feita (js/lancamento.js) ────────────────────────
 // Quem pediu, quem autorizou (com a situação da autorização), quem comprou e
 // por quê; para a pessoa apontada ou um gestor, confirmar ou não reconhecer
@@ -889,12 +925,25 @@ export function _acoesDoPedido() {
     else painel.push(`<button class="btn-primary" id="btn-confirmar-pagamento">${ICO.check}${t('btnConfirmarPagamento')}</button>`)
   }
 
+  // O pedido espera alguém e quem olha não tem o que fazer nele: avisar pelo
+  // WhatsApp, com a mensagem e o link prontos (a pessoa escolhe o contato)
+  const wa = linkWhatsApp(p, `${location.origin}/?tela=detalhe&id=${encodeURIComponent(D.pedidoId)}`, t)
+  if (wa && !painel.length) {
+    painel.push(`<a class="btn-secondary btn-whatsapp" id="btn-whatsapp" href="${esc(wa)}" target="_blank" rel="noopener">${ICO.whatsapp}${t('btnAvisarWhatsApp')}</a>`)
+  }
+
+  const podeCopiar = [PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
+  // Compra que se repete: "Comprar de novo" à vista nos pedidos concluídos
+  if (podeCopiar && [STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)) {
+    painel.push(`<button class="btn-secondary" id="btn-comprar-de-novo">${ICO.duplicar}${t('btnComprarDeNovo')}</button>`)
+  }
+
   const podeEditar = (
     (p.solicitanteId === uid && p.status === STATUS.SOLICITADO) ||
     (gestorMais && !_TERMINAIS.includes(p.status))
   )
   if (podeEditar) menu.push({ id: 'btn-editar-pedido', icone: ICO.editar, label: t('btnEditarPedido') })
-  if ([PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {
+  if (podeCopiar && ![STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)) {
     menu.push({ id: 'btn-duplicar-pedido', icone: ICO.duplicar, label: t('dtDuplicarPedido') })
   }
   if (p.status === STATUS.REPROVADO && !p.reabertoPara && [PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)) {

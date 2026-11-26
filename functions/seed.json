@@ -8,21 +8,59 @@
       "nome": "Nexara Tecnologia",
       "cnpj": "00.000.000/0001-01",
       "ativa": true,
-      "segmento": "Tecnologia"
+      "segmento": "Tecnologia",
+      "centrosCusto": [
+        "ADM-001",
+        "ADM-002",
+        "ADM-004",
+        "MKT-003",
+        "RH-003",
+        "RH-004",
+        "RH-005",
+        "TI-001",
+        "TI-002",
+        "TI-003",
+        "TI-004",
+        "VND-001"
+      ]
     },
     {
       "key": "veltora",
       "nome": "Veltora Serviços",
       "cnpj": "00.000.000/0002-02",
       "ativa": true,
-      "segmento": "Serviços"
+      "segmento": "Serviços",
+      "centrosCusto": [
+        "ADM-001",
+        "ADM-003",
+        "ADM-005",
+        "MAN-002",
+        "MKT-001",
+        "MKT-002",
+        "OP-004",
+        "SEG-001",
+        "TI-005"
+      ]
     },
     {
       "key": "orbix",
       "nome": "Orbix Industrial",
       "cnpj": "00.000.000/0003-03",
       "ativa": false,
-      "segmento": "Indústria"
+      "segmento": "Indústria",
+      "centrosCusto": [
+        "ADM-006",
+        "LOG-001",
+        "MAN-003",
+        "MAN-004",
+        "MAN-005",
+        "OP-001",
+        "OP-002",
+        "OP-003",
+        "OP-005",
+        "RH-001",
+        "RH-002"
+      ]
     }
   ],
   "fornecedores": [
@@ -421,7 +459,25 @@
         }
       ],
       "cotacoes": [],
-      "parcelas": []
+      "parcelas": [],
+      "itens": [
+        {
+          "descricao": "Papel A4 75 g (caixa com 10 resmas)",
+          "quantidade": 10,
+          "unidade": "cx",
+          "valorUnitario": 245
+        },
+        {
+          "descricao": "Toner HP 105A",
+          "quantidade": 4,
+          "unidade": "un",
+          "valorUnitario": 389.9
+        }
+      ],
+      "desconto": {
+        "tipo": "pct",
+        "valor": 5
+      }
     },
     {
       "key": "p06",
@@ -736,7 +792,27 @@
         }
       ],
       "cotacoes": [],
-      "parcelas": []
+      "parcelas": [],
+      "itens": [
+        {
+          "descricao": "Café torrado e moído",
+          "quantidade": 3,
+          "unidade": "kg",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Açúcar refinado",
+          "quantidade": 5,
+          "unidade": "kg",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Copos descartáveis 180 ml",
+          "quantidade": 10,
+          "unidade": "pct",
+          "valorUnitario": null
+        }
+      ]
     },
     {
       "key": "p11",
@@ -1269,7 +1345,12 @@
           "pago": true,
           "diasAtras": 105
         }
-      ]
+      ],
+      "veiculo": {
+        "placa": "RTA4F21",
+        "chave": "RTA4521",
+        "km": 184230
+      }
     },
     {
       "key": "p20",
@@ -1463,7 +1544,21 @@
         }
       ],
       "cotacoes": [],
-      "parcelas": []
+      "parcelas": [],
+      "itens": [
+        {
+          "descricao": "Papel higiênico folha dupla",
+          "quantidade": 5,
+          "unidade": "cx",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Sabonete líquido 5 L",
+          "quantidade": 4,
+          "unidade": "un",
+          "valorUnitario": null
+        }
+      ]
     },
     {
       "key": "p23",
@@ -1809,7 +1904,7 @@
       "descricao": "Conjunto de ferramentas para nova bancada da oficina de manutenção: furadeira, parafusadeira, set de brocas.",
       "status": "ag_cotacao",
       "urgente": false,
-      "quantidade": 1,
+      "quantidade": 2,
       "unidade": "kit",
       "dataNecessaria": "2026-07-01",
       "valorEstimado": 1800,
@@ -1839,7 +1934,33 @@
         }
       ],
       "cotacoes": [],
-      "parcelas": []
+      "parcelas": [],
+      "itens": [
+        {
+          "descricao": "Jogo de chaves combinadas",
+          "quantidade": 2,
+          "unidade": "kit",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Macaco hidráulico 10 t",
+          "quantidade": 1,
+          "unidade": "un",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Torquímetro de estalo",
+          "quantidade": 1,
+          "unidade": "un",
+          "valorUnitario": null
+        },
+        {
+          "descricao": "Chave de roda em cruz",
+          "quantidade": 3,
+          "unidade": "un",
+          "valorUnitario": null
+        }
+      ]
     },
     {
       "key": "p29",

@@ -8,7 +8,7 @@ import {
 import { navegar, registrarLimpador, atualizarLateral } from './app.js'
 import { sessao } from './estado.js'
 import {
-  prxToast, avisoNoFormulario, prxEscolha, estadoVazio, mostrarSpinner, esconderSpinner, fecharModal, exigirConexao,
+  prxToast, avisoNoFormulario, prxEscolha, estadoVazio, mostrarSpinner, esconderSpinner, fecharModal, abrirModal, exigirConexao,
 } from './ui.js'
 import { STATUS, STATUS_LABEL, PERFIS, KANBAN_COLUNAS, t } from './constants.js'
 import { formatCurrency, hojeISO, debounce, normalizarTexto, impedimentoDeFuncao, empresasDoUsuario } from './utils.js'
@@ -18,9 +18,11 @@ import {
   _sincronizarControles, _mudouFiltro, _atualizarResultadoPainel,
 } from './pedidos.js'
 import {
-  _renderKanban, _usaMeusPedidos, _tituloTela, _renderMeusPedidos, _tsMs, _nomeEmpresa, _bindEmptyActions, _renderLista, _tsToISO, _atualizarBulkBar,
+  _renderKanban, _usaMeusPedidos, _tituloTela, _renderMeusPedidos, _tsMs, _nomeEmpresa, _bindEmptyActions, _renderLista, _tsToISO, _atualizarBulkBar, _preencherModalDuplicar,
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
+import { editorNovoPedido, resetarItensNovoPedido, prepararItensNovoPedido, _resumoAutomatico } from './novo-pedido.js'
+import { errosDosItens, erroDaPlaca, resumoDosItens, subtotalDosItens, totalComDesconto, veiculo } from './itens.js'
 
 // ── Validação inline ──────────────────────────────────────────
 export function _marcarErroCampo(campo, msg) {
@@ -76,6 +78,10 @@ export function _resetarModalNovoPedido() {
     const ultima = _ultimaEmpresa()
     if (ultima && [...emp.options].some(o => o.value === ultima)) emp.value = ultima
   }
+  // Itens, resumo, veículo e centro de custo da empresa já escolhida; as
+  // sugestões vêm dos pedidos que o quadro tem agora
+  prepararItensNovoPedido()
+  resetarItensNovoPedido()
 }
 
 // Última empresa em que a pessoa abriu pedido (só neste navegador)
@@ -94,31 +100,35 @@ export function _marcarPrazo(dias) {
 }
 
 export function _validarNovoPedido(v) {
-  const erros = []
-  if (!v.titulo) erros.push(['np-titulo', t('campoObrigatorio')])
+  const erros = errosDosItens(v.itens).map(([campo, chave]) => [campo, t(chave)])
   if (!v.empresaId) erros.push(['np-empresa', t('campoObrigatorio')])
-  if (!v.quantidade) erros.push(['np-quantidade', t('campoObrigatorio')])
-  else if (!(Number(v.quantidade) >= 1)) erros.push(['np-quantidade', t('quantidadeMinima')])
-  if (!v.unidade) erros.push(['np-unidade', t('campoObrigatorio')])
+  const placa = erroDaPlaca(v.placa)
+  if (placa) erros.push(['np-placa', t(placa)])
   // O prazo é opcional ("Sem pressa"); se vier, não pode estar no passado
   if (v.data && v.data < hojeISO()) erros.push(['np-data', t('dataNoPassado')])
   return erros
 }
 
 export async function _submeterNovoPedido() {
-  const titulo     = document.getElementById('np-titulo')?.value.trim()
+  const ed         = editorNovoPedido()
+  _resumoAutomatico()
+  const itensCampos = ed?.itens() || []
+  const itens      = ed?.preenchidos() || []
+  const desconto   = itens.length ? ed.desconto() : null
+  const titulo     = document.getElementById('np-titulo')?.value.trim() || resumoDosItens(itens, t)
   const empresaId  = document.getElementById('np-empresa')?.value
-  const quantidade = document.getElementById('np-quantidade')?.value
-  const unidade    = document.getElementById('np-unidade')?.value
+  const placaTxt   = document.getElementById('np-placa')?.value || ''
+  const veic       = veiculo(placaTxt, document.getElementById('np-km')?.value)
   const data       = document.getElementById('np-data')?.value
-  const cc         = document.getElementById('np-cc')?.value.trim()
+  const cc         = document.getElementById('np-cc')?.value || ''
   const obs        = document.getElementById('np-obs')?.value.trim()
   const urgente    = document.getElementById('np-urgente-toggle')?.classList.contains('on')
   const catChip    = document.querySelector('#np-categorias .chip.selected')
   const categoriaId = catChip?.dataset.id || ''
+  const subtotal   = subtotalDosItens(itens)
 
   document.querySelectorAll('#form-novo-pedido [data-campo]').forEach(g => _limparErroCampo(g.dataset.campo))
-  const erros = _validarNovoPedido({ titulo, empresaId, quantidade, unidade, data, categoriaId })
+  const erros = _validarNovoPedido({ itens: itensCampos, empresaId, placa: placaTxt, data, categoriaId })
   if (erros.length) {
     erros.forEach(([campo, msg]) => _marcarErroCampo(campo, msg))
     const primeiro = document.getElementById(erros[0][0])
@@ -145,12 +155,17 @@ export async function _submeterNovoPedido() {
         titulo,
         descricao:       obs || '',
         empresaId,
-        quantidade:      Number(quantidade),
-        unidade,
+        // Os itens (Fase 1). Quantidade e unidade do primeiro ficam também
+        // nos campos de antes, que as telas e a exportação antigas leem
+        itens,
+        quantidade:      itens[0].quantidade,
+        unidade:         itens[0].unidade,
+        desconto:        subtotal != null ? desconto : null,
+        veiculo:         veic,
         dataNecessaria:  data || null,
-        // O valor estimado saiu do formulário (16/11/2026): o valor do pedido
-        // passa a ser o da cotação indicada e, depois, o da compra
-        valorEstimado:   null,
+        // O valor estimado saiu do formulário (16/11/2026); volta só quando
+        // os itens têm valor unitário: a soma, menos o desconto
+        valorEstimado:   subtotal != null ? totalComDesconto(subtotal, desconto) : null,
         centroCusto:     cc || null,
         categoriaId,
         urgente,
@@ -540,6 +555,16 @@ export function _renderView() {
         if (e.key === 'Enter') { e.preventDefault(); navegar('detalhe', { id: card.dataset.id }) }
         // Tecla de menu (ou Shift+F10): "Mover para…", também com os atalhos desligados
         else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); _moverPorTeclado(card.dataset.id) }
+      })
+    })
+    // "Comprar de novo" (Meus pedidos): o formulário já preenchido com o pedido
+    container.querySelectorAll('[data-de-novo]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = Q.pedidos.find(x => x.id === btn.dataset.deNovo)
+        if (!p) return
+        _resetarModalNovoPedido()
+        _preencherModalDuplicar(p, { deNovo: true })
+        abrirModal('modal-novo-pedido')
       })
     })
     container.querySelectorAll('[data-ver-mais]').forEach(btn => {

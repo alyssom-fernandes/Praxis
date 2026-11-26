@@ -152,6 +152,11 @@ function _modalEmpresa() {
               <label for="emp-segmento">${t('cfgSegmento')}</label>
               <input type="text" id="emp-segmento" placeholder="${t('cfgSegmentoPh')}" maxlength="40" autocomplete="off">
             </div>
+            <div class="form-group col-span-2" data-campo="emp-centros">
+              <label for="emp-centros">${t('cfgCentrosCusto')} <span class="np-opcional">${t('opcional')}</span></label>
+              <input type="text" id="emp-centros" placeholder="${t('cfgCentrosCustoPh')}" maxlength="400" autocomplete="off" aria-describedby="emp-centros-desc">
+              <p class="cfg-linha-desc" id="emp-centros-desc">${t('cfgCentrosCustoDesc')}</p>
+            </div>
             <div class="form-group col-span-2" id="emp-ativa-grupo">
               <div class="cfg-linha-interruptor">
                 <div>
@@ -480,6 +485,7 @@ function _abrirModalEmpresa(emp = null) {
   document.getElementById('emp-nome').value     = emp?.nome || ''
   document.getElementById('emp-cnpj').value     = mascararCNPJ(emp?.cnpj || '')
   document.getElementById('emp-segmento').value = emp?.segmento || ''
+  document.getElementById('emp-centros').value  = (emp?.centrosCusto || []).join(', ')
   // Empresa nova nasce ativa; o interruptor só aparece na edição
   document.getElementById('emp-ativa-grupo').hidden = !emp
   _definirAtiva(emp ? emp.ativa !== false : true)
@@ -672,6 +678,9 @@ async function _salvarEmpresa() {
   const cnpj     = document.getElementById('emp-cnpj').value.trim()
   const segmento = document.getElementById('emp-segmento').value.trim()
   const ativa    = document.getElementById('emp-ativa-wrap').getAttribute('aria-checked') === 'true'
+  // Centros de custo: separados por vírgula, sem repetir, até 30
+  const centrosCusto = [...new Map(document.getElementById('emp-centros').value.split(/[,;\n]/)
+    .map(s => s.trim().slice(0, 40)).filter(Boolean).map(s => [normalizarTexto(s), s])).values()].slice(0, 30)
 
   limparErros(modal)
   if (!nome) marcarErro('emp-nome', t('nomeObrigatorio'))
@@ -693,11 +702,11 @@ async function _salvarEmpresa() {
   try {
     if (id) {
       await gravarAuditado({ colecao: 'empresas', id, tipo: 'editar', antes: _empresas.find(e => e.id === id), nome,
-        dados: { nome, cnpj, segmento, ativa } })
+        dados: { nome, cnpj, segmento, ativa, centrosCusto } })
       prxToast(t('empresaAtualizada'), 'success')
     } else {
       await gravarAuditado({ colecao: 'empresas', tipo: 'criar', nome,
-        dados: { nome, cnpj, segmento, ativa: true, criadaEm: serverTimestamp() } })
+        dados: { nome, cnpj, segmento, centrosCusto, ativa: true, criadaEm: serverTimestamp() } })
       prxToast(t('empresaCriada'), 'success')
     }
     fecharModal('modal-empresa')

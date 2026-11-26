@@ -7,7 +7,7 @@ import {
   exigirConexao, estaOnline,
 } from './ui.js'
 import {
-  STATUS, STATUS_LABEL, CATEGORIA_ETAPA, PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO, UNIDADES,
+  STATUS, STATUS_LABEL, CATEGORIA_ETAPA, PERFIS, KANBAN_COLUNAS, CATEGORIAS_PADRAO,
   MOTIVOS_CANCELAMENTO, MOTIVO_OUTROS, rotuloMotivo, corCategoria, t,
 } from './constants.js'
 import {
@@ -23,6 +23,7 @@ import {
   _renderView, _transicoesDragPermitidas,
 } from './pedidos-fluxo.js'
 import { Q } from './pedidos-estado.js'
+import { preencherItensNovoPedido } from './novo-pedido.js'
 
 // ── Quadro ────────────────────────────────────────────────────
 export function _renderKanban(lista) {
@@ -206,10 +207,15 @@ export function _tituloTela() {
 const _FIM = [STATUS.PAGO, STATUS.REPROVADO, STATUS.CANCELADO]
 export function _renderMeusPedidos(lista) {
   if (!lista.length) return _renderEmptyState(_tipoVazio())
+  // Nos concluídos, "Comprar de novo" fica à vista, fora do cartão (o cartão
+  // inteiro abre o pedido)
+  const deNovo = p => [STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)
+    ? `<div class="meus-item">${_renderKcard(p, { caminho: true })}<button type="button" class="btn-ghost btn-sm meus-de-novo" data-de-novo="${esc(p.id)}" aria-label="${esc(t('btnComprarDeNovoX', { titulo: p.titulo || '' }))}">${ICO.repetir(13)}<span>${t('btnComprarDeNovo')}</span></button></div>`
+    : _renderKcard(p, { caminho: true })
   const grupo = (titulo, itens) => itens.length ? `
     <section class="meus-grupo" aria-label="${esc(titulo)}">
       <h2 class="meus-grupo-titulo">${esc(titulo)}<span class="numeral">${itens.length}</span></h2>
-      <div class="meus-lista">${itens.map(p => _renderKcard(p, { caminho: true })).join('')}</div>
+      <div class="meus-lista">${itens.map(deNovo).join('')}</div>
     </section>` : ''
   return `<div class="meus">${grupo(t('meusEmAndamento'), lista.filter(p => !_FIM.includes(p.status)))}${grupo(t('meusConcluidos'), lista.filter(p => _FIM.includes(p.status)))}</div>`
 }
@@ -477,17 +483,6 @@ export function _preencherModalNovoPedido() {
     })
   }
 
-  // Unidades
-  const unidSel = document.getElementById('np-unidade')
-  if (unidSel) {
-    UNIDADES.forEach(u => {
-      const opt = document.createElement('option')
-      opt.value = u; opt.textContent = u
-      if (u === 'un') { opt.defaultSelected = true; opt.selected = true }
-      unidSel.appendChild(opt)
-    })
-  }
-
   // Categorias
   const catWrap = document.getElementById('np-categorias')
   if (catWrap) {
@@ -505,23 +500,17 @@ export function _preencherModalNovoPedido() {
   }
 }
 
-export function _preencherModalDuplicar(p) {
-  const titulo  = document.getElementById('np-titulo')
+export function _preencherModalDuplicar(p, { deNovo = false } = {}) {
   const empresa = document.getElementById('np-empresa')
-  const quant   = document.getElementById('np-quantidade')
-  const unid    = document.getElementById('np-unidade')
-  const cc      = document.getElementById('np-cc')
   const obs     = document.getElementById('np-obs')
 
-  if (titulo)  titulo.value  = p.titulo || ''
   if (empresa) {
     // Empresa inativa (ou sem acesso) não está entre as opções: o campo volta para "Selecionar…"
     empresa.value = p.empresaId || ''
     if (empresa.value !== (p.empresaId || '')) empresa.value = ''
   }
-  if (quant)   quant.value   = p.quantidade || ''
-  if (unid)    unid.value    = p.unidade || ''
-  if (cc)      cc.value      = p.centroCusto || p.cc || ''
+  // Itens, resumo, veículo e centro de custo (depois da empresa: a lista é dela)
+  preencherItensNovoPedido(p)
   if (obs)     obs.value     = p.descricao || ''
   // A data necessária não é copiada: o prazo do original quase sempre já passou
 
@@ -540,7 +529,7 @@ export function _preencherModalDuplicar(p) {
   if (mais && (p.categoriaId || p.centroCusto || p.cc || p.descricao)) mais.open = true
 
   const h2 = document.getElementById('np-h2')
-  if (h2) h2.textContent = t('duplicarPedido')
+  if (h2) h2.textContent = t(deNovo ? 'btnComprarDeNovo' : 'duplicarPedido')
   const sub = document.getElementById('np-sub')
   if (sub) {
     sub.innerHTML = `${t('duplicarBase')} ${p.numeroPedido ? `<span class="np-sub-num">${esc(p.numeroPedido)}</span> · ` : ''}${t('duplicarAjuste')}`
