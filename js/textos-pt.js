@@ -806,6 +806,8 @@ export default {
   pagina404Titulo:        'Página não encontrada',
   pagina404Texto:         'O endereço {tela} não corresponde a nenhuma tela do Praxis.',
   pagina404Botao:         'Ir para pedidos',
+  navRecolherLateral:    'Recolher a lateral',
+  navAbrirLateral:       'Abrir a lateral',
   navMinhaFila:           'Minha fila',
   navCadastros:           'Cadastros',
   navAdministracao:       'Administração',

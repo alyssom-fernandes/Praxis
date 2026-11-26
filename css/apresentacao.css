@@ -1,0 +1,165 @@
+/* Página de apresentação do Praxis (apresentacao.html). A mesma pedra do app:
+   os tokens de css/tokens.css (Mármore e bronze, a escala de texto e a de
+   espaço), GFS Didot nos títulos, GFS Neohellenic nos numerais e Hanken
+   Grotesk no texto. Uma coluna alinhada à esquerda, como uma inscrição; o Λ
+   da marca é desenhado uma vez ao abrir, e as sete etapas assentam ao entrar
+   na tela. O tema segue o sistema (assets/apresentacao/tema.js põe a classe .light);
+   com o movimento reduzido, nada se move. */
+:root { --largura: 1180px; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--foco); outline-offset: 3px; }
+
+.salto { position: absolute; left: -9999px; }
+.salto:focus { left: var(--esp-200); top: var(--esp-150); z-index: 10; padding: var(--esp-100) var(--esp-150); background: var(--text); color: var(--bg); }
+
+/* ── Topo ── */
+.topo {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--esp-200);
+  padding-block: var(--esp-150);
+  padding-left: max(var(--esp-250), env(safe-area-inset-left, 0px)); padding-right: max(var(--esp-250), env(safe-area-inset-right, 0px));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+body::before { content: ''; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.letreiro { display: inline-flex; align-items: center; text-decoration: none; font-family: var(--marca); font-size: 1.45rem; letter-spacing: 0.08em; color: var(--text); }
+.letreiro-tri { width: 0.72em; height: 0.7em; margin: 0 0.04em; fill: currentColor; transform: translateY(0.02em); }
+.topo-nav { display: flex; align-items: center; gap: var(--esp-250); font-size: var(--t-corpo); font-weight: 600; }
+.topo-nav a:not(.botao) { color: var(--text2); text-decoration: none; }
+.topo-nav a:not(.botao):hover { color: var(--text); }
+
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--esp-250);
+  background: var(--gold-fill); color: var(--on-gold); border: 1px solid var(--gold-fill);
+  font-weight: 700; font-size: var(--t-corpo); text-decoration: none; border-radius: var(--radius-btn);
+}
+.botao:hover { background: var(--gold-fill-hover); }
+.botao-linha { background: none; color: var(--text); border-color: var(--border-strong); }
+.botao-linha:hover { background: none; border-color: var(--text2); }
+
+/* ── Seções ── */
+main > section {
+  max-width: var(--largura); margin: 0 auto;
+  padding-left: max(var(--esp-250), env(safe-area-inset-left, 0px)); padding-right: max(var(--esp-250), env(safe-area-inset-right, 0px));
+}
+.rotulo { font-size: var(--t-pequeno); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.cabeca { display: flex; flex-direction: column; gap: var(--esp-150); max-width: 46rem; }
+.cabeca h2 { font-family: var(--marca); font-size: clamp(1.9rem, 4.2vw, 3rem); line-height: 1.08; }
+.cabeca p:not(.rotulo) { color: var(--text2); max-width: 38rem; }
+
+/* Abertura: o texto à esquerda e o Λ grande, desenhado uma vez */
+.abertura {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; gap: var(--esp-500);
+  padding-block: var(--esp-1000) var(--esp-800);
+}
+.abertura::before {
+  content: ''; position: absolute; inset: 0 calc(50% - 50vw); z-index: -1; pointer-events: none;
+  background-image: linear-gradient(var(--grade) 1px, transparent 1px), linear-gradient(90deg, var(--grade) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent);
+}
+.abertura-texto { display: flex; flex-direction: column; gap: var(--esp-250); min-width: 0; }
+.abertura h1 { font-family: var(--marca); font-size: clamp(2.6rem, 7.4vw, 5.6rem); line-height: 1.0; letter-spacing: -0.01em; }
+.abertura-lead { font-size: clamp(1.08rem, 1.8vw, 1.3rem); color: var(--text2); max-width: 34rem; }
+.acoes { display: flex; flex-wrap: wrap; gap: var(--esp-150); }
+.nota { font-size: var(--t-corpo); color: var(--text3); max-width: 30rem; }
+
+.abertura-marca { margin: 0; justify-self: center; width: min(100%, 420px); }
+.lambda { width: 100%; height: auto; overflow: visible; }
+.lambda-traco { fill: var(--text); fill-opacity: 1; stroke: var(--gold); stroke-width: 3; stroke-linejoin: miter; stroke-dasharray: 1; stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .lambda-traco { animation: risca 2.4s cubic-bezier(.65, 0, .35, 1) both, preenche 0.9s ease 2.1s both; }
+}
+@keyframes risca { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes preenche { from { fill-opacity: 0; } to { fill-opacity: 1; } }
+
+/* O caminho: as sete etapas sobre um fio, como a régua do pedido */
+.caminho, .telas, .controle, .medido { display: flex; flex-direction: column; gap: var(--esp-500); padding-block: var(--esp-1000); }
+.etapas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0 var(--esp-200); }
+.etapas li { display: flex; flex-direction: column; gap: var(--esp-100); padding-top: var(--esp-200); border-top: 2px solid var(--border-strong); min-width: 0; }
+.etapas li:last-child { border-top-color: var(--tinta); }
+.etapa-num { font-family: var(--display); font-weight: 700; font-size: var(--t-display-m); line-height: 1; color: var(--text); }
+.etapa-nome { font-weight: 700; font-size: var(--t-titulo-3); }
+.etapa-quem { font-size: var(--t-corpo); color: var(--text2); line-height: 1.5; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .etapas li { animation: assenta linear both; animation-timeline: view(); animation-range: entry 0% entry 60%; }
+    .etapas li:nth-child(2) { animation-range: entry 6% entry 66%; }
+    .etapas li:nth-child(3) { animation-range: entry 12% entry 72%; }
+    .etapas li:nth-child(4) { animation-range: entry 18% entry 78%; }
+    .etapas li:nth-child(5) { animation-range: entry 24% entry 84%; }
+    .etapas li:nth-child(6) { animation-range: entry 30% entry 90%; }
+    .etapas li:nth-child(7) { animation-range: entry 36% entry 96%; }
+  }
+}
+@keyframes assenta { from { transform: translateY(14px); border-top-color: var(--line); } }
+
+/* As telas: três celulares em degraus e o computador inteiro */
+.celulares { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--esp-500); align-items: start; }
+.celulares figure:nth-child(2) { margin-top: var(--esp-800); }
+.celulares figure:nth-child(3) { margin-top: calc(var(--esp-800) * 2); }
+figure { margin: 0; display: flex; flex-direction: column; gap: var(--esp-150); min-width: 0; }
+figure img { border: 1px solid var(--border-strong); background: var(--card); }
+.celulares img { border-radius: 22px; }
+figcaption { font-size: var(--t-corpo); color: var(--text3); }
+.cabeca-mesa { margin-top: var(--esp-300); }
+.computador img { border-radius: var(--radius); }
+
+/* Controle: seis pilares em grade, com o fio em cima */
+.pilares { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--esp-400) var(--esp-300); }
+.pilares li { display: flex; flex-direction: column; gap: var(--esp-100); padding-top: var(--esp-200); border-top: 1px solid var(--border-strong); }
+.pilares h3 { font-family: var(--font); font-weight: 700; font-size: var(--t-titulo-3); }
+.pilares p { color: var(--text2); font-size: var(--t-corpo); }
+
+/* Medido: os números grandes, cada um com a fonte */
+.numeros { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--esp-300); }
+.numeros > div { display: flex; flex-direction: column; gap: var(--esp-075); padding: var(--esp-250) 0; border-top: 1px solid var(--border-strong); }
+.numeros dt { font-size: var(--t-corpo); color: var(--text3); }
+.numeros dd { margin: 0; display: flex; flex-direction: column; gap: var(--esp-050); }
+.numeros .medida { font-family: var(--display); font-weight: 700; font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.05; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+.numeros .fonte { font-size: var(--t-pequeno); color: var(--text3); }
+
+.fim { display: flex; flex-direction: column; align-items: flex-start; gap: var(--esp-300); padding-block: var(--esp-1000); border-top: 1px solid var(--line); }
+.fim h2 { font-family: var(--marca); font-size: clamp(2.2rem, 5.6vw, 4rem); line-height: 1.05; }
+
+.rodape {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: var(--esp-100);
+  padding-block: var(--esp-250) calc(var(--esp-250) + env(safe-area-inset-bottom, 0px));
+  padding-left: max(var(--esp-250), env(safe-area-inset-left, 0px)); padding-right: max(var(--esp-250), env(safe-area-inset-right, 0px));
+  border-top: 1px solid var(--line); font-family: var(--mono); font-weight: 700; font-size: var(--t-pequeno); letter-spacing: 2px;
+}
+.afn-nome { color: var(--afn); -webkit-text-stroke: 0.3px var(--afn-stroke); }
+.afn-sys { color: var(--afn-sys); }
+
+/* Tablet e celular */
+@media (max-width: 900px) {
+  .abertura { grid-template-columns: 1fr; padding-block: var(--esp-600) var(--esp-500); }
+  .abertura-marca { justify-self: start; width: min(56%, 240px); order: -1; }
+  .caminho, .telas, .controle, .medido, .fim { padding-block: var(--esp-800); }
+  .etapas { grid-template-columns: 1fr; gap: 0; }
+  .etapas li { display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: "n nome" "n quem"; gap: var(--esp-025) var(--esp-200); padding: var(--esp-200) 0; }
+  .etapa-num { grid-area: n; }
+  .etapa-nome { grid-area: nome; }
+  .etapa-quem { grid-area: quem; }
+  .pilares { grid-template-columns: 1fr 1fr; }
+  .celulares { gap: var(--esp-200); }
+}
+@media (max-width: 600px) {
+  .topo-nav a:not(.botao) { display: none; }
+  .topo-nav .botao { padding: 0 var(--esp-150); }
+  .celulares { gap: var(--esp-100); }
+  .celulares figure:nth-child(2) { margin-top: var(--esp-400); }
+  .celulares figure:nth-child(3) { margin-top: var(--esp-800); }
+  .celulares img { border-radius: 12px; }
+  .celulares figcaption { display: none; }
+  .pilares, .numeros { grid-template-columns: 1fr; }
+}

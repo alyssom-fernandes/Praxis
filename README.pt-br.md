@@ -7,7 +7,7 @@ Alguém abre uma solicitação, o comprador reúne as cotações, o aprovador de
 a compra é feita, a entrega é confirmada e o financeiro paga as parcelas. Cada
 etapa tem responsável, prazo e histórico, e cada perfil vê só o que lhe cabe.
 
-**Demonstração ao vivo:** [praxis-af618.web.app](https://praxis-af618.web.app). Na entrada, clique em **Acessar modo demo**.
+**Demonstração ao vivo:** [praxis-af618.web.app](https://praxis-af618.web.app). Na entrada, clique em **Acessar modo demo**. A apresentação do produto está em [/apresentacao.html](https://praxis-af618.web.app/apresentacao.html).
 
 [![Testes](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-C9A15C?style=flat-square&labelColor=1B1A17&logo=javascript&logoColor=EEE9DF)

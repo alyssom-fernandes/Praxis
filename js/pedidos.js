@@ -25,6 +25,7 @@ import {
 } from './pedidos-quadro.js'
 import { Q } from './pedidos-estado.js'
 import { _resumoAutomatico, _placaMudou, _centrosDeCusto, montarItensNovoPedido, _opcaoRequisicao, _ligarRequisicao } from './novo-pedido.js'
+import { icone } from './icones.js'
 
 export function agendarDuplicar(pedido, { deNovo = false } = {}) { Q.pedidoFonteDuplicar = pedido; Q.duplicarDeNovo = deNovo }
 
@@ -108,20 +109,20 @@ export function _lerQuadro() {
 // ── Ícones (traço 2, mesma família da barra lateral) ───────────
 export const _svg = (n, corpo) => `<svg width="${n}" height="${n}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
 export const ICO = {
-  mais:     n => _svg(n, '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  mais:     n => icone('novo', n),
   recibo:   n => _svg(n, '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>'),
-  busca:    n => _svg(n, '<circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.2" y2="16.2"/>'),
-  filtros:  n => _svg(n, '<line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/>'),
-  quadro:   n => _svg(n, '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>'),
-  lista:    n => _svg(n, '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
-  x:        n => _svg(n, '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
-  relogio:  n => _svg(n, '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
-  setaEsq:  n => _svg(n, '<path d="M15 18l-6-6 6-6"/>'),
-  setaDir:  n => _svg(n, '<path d="M9 18l6-6-6-6"/>'),
-  editar:   n => _svg(n, '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/>'),
-  baixar:   n => _svg(n, '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  busca:    n => icone('busca', n),
+  filtros:  n => icone('filtros', n),
+  quadro:   n => icone('colunas', n),
+  lista:    n => icone('lista', n),
+  x:        n => icone('x', n),
+  relogio:  n => icone('relogio', n),
+  setaEsq:  n => icone('setaEsq', n),
+  setaDir:  n => icone('setaDir', n),
+  editar:   n => icone('editar', n),
+  baixar:   n => icone('baixar', n),
   proibido: n => _svg(n, '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>'),
-  alerta:   n => _svg(n, '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12.5"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+  alerta:   n => icone('alerta', n),
   marcador: n => _svg(n, '<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>'),
   repetir:  n => _svg(n, '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>'),
 }

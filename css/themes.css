@@ -747,6 +747,16 @@ select option {
   .decisao-resp-nome { white-space: normal; }
 }
 
+/* Tablet de pé (768 a 1023 px): o pedido em duas colunas, o conteúdo e um
+   painel de 300 px com a decisão, as pessoas e os dados (os fatos da decisão
+   em uma coluna). A ação continua na barra de baixo */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .detalhe-cols { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--esp-400); align-items: start; }
+  .detalhe-main, .detalhe-aside { display: flex; flex-direction: column; gap: var(--esp-400); min-width: 0; }
+  .detalhe-aside .decisao-fatos { grid-template-columns: 1fr; }
+  .detalhe-aside .detalhe-meta-grid { grid-template-columns: 1fr; }
+}
+
 /* Tablet em paisagem (toque, 1024 a 1279 px): três colunas no quadro, e o
    pedido em duas, como no computador (a ação continua na barra de baixo) */
 @media (min-width: 1024px) and (max-width: 1279px) and (pointer: coarse) {

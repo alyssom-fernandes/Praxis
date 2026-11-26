@@ -8,7 +8,7 @@ the purchase is made, delivery is confirmed and finance pays the installments.
 Every step has an owner, a deadline and a history, and each role sees only what
 belongs to it.
 
-**Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Acessar modo demo** (open demo mode).
+**Live demo:** [praxis-af618.web.app](https://praxis-af618.web.app). On the sign-in screen, click **Acessar modo demo** (open demo mode). The product presentation (in Portuguese) is at [/apresentacao.html](https://praxis-af618.web.app/apresentacao.html).
 
 [![Tests](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml/badge.svg)](https://github.com/alyssom-fernandes/Praxis/actions/workflows/testes.yml)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-C9A15C?style=flat-square&labelColor=1B1A17&logo=javascript&logoColor=EEE9DF)

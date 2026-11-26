@@ -59,14 +59,15 @@ function _quebraTitulo(texto) {
   return `${palavras.slice(0, meio).join(' ')}<br>${palavras.slice(meio).join(' ')}`
 }
 
-// Bloco da marca no login — exatamente como no guia da marca AFN
+// Bloco da marca no login, como no guia da marca AFN, com a assinatura em 12 px
+// (o mínimo de texto do Praxis; no guia ela tem 8 px)
 function _blocoMarcaAfn() {
   return `
     <div class="login-afn">
       <div class="login-afn-nome">
         <span class="pf-afn" data-estilo="font-size:13px">AFN</span><span class="pf-gap"></span><span class="pf-sys" data-estilo="font-size:13px">SYSTEMS</span>
       </div>
-      <span class="pf-sys" data-estilo="font-size:8px;letter-spacing:1.4px;text-transform:uppercase">by Alyssom Fernandes</span>
+      <span class="pf-sys" data-estilo="font-size:12px;letter-spacing:0.4px;text-transform:uppercase">by Alyssom Fernandes</span>
     </div>`
 }
 
@@ -289,6 +290,11 @@ function _bindLoginEvents() {
     _irParaView('forgot')
   })
   document.getElementById('btn-demo')?.addEventListener('click', () => _mostrarBoasVindas())
+  // A página de apresentação abre a demonstração direto (/#demo)
+  if (location.hash === '#demo' && document.getElementById('btn-demo')) {
+    history.replaceState(history.state, '', location.pathname + location.search)
+    _mostrarBoasVindas()
+  }
 
   document.getElementById('form-forgot')?.addEventListener('submit', async e => {
     e.preventDefault()

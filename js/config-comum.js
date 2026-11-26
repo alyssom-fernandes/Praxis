@@ -7,20 +7,21 @@ import { sessao } from './estado.js'
 import { t, idioma, PERFIS_LABEL } from './constants.js'
 import { esc, gerarIniciais, cnpjValido } from './utils.js'
 import { estadoVazio, bordasDeRolagem } from './ui.js'
+import { icone } from './icones.js'
 
 const svg = (tam, corpo, traco = 2) =>
   `<svg width="${tam}" height="${tam}" fill="none" stroke="currentColor" stroke-width="${traco}" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
 
 export const ICO = {
-  mais:      (n = 14) => svg(n, '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', 2.4),
-  busca:     (n = 14) => svg(n, '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
-  editar:    (n = 15) => svg(n, '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/>'),
-  fechar:    (n = 16) => svg(n, '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+  mais:      (n = 14) => icone('novo', n),
+  busca:     (n = 14) => icone('busca', n),
+  editar:    (n = 15) => icone('editar', n),
+  fechar:    (n = 16) => icone('x', n),
   auto:      (n = 14) => svg(n, '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>'),
   lua:       (n = 14) => svg(n, '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'),
   sol:       (n = 14) => svg(n, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
   play:      (n = 14) => svg(n, '<polygon points="6 3 20 12 6 21 6 3"/>'),
-  baixar:    (n = 14) => svg(n, '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
+  baixar:    (n = 14) => icone('baixar', n),
   enviar:    (n = 14) => svg(n, '<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/>'),
   cadeado:   (n = 14) => svg(n, '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>'),
 }

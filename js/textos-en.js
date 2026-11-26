@@ -806,6 +806,8 @@ export default {
   pagina404Titulo:        'Page not found',
   pagina404Texto:         'The address {tela} does not match any Praxis screen.',
   pagina404Botao:         'Go to orders',
+  navRecolherLateral:    'Collapse sidebar',
+  navAbrirLateral:       'Expand sidebar',
   navMinhaFila:           'My queue',
   navCadastros:           'Records',
   navAdministracao:       'Administration',

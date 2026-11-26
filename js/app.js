@@ -6,6 +6,7 @@ import { gerarIniciais, esc, prefereMenosMovimento, marcarProjetoDemo } from './
 import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 import { sessao, registrarNavegacao, registrarTrocaDePessoa } from './estado.js'
+import { icone } from './icones.js'
 
 // ── Limpadores de listeners (2.13) ────────────────────────────
 const _limpadores = new Set()
@@ -441,22 +442,22 @@ function _render404(tela) {
 // ── Ícones da moldura (mesmo traço: stroke 2, 16–18px) ───────
 const _ico = (corpo, tam = 16) => `<svg width="${tam}" height="${tam}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">${corpo}</svg>`
 const ICO = {
-  busca:   (n) => _ico('<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', n),
-  sino:    (n) => _ico('<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>', n),
+  busca:   (n) => icone('busca', n),
+  sino:    (n) => icone('sino', n),
   engren:  (n) => _ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>', n),
-  fechar:  (n) => _ico('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', n),
-  quadro:  (n) => _ico('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>', n),
-  barras:  (n) => _ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>', n),
+  fechar:  (n) => icone('x', n),
+  quadro:  (n) => icone('pedidos', n),
+  barras:  (n) => icone('relatorios', n),
   sol:     (n) => _ico('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/>', n),
   lua:     (n) => _ico('<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>', n),
-  sair:    (n) => _ico('<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>', n),
+  sair:    (n) => icone('sair', n),
   setas:   (n) => _ico('<polyline points="7 15 12 20 17 15"/><polyline points="7 9 12 4 17 9"/>', n),
-  ajustes: (n) => _ico('<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>', n),
-  mais:    (n) => _ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', n),
-  fila:    (n) => _ico('<path d="M4 6h11"/><path d="M4 12h11"/><path d="M4 18h7"/><polyline points="16 16 18 18 22 14"/>', n),
-  carrinho: (n) => _ico('<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1 1 0 001 .8h9.6a1 1 0 001-.8L21 7H6.2"/>', n),
+  ajustes: (n) => icone('ajustes', n),
+  mais:    (n) => icone('novo', n),
+  fila:    (n) => icone('fila', n),
+  carrinho: (n) => icone('carrinho', n),
   recibo:  (n) => _ico('<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/>', n),
-  admin:   (n) => _ico('<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>', n),
+  admin:   (n) => icone('empresas', n),
   comando: (n) => _ico('<path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/>', n),
 }
 
@@ -486,6 +487,36 @@ function _itemAtivo(telaAtiva) {
   if (telaAtiva === 'config-alcadas') return 'alcadas'
   return telaAtiva
 }
+
+// Lateral recolhida (computador): só os ícones, e o quadro ganha a largura.
+// A escolha fica neste navegador; a classe vai no <html> para valer desde a
+// primeira pintura da conta
+const _CHAVE_LATERAL = 'praxis_lateral'
+const _ICONE_DO_ITEM = {
+  pedidos: 'pedidos', fila: 'fila', relatorios: 'relatorios', 'cad-empresas': 'empresas', 'cad-categorias': 'categorias',
+  'cad-fornecedores': 'fornecedores', usuarios: 'usuarios', alcadas: 'alcadas', auditoria: 'auditoria',
+}
+function _lateralRecolhida() {
+  try { return localStorage.getItem(_CHAVE_LATERAL) === 'recolhida' } catch { return false }
+}
+document.documentElement.classList.toggle('lateral-recolhida', _lateralRecolhida())
+function _alternarLateral() {
+  const rec = !document.documentElement.classList.contains('lateral-recolhida')
+  document.documentElement.classList.toggle('lateral-recolhida', rec)
+  try { localStorage.setItem(_CHAVE_LATERAL, rec ? 'recolhida' : 'aberta') } catch { /* sem armazenamento */ }
+  const btn = document.getElementById('btn-recolher')
+  if (btn) {
+    btn.setAttribute('aria-pressed', String(rec))
+    btn.setAttribute('aria-label', t(rec ? 'navAbrirLateral' : 'navRecolherLateral'))
+    btn.querySelector('svg')?.replaceWith(document.createRange().createContextualFragment(icone(rec ? 'expandir' : 'recolher', 18)))
+  }
+  // Recolhida, cada item mostra o nome na dica
+  document.querySelectorAll('.lateral [data-rotulo]').forEach(el => {
+    if (rec) el.setAttribute('data-tooltip', el.dataset.rotulo)
+    else el.removeAttribute('data-tooltip')
+  })
+}
+document.addEventListener('click', e => { if (e.target.closest?.('#btn-recolher')) _alternarLateral() })
 
 // Os contadores ficam guardados na sessão do navegador: ao recarregar uma tela
 // que não os calcula (detalhe, relatórios), a barra mostra os últimos vistos
@@ -517,14 +548,15 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
     const qs = new URLSearchParams({ tela, ...extra }).toString()
     const dados = Object.entries(extra).map(([k, v]) => `data-${k}="${v}"`).join(' ')
     const on = ativo === chave
-    return `<a class="lateral-item ${on ? 'active' : ''}" href="?${qs}" data-nav="${tela}" data-item="${chave}" ${dados} ${on ? 'aria-current="page"' : ''}><span class="lateral-item-rotulo">${rotulo}</span><span class="lateral-n" data-n="${chave}">${_contador(chave)}</span></a>`
+    const dica = _lateralRecolhida() ? ` data-tooltip="${esc(rotulo)}"` : ''
+    return `<a class="lateral-item ${on ? 'active' : ''}" href="?${qs}" data-nav="${tela}" data-item="${chave}" data-rotulo="${esc(rotulo)}"${dica} ${dados} ${on ? 'aria-current="page"' : ''}><span class="lateral-item-ico" aria-hidden="true">${icone(_ICONE_DO_ITEM[chave] || 'pedidos', 18)}</span><span class="lateral-item-rotulo">${rotulo}</span><span class="lateral-n" data-n="${chave}">${_contador(chave)}</span></a>`
   }
 
   return `
     <a class="link-salto" href="#">${t('pularConteudo')}</a>
     <aside class="lateral" data-mode="${modoConfig ? 'config' : 'main'}">
       <div class="lateral-topo">
-        <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos">${marcaPraxis()}<span class="sr-only">: ${t('navPedidos')}</span></a>
+        <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos">${marcaPraxis()}${simboloPraxis(26, 'lateral-simbolo')}<span class="sr-only">: ${t('navPedidos')}</span></a>
         <div class="notif-wrap" id="notif-wrap">
           <button type="button" class="lateral-icone" id="btn-notif" aria-label="${t('tooltipNotificacoes')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-dropdown" data-tooltip="${t('tooltipNotificacoes')}">
             ${ICO.sino(17)}
@@ -551,7 +583,11 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
       </nav>
 
       <div class="lateral-rodape">
+        <button type="button" class="lateral-recolher" id="btn-recolher" aria-pressed="${_lateralRecolhida()}" aria-label="${t(_lateralRecolhida() ? 'navAbrirLateral' : 'navRecolherLateral')}" data-rotulo="${t('navAbrirLateral')}"${_lateralRecolhida() ? ` data-tooltip="${t('navAbrirLateral')}"` : ''}>
+          ${icone(_lateralRecolhida() ? 'expandir' : 'recolher', 18)}<span class="lateral-recolher-rotulo" aria-hidden="true">${t('navRecolherLateral')}</span>
+        </button>
         <button type="button" class="lateral-conta" id="btn-avatar" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="${t('tooltipConta')}: ${esc(usuario.nome)}">
+          <span class="lateral-conta-ini" aria-hidden="true">${esc(gerarIniciais(usuario.nome))}</span>
           <span class="lateral-conta-nome">${esc(usuario.nome)}</span>
           ${ICO.setas(14)}
         </button>
@@ -957,12 +993,12 @@ export function renderFooter() {
   return `
     <footer class="main-footer">
       <div data-estilo="display:flex;align-items:baseline">
-        <span class="pf-afn" data-estilo="font-size:10px">AFN</span>
+        <span class="pf-afn" data-estilo="font-size:12px">AFN</span>
         <span class="pf-gap"></span>
-        <span class="pf-sys" data-estilo="font-size:10px">SYSTEMS</span>
+        <span class="pf-sys" data-estilo="font-size:12px">SYSTEMS</span>
       </div>
       <span class="pf-pipe" data-estilo="font-size:13px">|</span>
-      <span class="pf-info" data-estilo="font-size:11px">Praxis</span>
+      <span class="pf-info" data-estilo="font-size:12px">Praxis</span>
     </footer>
   `
 }
