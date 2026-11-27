@@ -160,3 +160,50 @@ numerais ficam: são a identidade.
 das janelas. O alto do painel de decisão e a organização dos cartões do quadro
 ficaram como eram, a pedido do dono.
 
+## 17. Serviços e Equipamentos dentro do Praxis, com acesso por módulo (27/11/2026)
+
+**Decisão:** os chamados das prestadoras e o inventário viram dois módulos do
+Praxis, cada pessoa com um papel por módulo (`servicos`, `equipamentos`) além do
+perfil de Compras, que ganhou o valor "sem acesso". A prestadora tem um perfil
+próprio, ligado ao fornecedor.
+**Por quê:** as prestadoras já são os fornecedores de Compras, as unidades e as
+empresas são as mesmas, e o pedido entregue vira aparelho no inventário. Um
+sistema à parte repetiria cadastros, contas e regras.
+**O que se perde:** as regras do Firestore ficaram maiores (o limite de 1.000
+expressões por gravação obrigou a ler o perfil da pessoa uma vez só por regra,
+num mapa `acesso()`).
+
+## 18. A prova de presença é um hash do código da placa (27/11/2026)
+
+**Decisão:** o código aleatório da placa fica em `unidades/{id}/privado/placa`,
+que só quem cuida das unidades lê. Ao ler a placa, o app grava no chamado o
+SHA-256 de "código|ID do chamado"; as regras recalculam com o código guardado.
+**Por quê:** com o código no cadastro da unidade (que a prestadora precisa ler)
+ou gravado no chamado, o técnico copiaria o código uma vez e registraria a
+chegada de longe nas próximas. A prova só vale para aquele chamado, e a hora é
+a do servidor.
+**O que se perde:** a placa é um QR fixo; quem a fotografar repete a leitura.
+O remédio é trocar o código (a placa antiga deixa de valer) e colocar a placa
+num lugar visível só de dentro.
+
+## 19. Visitas periódicas criadas pelo próprio app (27/11/2026)
+
+**Decisão:** quem abre a lista de Serviços garante as visitas do período atual e
+dos dois anteriores de cada serviço periódico, com um ID fixo por prestadora,
+serviço, unidade e data. A visita cujo período passou sem chegada vira "não
+realizada"; as regras conferem a data (`request.time` depois de `janelaAte`).
+**Por quê:** o projeto segue no plano gratuito, sem Cloud Functions agendadas.
+**O que se perde:** a visita só aparece quando alguém abre Serviços; numa
+semana sem ninguém abrir, ela nasce atrasada (já como não realizada, se for o
+caso).
+
+## 20. Gerador de QR próprio (27/11/2026)
+
+**Decisão:** o QR das placas e das etiquetas sai de `js/qr.js` (modo byte, nível
+de correção M, versões 1 a 10), sem biblioteca nova. O PDF usa o jsPDF que já
+estava em `vendor/`.
+**Por quê:** uma dependência a menos para manter e verificar. O código é testado
+contra os exemplos da norma e lido de volta por um decodificador independente
+nos testes.
+**O que se perde:** endereços muito longos não cabem (a versão 10 é o limite);
+os do Praxis ficam bem abaixo.

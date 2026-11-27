@@ -37,6 +37,7 @@ import {
 } from './detalhe-dados.js'
 import { D } from './detalhe-estado.js'
 import { icone } from './icones.js'
+import { papelEquip } from './modulos.js'
 
 // Posição na régua da última renderização, e de onde o pedido acabou de
 // avançar (null quando não avançou): a régua anima só o passo que mudou
@@ -996,6 +997,10 @@ export function _acoesDoPedido() {
   }
   if ([PERFIS.GESTOR, PERFIS.SUPREMO, PERFIS.FINANCEIRO, PERFIS.COMPRADOR].includes(perfil)) {
     menu.push({ id: 'btn-exportar-pdf', icone: ICO.pdf, label: t('btnExportarPDF') })
+  }
+  // O que chegou entra no inventário de Equipamentos já com a compra
+  if ([STATUS.ENTREGUE, STATUS.PAGO].includes(p.status) && ['responsavel', 'gestor'].includes(papelEquip(sessao.usuario))) {
+    menu.push({ id: 'btn-para-inventario', icone: icone('equipamentos', 15), label: t('eqCadastrarDoPedido') })
   }
   if (_podeLiberar()) menu.push({ id: 'btn-liberar', icone: ICO.liberar, label: t('btnLiberarPedido') })
   if (_podeInformarNota()) menu.push({ id: 'btn-informar-nota', icone: ICO.editar, label: t('dtInformarNota') })

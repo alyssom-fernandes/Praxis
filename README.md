@@ -78,6 +78,12 @@ On a phone, from the approver's queue: the card title travels into the order hea
 - **Supplier invoice.** When the company turns it on, finance pays at once the delivered purchases from the same supplier.
 - **Buy again and "Usually runs out".** Finished orders repeat with one tap, and the buyer's queue flags the item that usually runs out, from the typical interval of past purchases.
 
+**Services and equipment** (two more modules, each person with a role per module)
+
+- **Service requests with proof of presence.** Contracted providers get requests and recurring visits; the technician scans the site's QR sign on arrival and departure (server time, phone location, and a proof the provider cannot copy), takes before and after photos and writes up the work. Extras are approved before they are done; the requester confirms or disputes.
+- **Monthly check.** Per provider and month: visits done and missed, confirmed requests, open disputes and approved extras, as a page and a CSV, to check the invoice against.
+- **Equipment inventory.** QR labels in PDF, location, warranty, repairs against the price of a new one with a replacement warning, a stock count per site, and a delivered order that turns into an inventory item in one tap. Details in [`docs/servicos.md`](docs/servicos.md) and [`docs/equipamentos.md`](docs/equipamentos.md).
+
 **Control**
 
 - **Six roles, enforced on the server.** Each stage moves only by the role that owns it, and whoever opens or quotes an order cannot approve it. Matrix in [`docs/permissoes.md`](docs/permissoes.md).

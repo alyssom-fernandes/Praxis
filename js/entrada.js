@@ -9,7 +9,7 @@ import { carregarIdioma } from './constants.js'
 // sem segurar a primeira pintura da entrada; o app espera os dois antes de
 // desenhar a primeira tela da conta (js/app.js). A ordem dos <link> no
 // documento, e não a da chegada, decide a cascata
-const adiados = ['css-telas', 'css-themes'].map(id => document.getElementById(id)).filter(Boolean)
+const adiados = ['css-telas', 'css-modulos', 'css-themes'].map(id => document.getElementById(id)).filter(Boolean)
 window.__praxisCssTelas = Promise.all(adiados.map(link => new Promise(pronto => {
   if (link.sheet) return pronto()
   link.addEventListener('load', pronto, { once: true })

@@ -24,9 +24,15 @@ exports.setUserClaims = onDocumentWritten(
     }
 
     try {
+      // O papel em cada módulo vai junto (firestore.rules lê do token quando
+      // há claims): Serviços, Equipamentos e, do prestador, a prestadora
       await getAuth().setCustomUserClaims(userId, {
         perfil:   data.perfil   || '',
         empresas: data.empresas || [],
+        ...(data.servicos ? { servicos: data.servicos } : {}),
+        ...(data.equipamentos ? { equipamentos: data.equipamentos } : {}),
+        ...(data.fornecedorId ? { fornecedorId: data.fornecedorId } : {}),
+        ...(data.prestadorAdmin === true ? { prestadorAdmin: true } : {}),
       })
       console.log(`Claims setadas para ${userId}: perfil=${data.perfil}`)
     } catch (err) {

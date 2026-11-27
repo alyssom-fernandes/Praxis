@@ -101,5 +101,44 @@ service firebase.storage {
       ));
     }
 
+    // ── Fotos dos chamados (Serviços, 27/11/2026) ─────────────────
+    // Como em firestore.rules (/chamados): veem a gente da empresa com papel em
+    // Serviços e a prestadora do chamado. O técnico da prestadora envia as de
+    // antes e depois durante o atendimento; quem pediu, a da abertura. As fotos
+    // são a prova do atendimento: não se trocam nem se apagam
+    function campoDoAcesso(campo, padrao) {
+      return temClaims() ? request.auth.token.get(campo, padrao)
+        : (meuDocumento().get('ativo', true) == false ? padrao : meuDocumento().get(campo, padrao));
+    }
+    function chamado(id) {
+      return firestore.get(/databases/(default)/documents/chamados/$(id)).data;
+    }
+    function papelServicos() {
+      return perfil() == 'supremo' ? 'gestor' :
+        (perfil() in ['gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante', 'nenhum'] &&
+          campoDoAcesso('servicos', null) in ['solicitante', 'financeiro', 'gestor'] ? campoDoAcesso('servicos', null) : null);
+    }
+    function prestadoraDoChamado(id) {
+      return perfil() == 'prestador' && campoDoAcesso('fornecedorId', '') != '' &&
+        chamado(id).fornecedorId == campoDoAcesso('fornecedorId', '');
+    }
+    function veOChamado(id) {
+      return request.auth != null && !eDemo() && (
+        (papelServicos() != null && (perfil() == 'supremo' || chamado(id).empresaId in empresasDoUsuario())) ||
+        prestadoraDoChamado(id));
+    }
+    function areaDemoCh(id) {
+      return eDemo() && id.matches('(vp-)?demo-.*');
+    }
+    match /chamados/{chamadoId}/fotos/{arquivo} {
+      allow read: if areaDemoCh(chamadoId) || veOChamado(chamadoId);
+      allow create: if (areaDemoCh(chamadoId) || (veOChamado(chamadoId) && (
+          (prestadoraDoChamado(chamadoId) && chamado(chamadoId).status == 'atendimento') ||
+          (chamado(chamadoId).get('solicitanteId', '') == request.auth.uid && chamado(chamadoId).status == 'aberto')))) &&
+        request.resource.metadata.autorUid == request.auth.uid &&
+        request.resource.size < 5 * 1024 * 1024 && request.resource.contentType == 'image/jpeg';
+      allow update, delete: if areaDemoCh(chamadoId);
+    }
+
   }
 }

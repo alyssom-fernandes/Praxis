@@ -77,6 +77,12 @@ No celular, a partir da fila do aprovador: o título do cartão vira o título d
 - **Fatura do fornecedor.** Se a empresa ligar a opção, o financeiro paga de uma vez as compras entregues do mesmo fornecedor.
 - **Comprar de novo e "Costuma acabar".** Os pedidos concluídos repetem com um toque, e a fila de quem compra avisa o item que costuma acabar, pelo intervalo típico das compras anteriores.
 
+**Serviços e equipamentos** (mais dois módulos, cada pessoa com um papel por módulo)
+
+- **Chamados com prova de presença.** As prestadoras contratadas recebem chamados e visitas periódicas; o técnico lê o QR da placa da unidade ao chegar e ao sair (hora do servidor, localização do celular e uma prova que a prestadora não consegue copiar), tira fotos de antes e depois e escreve o que fez. O extra é aprovado antes de ser feito; quem pediu confirma ou contesta.
+- **Conferência do mês.** Por prestadora e mês: visitas feitas e não realizadas, chamados confirmados, contestações em aberto e extras aprovados, na tela e em CSV, para conferir a fatura.
+- **Inventário de equipamentos.** Etiquetas com QR em PDF, local, garantia, consertos contra o preço de um novo com aviso de troca, contagem por unidade e o pedido entregue que vira aparelho no inventário com um toque. Detalhes em [`docs/servicos.md`](docs/servicos.md) e [`docs/equipamentos.md`](docs/equipamentos.md).
+
 **Controle**
 
 - **Seis perfis, garantidos no servidor.** Cada etapa só anda pelo perfil dono dela, e quem abre ou cota um pedido não pode aprová-lo. Matriz em [`docs/permissoes.md`](docs/permissoes.md).

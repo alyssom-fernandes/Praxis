@@ -63,6 +63,31 @@ Firebase
                       autorId, autorNome, criadoEm
 /_meta/contadores     totalPedidos (contador atômico via runTransaction)
 /notificacoes/{userId}/items/{id}   evento, titulo, corpo, pedidoId, lida
+
+# Serviços e Equipamentos (27/11/2026): docs/servicos.md e docs/equipamentos.md
+/usuarios/{uid}       + servicos (solicitante|financeiro|gestor), equipamentos (consulta|responsavel|gestor),
+                      perfil 'nenhum' (sem Compras) ou 'prestador' + fornecedorId, prestadorAdmin
+/empresas/{id}        + equipTroca {pct, qtdAno} (limites do aviso de troca)
+/fornecedores/{id}    + servicosContratados[{id, nome, tipo periodico|chamado, frequenciaDias,
+                      inicio, prazoHoras, unidades[]}]
+/unidades/{id}        empresaId, nome, endereco, lat, lng, ativa, placaEm, auditoriaId
+  /privado/placa      codigo (só quem cuida das unidades lê)
+/chamados/{id}        numero, tipo chamado|visita, status, empresaId, unidadeId, fornecedorId,
+                      servicoId, titulo, descricao, urgente, equipamentoId, solicitanteId,
+                      prazoEm, agendadoPara, tecnicoId, chegada{em, via, prova, lat, lng, distanciaM},
+                      saida{…}, relatorio, pecas[], confirmadoPor, contestacao{motivo, texto},
+                      previstaPara, janelaAte, extrasAprovados, ultimoEventoId
+  /historico/{id}     tipo, texto, autorId, autorNome, criadoEm (imutável, nasce no mesmo lote)
+  /comentarios/{id}   texto, autorId, autorNome, criadoEm
+  /fotos/{id}         tipo abertura|antes|depois, storagePath, autorId, criadoEm
+  /extras/{id}        descricao, valor, status aguardando|aprovado|reprovado, decididoPor
+/equipamentos/{id}    etiqueta (AC-0001), tipo, descricao, marca, modelo, serie, empresaId,
+                      unidadeId, setor, status uso|conserto|reserva|baixado, aquisicao{data, valor,
+                      fornecedorNome, pedidoId}, garantiaAte, precoNovo, custos[], conserto, baixa
+  /historico/{id}     tipo, texto, autorId, autorNome, criadoEm
+/contagens/{id}       empresaId, unidadeId, porId, em, encontrados[], faltando[], foraDoLugar[], total
+/_meta/contadorChamados        total (CH-0001…)
+/_meta/contadorEquip-{PREFIXO} total (AC-0001…, um por prefixo)
 ```
 
 ### Storage paths

@@ -201,3 +201,60 @@ test('caminho feliz: do pedido aberto à aprovação, cada etapa com o seu perfi
   }
   assert.deepEqual(erros, [])
 })
+
+// Serviços e Equipamentos (27/11/2026): o supremo cadastra a unidade, o serviço
+// contratado da prestadora, abre um chamado e cadastra um aparelho. O banco
+// confere o número do chamado, o prazo, o histórico, a etiqueta e que o código
+// da placa fica no documento privado (não na unidade)
+test('módulos: unidade, serviço contratado, chamado e aparelho', async () => {
+  const antes = erros.length
+  const sup = await entrar('supremo@praxis.app')
+  await sup.goto(`${BASE}/?tela=unidades`)
+  await sup.click('#btn-nova-unidade')
+  await sup.fill('#un-nome', 'Posto E2E')
+  await sup.selectOption('#un-empresa', { index: 1 })
+  await sup.click('#un-salvar')
+  await sup.waitForSelector('#tbody-unidades tr:has-text("Posto E2E")')
+  const un = (await banco.collection('unidades').where('nome', '==', 'Posto E2E').get()).docs[0]
+  assert.ok(un, 'a unidade foi gravada')
+  assert.equal(un.data().codigo, undefined, 'o código da placa não fica na unidade')
+  assert.ok((await banco.doc(`unidades/${un.id}/privado/placa`).get()).data()?.codigo?.length >= 12, 'o código fica no documento privado')
+
+  // O serviço contratado, na ficha da prestadora
+  const forn = (await banco.collection('fornecedores').limit(1).get()).docs[0]
+  await sup.goto(`${BASE}/?tela=prestadora`)
+  await sup.click(`[data-abrir="${forn.id}"]`)
+  await sup.click(`[data-novo-servico="${forn.id}"]`)
+  await sup.fill('#sv-nome', 'Conserto E2E')
+  await sup.selectOption('#sv-tipo', 'chamado')
+  await sup.fill('#sv-prazo', '24')
+  await sup.click('#sv-salvar')
+  await sup.waitForFunction(() => /Conserto E2E/.test(document.body.innerText))
+  assert.equal((await banco.doc(`fornecedores/${forn.id}`).get()).data().servicosContratados.at(-1).prazoHoras, 24)
+
+  // O chamado: número, prazo do contrato e a entrada do histórico
+  await sup.goto(`${BASE}/?tela=servicos&novo=chamado`)
+  await sup.waitForSelector('#modal-novo-chamado.visible')
+  await sup.selectOption('#nc-prestadora', forn.id)
+  await sup.selectOption('#nc-unidade', un.id)
+  await sup.fill('#nc-titulo', 'Bomba E2E pingando')
+  await sup.click('#nc-criar')
+  await sup.waitForSelector('.detalhe-titulo:has-text("Bomba E2E pingando")')
+  const ch = (await banco.collection('chamados').where('titulo', '==', 'Bomba E2E pingando').get()).docs[0]
+  assert.ok(ch.data().numero >= 1 && ch.data().status === 'aberto' && ch.data().prazoEm, 'o chamado tem número, situação e prazo')
+  assert.equal((await banco.collection(`chamados/${ch.id}/historico`).get()).size, 1, 'a abertura entra no histórico')
+
+  // O aparelho: a etiqueta sai do contador do tipo
+  await sup.goto(`${BASE}/?tela=equipamentos&novo=equipamento`)
+  await sup.waitForSelector('#modal-equip.visible')
+  await sup.selectOption('#eqf-tipo', 'nobreak')
+  await sup.fill('#eqf-desc', 'Nobreak E2E')
+  await sup.selectOption('#eqf-unidade', un.id)
+  await sup.click('#eqf-salvar')
+  await sup.waitForSelector('.detalhe-titulo:has-text("Nobreak E2E")')
+  const eq = (await banco.collection('equipamentos').where('descricao', '==', 'Nobreak E2E').get()).docs[0]
+  assert.match(eq.data().etiqueta, /^NBK-\d{4}$/)
+  assert.equal((await banco.doc('_meta/contadorEquip-NBK').get()).data().total, Number(eq.data().etiqueta.split('-')[1]))
+  await sup.context().close()
+  assert.deepEqual(erros.slice(antes), [])
+})

@@ -29,6 +29,11 @@ import {
 } from './firebase.js'
 import { PESSOAS_DEMO, COLEGAS_DEMO } from './demo-pessoas.js'
 import { retratoAprovacao } from './alcadas.js'
+import { servicosDaDemo, modulosDaDemo, TECNICOS_DEMO } from './demo-modulos.js'
+
+// Serviços e Equipamentos: as coleções da demo e as subcoleções de cada uma
+const COLECOES_MODULOS = ['unidades', 'chamados', 'equipamentos', 'contagens']
+const SUBS_MODULOS = { chamados: ['historico', 'comentarios', 'fotos', 'extras'], equipamentos: ['historico'] }
 
 // Alçada de exemplo na Nexara e na Veltora (as empresas da Beatriz): até
 // R$ 10 mil, um aprovador ou gestor; acima, também a diretoria (o Artur).
@@ -80,13 +85,16 @@ function _lotes() {
 }
 
 // ── Trava: um visitante renova de cada vez ────────────────────
+// A versão do conteúdo da demo: quando muda (dados novos, como os de Serviços
+// e Equipamentos em 27/11/2026), a demo renova no mesmo dia
+const VERSAO_DA_DEMO = 2
 async function _pegarTrava(forcar) {
   const ref = doc(db, '_meta', 'demo')
   return runTransaction(db, async tx => {
     const snap = await tx.get(ref)
     const d = snap.exists() ? snap.data() : {}
     const agora = Date.now()
-    if (!forcar && d.dia === _hojeSP()) return 'em-dia'
+    if (!forcar && d.dia === _hojeSP() && d.versao === VERSAO_DA_DEMO) return 'em-dia'
     if (d.travadoAte && d.travadoAte > agora) return 'ocupado'
     tx.set(ref, { travadoAte: agora + TRAVA_MS }, { merge: true })
     return 'minha'
@@ -108,15 +116,23 @@ async function _esperarOutroVisitante() {
 // pessoas da demo e os perfis antigos da própria conta (de quando ela foi
 // recriada no console)
 async function _lerDemoAtual(uid) {
-  const [perfisConta, pedidos, fornecedores, auditoria] = await Promise.all([
+  const [perfisConta, pedidos, fornecedores, auditoria, ...modulos] = await Promise.all([
     getDocs(query(collection(db, 'usuarios'), where('email', '==', 'demo@praxis.app'))),
     getDocs(query(collection(db, 'pedidos'), where('isDemo', '==', true))),
     getDocs(query(collection(db, 'fornecedores'), where('isDemo', '==', true))),
     getDocs(query(collection(db, 'auditoria'), where('isDemo', '==', true))),
+    ...COLECOES_MODULOS.map(c => getDocs(query(collection(db, c), where('isDemo', '==', true)))),
   ])
   const subdocs = []
   await Promise.all(pedidos.docs.filter(d => d.id.startsWith('demo-')).map(async d => {
     const snaps = await Promise.all(SUBCOLECOES.map(sub => getDocs(collection(d.ref, sub))))
+    snaps.forEach(s => s.docs.forEach(x => subdocs.push(x.ref)))
+  }))
+  // Serviços e Equipamentos: os documentos e, dos que estão na área da demo,
+  // as subcoleções (histórico, conversa, fotos, extras)
+  const modDocs = modulos.flatMap(s => s.docs)
+  await Promise.all(modDocs.filter(d => d.id.startsWith('demo-') && SUBS_MODULOS[d.ref.parent.id]).map(async d => {
+    const snaps = await Promise.all(SUBS_MODULOS[d.ref.parent.id].map(sub => getDocs(collection(d.ref, sub))))
     snaps.forEach(s => s.docs.forEach(x => subdocs.push(x.ref)))
   }))
   const donos = [uid, ...PESSOAS_DEMO.map(p => p.id), ...COLEGAS_DEMO.map(p => p.id)]
@@ -127,6 +143,7 @@ async function _lerDemoAtual(uid) {
     fornecedores: fornecedores.docs.map(d => d.ref),
     auditoria: auditoria.docs.map(d => d.ref),
     perfisAntigos: perfisConta.docs.filter(d => d.id !== uid).map(d => d.ref),
+    modulos: modDocs.map(d => d.ref),
     subdocs, avisos,
   }
 }
@@ -162,11 +179,13 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
 
   // 1. Fornecedores (nome normalizado, como o app consulta)
   const fornMap = {}
+  const servicosDe = servicosDaDemo(agora)
   for (const forn of seed.fornecedores || []) {
     const { usos, ...dados } = forn
     const nomeNorm = _normalizar(forn.nome)
     const id = `demo-${_slug(forn.nome)}`
-    lote.set(doc(db, 'fornecedores', id), { ...dados, usos: usos || 0, nome: nomeNorm, nomeExibicao: forn.nome, ativo: true, isDemo: true, criadoEm: agoraTs })
+    lote.set(doc(db, 'fornecedores', id), { ...dados, usos: usos || 0, nome: nomeNorm, nomeExibicao: forn.nome, ativo: true, isDemo: true, criadoEm: agoraTs,
+      ...(servicosDe[id] ? { servicosContratados: servicosDe[id] } : {}) })
     gravados.add(`fornecedores/${id}`)
     fornMap[nomeNorm] = id
   }
@@ -189,18 +208,21 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
   // renovação). O último acesso fica em horários plausíveis; o de quem entra
   // agora é gravado na entrada (js/app.js)
   const P = Object.fromEntries(PESSOAS_DEMO.map(p => [p.perfil, p.id]))
-  const TODOS = [...PESSOAS_DEMO, ...COLEGAS_DEMO]
+  const TODOS = [...PESSOAS_DEMO, ...COLEGAS_DEMO, ...TECNICOS_DEMO]
   const nomeDe = Object.fromEntries(TODOS.map(p => [p.id, p.nome]))
   const empresasDe = Object.fromEntries(TODOS.map(p => [p.id, p.empresas.length ? p.empresas.map(k => empresaMap[k]).filter(Boolean) : empresasIds]))
   const HORAS_SEM_ENTRAR = {
     'demo-supremo': 1, 'demo-gestor': 3, 'demo-aprovador': 26, 'demo-comprador': 2,
-    'demo-financeiro': 50, 'demo-solicitante': 6, 'demo-gustavo': 30, 'demo-helena': 75, 'demo-igor': 290,
+    'demo-financeiro': 50, 'demo-solicitante': 6, 'demo-prestador': 4, 'demo-gustavo': 30, 'demo-helena': 75, 'demo-igor': 290, 'demo-lucas': 20,
   }
   const horasAtras = h => Timestamp.fromDate(new Date(agora.getTime() - h * 3600e3))
   for (const p of TODOS) {
     lote.set(doc(db, 'usuarios', p.id), {
       nome: p.nome, email: p.email, perfil: p.perfil, ativo: true, isDemo: true,
       empresas: empresasDe[p.id], ultimoAcesso: horasAtras(HORAS_SEM_ENTRAR[p.id] ?? 48), criadoEm: agoraTs,
+      // Acesso por módulo (js/modulos.js)
+      servicos: p.servicos || null, equipamentos: p.equipamentos || null,
+      ...(p.fornecedorId ? { fornecedorId: p.fornecedorId, prestadorAdmin: p.prestadorAdmin === true } : {}),
     })
   }
   const colegaDa = Object.fromEntries(COLEGAS_DEMO.map(c => [c.empresas[0], c.id]))
@@ -358,17 +380,30 @@ async function _aplicarSeed(seed, usuario, antes, aoProgresso) {
     })
   }
 
-  // 7. Contador dos números de pedido da demo e empresas da conta demo
-  lote.mesclar(doc(db, '_meta', 'contadoresDemo'), { totalPedidos: n })
+  // 7. Serviços e Equipamentos (js/demo-modulos.js): unidades, chamados,
+  // visitas, aparelhos e uma contagem, com as subcoleções de cada um
+  const mod = modulosDaDemo({ agora, empresaMap, P, nomeDe })
+  for (const d of mod.docs) {
+    const ref = doc(db, d.col, d.id)
+    const subs = (d.sub || []).map(s => [s.id ? doc(ref, s.col, s.id) : doc(collection(ref, s.col)), s])
+    const ultimo = subs.filter(([, s]) => s.col === 'historico').at(-1)?.[0]
+    lote.set(ref, { ...d.dados, ...(ultimo ? { ultimoEventoId: ultimo.id } : {}), isDemo: true })
+    gravados.add(ref.path)
+    for (const [r, s] of subs) lote.set(r, { ...s.dados, isDemo: true })
+  }
+
+  // 8. Contadores da demo (pedidos, chamados e etiquetas) e empresas da conta demo
+  lote.mesclar(doc(db, '_meta', 'contadoresDemo'), { totalPedidos: n, ...mod.contadores })
   lote.mesclar(doc(db, 'usuarios', uid), { empresas: empresasIds, atualizadoEm: serverTimestamp() })
 
-  // 8. Sai o que não voltou: pedidos e fornecedores criados pelos visitantes,
+  // 9. Sai o que não voltou: pedidos e fornecedores criados pelos visitantes,
   // as subcoleções e os avisos de antes e os perfis antigos da conta demo.
   // Os pedidos marcados fora da área da demo (de seeds antigos, com ID
   // automático) saem sem as subcoleções, que a conta demo não alcança.
   const sobra = ref => !gravados.has(ref.path)
   antes.pedidos.filter(sobra).forEach(ref => lote.del(ref))
   antes.fornecedores.filter(sobra).forEach(ref => lote.del(ref))
+  antes.modulos.filter(sobra).forEach(ref => lote.del(ref))
   antes.subdocs.forEach(ref => lote.del(ref))
   antes.avisos.forEach(ref => lote.del(ref))
   antes.auditoria.forEach(ref => lote.del(ref))
@@ -501,7 +536,7 @@ export async function renovarDemo(usuario, { forcar = false, aoComecar, aoProgre
     // Os pedidos de exemplo voltam como não vistos (lidos/{uid}, js/estado.js)
     await setDoc(doc(db, 'lidos', usuario.id), { pedidos: {} }).catch(() => {})
     await runTransaction(db, async tx => {
-      tx.set(doc(db, '_meta', 'demo'), { dia: _hojeSP(), renovadaEm: serverTimestamp(), travadoAte: 0 }, { merge: true })
+      tx.set(doc(db, '_meta', 'demo'), { dia: _hojeSP(), versao: VERSAO_DA_DEMO, renovadaEm: serverTimestamp(), travadoAte: 0 }, { merge: true })
     })
     return 'renovada'
   } catch (err) {

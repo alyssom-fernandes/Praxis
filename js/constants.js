@@ -52,7 +52,8 @@ export const PERFIS = {
   SOLICITANTE: 'solicitante',
 }
 
-export const PERFIS_LABEL = _rotulos(Object.values(PERFIS), 'perfil_')
+// 'nenhum' e 'prestador': as contas sem Compras (acesso por módulo, js/modulos.js)
+export const PERFIS_LABEL = _rotulos([...Object.values(PERFIS), 'nenhum', 'prestador'], 'perfil_')
 
 // Motivos de reprovação e de cancelamento. O valor gravado no pedido é o texto
 // em português (as regras do Firestore conferem o 'Outros'); a tela mostra o

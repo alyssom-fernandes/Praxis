@@ -10,6 +10,7 @@ import { renderNotificacoes } from './notificacoes.js'
 import { PERFIS, PERFIS_LABEL, t } from './constants.js'
 import { debounce, validarEmail, normalizarTexto, formatCNPJ, empresasDoUsuario, dataAbsoluta } from './utils.js'
 import { gravarAuditado } from './auditoria.js'
+import { PERFIL_NENHUM, PERFIL_PRESTADOR, PAPEIS_SERVICOS, PAPEIS_EQUIP, papelServicos, papelEquip } from './modulos.js'
 import {
   ICO, tf, plural, cabecalho, resumoCarregando, botaoNovo, linhaVazia, linhasEsqueleto, esc,
   perfilHtml, dataAcesso, iniciais,
@@ -20,6 +21,7 @@ import {
 let _usuarios     = []
 let _convites     = []
 let _empresas     = []
+let _prestadoras  = []
 let _filtroStatus = 'todos'
 let _termoBusca   = ''
 // O que o modal está fazendo: 'novo' (convidar), 'editar' (usuário) ou 'convite'
@@ -112,7 +114,7 @@ export async function renderConfigUsuarios() {
               <span class="form-hint" id="usr-email-dica" hidden></span>
             </div>
             <div class="form-group" data-campo="usr-perfil">
-              <label for="usr-perfil">${t('cfgColPerfil')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <label for="usr-perfil">${t('modCompras')} <span class="cfg-req" aria-hidden="true">*</span></label>
               <select id="usr-perfil"></select>
             </div>
             <div class="form-group" data-campo="usr-ativo" id="usr-ativo-grupo">
@@ -123,6 +125,29 @@ export async function renderConfigUsuarios() {
               </div>
             </div>
             <p class="cfg-perfil-desc col-span-2" id="usr-perfil-desc" hidden></p>
+            <div class="form-group" data-campo="usr-servicos" id="usr-servicos-grupo">
+              <label for="usr-servicos">${t('modServicos')}</label>
+              <select id="usr-servicos">
+                <option value="">${t('papelNenhum')}</option>
+                ${PAPEIS_SERVICOS.map(p => `<option value="${p}">${t(`papel_servicos_${p}`)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" data-campo="usr-equip" id="usr-equip-grupo">
+              <label for="usr-equip">${t('modEquipamentos')}</label>
+              <select id="usr-equip">
+                <option value="">${t('papelNenhum')}</option>
+                ${PAPEIS_EQUIP.map(p => `<option value="${p}">${t(`papel_equipamentos_${p}`)}</option>`).join('')}
+              </select>
+            </div>
+            <p class="cfg-perfil-desc col-span-2" id="usr-modulos-desc">${t('cfgModulosDica')}</p>
+            <div class="form-group col-span-2" data-campo="usr-prestadora" id="usr-prestadora-grupo" hidden>
+              <label for="usr-prestadora">${t('svPrestadora')} <span class="cfg-req" aria-hidden="true">*</span></label>
+              <select id="usr-prestadora"></select>
+              <label class="emp-opcao-check usr-prestador-admin">
+                <input type="checkbox" id="usr-prestador-admin"> <span>${t('cfgContaDaPrestadora')}</span>
+              </label>
+              <span class="form-hint">${t('cfgContaDaPrestadoraDica')}</span>
+            </div>
             <div class="form-group col-span-2" data-campo="usr-empresas">
               <div class="cfg-rotulo-linha">
                 <span class="cfg-rotulo-campo" id="usr-empresas-rotulo">${t('cfgColEmpresas')} <span class="cfg-req" aria-hidden="true">*</span></span>
@@ -172,11 +197,14 @@ async function _carregarConvites() {
 
 async function _carregar() {
   try {
-    const [usrSnap, empSnap, convites] = await Promise.all([
+    const [usrSnap, empSnap, convites, fornSnap] = await Promise.all([
       getDocs(consultaUsuarios(sessao.usuario)),
       getDocs(consulta(collection(db, 'empresas'))),
       _carregarConvites(),
+      getDocs(consulta(collection(db, 'fornecedores'))).catch(() => ({ docs: [] })),
     ])
+    _prestadoras = fornSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.nomeExibicao || a.nome || '').localeCompare(b.nomeExibicao || b.nome || '', 'pt-BR'))
     _convites = convites
     _usuarios = usrSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       // Na demo, a conta de login não aparece: quem está na tela são as pessoas da demonstração
@@ -317,13 +345,26 @@ function _linha(u, eu) {
             </div>
           </div>
         </td>
-        <td class="c-perfil">${perfilHtml(u.perfil)}</td>
+        <td class="c-perfil">${perfilHtml(u.perfil)}${_modulosHtml(u)}</td>
         <td class="c-empresas" data-rotulo="${t('cfgColEmpresas')}">${_celEmpresas(u)}</td>
         <td class="c-acesso" data-rotulo="${convite ? '' : t('cfgColUltimoAcesso')}">${acesso}</td>
         <td class="c-acoes">
           <button class="btn-icon cfg-btn-editar btn-editar-usr" data-uid="${esc(u.id)}" aria-label="${esc(tf('cfgEditarX', { nome: u.nome || '' }))}" data-tooltip="${t('editarLabel')}">${ICO.editar()}</button>
         </td>
       </tr>`
+}
+
+// Os papéis em Serviços e Equipamentos, embaixo do perfil (o do prestador
+// mostra a prestadora)
+function _modulosHtml(u) {
+  if (u.perfil === PERFIL_PRESTADOR) {
+    const f = _prestadoras.find(x => x.id === u.fornecedorId)
+    return `<span class="usr-modulos">${esc(f?.nomeExibicao || f?.nome || '')}${u.prestadorAdmin ? ` · ${t('cfgContaDaPrestadoraCurto')}` : ''}</span>`
+  }
+  const partes = []
+  if (u.servicos) partes.push(`${t('modServicos')}: ${t(`papel_servicos_${u.servicos}`)}`)
+  if (u.equipamentos) partes.push(`${t('modEquipamentos')}: ${t(`papel_equipamentos_${u.equipamentos}`)}`)
+  return partes.length ? `<span class="usr-modulos">${esc(partes.join(' · '))}</span>` : ''
 }
 
 function _acharLinha(id) {
@@ -356,8 +397,13 @@ function _opcoesPerfil(perfilAtual = '') {
   // Gestor não promove ninguém a Supremo; o Supremo existente continua listado para leitura
   const perfis = Object.values(PERFIS).filter(p => _souSupremo() || p !== PERFIS.SUPREMO || p === perfilAtual)
   sel.innerHTML = `<option value="">${t('selecionar')}</option>` +
-    perfis.map(p => `<option value="${p}">${PERFIS_LABEL[p]}</option>`).join('')
+    perfis.map(p => `<option value="${p}">${PERFIS_LABEL[p]}</option>`).join('') +
+    `<option value="${PERFIL_NENHUM}">${PERFIS_LABEL[PERFIL_NENHUM]}</option>` +
+    `<option value="${PERFIL_PRESTADOR}">${PERFIS_LABEL[PERFIL_PRESTADOR]}</option>`
   sel.value = perfilAtual
+  const forn = document.getElementById('usr-prestadora')
+  if (forn) forn.innerHTML = `<option value="">${t('selecionar')}</option>` +
+    _prestadoras.map(f => `<option value="${esc(f.id)}">${esc(f.nomeExibicao || f.nome || f.id)}</option>`).join('')
   _descreverPerfil()
 }
 
@@ -368,6 +414,26 @@ function _descreverPerfil() {
   if (!el) return
   el.hidden = !p
   el.textContent = p ? t(`perfilDesc_${p}`) : ''
+  // O prestador (de fora) só tem Serviços, na prestadora dele
+  const prest = p === PERFIL_PRESTADOR
+  for (const id of ['usr-servicos-grupo', 'usr-equip-grupo', 'usr-modulos-desc']) document.getElementById(id).hidden = prest
+  document.getElementById('usr-prestadora-grupo').hidden = !prest
+}
+function _preencherModulos(u = {}) {
+  document.getElementById('usr-servicos').value = u.perfil === PERFIL_PRESTADOR ? '' : (papelServicos({ ...u, perfil: u.perfil === 'supremo' ? 'gestor' : u.perfil }) || '')
+  document.getElementById('usr-equip').value = u.perfil === PERFIL_PRESTADOR ? '' : (papelEquip({ ...u, perfil: u.perfil === 'supremo' ? 'gestor' : u.perfil }) || '')
+  document.getElementById('usr-prestadora').value = u.fornecedorId || ''
+  document.getElementById('usr-prestador-admin').checked = u.prestadorAdmin === true
+}
+// Os campos dos módulos para gravar (js/modulos.js; firestore.rules: usuarioValido)
+function _camposDosModulos(perfil) {
+  const prest = perfil === PERFIL_PRESTADOR
+  return {
+    servicos: prest ? null : (document.getElementById('usr-servicos').value || null),
+    equipamentos: prest ? null : (document.getElementById('usr-equip').value || null),
+    fornecedorId: prest ? (document.getElementById('usr-prestadora').value || null) : null,
+    prestadorAdmin: prest && document.getElementById('usr-prestador-admin').checked,
+  }
 }
 
 function _atualizarBotaoTodas() {
@@ -379,7 +445,7 @@ function _atualizarBotaoTodas() {
 
 function _travarFormulario(travar) {
   const modal = document.getElementById('modal-usuario')
-  modal.querySelectorAll('#usr-nome, #usr-perfil, .emp-check').forEach(el => { el.disabled = travar })
+  modal.querySelectorAll('#usr-nome, #usr-perfil, #usr-servicos, #usr-equip, #usr-prestadora, #usr-prestador-admin, .emp-check').forEach(el => { el.disabled = travar })
   const wrap = document.getElementById('usr-ativo-wrap')
   wrap.setAttribute('aria-disabled', String(travar))
   wrap.tabIndex = travar ? -1 : 0
@@ -443,6 +509,7 @@ function _abrirModalNovo() {
   email.value = ''
   email.disabled = false
   _opcoesPerfil('')
+  _preencherModulos({})
   _definirAtivo(true)
   // Com uma empresa só, ela já vem marcada
   document.querySelectorAll('.emp-check').forEach(c => { c.checked = _empresas.length === 1 })
@@ -460,6 +527,7 @@ function _abrirModalEdicao(u) {
   email.value = eAcessoSemEmail(u.email) ? loginDoEmail(u.email) : (u.email || '')
   email.disabled = true
   _opcoesPerfil(u.perfil || '')
+  _preencherModulos(u)
   _definirAtivo(_ativo(u))
   const ids = empresasDoUsuario(u)
   document.querySelectorAll('.emp-check').forEach(c => { c.checked = ids.includes(c.value) })
@@ -479,6 +547,7 @@ function _abrirModalConvite(c) {
   email.value = c.email || ''
   email.disabled = true
   _opcoesPerfil(c.perfil || '')
+  _preencherModulos(c)
   _definirAtivo(true)
   const ids = empresasDoUsuario(c)
   document.querySelectorAll('.emp-check').forEach(ch => { ch.checked = ids.includes(ch.value) })
@@ -545,7 +614,8 @@ function _bindEvents() {
   })
   document.getElementById('cancelar-convite')?.addEventListener('click', _cancelarConvite)
 
-  document.getElementById('usr-perfil')?.addEventListener('change', () => { _descreverPerfil(); limparErro('usr-perfil') })
+  document.getElementById('usr-perfil')?.addEventListener('change', () => { _descreverPerfil(); limparErro('usr-perfil'); limparErro('usr-prestadora') })
+  document.getElementById('usr-prestadora')?.addEventListener('change', () => limparErro('usr-prestadora'))
   document.getElementById('usr-nome')?.addEventListener('input', () => limparErro('usr-nome'))
   document.getElementById('usr-email')?.addEventListener('input', () => limparErro('usr-email'))
   document.getElementById('usr-empresas-checks')?.addEventListener('change', () => { limparErro('usr-empresas'); _atualizarBotaoTodas() })
@@ -595,6 +665,9 @@ async function _salvarUsuario() {
   else if (!semEmail && _modo === 'novo' && !validarEmail(email)) marcarErro('usr-email', t('emailInvalido'))
   else if (_modo === 'novo' && _usuarios.some(u => _emailNorm(u.email) === emailNorm)) marcarErro('usr-email', t('cfgEmailJaUsado'))
   if (!perfil)                      marcarErro('usr-perfil', t('perfilObrigatorio'))
+  const modulos = _camposDosModulos(perfil)
+  if (perfil === PERFIL_PRESTADOR && !modulos.fornecedorId) marcarErro('usr-prestadora', t('cfgPrestadoraObrigatoria'))
+  if (perfil === PERFIL_NENHUM && !modulos.servicos && !modulos.equipamentos) marcarErro('usr-perfil', t('cfgSemModulo'))
   if (!empresas.length)             marcarErro('usr-empresas', t('empresaObrigatoria'))
   if (editando && id === _meuId() && !ativo) marcarErro('usr-ativo', t('cfgNaoDesativarVoce'))
   if (modal.querySelector('[data-campo].invalido')) { focarPrimeiroErro(modal); return }
@@ -615,7 +688,7 @@ async function _salvarUsuario() {
     if (editando) {
       const original = _usuarios.find(u => u.id === id)
       await gravarAuditado({ colecao: 'usuarios', id, tipo: 'editar', antes: original, nome,
-        dados: { nome, perfil, ativo, empresas, atualizadoEm: serverTimestamp() },
+        dados: { nome, perfil, ativo, empresas, ...modulos, atualizadoEm: serverTimestamp() },
         empresaIds: [...empresasDoUsuario(original || {}), ...empresas] })
       prxToast(t('usuarioAtualizado'), 'success')
     } else if (semEmail) {
@@ -625,7 +698,7 @@ async function _salvarUsuario() {
       const uid = await criarContaDeLogin(emailNorm, senha)
       await gravarAuditado({ colecao: 'usuarios', id: uid, tipo: 'criar', nome, empresaIds: empresas,
         dados: {
-          nome, email: emailNorm, login, perfil, empresas, ativo: true, trocarSenha: true,
+          nome, email: emailNorm, login, perfil, empresas, ...modulos, ativo: true, trocarSenha: true,
           criadoPor: _meuId(), criadoEm: serverTimestamp(), ultimoAcesso: null,
         } })
       esconderSpinner()
@@ -641,7 +714,7 @@ async function _salvarUsuario() {
       await gravarAuditado({ colecao: 'convites', id: emailNorm, tipo: jaConvidado ? 'editar' : 'criar', sobrescrever: true,
         antes: anterior || null, nome: emailNorm, empresaIds: [...(anterior?.empresas || []), ...empresas],
         dados: {
-          email: emailNorm, nome, perfil, empresas, ativo: true,
+          email: emailNorm, nome, perfil, empresas, ...modulos, ativo: true,
           criadoPor: _meuId(), criadoPorNome: sessao.usuario?.nome || '',
           criadoEm: serverTimestamp(),
           expiraEm: Timestamp.fromDate(new Date(Date.now() + PRAZO_CONVITE_DIAS * 864e5)),

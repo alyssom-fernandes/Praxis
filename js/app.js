@@ -7,6 +7,9 @@ import { iniciarCamposData } from './campo-data.js'
 import { PESSOAS_DEMO, pessoaEscolhida, escolherPessoa, esquecerPessoa } from './demo-pessoas.js'
 import { sessao, registrarNavegacao, registrarTrocaDePessoa } from './estado.js'
 import { icone } from './icones.js'
+import { papelCompras, papelServicos, papelEquip, modulosDe, telaInicial, moduloDaTela, papelNoModulo,
+  cuidaDasUnidades, adminDaPrestadora, MODULOS } from './modulos.js'
+import { gruposDaLateral, htmlBarraDeModulos, ROTULO_MODULO } from './nav-modulos.js'
 
 // ── Limpadores de listeners (2.13) ────────────────────────────
 const _limpadores = new Set()
@@ -240,15 +243,19 @@ function _registrarAcesso(id) {
 }
 
 // ── Pessoas da demonstração ───────────────────────────────────
+// Os módulos vêm da lista fixa (js/demo-pessoas.js): valem mesmo antes da
+// renovação gravar o perfil novo
+const _modulosDaPessoa = p => ({ servicos: p.servicos || null, equipamentos: p.equipamentos || null,
+  ...(p.fornecedorId ? { fornecedorId: p.fornecedorId, prestadorAdmin: p.prestadorAdmin === true } : {}) })
 async function _carregarPessoaDemo(id) {
   const base = PESSOAS_DEMO.find(p => p.id === id) || PESSOAS_DEMO[0]
   _registrarAcesso(base.id)
   try {
     const snap = await getDoc(doc(db, 'usuarios', base.id))
-    if (snap.exists()) return { id: snap.id, ...snap.data() }
+    if (snap.exists()) return { id: snap.id, ...snap.data(), ..._modulosDaPessoa(base) }
   } catch {}
   // Sem o perfil no banco (a renovação falhou): usa os dados fixos da pessoa
-  return { id: base.id, nome: base.nome, email: base.email, perfil: base.perfil, ativo: true, empresas: sessao.contaDemo?.empresas || [] }
+  return { id: base.id, nome: base.nome, email: base.email, perfil: base.perfil, ativo: true, empresas: sessao.contaDemo?.empresas || [], ..._modulosDaPessoa(base) }
 }
 
 // "Trocar perfil" na faixa da demo: muda a pessoa sem sair da conta
@@ -262,7 +269,7 @@ export async function trocarPessoaDemo(id) {
     try { sessionStorage.removeItem('praxis_lateral_contagens') } catch {}
     mostrarDemoBanner(true)
     window.scrollTo(0, 0)
-    navegar('pedidos', {}, { substituir: true })
+    navegar(telaInicial(sessao.usuario), {}, { substituir: true })
   } finally {
     esconderSpinner()
   }
@@ -277,7 +284,7 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
     url.searchParams.set('tela', tela)
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
     // Limpa params não fornecidos (são de uma tela só)
-    ;['id', 'aba', 'filtro'].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
+    ;['id', 'aba', 'filtro', ..._PARAMS_DOS_MODULOS].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
     // A tela nova abre no topo; a rolagem desta fica guardada para o voltar
     _rolagens.set(location.search, window.scrollY)
     _rolarPara = 0
@@ -286,6 +293,10 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
     _trocarTela(() => _rotear())
   })
 }
+
+// Os parâmetros de uma tela só de Serviços e Equipamentos (a unidade da placa,
+// o novo chamado ou aparelho já preenchido, o mês da conferência)
+const _PARAMS_DOS_MODULOS = ['u', 'c', 'eq', 'f', 'm', 'novo', 'desc', 'valor', 'forn', 'pedido', 'num', 'empresa', 'data']
 
 // O voltar do celular (e do navegador) fecha primeiro a janela aberta; só
 // depois volta de tela (ui.js guarda uma entrada no histórico por janela)
@@ -381,7 +392,7 @@ function _rotear() {
   _fecharNotificacoes()
 
   const params = new URLSearchParams(window.location.search)
-  const tela   = params.get('tela') || 'pedidos'
+  const tela   = params.get('tela') || telaInicial(sessao.usuario)
   const id     = params.get('id')
   _rotaAnterior = _rotaAtual.tela ? _rotaAtual : null
   _rotaAtual = { tela, id, filtro: params.get('filtro'), aba: params.get('aba') }
@@ -392,9 +403,16 @@ function _rotear() {
   // Guarda de rota por perfil: troca o endereço (sem deixar a tela bloqueada
   // no histórico, senão o "voltar" cairia nela de novo) e avisa
   const pode = _acessos()
-  const bloqueado = (tela === 'relatorios' && !pode.relatorios) || (TELAS_CONFIG.includes(tela) && !pode.config)
+  // Acesso por módulo: a tela de um módulo que a pessoa não tem vai para a
+  // primeira tela dos módulos dela (js/modulos.js)
+  const doModulo = moduloDaTela(tela)
+  const bloqueado = (tela === 'relatorios' && !pode.relatorios) || (TELAS_CONFIG.includes(tela) && !pode.config) ||
+    (doModulo && !papelNoModulo(sessao.usuario, doModulo)) || (tela === 'unidades' && !cuidaDasUnidades(sessao.usuario)) ||
+    (tela === 'conferencia' && !['gestor', 'financeiro'].includes(papelServicos(sessao.usuario))) ||
+    (tela === 'prestadora' && papelServicos(sessao.usuario) !== 'gestor' && !adminDaPrestadora(sessao.usuario)) ||
+    (tela === 'contagem' && !['responsavel', 'gestor'].includes(papelEquip(sessao.usuario)))
   if (bloqueado) {
-    navegar('pedidos', {}, { substituir: true })
+    navegar(telaInicial(sessao.usuario), {}, { substituir: true })
     import('./ui.js').then(({ prxToast }) => prxToast(t('semAcessoTela'), 'info'))
     return
   }
@@ -437,6 +455,16 @@ const _TELAS = {
   'config-alcadas':   ['./config-alcadas.js',   'renderConfigAlcadas'],
   'config-cadastros': ['./config-cadastros.js', 'renderConfigCadastros'],
   'config-geral':     ['./config-geral.js',     'renderConfigGeral'],
+  // Serviços e Equipamentos (27/11/2026)
+  'servicos':         ['./servicos.js',         'renderServicos'],
+  'chamado':          ['./chamado.js',          'renderChamado'],
+  'qr':               ['./qr-tela.js',          'renderQr'],
+  'conferencia':      ['./conferencia.js',      'renderConferencia'],
+  'prestadora':       ['./prestadoras.js',      'renderPrestadoras'],
+  'equipamentos':     ['./equipamentos.js',     'renderEquipamentos'],
+  'equipamento':      ['./equipamento.js',      'renderEquipamento'],
+  'contagem':         ['./contagem.js',         'renderContagem'],
+  'unidades':         ['./unidades.js',         'renderUnidades'],
   // Catálogo do sistema visual, fora da navegação (docs/sistema.md)
   'sistema':          ['./sistema.js',          'renderSistema'],
 }
@@ -516,6 +544,9 @@ function _itemAtivo(telaAtiva) {
   if (telaAtiva === 'config-usuarios') return 'usuarios'
   if (telaAtiva === 'config-auditoria') return 'auditoria'
   if (telaAtiva === 'config-alcadas') return 'alcadas'
+  if (telaAtiva === 'chamado' || telaAtiva === 'qr') return 'servicos'
+  if (telaAtiva === 'equipamento') return 'equipamentos'
+  if (telaAtiva === 'prestadora') return 'prestadoras'
   return telaAtiva
 }
 
@@ -526,6 +557,8 @@ const _CHAVE_LATERAL = 'praxis_lateral'
 const _ICONE_DO_ITEM = {
   pedidos: 'pedidos', fila: 'fila', relatorios: 'relatorios', 'cad-empresas': 'empresas', 'cad-categorias': 'categorias',
   'cad-fornecedores': 'fornecedores', usuarios: 'usuarios', alcadas: 'alcadas', auditoria: 'auditoria',
+  servicos: 'servicos', conferencia: 'conferencia', prestadoras: 'prestadoras', equipamentos: 'equipamentos',
+  contagem: 'contagem', unidades: 'unidades',
 }
 function _lateralRecolhida() {
   try { return localStorage.getItem(_CHAVE_LATERAL) === 'recolhida' } catch { return false }
@@ -588,7 +621,7 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
     <aside class="lateral" data-mode="${modoConfig ? 'config' : 'main'}">
       <div class="lateral-topo">
         <span class="lateral-titulo" aria-hidden="true"></span>
-        <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos">${marcaPraxis()}${simboloPraxis(26, 'lateral-simbolo')}<span class="sr-only">: ${t('navPedidos')}</span></a>
+        <a class="lateral-marca" href="?tela=${telaInicial(usuario)}" data-nav="${telaInicial(usuario)}"${telaInicial(usuario) === 'pedidos' ? ' data-filtro="todos"' : ''}>${marcaPraxis()}${simboloPraxis(26, 'lateral-simbolo')}<span class="sr-only">: ${t('navPedidos')}</span></a>
         <div class="notif-wrap" id="notif-wrap">
           <button type="button" class="lateral-icone" id="btn-notif" aria-label="${t('tooltipNotificacoes')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-dropdown" data-tooltip="${t('tooltipNotificacoes')}">
             ${ICO.sino(17)}
@@ -599,19 +632,7 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
       </div>
 
       <nav class="lateral-nav" aria-label="${t('navNavegacao')}">
-        ${item('pedidos', 'pedidos', t('navPedidos'), { filtro: 'todos' })}
-        ${item('fila', 'pedidos', t('navMinhaFila'), { filtro: 'pendentes' })}
-        ${pode.relatorios ? item('relatorios', 'relatorios', t('navRelatorios')) : ''}
-        ${pode.config ? `
-        <div class="lateral-grupo" id="lateral-cadastros" role="group" aria-labelledby="lateral-cadastros-rotulo">
-          <span class="lateral-grupo-rotulo" id="lateral-cadastros-rotulo">${t('navAdministracao')}</span>
-          ${item('cad-empresas', 'config-cadastros', t('secaoEmpresas'), { aba: 'empresas' })}
-          ${item('cad-categorias', 'config-cadastros', t('secaoCategorias'), { aba: 'categorias' })}
-          ${item('cad-fornecedores', 'config-cadastros', t('secaoFornecedores'), { aba: 'fornecedores' })}
-          ${item('usuarios', 'config-usuarios', t('configUsuarios'))}
-          ${item('alcadas', 'config-alcadas', t('alcTitulo'))}
-          ${item('auditoria', 'config-auditoria', t('audTitulo'))}
-        </div>` : ''}
+        ${gruposDaLateral(usuario, pode, item)}
       </nav>
 
       <div class="lateral-rodape">
@@ -840,6 +861,10 @@ function _posicionarNotificacoes() {
 // aberta pelo item "Conta" da barra inferior.
 // Cabeçalho tipográfico (nome, e-mail e, abaixo de um fio tracejado como o
 // pé dos cartões do quadro, o perfil em texto: perfil não tem cor); depois as ações.
+function _rotuloPapel(modulo, papel) {
+  if (modulo === MODULOS.COMPRAS) return PERFIS_LABEL[papel] || papel
+  return t(`papel_${modulo}_${papel}`)
+}
 function _menuUsuarioHTML() {
   const { usuario } = sessao
   const claro = document.documentElement.classList.contains('light')
@@ -848,10 +873,15 @@ function _menuUsuarioHTML() {
     <div class="um-cabecalho">
       <div class="um-nome">${esc(usuario.nome)}</div>
       <div class="um-email">${esc(usuario.email || '')}</div>
+      ${modulosDe(usuario).length > 1 || !papelCompras(usuario) ? modulosDe(usuario).map(m => `
+      <div class="um-perfil">
+        <span class="um-perfil-rotulo">${t(ROTULO_MODULO[m])}</span>
+        <span class="um-perfil-valor">${esc(_rotuloPapel(m, papelNoModulo(usuario, m)))}</span>
+      </div>`).join('') : `
       <div class="um-perfil">
         <span class="um-perfil-rotulo">${t('menuPerfil')}</span>
         <span class="um-perfil-valor">${esc(PERFIS_LABEL[perfil] || perfil)}</span>
-      </div>
+      </div>`}
     </div>
     <div class="um-sep" role="separator"></div>
     <button type="button" class="um-item" role="menuitem" data-acao="tema">
@@ -863,11 +893,12 @@ function _menuUsuarioHTML() {
       ${ICO.barras(16)}
       <span>${t('navRelatorios')}</span>
     </button>` : ''}
-    ${_acessos(perfil).config ? `
+    ${_acessos(perfil).config || cuidaDasUnidades(usuario) ? `
     <button type="button" class="um-item um-so-movel" role="menuitem" data-acao="admin">
       ${ICO.admin(16)}
       <span>${t('navAdministracao')}</span>
-    </button>
+    </button>` : ''}
+    ${_acessos(perfil).config ? `
     <button type="button" class="um-item" role="menuitem" data-acao="ajustes">
       ${ICO.ajustes(16)}
       <span>${t('navAjustes')}</span>
@@ -987,7 +1018,7 @@ async function _acaoMenuUsuario(e) {
   }
   if (acao === 'relatorios' || acao === 'admin') {
     _fecharMenuUsuario(false)
-    navegar(acao === 'admin' ? 'config-usuarios' : 'relatorios')
+    navegar(acao === 'admin' ? (_acessos().config ? 'config-usuarios' : 'unidades') : 'relatorios')
     return
   }
   if (acao === 'sair') {
@@ -1069,42 +1100,23 @@ window.addEventListener('scroll', () => {
   })
 }, { passive: true })
 
-// ── Voltar pela borda (app instalado no iPhone) ───────────────
-// No Safari o próprio navegador volta ao deslizar da borda esquerda; no app
-// instalado na tela de início não há esse gesto. Aqui, num pedido, deslizar da
-// borda leva a tela junto com o dedo e, passado o ponto, toca o "‹ Voltar"
-const _ehAppIphone = () => /iP(hone|ad|od)/.test(navigator.userAgent) &&
-  (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true)
-let _borda = null
-document.addEventListener('touchstart', e => {
-  if (e.touches.length !== 1 || e.touches[0].clientX > 22 || !_ehAppIphone()) return
-  const voltar = document.querySelector('.detalhe-voltar')
-  const tela = document.querySelector('.main-content')
-  if (!voltar || !tela || document.querySelector('.modal-overlay.visible, .dialog-overlay.visible')) return
-  _borda = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, t0: performance.now(), dx: 0, tela, voltar, horizontal: null }
-}, { passive: true })
-document.addEventListener('touchmove', e => {
-  if (!_borda) return
-  const dx = e.touches[0].clientX - _borda.x0, dy = e.touches[0].clientY - _borda.y0
-  if (_borda.horizontal == null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) _borda.horizontal = Math.abs(dx) > Math.abs(dy)
-  if (!_borda.horizontal) return
-  _borda.dx = Math.max(0, dx)
-  _borda.tela.classList.add('arrastando-borda')
-  _borda.tela.style.setProperty('transform', `translateX(${_borda.dx}px)`)
-}, { passive: true })
-const _soltarBorda = () => {
-  if (!_borda) return
-  const { dx, t0, tela, voltar } = _borda
-  _borda = null
-  tela.classList.remove('arrastando-borda')
-  const v = dx / Math.max(1, performance.now() - t0)
-  if (dx > window.innerWidth * 0.33 || (dx > 40 && v > 0.5)) {
-    tela.style.setProperty('transform', 'translateX(100%)')
-    setTimeout(() => voltar.click(), 180)
-  } else tela.style.removeProperty('transform')
+// ── Barra inferior com os módulos ─────────────────────────────
+// O "+" cria no módulo da tela atual: pedido (Compras), chamado (Serviços) ou
+// equipamento (Equipamentos). O prestador não abre chamado: sem "+"
+export function novoNoModulo(modulo) {
+  if (modulo === MODULOS.SERVICOS) return navegar('servicos', { novo: 'chamado' })
+  if (modulo === MODULOS.EQUIPAMENTOS) return navegar('equipamentos', { novo: 'equipamento' })
+  return escolherNovo()
 }
-document.addEventListener('touchend', _soltarBorda)
-document.addEventListener('touchcancel', _soltarBorda)
+function _renderBottomNavModulos(nav, usuario, mods, tela, item) {
+  nav.innerHTML = htmlBarraDeModulos(usuario, mods, tela, item, ICO)
+  nav.querySelectorAll('[data-bnav]').forEach(btn => btn.addEventListener('click', () => navegar(btn.dataset.bnav)))
+  document.getElementById('bnav-novo')?.addEventListener('click', e => novoNoModulo(e.currentTarget.dataset.modulo))
+  document.getElementById('bnav-conta')?.addEventListener('click', e => {
+    e.stopPropagation()
+    _alternarMenuUsuario(e.currentTarget)
+  })
+}
 
 // ── Barra inferior (celular) ──────────────────────────────────
 // Pedidos · Minha fila · + (novo) · Buscar · Conta. Relatórios e
@@ -1132,6 +1144,14 @@ function _renderBottomNav() {
     <button type="button" class="bottom-nav-item ${ativo ? 'active' : ''}" data-bnav="${chave}" ${ativo ? 'aria-current="page"' : ''}>
       ${icone}<span>${rotulo}</span>${contagem ? `<span class="bnav-contagem" data-n="${chave}">${_contadorBarra(chave)}</span>` : ''}
     </button>`
+
+  // Acesso por módulo: quem tem mais de um módulo (ou não tem Compras) vê um
+  // item por módulo, o "+" do módulo em que está e a Conta
+  const mods = modulosDe(usuario)
+  if (!(mods.length === 1 && mods[0] === MODULOS.COMPRAS)) {
+    _renderBottomNavModulos(nav, usuario, mods, tela, item)
+    return
+  }
 
   nav.innerHTML = `
     ${item('pedidos', ativoPedidos, ICO.quadro(22), t('navPedidos'))}

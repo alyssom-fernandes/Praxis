@@ -616,7 +616,7 @@ export async function carregarUsuario(uid, { doServidor = false } = {}) {
 }
 
 // Os campos do perfil que mudam o que a pessoa vê e pode fazer
-const _CAMPOS_DO_ACESSO = ['perfil', 'empresas', 'ativo', 'nome', 'email']
+const _CAMPOS_DO_ACESSO = ['perfil', 'empresas', 'ativo', 'nome', 'email', 'servicos', 'equipamentos', 'fornecedorId', 'prestadorAdmin']
 function _mesmoAcesso(a, b) {
   return _CAMPOS_DO_ACESSO.every(c => JSON.stringify(a?.[c] ?? null) === JSON.stringify(b?.[c] ?? null))
 }
@@ -687,6 +687,12 @@ async function _aceitarConvite(uid) {
   const perfil = {
     nome: c.nome, email: c.email, perfil: c.perfil, empresas: c.empresas,
     ativo: c.ativo, convidadoPor: c.criadoPor, ultimoAcesso: null,
+    // O papel em Serviços e Equipamentos e, da conta da prestadora, a
+    // prestadora: copiados do convite (as regras conferem campo a campo)
+    ...(c.servicos != null ? { servicos: c.servicos } : {}),
+    ...(c.equipamentos != null ? { equipamentos: c.equipamentos } : {}),
+    ...(c.fornecedorId != null ? { fornecedorId: c.fornecedorId } : {}),
+    ...(c.prestadorAdmin != null ? { prestadorAdmin: c.prestadorAdmin } : {}),
   }
   const lote = writeBatch(db)
   lote.set(doc(db, 'usuarios', uid), { ...perfil, criadoEm: serverTimestamp() })

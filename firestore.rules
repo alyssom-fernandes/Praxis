@@ -65,6 +65,53 @@ service cloud.firestore {
         perfil() in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'];
     }
 
+    // ── Acesso por módulo (27/11/2026) ─────────────────────────
+    // `perfil` é o papel em Compras (temPerfil acima). Serviços e Equipamentos
+    // têm papel próprio no usuário (`servicos`, `equipamentos`). Duas contas
+    // não têm Compras: 'nenhum' (pessoa da empresa só com os outros módulos)
+    // e 'prestador' (técnico ou conta de uma prestadora, de fora: só os
+    // chamados da prestadora dele, em `fornecedorId`). O supremo tem todos os
+    // módulos no papel mais alto. Espelho do app em js/modulos.js.
+    // Tudo sai de uma leitura só, num mapa: as regras param em 1.000
+    // expressões por avaliação, e reler o perfil a cada pergunta estourava
+    function acesso() {
+      let doc = temClaims() ? request.auth.token : meuDocumento();
+      let ativo = temClaims() || doc.get('ativo', true) != false;
+      let perf = eDemo() ? 'demo' : (ativo ? doc.get('perfil', null) : null);
+      let interno = perf in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante', 'nenhum'];
+      let serv = doc.get('servicos', null);
+      let equip = doc.get('equipamentos', null);
+      return {
+        'perfil': perf,
+        'supremo': perf == 'supremo',
+        'compras': perf in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'],
+        'serv': perf == 'supremo' ? 'gestor' : (interno && serv in ['solicitante', 'financeiro', 'gestor'] ? serv : null),
+        'equip': perf == 'supremo' ? 'gestor' : (interno && equip in ['consulta', 'responsavel', 'gestor'] ? equip : null),
+        'forn': perf == 'prestador' ? doc.get('fornecedorId', '') : '',
+        'padm': perf == 'prestador' && doc.get('fornecedorId', '') != '' && doc.get('prestadorAdmin', false) == true,
+        'empresas': doc.get('empresas', [])
+      };
+    }
+    function alcanca(a, empresaId) { return a.supremo || empresaId in a.empresas; }
+    function ePrestador() { return estaLogado() && acesso().forn != ''; }
+    function meuFornecedor() { return acesso().forn; }
+    function ePrestadorAdmin() { return estaLogado() && acesso().padm; }
+    function usaServicos() { return estaLogado() && acesso().serv != null; }
+    function usaEquip() { return estaLogado() && acesso().equip != null; }
+    function gestorServicos() { return estaLogado() && acesso().serv == 'gestor'; }
+    function gestorEquip() { return estaLogado() && acesso().equip == 'gestor'; }
+    function mexeEquip() { return estaLogado() && acesso().equip in ['responsavel', 'gestor']; }
+    // Pessoa da empresa com algum módulo (lê empresas, unidades e cadastros)
+    function deDentro() {
+      let a = acesso();
+      return estaLogado() && (a.compras || a.serv != null || a.equip != null);
+    }
+    // Quem cuida das unidades: quem administra (Compras) e os gestores dos outros módulos
+    function cuidaDasUnidades() {
+      let a = acesso();
+      return estaLogado() && (a.perfil in ['supremo', 'gestor'] || a.serv == 'gestor' || a.equip == 'gestor');
+    }
+
     function empresasDoUsuario() {
       return temClaims() ? request.auth.token.get('empresas', []) : meuDocumento().get('empresas', []);
     }
@@ -136,7 +183,7 @@ service cloud.firestore {
         return d.keys().hasOnly(['autorId', 'autorNome', 'em', 'entidade', 'entidadeId', 'nome', 'acao',
             'antes', 'depois', 'empresaIds', 'isDemo']) &&
           d.autorId == eu() && d.em is timestamp && (!horaDoServidor || d.em == request.time) &&
-          d.entidade in ['usuario', 'convite', 'empresa', 'categoria', 'fornecedor', 'alcada'] &&
+          d.entidade in ['usuario', 'convite', 'empresa', 'categoria', 'fornecedor', 'alcada', 'unidade'] &&
           d.entidadeId is string && d.acao in ['criar', 'editar', 'apagar'] &&
           d.empresaIds is list && d.empresaIds.size() <= 30 &&
           (!registroId.matches('apagou-.*') ||
@@ -147,8 +194,17 @@ service cloud.firestore {
       allow read: if (temPerfil() && (eSupremo() ||
           (eGestor() && resource.data.empresaIds.hasAny(empresasDoUsuario())))) ||
         (eDemo() && marcadoDemo(resource.data));
+      // Os módulos: quem cuida das unidades registra a unidade; o gestor de
+      // Serviços, a ficha da prestadora; a conta da prestadora, os técnicos dela
+      function registraModulo(entidade) {
+        let a = acesso();
+        return (entidade == 'unidade' && (a.perfil in ['supremo', 'gestor'] || a.serv == 'gestor' || a.equip == 'gestor')) ||
+          (entidade == 'fornecedor' && a.serv == 'gestor') || (entidade == 'usuario' && a.padm);
+      }
       allow create: if
         (temPerfil() && eGestor() && !marcadoDemo(request.resource.data) && registroValido(true)) ||
+        (estaLogado() && !eDemo() && !marcadoDemo(request.resource.data) && registroValido(true) &&
+          registraModulo(request.resource.data.entidade)) ||
         (eDemo() && marcadoDemo(request.resource.data) && registroValido(false));
       // Não se altera nem se apaga; a demo renova os registros dela
       allow update: if false;
@@ -164,6 +220,38 @@ service cloud.firestore {
           (resource == null || resource.data.get('perfil', '') != 'supremo') &&
           request.resource.data.get('empresas', []).hasOnly(empresasDoUsuario())
         );
+      }
+
+      // Os papéis por módulo (js/modulos.js): Compras no perfil (ou 'nenhum'),
+      // Serviços e Equipamentos nos campos próprios; o prestador aponta para
+      // uma prestadora que existe e não tem os outros módulos
+      function usuarioValido() {
+        let d = request.resource.data;
+        return d.get('perfil', '') in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante', 'nenhum', 'prestador'] &&
+          d.get('servicos', null) in [null, 'solicitante', 'financeiro', 'gestor'] &&
+          d.get('equipamentos', null) in [null, 'consulta', 'responsavel', 'gestor'] &&
+          (d.get('perfil', '') != 'prestador' || (
+            d.get('fornecedorId', '') is string && d.get('fornecedorId', '') != '' &&
+            exists(/databases/$(database)/documents/fornecedores/$(d.get('fornecedorId', '-'))) &&
+            d.get('servicos', null) == null && d.get('equipamentos', null) == null)) &&
+          (d.get('perfil', '') == 'prestador' || (d.get('fornecedorId', null) == null && d.get('prestadorAdmin', false) == false));
+      }
+      // A conta da prestadora (prestadorAdmin) cuida dos técnicos dela: só
+      // prestador, da mesma prestadora, nas empresas dela, sem virar conta da
+      // prestadora, e nunca a si mesma
+      function tecnicoDaMinhaPrestadora() {
+        let a = acesso();
+        let d = request.resource.data;
+        return estaLogado() && a.padm && request.auth.uid != userId &&
+          d.get('perfil', '') == 'prestador' && d.get('fornecedorId', '') == a.forn &&
+          d.get('prestadorAdmin', false) == false && d.get('empresas', []).hasOnly(a.empresas) &&
+          d.get('servicos', null) == null && d.get('equipamentos', null) == null &&
+          (resource == null || (resource.data.get('fornecedorId', '') == a.forn &&
+            resource.data.get('perfil', '') == 'prestador' && resource.data.get('prestadorAdmin', false) == false));
+      }
+      function leTecnico() {
+        let a = acesso();
+        return a.padm && resource.data.get('fornecedorId', '') == a.forn;
       }
 
       // O gestor só alcança quem é das empresas dele: lê quem tem ao menos
@@ -206,7 +294,12 @@ service cloud.firestore {
           exists(caminhoConvite()) &&
           get(caminhoConvite()).data.expiraEm > request.time &&
           request.resource.data.keys().hasOnly(
-            ['nome', 'email', 'perfil', 'empresas', 'ativo', 'convidadoPor', 'criadoEm', 'ultimoAcesso']) &&
+            ['nome', 'email', 'perfil', 'empresas', 'ativo', 'convidadoPor', 'criadoEm', 'ultimoAcesso',
+             'servicos', 'equipamentos', 'fornecedorId', 'prestadorAdmin']) &&
+          request.resource.data.get('servicos', null) == get(caminhoConvite()).data.get('servicos', null) &&
+          request.resource.data.get('equipamentos', null) == get(caminhoConvite()).data.get('equipamentos', null) &&
+          request.resource.data.get('fornecedorId', null) == get(caminhoConvite()).data.get('fornecedorId', null) &&
+          request.resource.data.get('prestadorAdmin', false) == get(caminhoConvite()).data.get('prestadorAdmin', false) &&
           request.resource.data.get('nome', '') == get(caminhoConvite()).data.nome &&
           request.resource.data.get('email', '') == get(caminhoConvite()).data.email &&
           request.resource.data.get('perfil', '') == get(caminhoConvite()).data.perfil &&
@@ -217,10 +310,11 @@ service cloud.firestore {
 
       allow read: if estaLogado() && (
         request.auth.uid == userId || eSupremo() ||
-        (temPerfil() && eGestor() && mesmaEmpresa()) ||
+        (temPerfil() && eGestor() && mesmaEmpresa()) || leTecnico() ||
         (eDemo() && (marcadoDemo(resource.data) || perfilDaContaDemo(resource.data)))
       );
-      allow create: if (temPerfil() && eGestor() && semPromover() && auditada('usuario', userId)) ||
+      allow create: if (temPerfil() && eGestor() && semPromover() && usuarioValido() && auditada('usuario', userId)) ||
+        (tecnicoDaMinhaPrestadora() && auditada('usuario', userId)) ||
         demoGravaUsuario() || aceitaConvite();
       // O próprio usuário só registra o último acesso: perfil e empresas valem
       // como permissão (no token, pela setUserClaims, ou lidos daqui pelas
@@ -230,8 +324,9 @@ service cloud.firestore {
           // A3: quem entrou com a senha inicial marca que já trocou
           (mudouSo(['trocarSenha']) && request.resource.data.trocarSenha == false))) ||
         (temPerfil() && eGestor() && request.auth.uid != userId &&
-          (eSupremo() || todoNasMinhasEmpresas()) && semPromover() && auditada('usuario', userId)) ||
-        (eSupremo() && auditada('usuario', userId)) || demoGravaUsuario()
+          (eSupremo() || todoNasMinhasEmpresas()) && semPromover() && usuarioValido() && auditada('usuario', userId)) ||
+        (eSupremo() && usuarioValido() && auditada('usuario', userId)) ||
+        (tecnicoDaMinhaPrestadora() && auditada('usuario', userId)) || demoGravaUsuario()
       );
       allow delete: if estaLogado() && (
         (eSupremo() && auditadaAoApagar('usuario', userId)) ||
@@ -251,10 +346,16 @@ service cloud.firestore {
       function conviteValido() {
         let d = request.resource.data;
         return d.keys().hasOnly(
-            ['email', 'nome', 'perfil', 'empresas', 'ativo', 'criadoPor', 'criadoPorNome', 'criadoEm', 'expiraEm', 'auditoriaId']) &&
+            ['email', 'nome', 'perfil', 'empresas', 'ativo', 'criadoPor', 'criadoPorNome', 'criadoEm', 'expiraEm', 'auditoriaId',
+             'servicos', 'equipamentos', 'fornecedorId', 'prestadorAdmin']) &&
           d.email == email && email == email.lower() && email.matches('^[^@/ ]+@[^@/ ]+$') &&
           d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80 &&
-          d.perfil in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante'] &&
+          d.perfil in ['supremo', 'gestor', 'aprovador', 'comprador', 'financeiro', 'solicitante', 'nenhum', 'prestador'] &&
+          d.get('servicos', null) in [null, 'solicitante', 'financeiro', 'gestor'] &&
+          d.get('equipamentos', null) in [null, 'consulta', 'responsavel', 'gestor'] &&
+          (d.perfil != 'prestador' || (d.get('fornecedorId', '') != '' &&
+            exists(/databases/$(database)/documents/fornecedores/$(d.get('fornecedorId', '-'))) &&
+            d.get('servicos', null) == null && d.get('equipamentos', null) == null)) &&
           d.empresas is list && d.ativo == true &&
           d.criadoPor == request.auth.uid &&
           d.expiraEm is timestamp && d.expiraEm > request.time &&
@@ -286,7 +387,11 @@ service cloud.firestore {
     // ── Empresas ───────────────────────────────────────────────
     // O gestor só edita as empresas a que tem acesso
     match /empresas/{empresaId} {
-      allow read:   if temPerfil() || leDemo();
+      function leEmpresa() {
+        let a = acesso();
+        return estaLogado() && (a.compras || a.serv != null || a.equip != null || (a.forn != '' && empresaId in a.empresas));
+      }
+      allow read:   if temPerfil() || leEmpresa() || leDemo();
       allow create: if (temPerfil() && eGestor() && auditada('empresa', empresaId)) || gravaDemo(empresaId);
       allow update: if (temPerfil() && (eSupremo() || (eGestor() && temAcessoEmpresa(empresaId))) &&
         auditada('empresa', empresaId)) || gravaDemo(empresaId);
@@ -332,7 +437,7 @@ service cloud.firestore {
 
     // ── Categorias ─────────────────────────────────────────────
     match /categorias/{catId} {
-      allow read:   if temPerfil() || leDemo();
+      allow read:   if temPerfil() || deDentro() || leDemo();
       allow create: if (temPerfil() && eGestor() && auditada('categoria', catId)) || gravaDemo(catId);
       allow update: if (temPerfil() && eGestor() && auditada('categoria', catId)) || gravaDemo(catId);
       allow delete: if temPerfil() && eSupremo() && auditadaAoApagar('categoria', catId);
@@ -342,10 +447,19 @@ service cloud.firestore {
     // Nasce na cotação ou na compra (fica no histórico do pedido, que soma
     // os usos); a edição pelo cadastro e a remoção vão para a auditoria
     match /fornecedores/{fornId} {
-      allow read:   if temPerfil() || leDemo();
+      function leFornecedor() {
+        let a = acesso();
+        return estaLogado() && (a.compras || a.serv != null || a.equip != null || a.forn == fornId);
+      }
+      allow read:   if temPerfil() || leFornecedor() || leDemo();
       allow create: if (temPerfil() && eComprador()) || gravaDemo(fornId);
+      // O gestor de Serviços configura só os serviços contratados da
+      // prestadora (frequência, prazo e unidades), com o registro da auditoria
       allow update: if (temPerfil() && (eComprador() || eGestor()) &&
-        (mudouSo(['usos']) || auditada('fornecedor', fornId))) || gravaDemo(fornId);
+        (mudouSo(['usos']) || auditada('fornecedor', fornId))) || gravaDemo(fornId) ||
+        (gestorServicos() && mudouSo(['servicosContratados', 'auditoriaId', 'atualizadoEm']) &&
+          request.resource.data.servicosContratados is list && request.resource.data.servicosContratados.size() <= 30 &&
+          auditada('fornecedor', fornId));
       allow delete: if (temPerfil() && eGestor() && auditadaAoApagar('fornecedor', fornId)) || leDemo();
     }
 
@@ -894,6 +1008,363 @@ service cloud.firestore {
         ));
         allow update: if false;
       }
+    }
+
+    // ══ Módulos Serviços e Equipamentos (27/11/2026) ═══════════════
+    // Os mesmos princípios dos pedidos: cada passo tem dono e campos próprios;
+    // nada muda sem a entrada do histórico no mesmo lote (ultimoEventoId aponta
+    // para ela, assinada por quem grava); empresas isoladas; a demo só mexe no
+    // que é dela (isDemo). Cada regra lê o acesso uma vez (acesso(), acima).
+    // Espelho do app em js/servicos-regras.js e js/equip-regras.js.
+    function caminhoUnidade(id) { return /databases/$(database)/documents/unidades/$(id); }
+    function caminhoFornecedor(id) { return /databases/$(database)/documents/fornecedores/$(id); }
+
+    // Toda mudança aponta (ultimoEventoId, um ID novo) para a entrada do
+    // histórico gravada no mesmo lote, assinada por quem grava
+    function eventoNovo(colecao, id) {
+      let eid = request.resource.data.get('ultimoEventoId', '');
+      let caminho = /databases/$(database)/documents/$(colecao)/$(id)/historico/$(eid);
+      return eid is string && eid.size() > 0 &&
+        (resource == null || eid != resource.data.get('ultimoEventoId', '')) &&
+        !exists(caminho) && existsAfter(caminho) && getAfter(caminho).data.autorId == eu();
+    }
+
+    // ── Unidades ───────────────────────────────────────────────
+    // Os lugares de cada empresa (postos, lojas, escritório). O `codigo` é
+    // aleatório e vai no QR da placa: ler o QR prova que o técnico esteve lá
+    match /unidades/{unidadeId} {
+      function unidadeValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['empresaId', 'nome', 'endereco', 'lat', 'lng', 'placaEm', 'ativa',
+            'auditoriaId', 'criadoEm', 'atualizadoEm', 'isDemo']) &&
+          d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80 &&
+          d.ativa is bool && (d.get('lat', null) == null || d.lat is number) &&
+          (d.get('lng', null) == null || d.lng is number) &&
+          (resource == null || d.empresaId == resource.data.empresaId);
+      }
+      function leUnidade(d) {
+        let a = acesso();
+        return estaLogado() && (((a.compras || a.serv != null || a.equip != null) && alcanca(a, d.empresaId)) ||
+          (a.forn != '' && d.empresaId in a.empresas));
+      }
+      function gravaUnidade() {
+        let a = acesso();
+        return estaLogado() && (a.perfil in ['supremo', 'gestor'] || a.serv == 'gestor' || a.equip == 'gestor') &&
+          alcanca(a, request.resource.data.empresaId) && !marcadoDemo(request.resource.data) &&
+          unidadeValida() && auditada('unidade', unidadeId);
+      }
+      allow read: if leDemo() || leUnidade(resource.data);
+      allow create, update: if gravaDemo(unidadeId) || gravaUnidade();
+      allow delete: if leDemo() || (temPerfil() && eSupremo() && auditadaAoApagar('unidade', unidadeId));
+
+      // O código da placa fica à parte: só quem cuida das unidades lê (para
+      // imprimir a placa). A prestadora nunca lê o código; ela grava no
+      // chamado só a prova (o hash do código com o ID do chamado), que as
+      // regras conferem e que não serve para outro chamado
+      match /privado/{docId} {
+        function cuidaDaUnidade(empresaId) {
+          let a = acesso();
+          return estaLogado() && (a.perfil in ['supremo', 'gestor'] || a.serv == 'gestor' || a.equip == 'gestor') &&
+            alcanca(a, empresaId);
+        }
+        function caminhoUn() { return /databases/$(database)/documents/unidades/$(unidadeId); }
+        allow read: if (eDemo() && idDemo(unidadeId)) || (exists(caminhoUn()) && cuidaDaUnidade(get(caminhoUn()).data.empresaId));
+        allow create, update: if (eDemo() && idDemo(unidadeId)) || (docId == 'placa' &&
+          request.resource.data.keys().hasOnly(['codigo']) && request.resource.data.codigo is string &&
+          request.resource.data.codigo.size() >= 12 && request.resource.data.codigo.size() <= 40 &&
+          existsAfter(caminhoUn()) && cuidaDaUnidade(getAfter(caminhoUn()).data.empresaId));
+        allow delete: if eDemo() && idDemo(unidadeId);
+      }
+    }
+
+    // ── Contadores dos módulos (CH-0001; AC-0001 por prefixo) ──
+    match /_meta/contadorChamados {
+      allow read: if usaServicos();
+      allow create, update: if usaServicos() &&
+        request.resource.data.keys().hasOnly(['total']) &&
+        request.resource.data.total == (resource == null ? 0 : resource.data.get('total', 0)) + 1;
+    }
+    // Um documento por prefixo da etiqueta (contadorEquip-AC, contadorEquip-PC…)
+    match /_meta/{contador} {
+      allow read: if contador.matches('contadorEquip-[A-Z]{2,3}') && usaEquip();
+      allow create, update: if contador.matches('contadorEquip-[A-Z]{2,3}') && mexeEquip() &&
+        request.resource.data.keys().hasOnly(['total']) &&
+        request.resource.data.total == (resource == null ? 0 : resource.data.get('total', 0)) + 1;
+    }
+
+    // ── Chamados e visitas ─────────────────────────────────────
+    // Quem vê: a gente da empresa com Serviços (qualquer papel) e a prestadora
+    // do chamado. A consulta precisa filtrar pela empresa ou pela prestadora
+    function veChamado(a, d) {
+      return (a.serv != null && alcanca(a, d.empresaId)) || (a.forn != '' && d.fornecedorId == a.forn);
+    }
+    match /chamados/{chamadoId} {
+      function chamadoValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['numero', 'tipo', 'empresaId', 'unidadeId', 'unidadeNome', 'fornecedorId', 'fornecedorNome',
+            'servicoId', 'titulo', 'descricao', 'urgente', 'equipamentoId', 'equipamentoRotulo', 'solicitanteId', 'solicitanteNome',
+            'status', 'prazoEm', 'agendadoPara', 'tecnicoId', 'tecnicoNome', 'chegada', 'saida', 'relatorio', 'pecas',
+            'confirmadoPor', 'confirmadoPorNome', 'confirmadoEm', 'contestacao', 'contestacoes', 'contestadoEm', 'cancelamento',
+            'previstaPara', 'janelaAte', 'extrasAprovados', 'criadoEm', 'atualizadoEm', 'ultimoEventoId', 'isDemo']) &&
+          d.tipo in ['chamado', 'visita'] &&
+          d.status in ['prevista', 'aberto', 'agendado', 'atendimento', 'concluido', 'confirmado', 'contestado', 'nao_realizada', 'cancelado'] &&
+          d.empresaId is string && d.fornecedorId is string && d.unidadeId is string &&
+          d.get('titulo', '') is string && d.get('titulo', '').size() <= 120 &&
+          d.get('descricao', '') is string && d.get('descricao', '').size() <= 4000 &&
+          d.get('relatorio', '') is string && d.get('relatorio', '').size() <= 4000 &&
+          (d.get('pecas', null) == null || (d.pecas is list && d.pecas.size() <= 30)) &&
+          dataOk('previstaPara');
+      }
+      // O que nunca muda depois de aberto
+      function mesmaOrigem() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['numero', 'tipo', 'empresaId', 'unidadeId',
+          'fornecedorId', 'servicoId', 'solicitanteId', 'criadoEm', 'previstaPara', 'janelaAte', 'isDemo']);
+      }
+      function passo(de, para, campos) {
+        return resource.data.status in de && request.resource.data.status == para &&
+          mudouSo(campos.concat(['status', 'ultimoEventoId', 'atualizadoEm'])) &&
+          request.resource.data.atualizadoEm == request.time && eventoNovo('chamados', chamadoId);
+      }
+      // A prova de presença: o QR da placa ou, sem a placa, o registro à mão
+      // (fica marcado como tal para todos). Pelo QR, o app grava a prova: o
+      // SHA-256 (hexadecimal) de "código|ID do chamado". O código em si nunca
+      // é gravado no chamado (a prestadora leria e repetiria de longe)
+      function presenca(m) {
+        return m is map && m.keys().hasOnly(['em', 'via', 'prova', 'lat', 'lng', 'distanciaM', 'precisaoM']) &&
+          m.em == request.time && m.via in ['qr', 'manual'] &&
+          (m.via == 'manual' || m.get('prova', '') ==
+            hashing.sha256(get(/databases/$(database)/documents/unidades/$(resource.data.unidadeId)/privado/placa).data.codigo + '|' + chamadoId).toHexString().lower());
+      }
+      function leChamado(d) { let a = acesso(); return estaLogado() && veChamado(a, d); }
+      function criaChamado() {
+        let a = acesso();
+        let d = request.resource.data;
+        return estaLogado() && !marcadoDemo(d) && chamadoValido() &&
+          d.criadoEm == request.time && d.atualizadoEm == request.time &&
+          exists(caminhoUnidade(d.unidadeId)) && get(caminhoUnidade(d.unidadeId)).data.empresaId == d.empresaId &&
+          exists(caminhoFornecedor(d.fornecedorId)) && eventoNovo('chamados', chamadoId) && (
+            // Chamado: aberto por quem tem Serviços na empresa, em nome próprio
+            (d.tipo == 'chamado' && a.serv != null && alcanca(a, d.empresaId) &&
+              d.status == 'aberto' && d.solicitanteId == eu() && d.numero is int && d.titulo.size() > 0) ||
+            // Visita periódica: o ID fixo diz de quem, de qual serviço, onde e
+            // quando; nasce prevista (janela aberta) ou não realizada (passou)
+            (d.tipo == 'visita' && veChamado(a, d) &&
+              chamadoId == 'vp-' + d.fornecedorId + '-' + d.servicoId + '-' + d.unidadeId + '-' + d.previstaPara &&
+              d.janelaAte is timestamp &&
+              ((d.status == 'prevista' && d.janelaAte > request.time) ||
+               (d.status == 'nao_realizada' && d.janelaAte < request.time))));
+      }
+      function atualizaChamado() {
+        let a = acesso();
+        let d = request.resource.data;
+        let r = resource.data;
+        // O prestador do chamado; quem pediu (ou o gestor de Serviços); a gente da empresa
+        let prest = a.forn != '' && r.fornecedorId == a.forn;
+        let interno = a.serv != null && alcanca(a, r.empresaId);
+        let pediu = interno && (r.solicitanteId == eu() || a.serv == 'gestor');
+        return estaLogado() && !marcadoDemo(d) && chamadoValido() && mesmaOrigem() && (
+          // O prestador agenda (ou reagenda): o técnico que vai
+          (d.status == 'agendado' && prest && d.tecnicoId == eu() && d.agendadoPara is timestamp &&
+            passo(['aberto', 'prevista', 'contestado', 'agendado'], 'agendado', ['agendadoPara', 'tecnicoId', 'tecnicoNome'])) ||
+          // Chega ao local: o QR da unidade (ou à mão), com a hora do servidor
+          (d.status == 'atendimento' && prest && d.tecnicoId == eu() && presenca(d.chegada) &&
+            passo(['agendado', 'prevista', 'contestado', 'aberto'], 'atendimento', ['chegada', 'tecnicoId', 'tecnicoNome'])) ||
+          // Conclui: o relatório e o QR de saída
+          (d.status == 'concluido' && prest && r.tecnicoId == eu() && presenca(d.saida) && d.relatorio.size() > 0 &&
+            passo(['atendimento'], 'concluido', ['saida', 'relatorio', 'pecas'])) ||
+          // Quem pediu (ou o gestor de Serviços) confirma ou contesta
+          (d.status == 'confirmado' && pediu && d.confirmadoPor == eu() && d.confirmadoEm == request.time &&
+            passo(['concluido'], 'confirmado', ['confirmadoPor', 'confirmadoPorNome', 'confirmadoEm', 'extrasAprovados'])) ||
+          (d.status == 'contestado' && pediu && d.contestadoEm == request.time && d.contestacao is map &&
+            d.contestacao.get('motivo', '') is string && d.contestacao.get('motivo', '').size() > 0 &&
+            d.contestacoes == r.get('contestacoes', 0) + 1 &&
+            passo(['concluido'], 'contestado', ['contestacao', 'contestacoes', 'contestadoEm'])) ||
+          // Cancelar o chamado ainda sem atendimento (a visita não se cancela)
+          (d.status == 'cancelado' && pediu && r.tipo == 'chamado' && d.cancelamento is map &&
+            d.cancelamento.get('motivo', '') is string && d.cancelamento.get('motivo', '').size() > 0 &&
+            passo(['aberto', 'agendado'], 'cancelado', ['cancelamento'])) ||
+          // A visita cuja janela passou sem chegada vira não realizada
+          (d.status == 'nao_realizada' && (interno || prest) && r.tipo == 'visita' && request.time > r.janelaAte &&
+            passo(['prevista', 'agendado'], 'nao_realizada', [])));
+      }
+      allow get, list: if leDemo() || leChamado(resource.data);
+      allow create: if gravaDemo(chamadoId) || criaChamado();
+      allow update: if gravaDemo(chamadoId) || atualizaChamado();
+      allow delete: if leDemo();
+
+      function caminhoCh() { return /databases/$(database)/documents/chamados/$(chamadoId); }
+      // A demo decide só pelo ID, sem ler o chamado (como nos pedidos): a
+      // renovação grava centenas de subdocumentos por lote, e cada leitura do pai
+      // conta no limite de 20 acessos por lote das regras
+      function areaDemoCh() { return eDemo() && idDemo(chamadoId); }
+      function veOChamado() { return estaLogado() && exists(caminhoCh()) && veChamado(acesso(), get(caminhoCh()).data); }
+
+      // Histórico: imutável, assinado por quem grava (nasce junto com a mudança)
+      match /historico/{entradaId} {
+        function entradaNova() {
+          let d = request.resource.data;
+          return estaLogado() && d.autorId == eu() && d.criadoEm == request.time && (
+            veOChamado() ||
+            // a entrada do chamado que nasce no mesmo lote
+            (!exists(caminhoCh()) && existsAfter(caminhoCh()) && veChamado(acesso(), getAfter(caminhoCh()).data)));
+        }
+        allow read: if areaDemoCh() || veOChamado();
+        allow create: if areaDemoCh() || entradaNova();
+        allow update: if false;
+        allow delete: if areaDemoCh();
+      }
+      // Conversa entre quem pediu, a equipe e a prestadora
+      match /comentarios/{comentarioId} {
+        function textoOk(d) { return d.texto is string && d.texto.size() > 0 && d.texto.size() <= 2000; }
+        allow read: if areaDemoCh() || veOChamado();
+        allow create: if areaDemoCh() || (veOChamado() && request.resource.data.autorId == eu() &&
+          request.resource.data.keys().hasOnly(['texto', 'autorId', 'autorNome', 'criadoEm']) &&
+          request.resource.data.criadoEm == request.time && textoOk(request.resource.data));
+        allow update: if areaDemoCh() || (veOChamado() && resource.data.autorId == eu() &&
+          mudouSo(['texto', 'editadoEm']) && request.resource.data.editadoEm == request.time && textoOk(request.resource.data));
+        allow delete: if areaDemoCh() || (gestorServicos() && veOChamado());
+      }
+      // Fotos: prova do atendimento. A de abertura, de quem pediu; as de antes
+      // e depois, do técnico em atendimento. Não se alteram nem se apagam
+      match /fotos/{fotoId} {
+        function fotoNova() {
+          let a = acesso();
+          let d = request.resource.data;
+          let ch = get(caminhoCh()).data;
+          return estaLogado() && exists(caminhoCh()) && veChamado(a, ch) &&
+            d.keys().hasOnly(['tipo', 'storagePath', 'autorId', 'autorNome', 'criadoEm', 'tamanho', 'lat', 'lng']) &&
+            d.autorId == eu() && d.criadoEm == request.time &&
+            d.storagePath == 'chamados/' + chamadoId + '/fotos/' + fotoId + '.jpg' && (
+              (d.tipo in ['antes', 'depois'] && a.forn != '' && ch.fornecedorId == a.forn && ch.status == 'atendimento') ||
+              (d.tipo == 'abertura' && ch.solicitanteId == eu() && ch.status == 'aberto'));
+        }
+        allow read: if areaDemoCh() || veOChamado();
+        allow create: if areaDemoCh() || fotoNova();
+        allow update: if false;
+        allow delete: if areaDemoCh();
+      }
+      // Serviço extra: o técnico pede (com o valor) durante o atendimento; o
+      // gestor de Serviços aprova ou reprova antes de ser feito
+      match /extras/{extraId} {
+        function extraNovo() {
+          let a = acesso();
+          let d = request.resource.data;
+          let ch = get(caminhoCh()).data;
+          return estaLogado() && exists(caminhoCh()) && a.forn != '' && ch.fornecedorId == a.forn && ch.status == 'atendimento' &&
+            d.keys().hasOnly(['descricao', 'valor', 'status', 'criadoPor', 'criadoPorNome', 'criadoEm']) &&
+            d.criadoPor == eu() && d.criadoEm == request.time && d.status == 'aguardando' &&
+            d.valor is number && d.valor > 0 && d.valor < 10000000 &&
+            d.descricao is string && d.descricao.size() > 0 && d.descricao.size() <= 200;
+        }
+        function decisao() {
+          let a = acesso();
+          let d = request.resource.data;
+          return estaLogado() && exists(caminhoCh()) && a.serv == 'gestor' && alcanca(a, get(caminhoCh()).data.empresaId) &&
+            resource.data.status == 'aguardando' && d.status in ['aprovado', 'reprovado'] &&
+            mudouSo(['status', 'decididoPor', 'decididoPorNome', 'decididoEm', 'motivo']) &&
+            d.decididoPor == eu() && d.decididoEm == request.time &&
+            (d.status == 'aprovado' || d.get('motivo', '').size() > 0);
+        }
+        allow read: if areaDemoCh() || veOChamado();
+        allow create: if areaDemoCh() || extraNovo();
+        allow update: if areaDemoCh() || decisao();
+        allow delete: if areaDemoCh();
+      }
+    }
+
+    // ── Equipamentos ───────────────────────────────────────────
+    function veEquip(a, d) { return (a.equip != null || a.serv != null) && alcanca(a, d.empresaId); }
+    match /equipamentos/{equipId} {
+      function eqValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['etiqueta', 'tipo', 'descricao', 'marca', 'modelo', 'serie', 'empresaId', 'unidadeId',
+            'unidadeNome', 'setor', 'status', 'aquisicao', 'garantiaAte', 'precoNovo', 'custos', 'conserto', 'baixa',
+            'notas', 'criadoEm', 'atualizadoEm', 'ultimoEventoId', 'isDemo']) &&
+          d.etiqueta is string && d.etiqueta.matches('^[A-Z]{2,3}-[0-9]{4,6}$') &&
+          d.tipo in ['ar_condicionado', 'computador', 'notebook', 'monitor', 'impressora', 'camera', 'rede', 'nobreak',
+            'celular', 'tv', 'bomba', 'outro'] &&
+          d.status in ['uso', 'conserto', 'reserva', 'baixado'] &&
+          d.descricao is string && d.descricao.size() > 0 && d.descricao.size() <= 120 &&
+          d.empresaId is string && d.unidadeId is string &&
+          (d.get('custos', null) == null || (d.custos is list && d.custos.size() <= 200)) &&
+          (d.get('precoNovo', null) == null || (d.precoNovo is number && d.precoNovo >= 0)) &&
+          dataOk('garantiaAte') &&
+          exists(caminhoUnidade(d.unidadeId)) && get(caminhoUnidade(d.unidadeId)).data.empresaId == d.empresaId;
+      }
+      function leEquip(d) { let a = acesso(); return estaLogado() && veEquip(a, d); }
+      function criaEquip() {
+        let a = acesso();
+        let d = request.resource.data;
+        let partes = d.etiqueta.split('-');
+        let contador = /databases/$(database)/documents/_meta/$('contadorEquip-' + partes[0]);
+        return estaLogado() && a.equip in ['responsavel', 'gestor'] && alcanca(a, d.empresaId) &&
+          !marcadoDemo(d) && eqValido() && d.criadoEm == request.time && d.status in ['uso', 'reserva'] &&
+          eventoNovo('equipamentos', equipId) &&
+          // A etiqueta é a do contador do prefixo, que sobe 1 no mesmo lote
+          existsAfter(contador) && getAfter(contador).data.total == int(partes[1]);
+      }
+      function atualizaEquip() {
+        let a = acesso();
+        let d = request.resource.data;
+        let r = resource.data;
+        let n = d.get('custos', []).size();
+        let ch = /databases/$(database)/documents/chamados/$(n > 0 ? d.custos[n - 1].get('chamadoId', '-') : '-');
+        return estaLogado() && !marcadoDemo(d) && eqValido() &&
+          d.etiqueta == r.etiqueta && d.tipo == r.tipo && d.get('isDemo', false) == r.get('isDemo', false) &&
+          d.atualizadoEm == request.time && eventoNovo('equipamentos', equipId) && (
+            (a.equip == 'gestor' && alcanca(a, r.empresaId) && alcanca(a, d.empresaId)) ||
+            // O responsável não muda a empresa, o preço de referência nem dá baixa
+            (a.equip == 'responsavel' && alcanca(a, r.empresaId) && d.empresaId == r.empresaId &&
+              d.get('precoNovo', null) == r.get('precoNovo', null) && d.status != 'baixado' && r.status != 'baixado') ||
+            // O custo de um chamado de Serviços confirmado entra pelo próprio
+            // Serviços: só uma linha nova, apontando para um chamado confirmado
+            // deste aparelho
+            (a.serv != null && alcanca(a, r.empresaId) && mudouSo(['custos', 'ultimoEventoId', 'atualizadoEm']) &&
+              n == r.get('custos', []).size() + 1 && d.custos.hasAll(r.get('custos', [])) &&
+              existsAfter(ch) && getAfter(ch).data.get('equipamentoId', '') == equipId &&
+              getAfter(ch).data.status == 'confirmado'));
+      }
+      allow read: if leDemo() || leEquip(resource.data);
+      allow create: if gravaDemo(equipId) || criaEquip();
+      allow update: if gravaDemo(equipId) || atualizaEquip();
+      allow delete: if leDemo() || (temPerfil() && eSupremo());
+
+      function caminhoEq() { return /databases/$(database)/documents/equipamentos/$(equipId); }
+      function areaDemoEq() { return eDemo() && idDemo(equipId); }
+      function veOEquip() { return estaLogado() && exists(caminhoEq()) && veEquip(acesso(), get(caminhoEq()).data); }
+      match /historico/{entradaId} {
+        function entradaNova() {
+          let d = request.resource.data;
+          let a = acesso();
+          return estaLogado() && d.autorId == eu() && d.criadoEm == request.time && (
+            (exists(caminhoEq()) && veEquip(a, get(caminhoEq()).data)) ||
+            (!exists(caminhoEq()) && existsAfter(caminhoEq()) && a.equip in ['responsavel', 'gestor'] &&
+              alcanca(a, getAfter(caminhoEq()).data.empresaId)));
+        }
+        allow read: if areaDemoEq() || veOEquip();
+        allow create: if areaDemoEq() || entradaNova();
+        allow update: if false;
+        allow delete: if areaDemoEq();
+      }
+    }
+
+    // ── Contagens (inventário de uma unidade) ──────────────────
+    match /contagens/{contagemId} {
+      function contagemNova() {
+        let a = acesso();
+        let d = request.resource.data;
+        return estaLogado() && a.equip in ['responsavel', 'gestor'] && alcanca(a, d.empresaId) && !marcadoDemo(d) &&
+          d.keys().hasOnly(['empresaId', 'unidadeId', 'unidadeNome', 'porId', 'porNome', 'em',
+            'encontrados', 'faltando', 'foraDoLugar', 'total']) &&
+          d.porId == eu() && d.em == request.time &&
+          d.encontrados is list && d.faltando is list && d.foraDoLugar is list && d.encontrados.size() <= 2000;
+      }
+      allow read: if leDemo() || (estaLogado() && acesso().equip != null && alcanca(acesso(), resource.data.empresaId));
+      allow create: if gravaDemo(contagemId) || contagemNova();
+      // Uma contagem não muda depois de gravada; só a de exemplo da demo é
+      // regravada a cada renovação
+      allow update: if gravaDemo(contagemId);
+      allow delete: if leDemo();
     }
 
     // ── Notificações ───────────────────────────────────────────

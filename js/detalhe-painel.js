@@ -884,6 +884,11 @@ export function _bindDetalheEvents() {
     navegar('pedidos')
   }))
   document.getElementById('btn-exportar-pdf')?.addEventListener('click', _exportarPedidoPDF)
+  document.getElementById('btn-para-inventario')?.addEventListener('click', () => {
+    const p = D.pedido
+    navegar('equipamentos', { novo: 'equipamento', desc: (p.titulo || '').slice(0, 120), valor: p.valorFinal || '', forn: p.fornecedorNome || '',
+      pedido: D.pedidoId, num: p.numeroPedido || '', empresa: p.empresaId || '', data: String(p.dataEntrega || p.dataCompra || '').slice(0, 10) })
+  })
   document.getElementById('btn-registrar-retirada')?.addEventListener('click', _registrarRetirada)
   document.getElementById('btn-autorizacao')?.addEventListener('click', _gerarAutorizacao)
 

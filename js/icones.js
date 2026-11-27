@@ -56,6 +56,27 @@ export const ICONES = {
   colunas:      p(ret(3, 4, 8, 20, 1), ret(10, 4, 15, 15, 1), ret(17, 4, 22, 11, 1)),
   setaEsq:      p('M15 18L9 12L15 6'),
   setaDir:      p('M9 18L15 12L9 6'),
+  // ── Serviços e Equipamentos (27/11/2026) ──
+  // Serviços: a chave de boca, de lados retos
+  servicos:     p('M14.5 3.5L18 3L21 6L20.5 9.5L17.5 11.5L14.5 9.5L12.5 6.5Z', 'M13.5 10.5L4 20L6 22L15.5 12.5'),
+  // Equipamentos: o monitor no pedestal
+  equipamentos: p(ret(3, 4, 21, 16, 1.5), 'M9 20H15', 'M12 16V20'),
+  // Unidade: o lugar marcado no mapa, com o pico do Λ
+  unidades:     p('M12 22L5 13V8L8.5 3H15.5L19 8V13Z', 'M9.5 11L12 7.5L14.5 11'),
+  // Conferência: a folha com o visto
+  conferencia:  p('M6 3H14L19 8V21H6Z', 'M14 3V8H19', 'M9 14.5L11.5 17L16 12'),
+  // Contagem: a prancheta com a lista
+  contagem:     p(ret(5, 4, 19, 21, 1.5), 'M9 2.5H15V5.5H9Z', 'M8.5 11H10M12 11H15.5M8.5 15H10M12 15H15.5'),
+  // Prestadora: a maleta de ferramentas
+  prestadoras:  p(ret(3, 7, 21, 20, 1.5), 'M9 7V4H15V7', 'M3 12H21', 'M10.5 12V14H13.5V12'),
+  // QR: os três localizadores e o miolo
+  qr:           p('M3 3H10V10H3Z', 'M14 3H21V10H14Z', 'M3 14H10V21H3Z', 'M14 14H17V17H14Z', 'M18 18H21V21H18Z', 'M18 14H21', 'M14 21V18'),
+  // Câmera: o corpo chanfrado e a lente octogonal
+  camera:       p('M3 7H7.5L9.5 4.5H14.5L16.5 7H21V19H3Z', oct(12, 13, 3.5)),
+  // Agenda: a folha do calendário
+  agenda:       p(ret(3, 5, 21, 21, 1.5), 'M3 10H21', 'M8 3V7M16 3V7'),
+  // Local: o alvo da localização
+  local:        p(oct(12, 12, 7), 'M12 2V5M12 19V22M2 12H5M19 12H22', 'M11 11H13V13H11Z'),
 }
 
 export function icone(nome, tam = 16) {

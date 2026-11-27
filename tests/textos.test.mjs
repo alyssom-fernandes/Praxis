@@ -32,6 +32,7 @@ const FORA_DA_VARREDURA = {
   'config.js':             'configuração local do Firebase',
   'config.example.js':     'modelo da configuração',
   'demo-reset.js':         'semente da demonstração: pedidos e avisos gravados no banco',
+  'demo-modulos.js':       'semente da demonstração: unidades, chamados e aparelhos gravados no banco',
   'sistema.js':            'catálogo do sistema visual (?tela=sistema), ferramenta de quem mantém o código',
 }
 

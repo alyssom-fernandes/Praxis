@@ -13,7 +13,7 @@
 import { auth, db, doc, collection, writeBatch, serverTimestamp, eContaDemo } from './firebase.js'
 import { sessao } from './estado.js'
 
-export const ENTIDADES = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor', alcadas: 'alcada' }
+export const ENTIDADES = { usuarios: 'usuario', convites: 'convite', empresas: 'empresa', categorias: 'categoria', fornecedores: 'fornecedor', alcadas: 'alcada', unidades: 'unidade' }
 
 // Campos que não contam como mudança: datas de controle e a própria ligação
 const _IGNORADOS = new Set(['auditoriaId', 'atualizadoEm', 'criadoEm', 'criadaEm', 'ultimoAcesso', 'criadoPor', 'criadoPorNome', 'isDemo'])

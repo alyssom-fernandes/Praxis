@@ -49,6 +49,56 @@
 | Pagar a fatura do fornecedor (menos os pedidos que aprovou) | ✅ | ✅ | — | — | ✅ | — |
 | Criar acesso sem e-mail (usuário e senha inicial) | ✅ | ✅ | — | — | — | — |
 
+## Acesso por módulo
+
+Desde 27/11/2026 o Praxis tem três módulos: **Compras** (os pedidos), **Serviços**
+(chamados e visitas das prestadoras, [`servicos.md`](servicos.md)) e
+**Equipamentos** (o inventário, [`equipamentos.md`](equipamentos.md)). Cada
+pessoa tem um papel em cada módulo que usa, escolhido em Administração ›
+Usuários:
+
+- **Compras:** o perfil de sempre (tabela acima) ou **Sem acesso** (a pessoa usa
+  só os outros módulos).
+- **Serviços:** sem acesso, **Abre chamados**, **Financeiro** ou **Gestor**.
+- **Equipamentos:** sem acesso, **Consulta**, **Responsável** ou **Gestor**.
+- **Prestadora de serviço:** um perfil à parte, de fora da empresa, ligado a uma
+  prestadora (um fornecedor). Vê só Serviços, e só os chamados da prestadora
+  dela. Marcada como **conta da prestadora**, cria os acessos dos técnicos.
+
+O supremo tem todos os módulos com o papel máximo. Quem só tem Compras vê o
+Praxis como antes; quem tem mais de um módulo vê na lateral um grupo por módulo
+e, no celular, um item por módulo na barra de baixo.
+
+### Serviços
+
+| Ação | Abre chamados | Financeiro | Gestor | Prestadora | Conta da prestadora |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Ver os chamados e visitas das suas empresas | ✅ | ✅ | ✅ | ⚠️ só da prestadora | ⚠️ só da prestadora |
+| Abrir chamado | ✅ | ✅ | ✅ | — | — |
+| Agendar, registrar chegada e saída, fotos, pedir extra, concluir | — | — | — | ✅ | ✅ |
+| Aprovar ou reprovar extra | — | — | ✅ | — | — |
+| Confirmar ou contestar o atendimento | ⚠️ os que abriu | ⚠️ os que abriu | ✅ | — | — |
+| Cancelar chamado aberto ou agendado | ⚠️ os que abriu | ⚠️ os que abriu | ✅ | — | — |
+| Comentar | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Conferência do mês | — | ✅ | ✅ | — | — |
+| Configurar os serviços contratados da prestadora | — | — | ✅ | — | — |
+| Criar e desativar técnicos da prestadora | — | — | — | — | ✅ |
+| Cadastrar unidades e ver o código da placa | — | — | ✅ | — | — |
+
+### Equipamentos
+
+| Ação | Consulta | Responsável | Gestor |
+|---|:---:|:---:|:---:|
+| Ver a lista, as fichas e o resumo | ✅ | ✅ | ✅ |
+| Cadastrar, editar, mover, conserto e volta, registrar custo | — | ✅ | ✅ |
+| Fazer a contagem de uma unidade | — | ✅ | ✅ |
+| Definir o preço de um novo | — | — | ✅ |
+| Dar baixa e reativar | — | — | ✅ |
+| Cadastrar unidades | — | — | ✅ |
+
+Os limites de troca de cada empresa são definidos por quem administra (gestor
+de Compras ou supremo), como os outros dados da empresa.
+
 ## Onde as permissões são aplicadas
 
 1. **Cliente** (`js/`) — botões e telas são renderizados condicionalmente pelo perfil da sessão (ex.: Solicitante não vê "Aprovar"; Aprovador entra em Relatórios mas sem os cards financeiros).

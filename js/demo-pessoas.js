@@ -8,14 +8,18 @@ import { t, PERFIS_LABEL } from './constants.js'
 import { frisoGrego } from './ui.js'
 import { gerarIniciais, esc } from './utils.js'
 
-// empresas: chaves do seed (assets/demo/seed.json); vazio = todas
+// empresas: chaves do seed (assets/demo/seed.json); vazio = todas. servicos e
+// equipamentos: o papel em cada módulo (js/modulos.js); o Rafael é técnico e
+// responsável da Manutenção Express (a prestadora de js/demo-modulos.js)
 export const PESSOAS_DEMO = [
   { id: 'demo-supremo',     nome: 'Artur Mendes',    perfil: 'supremo',     email: 'artur.mendes@demo.praxis',    empresas: [] },
-  { id: 'demo-gestor',      nome: 'Beatriz Nunes',   perfil: 'gestor',      email: 'beatriz.nunes@demo.praxis',   empresas: ['nexara', 'veltora'] },
-  { id: 'demo-aprovador',   nome: 'Carlos Ferreira', perfil: 'aprovador',   email: 'carlos.ferreira@demo.praxis', empresas: [] },
-  { id: 'demo-comprador',   nome: 'Diana Alves',     perfil: 'comprador',   email: 'diana.alves@demo.praxis',     empresas: [] },
-  { id: 'demo-financeiro',  nome: 'Eduardo Lima',    perfil: 'financeiro',  email: 'eduardo.lima@demo.praxis',    empresas: [] },
-  { id: 'demo-solicitante', nome: 'Fernanda Costa',  perfil: 'solicitante', email: 'fernanda.costa@demo.praxis',  empresas: [] },
+  { id: 'demo-gestor',      nome: 'Beatriz Nunes',   perfil: 'gestor',      email: 'beatriz.nunes@demo.praxis',   empresas: ['nexara', 'veltora'], servicos: 'gestor', equipamentos: 'gestor' },
+  { id: 'demo-aprovador',   nome: 'Carlos Ferreira', perfil: 'aprovador',   email: 'carlos.ferreira@demo.praxis', empresas: [], equipamentos: 'consulta' },
+  { id: 'demo-comprador',   nome: 'Diana Alves',     perfil: 'comprador',   email: 'diana.alves@demo.praxis',     empresas: [], equipamentos: 'responsavel' },
+  { id: 'demo-financeiro',  nome: 'Eduardo Lima',    perfil: 'financeiro',  email: 'eduardo.lima@demo.praxis',    empresas: [], servicos: 'financeiro' },
+  { id: 'demo-solicitante', nome: 'Fernanda Costa',  perfil: 'solicitante', email: 'fernanda.costa@demo.praxis',  empresas: [], servicos: 'solicitante' },
+  { id: 'demo-prestador',   nome: 'Rafael Souza',    perfil: 'prestador',   email: 'rafael.souza@usuarios.praxis.invalid', empresas: [],
+    fornecedorId: 'demo-manutencao-express-servicos', prestadorAdmin: true },
 ]
 export const PESSOA_PADRAO = 'demo-supremo'
 
