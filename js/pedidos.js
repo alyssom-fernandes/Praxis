@@ -278,6 +278,9 @@ export async function renderPedidos() {
                 <input type="text" id="np-titulo" maxlength="120" autocomplete="off" aria-describedby="np-titulo-dica">
                 <p class="np-dica" id="np-titulo-dica">${t('npResumoDica')}</p>
               </div>
+              <div class="np-onde col-span-3" role="group" aria-labelledby="np-onde-rot">
+              <span class="np-secao" id="np-onde-rot">${t('npOndeQuando')}</span>
+              <div class="np-linhas">
               <div class="form-group" data-campo="np-empresa">
                 <label for="np-empresa">${t('npEmpresa')} <span class="np-req" aria-hidden="true">*</span></label>
                 <select id="np-empresa" required><option value="">${t('selecionar')}</option></select>
@@ -290,6 +293,8 @@ export async function renderPedidos() {
               <div class="form-group" data-campo="np-km">
                 <label for="np-km">${t('npKm')} <span class="np-opcional">${t('opcional')}</span></label>
                 <input type="text" id="np-km" inputmode="numeric" maxlength="9" autocomplete="off" disabled>
+              </div>
+              </div>
               </div>
               <!-- Requisição (R4): só nas empresas que a ligaram -->
               <div class="form-group col-span-3 np-req" id="np-req-grupo" hidden>

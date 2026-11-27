@@ -129,10 +129,37 @@
 .lateral-conta[aria-expanded="true"] { background: var(--card2); color: var(--text2); }
 .lateral-conta-nome { min-width: 0; font-size: var(--t-corpo); color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* O título que encolhe (js/app.js): só no celular e no tablet */
+.lateral-titulo { display: none; }
+
 /* Ícones e iniciais só aparecem com a lateral recolhida; o botão de recolher,
    só no computador (no celular e no tablet a lateral vira a faixa do topo) */
 .lateral-item-ico, .lateral-simbolo, .lateral-conta-ini, .lateral-recolher { display: none; }
 @media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) {
+  /* Estilo novo (27/11): ícone em cada item e a seleção num bloco
+     arredondado, como a barra lateral dos apps do Mac. O pé (recolher e
+     conta) fica como era; o grupo de cadastros, só com o fio, sem título */
+  .lateral { padding-inline: var(--esp-150); }
+  .lateral-topo { padding-inline: var(--esp-150) var(--esp-050); }
+  .lateral-nav, .lateral-grupo { gap: var(--esp-025); }
+  .lateral-item {
+    justify-content: flex-start; gap: var(--esp-150);
+    min-height: 38px; padding: 0 var(--esp-150);
+    border-radius: var(--radius-sm);
+    font-size: var(--t-lista);
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .lateral-item-ico { display: block; color: var(--text3); transition: color var(--transition-fast); }
+  .lateral-item-rotulo { flex: 1; }
+  .lateral-item:hover { background: var(--card); }
+  .lateral-item:hover .lateral-item-ico { color: var(--text2); }
+  .lateral-item.active { background: var(--card2); font-weight: 600; }
+  .lateral-item.active .lateral-item-ico { color: var(--gold); }
+  .lateral-item:focus-visible { margin-inline: 0; padding-inline: var(--esp-150); outline-offset: 0; }
+  .lateral-n { font-family: var(--font); font-size: var(--t-legenda); font-weight: 600; }
+  .lateral-grupo { margin-top: var(--esp-150); padding-top: var(--esp-150); }
+  .lateral-grupo-rotulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .lateral-rodape { margin-inline: var(--esp-150); }
   .lateral-recolher {
     display: flex; align-items: center; gap: var(--esp-100);
     width: 100%; min-height: 36px; margin-bottom: var(--esp-100); padding: 0;
@@ -210,8 +237,7 @@
   width: 268px;
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
   padding: 0 0 var(--esp-075);
   display: none;
@@ -314,8 +340,7 @@
   max-width: calc(100vw - 24px);
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
   z-index: var(--z-popover);
@@ -613,9 +638,11 @@
 .kanban-ver-mais .numeral { font-size: var(--t-titulo-3); color: var(--text); }
 .kanban-ver-mais:hover { color: var(--text); background: var(--card2); border-style: solid; }
 
-/* Cartão: reto, sobre --card2, com uma sombra de 1px na cor da linha.
-   Linha 1: número PRX espaçado e selo URGENTE; título; empresa; depois de um
-   fio tracejado, o prazo em texto e o valor em numeral. */
+/* Cartão sobre --card2, com o contorno fino na cor da linha. A organização
+   é a de sempre (ele prefere assim, 27/11): número PRX espaçado e selo
+   URGENTE; título; empresa; depois de um fio tracejado, o prazo em texto e o
+   valor em numeral. Do estilo novo: os cantos e o cartão que sobe um pouco
+   ao passar o mouse */
 .kcard {
   position: relative;
   display: flex;
@@ -623,11 +650,14 @@
   padding: var(--esp-150) var(--esp-150) var(--esp-150);
   background: var(--card2);
   border-radius: var(--radius-card);
-  box-shadow: 0 1px 0 var(--border-strong);
+  box-shadow: inset 0 0 0 1px var(--line);
   cursor: pointer;
-  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
-@media (hover: hover) { .kcard:hover { background: var(--card3); } }
+@media (hover: hover) {
+  .kcard:hover { background: var(--card3); transform: translateY(-1px); box-shadow: inset 0 0 0 1px var(--line), 0 6px 16px rgba(0, 0, 0, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) { .kcard:hover { transform: none; } }
 /* Cartão que acabou de mudar de etapa (por esta pessoa ou por outra, em tempo
    real): um anel de terracota que some em 1,6 s mostra onde ele chegou */
 .kcard.kcard-mudou { animation: kcardMudou 1.6s ease calc(0.3s + var(--desde, 0ms)) both; }
@@ -667,7 +697,7 @@ html[data-vt-aba="tras"]::view-transition-new(conteudo) { animation-name: abaEnt
 @keyframes abaEntraTras { from { opacity: 0; transform: translateX(-24px); } }
 .kcard:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .light .kcard { background: var(--card); }
-.light .kcard:hover { background: var(--card); box-shadow: 0 1px 0 var(--border-strong), 0 0 0 1px var(--border-strong); }
+.light .kcard:hover { background: var(--card); box-shadow: inset 0 0 0 1px var(--border-strong), 0 6px 16px rgba(80, 56, 30, 0.12); }
 
 .kcard-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-050) var(--esp-075); min-height: 18px; }
 .kcard-num {
@@ -974,9 +1004,9 @@ tbody td:first-child { color: var(--text); font-weight: 600; }
 .chip-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: var(--esp-100); flex-shrink: 0; }
 
 /* ── Pessoas envolvidas ──────────────────────────────── */
-.pessoas-lista { display: flex; flex-direction: column; }
-.pessoa-linha { display: flex; align-items: flex-start; gap: var(--esp-150); min-width: 0; padding: var(--esp-150) 0; border-top: 1px solid var(--line); }
-.pessoa-linha:first-child { border-top: 0; padding-top: var(--esp-025); }
+.pessoas-lista { display: flex; flex-direction: column; background: var(--card); border-radius: var(--radius-card); overflow: hidden; }
+.pessoa-linha { position: relative; display: flex; align-items: flex-start; gap: var(--esp-150); min-width: 0; padding: var(--esp-150) var(--esp-200); }
+.pessoa-linha + .pessoa-linha::before { content: ''; position: absolute; top: 0; left: var(--esp-200); right: 0; border-top: 1px solid var(--line); }
 .pessoa-linha > .avatar { width: 32px; height: 32px; font-size: var(--t-pequeno); margin-top: 1px; }
 /* Coluna do avatar com largura fixa: nomes alinhados mesmo com a pilha de aprovadores */
 .pessoa-linha > :first-child { flex: 0 0 auto; margin-right: var(--esp-200); }
@@ -1303,8 +1333,9 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 /* ── Cotações ────────────────────────────────────────── */
 /* A lista é a comparação: em ordem de valor, com a indicada e a de menor valor
    marcadas por texto e ponto, a diferença para a referência sob o valor e um
-   fio na base de cada linha proporcional ao valor. */
-.cotacoes-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--esp-100); }
+   fio na base de cada linha proporcional ao valor. Estilo novo (27/11): uma
+   lista agrupada só, com as linhas separadas por esses fios */
+.cotacoes-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; background: var(--card); border-radius: var(--radius-card); overflow: hidden; }
 .cotacao-item {
   position: relative;
   display: grid;
@@ -1313,12 +1344,9 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   align-items: center;
   column-gap: var(--esp-300);
   padding: var(--esp-200) var(--esp-200) var(--esp-200);
-  background: var(--card2);
-  border-radius: var(--radius-card);
-  box-shadow: 0 1px 0 var(--border-strong);
+  background: transparent;
   overflow: hidden;
 }
-.cotacao-item.indicada { box-shadow: inset 2px 0 0 var(--gold), 0 1px 0 var(--border-strong); }
 .cotacao-info { grid-area: info; min-width: 0; }
 .cotacao-fornecedor { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--esp-050) var(--esp-200); font-size: var(--t-titulo-3); font-weight: 600; color: var(--text); }
 .cotacao-marcas { display: inline-flex; flex-wrap: wrap; gap: var(--esp-050) var(--esp-150); }
@@ -1406,7 +1434,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
     border-left: none;
     border-right: none;
     border-bottom: none;
-    border-radius: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     padding: var(--esp-050) 0 calc(var(--esp-100) + env(safe-area-inset-bottom, 0px));
     animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
@@ -1432,7 +1460,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
     max-width: none;
     border-left: none;
     border-right: none;
-    border-radius: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     z-index: var(--z-folha);
   }
   .notif-list { max-height: calc(100vh - var(--notif-top, 56px) - 56px - 96px - env(safe-area-inset-bottom, 0px)); }
@@ -1569,8 +1597,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   max-width: 640px;
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   display: flex;
@@ -1770,8 +1797,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   z-index: calc(var(--z-tour) + 2);
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
   padding: var(--esp-200) var(--esp-200) var(--esp-200);
 }
@@ -1838,7 +1864,6 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   padding: var(--esp-075) var(--esp-075) var(--esp-075) var(--esp-200);
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   white-space: nowrap;
@@ -1945,7 +1970,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .dialog-opcao-rica > svg { flex-shrink: 0; color: var(--gold); }
 .dialog-opcao-txt { display: flex; flex-direction: column; gap: var(--esp-025); min-width: 0; }
 .dialog-opcao-rot { font-size: var(--t-titulo-3); font-weight: 600; color: var(--text); }
-.dialog-opcao-desc { font-size: var(--t-pequeno); font-weight: 400; line-height: 1.4; color: var(--text3); white-space: normal; }
+.dialog-opcao-desc { font-size: var(--t-pequeno); font-weight: 400; line-height: 1.4; color: var(--text2); white-space: normal; }
 
 /* Chips de escolha nos formulários: retos, como no novo pedido (o redondo
    fica para avatares e pontos) */
@@ -1991,7 +2016,8 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .pedidos-btn-novo-curto { display: none; }
 
 /* Barra de controles: busca · filtros rápidos · Filtros · quadro/lista,
-   sobre um fio; o filtro ativo ganha o traço terracota */
+   sobre um fio. Estilo novo (27/11): fica presa no alto ao rolar, translúcida
+   e com desfoque, e o quadro passa por baixo dela */
 .pedidos-controles {
   display: flex;
   align-items: center;
@@ -1999,6 +2025,12 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   min-height: 52px;
   margin-top: var(--esp-300);
   border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--vidro);
+  -webkit-backdrop-filter: saturate(160%) blur(20px);
+  backdrop-filter: saturate(160%) blur(20px);
 }
 .pedidos-busca { flex: 0 1 240px; min-width: 168px; }
 .pedidos-busca input { height: 36px; min-height: 36px; padding-top: 0; padding-bottom: 0; font-size: var(--t-corpo); }
@@ -2015,9 +2047,8 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 }
 .pedidos-busca input::-webkit-search-cancel-button:hover { background: var(--text); }
 
-/* Filtros rápidos: texto com o contador em numeral, como os itens da lateral */
-/* Filtros rápidos: chips retos com o número ao lado (são filtros da mesma
-   lista, não abas); o ativo ganha fundo */
+/* Filtros rápidos: cápsulas preenchidas com o número ao lado (são filtros
+   da mesma lista, não abas); o ativo se inverte (texto claro vira fundo) */
 .pedidos-rapidos {
   display: flex;
   align-self: center;
@@ -2032,31 +2063,31 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   position: relative;
   flex-shrink: 0;
   min-height: 32px;
-  padding: 0 var(--esp-100);
+  padding: 0 var(--esp-150);
   gap: var(--esp-100);
-  border: 1px solid var(--borda-campo);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: none;
+  background: var(--preenchido);
   color: var(--text2);
   font-size: var(--t-corpo);
   font-weight: 600;
 }
 @media (hover: hover) {
-  .rapido:hover { color: var(--text); background: var(--card2); }
+  .rapido:hover { color: var(--text); background: var(--preenchido-hover); }
 }
 .rapido:active:not(:disabled) { transform: none; }
-.rapido.active { color: var(--text); background: var(--gold-dim); border-color: var(--gold-border); }
+.rapido.active, .rapido.active:hover { color: var(--bg); background: var(--text); }
 .rapido:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .rapido-n {
-  font-family: var(--display);
-  font-size: var(--t-titulo-3);
+  font-family: var(--font);
+  font-size: var(--t-corpo);
   font-weight: 700;
   line-height: 1;
   color: var(--text3);
   font-variant-numeric: tabular-nums lining-nums;
 }
 .rapido-n:empty { display: none; }
-.rapido.active .rapido-n { color: var(--text); }
+.rapido.active .rapido-n { color: var(--bg); }
 
 /* Botão "Filtros" e o painel que ele abre */
 .pedidos-filtros-wrap { position: relative; flex-shrink: 0; margin-left: auto; }
@@ -2075,27 +2106,27 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   font-variant-numeric: tabular-nums lining-nums;
 }
 
-/* Quadro / lista: dois ícones num só contorno; o ativo leva o traço terracota */
+/* Quadro / lista: controle segmentado, como no iOS e no macOS; o ativo
+   sobe num bloco claro */
 .view-toggle {
   display: flex;
   flex-shrink: 0;
-  border: 1px solid var(--border-strong);
+  padding: var(--esp-025);
   border-radius: var(--radius-btn);
-  overflow: hidden;
+  background: var(--preenchido);
 }
 .view-toggle button {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 32px;
   min-height: 0;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: calc(var(--radius-btn) - 2px);
   background: transparent;
   color: var(--text3);
 }
-.view-toggle button + button { border-left: 1px solid var(--border-strong); }
-.view-toggle button:hover:not(.active) { color: var(--text); background: var(--card3); }
-.view-toggle button.active { color: var(--text); background: var(--card3); box-shadow: inset 0 -2px 0 var(--gold-fill); }
+.view-toggle button:hover:not(.active) { color: var(--text); }
+.view-toggle button.active { color: var(--text); background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
 .view-toggle button:active:not(:disabled) { transform: none; }
 .view-toggle button:focus-visible { outline: 2px solid var(--foco); outline-offset: -2px; }
 
@@ -2112,7 +2143,6 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   max-height: calc(100vh - 180px);
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   outline: none;
@@ -2240,7 +2270,6 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 
 
 /* Modais da tela: fio de tinta no topo e título em Neohellenic, como as telas */
-.pedidos-modal { border-top: 2px solid var(--tinta); }
 .pedidos-modal .modal-header h2 {
   font-weight: 700;
 }
@@ -2281,6 +2310,76 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .np-urgente-selo { display: none; margin-left: 0; }
 .np-urgente.on .np-urgente-selo { display: inline-flex; }
 .np-urgente-desc { display: block; margin-top: var(--esp-025); font-size: var(--t-pequeno); line-height: 1.45; color: var(--text3); }
+
+/* Novo pedido em linhas (estilo novo, 27/11), como os formulários dos apps
+   da Apple: o rótulo à esquerda e o valor à direita, num grupo arredondado
+   com a borda dos campos (3:1, para o grupo ler como campo); o prazo num
+   controle segmentado e a urgência numa linha com a chave */
+.np-modal .np-grid { display: flex; flex-direction: column; gap: var(--esp-250); }
+.np-modal .np-itens > .form-label-falso,
+.np-secao {
+  display: block; padding: 0 var(--esp-050) var(--esp-075);
+  font-size: var(--t-legenda); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text3);
+}
+.np-onde { display: flex; flex-direction: column; min-width: 0; }
+.np-linhas {
+  display: flex; flex-direction: column;
+  background: var(--card2);
+  border: 1px solid var(--borda-campo);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.np-linhas > .form-group {
+  position: relative;
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0 var(--esp-150);
+  min-height: 48px; padding: 0 var(--esp-200);
+}
+.np-linhas > .form-group + .form-group::before { content: ''; position: absolute; top: 0; left: var(--esp-200); right: 0; border-top: 1px solid var(--line); }
+.np-linhas > .form-group > label { flex-shrink: 0; margin: 0; font-size: var(--t-corpo); font-weight: 500; color: var(--text); }
+.np-linhas > .form-group > :is(input, select) {
+  flex: 1 1 0; min-width: 0; min-height: 46px;
+  padding: 0; border: 0; border-radius: 0;
+  background-color: transparent; box-shadow: none;
+  text-align: right; text-align-last: right;
+}
+.np-linhas > .form-group > select { padding-right: var(--esp-300); background-position: right 0 center; }
+.np-linhas > .form-group > :is(input, select):hover { border: 0; }
+.np-linhas > .form-group > :is(input, select):focus-visible { outline-offset: -2px; }
+.np-linhas > .form-group > .form-error { flex: 1 0 100%; margin: 0 0 var(--esp-100); text-align: right; }
+.np-linhas > .form-group.invalido > label { color: var(--red); }
+
+/* Para quando: o rótulo e os quatro atalhos numa linha, a data embaixo */
+.np-modal .np-prazo {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--esp-150);
+  padding: var(--esp-150) var(--esp-200);
+  background: var(--card2); border: 1px solid var(--borda-campo); border-radius: var(--radius-card);
+}
+.np-modal .np-prazo > .form-label-falso { margin: 0; font-size: var(--t-corpo); font-weight: 500; color: var(--text); }
+.np-modal .np-prazo > :not(.form-label-falso):not(.np-prazos) { grid-column: 1 / -1; }
+.np-modal .np-prazos {
+  justify-self: end; display: inline-flex; flex-wrap: nowrap; gap: 0;
+  margin: 0; padding: var(--esp-025);
+  background: var(--preenchido); border-radius: var(--radius-btn);
+}
+.np-modal .np-prazos .chip {
+  min-height: 30px; padding: 0 var(--esp-150);
+  border: 0; border-radius: calc(var(--radius-btn) - 2px);
+  background: transparent; color: var(--text2);
+}
+.np-modal .np-prazos .chip:hover { color: var(--text); }
+.np-modal .np-prazos .chip.selected { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+.light .np-modal .np-prazos .chip.selected { box-shadow: 0 1px 3px rgba(80, 56, 30, 0.18); }
+.np-modal .np-urgente { min-height: 52px; border-color: var(--borda-campo); border-radius: var(--radius-card); }
+/* Celular estreito: os atalhos descem para baixo do rótulo, em partes iguais */
+@media (max-width: 600px) {
+  .np-modal .np-prazo { grid-template-columns: minmax(0, 1fr); }
+  .np-modal .np-prazos { justify-self: stretch; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .np-modal .np-prazos .chip { justify-content: center; padding: 0 var(--esp-050); }
+}
+/* Toque: 44 px para o dedo nos atalhos do prazo */
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
+  .np-modal .np-prazos .chip { min-height: 44px; }
+}
 
 /* Modal "Cancelar selecionados" */
 .bulk-cancel-msg { margin-bottom: var(--esp-200); font-size: var(--t-corpo); line-height: 1.55; color: var(--text2); }
@@ -3065,13 +3164,20 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .detalhe-layout :is(a, label).btn-icon:focus-within,
 .detalhe-layout :is(a, label):focus-visible { outline: 2px solid var(--foco); outline-offset: 1px; }
 
-/* Cabeçalho: trilha com o número do pedido, título, uma linha de dados */
+/* Cabeçalho: "‹ Pedidos" para voltar (estilo novo, 27/11, no lugar das
+   migalhas), o número do pedido, título e uma linha de dados */
 .detalhe-head { display: flex; flex-direction: column; gap: var(--esp-100); min-width: 0; }
-.detalhe-head-linha { display: flex; align-items: center; gap: var(--esp-200); min-height: 38px; }
-.detalhe-trilha { display: flex; align-items: center; gap: var(--esp-100); min-width: 0; font-size: var(--t-corpo); color: var(--text3); }
-.detalhe-trilha a { color: var(--text3); transition: color var(--transition-fast); }
-.detalhe-trilha a:hover { color: var(--text); text-decoration: none; }
-.detalhe-trilha-sep { color: var(--border-strong); }
+.detalhe-head-linha { display: flex; align-items: center; gap: var(--esp-150); min-height: 38px; }
+.detalhe-trilha { display: flex; align-items: center; min-width: 0; }
+.detalhe-voltar {
+  display: inline-flex; align-items: center; gap: var(--esp-025);
+  min-height: 36px; padding: 0 var(--esp-100) 0 var(--esp-025); margin-left: calc(var(--esp-100) * -1);
+  border-radius: var(--radius-sm);
+  font-size: var(--t-lista); font-weight: 500; color: var(--gold);
+  transition: background var(--transition-fast);
+}
+.detalhe-voltar:hover { background: var(--preenchido); text-decoration: none; }
+.detalhe-voltar svg { display: block; }
 .detalhe-num {
   font-family: var(--display);
   font-size: var(--t-titulo-3);
@@ -3154,14 +3260,15 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 @keyframes decisaoTroca { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Painel de decisão: o que falta, quem responde e a ação. Fio no topo na cor
-   do momento: tinta (aguardando outra pessoa), terracota (com você), oliva
-   (concluído), carmim (reprovado ou cancelado). */
+   do momento: tinta (aguardando outra pessoa), bronze (com você), oliva
+   (concluído), carmim (reprovado ou cancelado). O alto fica reto, com o fio
+   só em cima (pedido dele em 27/11); embaixo, os cantos do estilo novo */
 .decisao {
   --tom: var(--tinta);
   background: var(--card);
   border: 1px solid var(--border);
   border-top: 2px solid var(--tom);
-  border-radius: var(--radius-card);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
   padding: var(--esp-250) var(--esp-300) 0;
 }
 .light .decisao { box-shadow: var(--shadow-sm); }
@@ -3251,13 +3358,15 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   .detalhe-aside .decisao-titulo { font-size: var(--t-titulo-2); }
   .detalhe-aside .decisao-acoes { justify-content: flex-start; flex-wrap: wrap; }
   .detalhe-aside .decisao-acoes > button { flex: 1 1 0; }
-  .detalhe-aside .decisao-fatos { grid-template-columns: 1fr 1fr; margin: 0 calc(var(--esp-200) * -1); }
-  .detalhe-aside .decisao-fato { padding: var(--esp-150) var(--esp-200); }
-  .detalhe-aside .decisao-fato:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  /* Valor longo (R$ 9.999.999,99): ocupa a linha toda em vez de cortar */
-  .detalhe-aside .decisao-fatos:has(.largo) { grid-template-columns: 1fr; }
+  /* Fatos em lista, como no celular: o rótulo à esquerda e o valor à direita */
+  .detalhe-aside .decisao-fatos { grid-template-columns: 1fr; margin: 0 calc(var(--esp-200) * -1); }
+  .detalhe-aside .decisao-fato { display: flex; align-items: baseline; justify-content: space-between; gap: var(--esp-150); padding: var(--esp-150) var(--esp-200); }
+  .detalhe-aside .decisao-fato dt { margin: 0; flex-shrink: 0; max-width: 50%; white-space: normal; line-height: 1.35; }
+  .detalhe-aside .decisao-fato dd { align-items: flex-end; text-align: right; }
+  .detalhe-aside .decisao-valor .dt-numeral { font-size: 1.3rem; }
+  .detalhe-aside .decisao-resp dd { flex-direction: row-reverse; text-align: right; }
+  .detalhe-aside .decisao-resp .decisao-resp-txt { align-items: flex-end; }
   .detalhe-aside .decisao-resp-nome { white-space: normal; }
-  .detalhe-aside .detalhe-meta-grid { grid-template-columns: 1fr 1fr; gap: var(--esp-200) var(--esp-250); }
 }
 .decisao-resp-papel { font-size: var(--t-pequeno); color: var(--text3); }
 
@@ -3314,7 +3423,8 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .detalhe-main,
 .detalhe-aside { display: flex; flex-direction: column; gap: var(--esp-500); min-width: 0; }
 
-/* Seção aberta: fio de tinta no topo e rótulo em Neohellenic, como as colunas do quadro */
+/* Seção (estilo novo, 27/11): o rótulo pequeno em caixa alta sobre a lista
+   agrupada, como nos Ajustes do iPhone; no lugar do fio de tinta */
 .dt-bloco { min-width: 0; }
 .dt-card-head {
   display: flex;
@@ -3322,22 +3432,22 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   justify-content: space-between;
   gap: var(--esp-150);
   min-height: 32px;
-  padding-top: var(--esp-150);
-  margin-bottom: var(--esp-200);
-  border-top: 2px solid var(--tinta);
+  padding: 0 var(--esp-050);
+  margin-bottom: var(--esp-075);
 }
 .dt-secao {
   display: flex;
   align-items: baseline;
   gap: var(--esp-100);
-  font-family: var(--display);
-  font-size: var(--t-titulo-2);
-  font-weight: 700;
+  font-family: var(--font);
+  font-size: var(--t-legenda);
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0;
-  color: var(--text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text3);
 }
-.dt-contagem { font-size: var(--t-titulo-3); letter-spacing: 0.04em; color: var(--text3); font-variant-numeric: tabular-nums lining-nums; }
+.dt-contagem { font-size: var(--t-legenda); letter-spacing: 0.04em; color: var(--text3); font-variant-numeric: tabular-nums lining-nums; }
 .dt-card-acoes { display: flex; align-items: center; gap: var(--esp-200); min-width: 0; }
 .dt-legenda { font-size: var(--t-pequeno); color: var(--text3); white-space: nowrap; }
 .dt-upload { font-size: var(--t-pequeno); padding: 0 var(--esp-150); min-height: 32px; }
@@ -3345,23 +3455,26 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .dt-recolher { display: none; }
 @media (min-width: 1024px) and (pointer: fine), (min-width: 1280px) { .dt-feed-mais { display: none; } }
 
-/* Dados: rótulos espaçados sobre os valores */
+/* Dados: lista agrupada, o rótulo à esquerda e o valor à direita */
 .detalhe-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--esp-250) var(--esp-300);
+  display: flex;
+  flex-direction: column;
   margin: 0;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
 }
-.meta-item { display: flex; flex-direction: column; gap: var(--esp-050); min-width: 0; }
-.meta-item dd { margin: 0; }
-.meta-label { color: var(--text3); }
-.meta-value { font-size: var(--t-titulo-3); color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
-.meta-value .dt-numeral { font-size: var(--t-titulo-2); line-height: 1.2; }
-.meta-item.destaque .meta-value .dt-numeral { color: var(--text); font-size: 1.3rem; }
+.meta-item { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: var(--esp-200); min-width: 0; min-height: 48px; padding: var(--esp-150) var(--esp-200); }
+.meta-item + .meta-item::before { content: ''; position: absolute; top: 0; left: var(--esp-200); right: 0; border-top: 1px solid var(--line); }
+.meta-item dd { margin: 0; text-align: right; min-width: 0; }
+.meta-label { flex-shrink: 0; color: var(--text2); font-size: var(--t-corpo); font-weight: 400; }
+.meta-value { font-size: var(--t-corpo); color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.meta-value .dt-numeral { font-size: var(--t-titulo-3); line-height: 1.2; }
+.meta-item.destaque .meta-value .dt-numeral { color: var(--text); font-size: var(--t-titulo-2); }
 .detalhe-descricao {
-  margin-top: var(--esp-300);
-  padding-top: var(--esp-200);
-  border-top: 1px solid var(--line);
+  padding: var(--esp-200);
+  background: var(--card);
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   gap: var(--esp-100);
@@ -3402,7 +3515,6 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
 .detalhe-erro-texto { font-size: var(--t-titulo-3); color: var(--text2); line-height: 1.6; margin-bottom: var(--esp-100); }
 
 /* Modais do detalhe: fio de tinta no topo, número do pedido em numerais sobre o título */
-.dt-modal .modal { border-top: 2px solid var(--tinta); }
 .dt-modal .dt-modal-cab { align-items: flex-start; }
 .dt-modal-tit { display: flex; flex-direction: column; gap: var(--esp-050); min-width: 0; }
 .dt-modal-num {
@@ -3885,7 +3997,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
 .alc-ed-mais-faixa { margin-top: var(--esp-250); gap: var(--esp-075); }
 
 /* Modais de configurações: fio de tinta no alto e o título na voz da inscrição */
-.cfg-modal { max-width: 540px; border-top: 2px solid var(--tinta); border-radius: 0 0 var(--radius) var(--radius); }
+.cfg-modal { max-width: 540px; }
 .cfg-modal-sm { max-width: 460px; }
 .cfg-modal .modal-header { align-items: flex-start; padding: var(--esp-300) var(--esp-250) var(--esp-250) var(--esp-300); }
 .cfg-modal .modal-header h2 {
@@ -3928,8 +4040,6 @@ input.cfg-mono { font-size: var(--t-corpo); }
   border-radius: var(--radius-sm);
   outline: none;
 }
-.cfg-interruptor .toggle { border-radius: var(--radius-sm); }
-.cfg-interruptor .toggle::after { border-radius: 2px; }
 .cfg-interruptor:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 .cfg-interruptor[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 .form-group.invalido .cfg-interruptor .toggle { border-color: var(--red-border); }
@@ -4176,7 +4286,16 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .alc-modal .modal-footer > .cfg-acao-esquerda { flex-basis: 100%; margin-right: 0; }
 
   .cfg-toolbar { flex-direction: column; align-items: stretch; gap: var(--esp-100); }
-  .cfg-filtros { gap: 0 var(--esp-300); }
+  /* As abas (Todos, Ativos, Inativos, Convites) rolam de lado em vez de
+     alargar a tela, com a borda esmaecida como as da administração */
+  .cfg-filtros {
+    gap: 0 var(--esp-250); overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  }
+  .cfg-filtros::-webkit-scrollbar { display: none; }
+  .cfg-filtro { flex-shrink: 0; }
+  .cfg-filtro:focus-visible { outline-offset: -2px; }
   .cfg-busca { width: 100%; }
   .cfg-busca input { min-height: 40px; }
 
@@ -4269,7 +4388,7 @@ input.cfg-mono { font-size: var(--t-corpo); }
   .emp-editar { opacity: 1; }
 
   /* Modais */
-  .cfg-modal { border-radius: 0; }
+  .cfg-modal { border-radius: var(--radius) var(--radius) 0 0; }
   .cfg-modal .modal-header { padding: var(--esp-250) var(--esp-200) var(--esp-200) var(--esp-250); }
   .cfg-form.form-grid-2 { grid-template-columns: 1fr; }
   .cfg-form .col-span-2 { grid-column: auto; }
@@ -4482,3 +4601,31 @@ input.cfg-mono { font-size: var(--t-corpo); }
 /* Troca de senha no primeiro acesso (js/senha-nova.js): o mesmo respiro entre
    os campos das outras janelas */
 #form-senha-nova { display: flex; flex-direction: column; gap: var(--esp-250); }
+
+/* ── Controles segmentados (estilo novo, 27/11) ─────────────
+   O mesmo desenho do Quadro/Lista de Pedidos em todo o app: trilho
+   preenchido, o ativo sobe num bloco claro. Vale para o período dos
+   Relatórios, o gráfico/tabela, as preferências dos Ajustes e o tipo do
+   desconto. Vem por último para valer sobre o desenho antigo (contorno com
+   o traço bronze) */
+:is(.rel-seg, .rel-mini-seg, .cfg-seg, .itens-ed-tipo) {
+  padding: var(--esp-025);
+  border: 0;
+  border-radius: var(--radius-btn);
+  background: var(--preenchido);
+  overflow: visible;
+}
+.rel-seg-btn, .rel-mini-seg button, .cfg-seg-op, .itens-ed-tipo button,
+.rel-seg-btn + .rel-seg-btn, .rel-mini-seg button + button, .cfg-seg-op + .cfg-seg-op {
+  border: 0;
+  border-radius: calc(var(--radius-btn) - 2px);
+  background: transparent;
+}
+:is(.rel-seg-btn, .rel-mini-seg button, .cfg-seg-op, .itens-ed-tipo button):hover:not(.active):not([aria-pressed="true"]) { background: transparent; color: var(--text); }
+:is(.rel-seg-btn.active, .rel-mini-seg button.active, .cfg-seg-op.active, .itens-ed-tipo button[aria-pressed="true"]) {
+  background: var(--card); color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.light :is(.rel-seg-btn.active, .rel-mini-seg button.active, .cfg-seg-op.active, .itens-ed-tipo button[aria-pressed="true"]) { box-shadow: 0 1px 3px rgba(80, 56, 30, 0.18); }
+.light :is(.rel-seg-btn, .rel-mini-seg button, .cfg-seg-op):hover:not(.active) { background: transparent; }
+

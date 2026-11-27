@@ -7,7 +7,7 @@ import {
   db, auth, armazenamento, doc, collection, where, getDocs, setDoc, onSnapshot, writeBatch,
   serverTimestamp, increment, consulta, consultaUsuarios, marcaDemo, eContaDemo, lerCadastro,
 } from './firebase.js'
-import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador } from './app.js'
+import { renderTopbar, initTopbarEvents, navegar, renderFooter, registrarLimpador, rotaAnterior } from './app.js'
 import { sessao, chaveLido } from './estado.js'
 import { prxToast, avisoNoFormulario, prxConfirm, mostrarSpinner, esconderSpinner, exigirConexao, bordasDeRolagem } from './ui.js'
 import { renderNotificacoes } from './notificacoes.js'
@@ -445,6 +445,19 @@ export function _renderCabecalho(menu) {
     meta.push(`<span>${t('dtPrazo')} <span class="detalhe-meta-data">${prazo.data}</span>${prazo.texto
       ? `<span class="detalhe-meta-sep" aria-hidden="true">·</span><span class="detalhe-prazo ${prazo.cls}">${prazo.texto}</span>` : ''}</span>`)
   }
+  // "‹ Minha fila" ou "‹ Pedidos": de onde a pessoa veio. Aberto pelo quadro,
+  // volta no histórico (com o filtro e a rolagem); por um link, vai ao quadro
+  // (ou "‹ Relatórios", aberto pelo gráfico de lá)
+  const ant = rotaAnterior()
+  const daFila = ant?.tela === 'pedidos' && ant.filtro === 'pendentes'
+  const voltar = ant?.tela === 'relatorios'
+    ? { rotulo: t('navRelatorios'), attrs: 'href="?tela=relatorios" data-voltar-historico' }
+    : {
+        rotulo: daFila ? t('navMinhaFila') : t('titulo'),
+        attrs: ant?.tela === 'pedidos'
+          ? `href="?tela=pedidos${daFila ? '&amp;filtro=pendentes' : ''}" data-voltar-historico`
+          : 'href="?tela=pedidos" data-navegar="pedidos"',
+      }
   const vinculo = (rotulo, id, num) => `
     <p class="reaberto-banner">${ICO.reabrir}<span>${rotulo}</span>
       <a class="reaberto-link" href="?tela=detalhe&id=${encodeURIComponent(id)}" data-navegar="detalhe" data-id="${esc(id)}">${esc(num || id)}</a>
@@ -453,10 +466,9 @@ export function _renderCabecalho(menu) {
     <header class="detalhe-head">
       <div class="detalhe-head-linha">
         <nav class="detalhe-trilha" aria-label="${t('dtTrilhaAria')}">
-          <a href="?tela=pedidos" data-navegar="pedidos">${t('titulo')}</a>
-          <span class="detalhe-trilha-sep" aria-hidden="true">/</span>
-          <span class="detalhe-num" aria-current="page">${esc(p.numeroPedido || '—')}</span>
+          <a class="detalhe-voltar" ${voltar.attrs}>${icone('setaEsq', 20)}<span>${voltar.rotulo}</span></a>
         </nav>
+        <span class="detalhe-num" aria-current="page">${esc(p.numeroPedido || '—')}</span>
         ${p.urgente ? `<span class="detalhe-urgente">${t('urgente')}</span>` : ''}
         ${p.requisicao ? `<span class="selo-lanc selo-req" title="${esc(t('reqTitulo'))}">${t('reqTag')}</span>` : ''}
         ${_renderMenuAcoes(menu)}
@@ -899,7 +911,8 @@ export function _informarNota() {
 }
 
 // ── Ações ─────────────────────────────────────────────────────
-// painel: a ação que faz o pedido andar, dentro do "Próximo passo" (secundária antes, principal por último)
+// painel: a ação que faz o pedido andar, dentro do "Próximo passo" (secundária antes, principal por último);
+// só o texto, sem ícone, como nos apps de referência (o do WhatsApp fica: é a marca)
 // menu: o resto, no "…" do cabeçalho
 export function _acoesDoPedido() {
   const p = D.pedido
@@ -909,21 +922,21 @@ export function _acoesDoPedido() {
   const painel = []
   const menu = []
 
-  if (_podeAssumir()) painel.push(`<button class="btn-primary" id="btn-assumir">${ICO.usuario}${t('btnAssumirPedido')}</button>`)
+  if (_podeAssumir()) painel.push(`<button class="btn-primary" id="btn-assumir">${t('btnAssumirPedido')}</button>`)
 
   if (_podeAnexarCotacao()) {
     const cls = D.cotacoes.length >= 3 ? 'btn-secondary' : 'btn-primary'
-    painel.push(`<button class="${cls}" id="btn-add-cotacao">${ICO.mais2}${t('dtRegistrarCotacao')}</button>`)
+    painel.push(`<button class="${cls}" id="btn-add-cotacao">${t('dtRegistrarCotacao')}</button>`)
   }
 
   if (p.status === STATUS.EM_APROVACAO && _podeDecidir()) {
-    painel.push(`<button class="btn-danger" id="btn-reprovar">${ICO.x}${t('btnReprovar')}</button>`)
-    painel.push(`<button class="btn-primary" id="btn-aprovar">${ICO.check}${t('btnAprovar')}</button>`)
+    painel.push(`<button class="btn-danger" id="btn-reprovar">${t('btnReprovar')}</button>`)
+    painel.push(`<button class="btn-primary" id="btn-aprovar">${t('btnAprovar')}</button>`)
   }
 
   if (p.status === STATUS.APROVADO && !p.requisicao && [PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) &&
       (p.compradorId === uid || gestorMais) && !impedimentoDeFuncao(p, sessao.usuario, 'comprar')) {
-    painel.push(`<button class="btn-primary" id="btn-executar-compra">${ICO.carrinho}${t('btnExecutarCompra')}</button>`)
+    painel.push(`<button class="btn-primary" id="btn-executar-compra">${t('btnExecutarCompra')}</button>`)
   }
   // Requisição aprovada: quem foi buscar registra a retirada (R4)
   // Quem aprovou não registra (separação de funções, como nas regras), menos
@@ -931,28 +944,28 @@ export function _acoesDoPedido() {
   if (p.status === STATUS.APROVADO && p.requisicao && (p.solicitanteId === uid || gestorMais ||
       (perfil === PERFIS.COMPRADOR && p.compradorId === uid)) &&
       (p.aprovadoPor === p.solicitanteId || !impedimentoDeFuncao(p, sessao.usuario, 'comprar'))) {
-    painel.push(`<button class="btn-primary" id="btn-registrar-retirada">${ICO.caixa}${t('btnRegistrarRetirada')}</button>`)
+    painel.push(`<button class="btn-primary" id="btn-registrar-retirada">${t('btnRegistrarRetirada')}</button>`)
   }
   // A autorização para mostrar ao fornecedor (R5)
   if (p.status === STATUS.APROVADO) {
-    painel.push(`<button class="btn-secondary" id="btn-autorizacao">${ICO.doc}${t('btnAutorizacao')}</button>`)
+    painel.push(`<button class="btn-secondary" id="btn-autorizacao">${t('btnAutorizacao')}</button>`)
   }
 
   if (p.status === STATUS.COMPRADO &&
       (([PERFIS.COMPRADOR, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil) && (p.compradorId === uid || gestorMais)) ||
        p.solicitanteId === uid)) {
-    painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${ICO.caixa}${t('btnConfirmarEntrega')}</button>`)
+    painel.push(`<button class="btn-primary" id="btn-confirmar-entrega">${t('btnConfirmarEntrega')}</button>`)
   }
 
   // R6: a fatura do fornecedor (a empresa liga a opção)
   if (p.status === STATUS.ENTREGUE && _podePagarParcela() && p.fornecedorNome &&
       D.empresas.find(e => e.id === p.empresaId)?.faturaMensal?.ativa === true) {
-    painel.push(`<button class="btn-secondary" id="btn-pagar-fatura">${ICO.moeda}${t('fatBotao')}</button>`)
+    painel.push(`<button class="btn-secondary" id="btn-pagar-fatura">${t('fatBotao')}</button>`)
   }
   if (p.status === STATUS.ENTREGUE && _podePagarParcela()) {
     const proxima = _proximaParcela()
-    if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${esc(proxima.id)}">${ICO.moeda}${t('dtRegistrarPagamento')}</button>`)
-    else painel.push(`<button class="btn-primary" id="btn-confirmar-pagamento">${ICO.check}${t('btnConfirmarPagamento')}</button>`)
+    if (proxima) painel.push(`<button class="btn-primary" id="btn-pagar-proxima" data-pagar="${esc(proxima.id)}">${t('dtRegistrarPagamento')}</button>`)
+    else painel.push(`<button class="btn-primary" id="btn-confirmar-pagamento">${t('btnConfirmarPagamento')}</button>`)
   }
 
   // O pedido espera alguém e quem olha não tem o que fazer nele: avisar pelo
@@ -965,7 +978,7 @@ export function _acoesDoPedido() {
   const podeCopiar = [PERFIS.SOLICITANTE, PERFIS.GESTOR, PERFIS.SUPREMO].includes(perfil)
   // Compra que se repete: "Comprar de novo" à vista nos pedidos concluídos
   if (podeCopiar && [STATUS.ENTREGUE, STATUS.PAGO].includes(p.status)) {
-    painel.push(`<button class="btn-secondary" id="btn-comprar-de-novo">${ICO.duplicar}${t('btnComprarDeNovo')}</button>`)
+    painel.push(`<button class="btn-secondary" id="btn-comprar-de-novo">${t('btnComprarDeNovo')}</button>`)
   }
 
   const podeEditar = (

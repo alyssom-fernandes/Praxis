@@ -9,17 +9,17 @@
 // uma página nunca mistura módulos de duas versões.
 
 // <gerado por scripts/gerar-sw.mjs: não editar à mão>
-const VERSAO = 'd8c45c7e8ccd'
+const VERSAO = 'ea1b30822897'
 const ARQUIVOS = [
   '/index.html',
   '/manifest.json',
-  '/css/fontes.css?v=45',
-  '/css/tokens.css?v=45',
-  '/css/base.css?v=45',
-  '/css/components.css?v=45',
-  '/css/views.css?v=45',
-  '/css/telas.css?v=45',
-  '/css/themes.css?v=45',
+  '/css/fontes.css?v=46',
+  '/css/tokens.css?v=46',
+  '/css/base.css?v=46',
+  '/css/components.css?v=46',
+  '/css/views.css?v=46',
+  '/css/telas.css?v=46',
+  '/css/themes.css?v=46',
   '/js/acesso.js',
   '/js/alcadas.js',
   '/js/app.js',
@@ -47,6 +47,7 @@ const ARQUIVOS = [
   '/js/exportar-dados.js',
   '/js/fatura.js',
   '/js/firebase.js',
+  '/js/folha.js',
   '/js/fornecedores-csv.js',
   '/js/icones.js',
   '/js/importar-fornecedores.js',

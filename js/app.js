@@ -297,6 +297,9 @@ window.addEventListener('popstate', () => {
 // da tela troca na hora, components.css). Sem suporte ou com movimento
 // reduzido, a troca é direta. A nova tela é esperada no máximo 0,6 s
 let _rotaAtual = { tela: null, id: null, filtro: null, aba: null }
+let _rotaAnterior = null
+// A tela de onde a pessoa veio (o "‹ Minha fila" do pedido volta para ela)
+export function rotaAnterior() { return _rotaAnterior }
 const _TITULO_VT = 'pedido-titulo'
 function _rotaDaUrl() {
   const p = new URLSearchParams(location.search)
@@ -351,12 +354,14 @@ function _acessos(perfil = sessao.usuario?.perfil) {
 
 function _rotear() {
   _limparTudo() // cancela listeners da view anterior (2.13)
+  document.documentElement.classList.remove('titulo-fora')
   _fecharMenuUsuario(false)
   _fecharNotificacoes()
 
   const params = new URLSearchParams(window.location.search)
   const tela   = params.get('tela') || 'pedidos'
   const id     = params.get('id')
+  _rotaAnterior = _rotaAtual.tela ? _rotaAtual : null
   _rotaAtual = { tela, id, filtro: params.get('filtro'), aba: params.get('aba') }
 
   // Guarda de rota por perfil: troca o endereço (sem deixar a tela bloqueada
@@ -556,6 +561,7 @@ export function renderTopbar(telaAtiva, modoConfig = false) {
     <a class="link-salto" href="#">${t('pularConteudo')}</a>
     <aside class="lateral" data-mode="${modoConfig ? 'config' : 'main'}">
       <div class="lateral-topo">
+        <span class="lateral-titulo" aria-hidden="true"></span>
         <a class="lateral-marca" href="?tela=pedidos&filtro=todos" data-nav="pedidos" data-filtro="todos">${marcaPraxis()}${simboloPraxis(26, 'lateral-simbolo')}<span class="sr-only">: ${t('navPedidos')}</span></a>
         <div class="notif-wrap" id="notif-wrap">
           <button type="button" class="lateral-icone" id="btn-notif" aria-label="${t('tooltipNotificacoes')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-dropdown" data-tooltip="${t('tooltipNotificacoes')}">
@@ -1009,11 +1015,70 @@ registrarNavegacao(navegar)
 // Links e botões com data-navegar="tela" (e data-id): navegam sem recarregar.
 // Substitui os onclick inline, que a política de segurança (CSP) bloqueia.
 document.addEventListener('click', e => {
+  // "‹ Minha fila" no pedido aberto pelo quadro: volta no histórico, com o
+  // filtro e a rolagem de antes
+  const voltar = e.target.closest?.('[data-voltar-historico]')
+  if (voltar && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); history.back(); return }
   const alvo = e.target.closest?.('[data-navegar]')
   if (!alvo || e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) return
   e.preventDefault()
   navegar(alvo.dataset.navegar, alvo.dataset.id ? { id: alvo.dataset.id } : {})
 })
+
+// ── Título grande que encolhe (celular) ───────────────────────
+// Quando o título da tela passa por baixo da faixa do alto, ele aparece
+// pequeno no meio dela e a marca sai, como o título grande do iOS
+let _tituloQuadro = 0
+window.addEventListener('scroll', () => {
+  if (_tituloQuadro) return
+  _tituloQuadro = requestAnimationFrame(() => {
+    _tituloQuadro = 0
+    const h1 = document.querySelector('main .titulo-pagina')
+    const faixa = document.querySelector('.lateral')
+    // No computador a lateral é a coluna inteira: não há faixa para o título
+    if (faixa && faixa.getBoundingClientRect().height > 120) return
+    const fora = !!(h1 && faixa && h1.getBoundingClientRect().bottom < faixa.getBoundingClientRect().bottom)
+    document.documentElement.classList.toggle('titulo-fora', fora)
+    if (fora) { const alvo = faixa.querySelector('.lateral-titulo'); if (alvo && alvo.textContent !== h1.textContent) alvo.textContent = h1.textContent }
+  })
+}, { passive: true })
+
+// ── Voltar pela borda (app instalado no iPhone) ───────────────
+// No Safari o próprio navegador volta ao deslizar da borda esquerda; no app
+// instalado na tela de início não há esse gesto. Aqui, num pedido, deslizar da
+// borda leva a tela junto com o dedo e, passado o ponto, toca o "‹ Voltar"
+const _ehAppIphone = () => /iP(hone|ad|od)/.test(navigator.userAgent) &&
+  (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true)
+let _borda = null
+document.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1 || e.touches[0].clientX > 22 || !_ehAppIphone()) return
+  const voltar = document.querySelector('.detalhe-voltar')
+  const tela = document.querySelector('.main-content')
+  if (!voltar || !tela || document.querySelector('.modal-overlay.visible, .dialog-overlay.visible')) return
+  _borda = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, t0: performance.now(), dx: 0, tela, voltar, horizontal: null }
+}, { passive: true })
+document.addEventListener('touchmove', e => {
+  if (!_borda) return
+  const dx = e.touches[0].clientX - _borda.x0, dy = e.touches[0].clientY - _borda.y0
+  if (_borda.horizontal == null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) _borda.horizontal = Math.abs(dx) > Math.abs(dy)
+  if (!_borda.horizontal) return
+  _borda.dx = Math.max(0, dx)
+  _borda.tela.classList.add('arrastando-borda')
+  _borda.tela.style.setProperty('transform', `translateX(${_borda.dx}px)`)
+}, { passive: true })
+const _soltarBorda = () => {
+  if (!_borda) return
+  const { dx, t0, tela, voltar } = _borda
+  _borda = null
+  tela.classList.remove('arrastando-borda')
+  const v = dx / Math.max(1, performance.now() - t0)
+  if (dx > window.innerWidth * 0.33 || (dx > 40 && v > 0.5)) {
+    tela.style.setProperty('transform', 'translateX(100%)')
+    setTimeout(() => voltar.click(), 180)
+  } else tela.style.removeProperty('transform')
+}
+document.addEventListener('touchend', _soltarBorda)
+document.addEventListener('touchcancel', _soltarBorda)
 
 // ── Barra inferior (celular) ──────────────────────────────────
 // Pedidos · Minha fila · + (novo) · Buscar · Conta. Relatórios e

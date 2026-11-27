@@ -30,8 +30,7 @@
   flex-direction: column;
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   transform: translateY(10px);
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -160,7 +159,7 @@
     border-left: none;
     border-right: none;
     border-bottom: none;
-    border-radius: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     transform: translateY(28px);
   }

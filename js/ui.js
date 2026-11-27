@@ -3,6 +3,7 @@ import { esc } from './utils.js'
 import { sessao, navegar, podeNavegar, pedidosCarregados, trocarPessoa } from './estado.js'
 import { abrirTour, _tourAtivo, _tourFinalizar } from './tour.js'
 import { casaBusca } from './itens.js'
+import { ligarArrastoDaFolha } from './folha.js'
 
 // ── Estilos sem atributo style ───────────────────────────────
 // A política de segurança do site (CSP, firebase.json) não aceita estilo
@@ -767,6 +768,7 @@ export function abrirModal(id) {
   if (!overlay) return
   overlay.classList.remove('closing')
   overlay.classList.add('visible')
+  ligarArrastoDaFolha(overlay)
   if (!overlay._voltar) overlay._voltar = empilharVoltar(() => { overlay._voltar = null; fecharModal(id) }, id)
 
   // Guarda elemento que abriu para restaurar foco ao fechar
@@ -801,7 +803,7 @@ export function abrirModal(id) {
   overlay.addEventListener('keydown', overlay._trapHandler)
 }
 
-export function fecharModal(id) {
+export function fecharModal(id, { imediato = false } = {}) {
   const overlay = document.getElementById(id)
   if (!overlay || !overlay.classList.contains('visible')) return
   const voltar = overlay._voltar || _pilhaVoltar.find(i => i.chave === id)
@@ -820,7 +822,7 @@ export function fecharModal(id) {
   const trigger = overlay._focusTrigger
   overlay._focusTrigger = null
 
-  const reduzido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const reduzido = imediato || overlay._fecharImediato || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   if (reduzido) {
     overlay.classList.remove('visible')
     trigger?.focus?.({ preventScroll: true })

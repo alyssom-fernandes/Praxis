@@ -1,6 +1,6 @@
 # Sistema visual
 
-Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terracota"): grafite de pedra e mármore, texto em osso, acento bronze, cantos retos e hierarquia pela tipografia (GFS Neohellenic nos títulos e numerais, GFS Didot na marca, Hanken Grotesk na interface). Este documento dá nome e limite ao que fica por baixo dela.
+Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terracota"): grafite de pedra e mármore, texto em osso, acento bronze, cantos arredondados (desde 27/11/2026) e hierarquia pela tipografia (GFS Neohellenic nos títulos e numerais, GFS Didot na marca, Hanken Grotesk na interface). Este documento dá nome e limite ao que fica por baixo dela.
 
 - **Tokens:** `css/tokens.css` (tema escuro em `:root`, claro em `.light`).
 - **Catálogo ao vivo:** `?tela=sistema` (fora da navegação). Mostra cada componente com as classes reais, nos dois temas.
@@ -38,13 +38,31 @@ Identidade "Mármore e bronze" (desde 16/11/2026; antes, "Inscrição em terraco
 | Token | Tamanho | Uso |
 |---|---|---|
 | `--t-titulo-2` | 20 px | Título de seção e de diálogo |
-| `--t-titulo-3` | 16 px | Título de cartão, de grupo e de painel |
-| `--t-corpo` | 14 px | Texto padrão, células, campos, botões |
+| `--t-titulo-3` | 16 px (17 no celular) | Título de cartão, de grupo e de painel |
+| `--t-lista` | 15 px (17 no celular) | Itens da lateral e das listas agrupadas |
+| `--t-corpo` | 14 px (15 no celular) | Texto padrão, células, campos, botões |
+| `--t-legenda` | 13 px | Rótulo de grupo (caixa alta) e contador da lateral |
 | `--t-pequeno` | 12 px | Metadados, legenda, cabeçalho de tabela, selo |
 
 - **Tamanho mínimo:** 12 px.
-- **Display:** dois degraus na GFS Neohellenic, `--t-display-g` (40 px: título de tela, numeral da coluna, KPI em destaque) e `--t-display-m` (28 px: título do pedido, numerais da régua, KPIs). No celular, o título de tela fica em 30 px. A entrada e o 404 têm tamanhos próprios.
-- **Diálogos:** o título vai na fonte da interface (20 px), sem caixa alta. A inscrição em maiúsculas é só do título de tela.
+- **Display:** dois degraus na GFS Neohellenic, `--t-display-g` (40 px: título de tela, numeral da coluna, KPI em destaque) e `--t-display-m` (28 px: título do pedido, numerais da régua, KPIs). No celular, o título de tela fica em 28 px. Desde 27/11 o título de tela vai em caixa baixa, como o título grande do iOS; no celular ele passa para a faixa do alto ao rolar. A entrada e o 404 têm tamanhos próprios.
+- **Diálogos:** o título vai na fonte da interface (20 px), sem caixa alta.
+- **Rótulo de grupo:** 13 px, caixa alta, sobre cada lista agrupada (Descrição, Cotações, Dados do pedido, Onde e quando).
+
+## Cantos e superfícies (estilo novo, 27/11/2026)
+
+| Token | px | Uso |
+|---|---|---|
+| `--radius` | 12 | Janelas, diálogos e folhas (no celular, só o alto) |
+| `--radius-card` | 10 | Cartões, painéis e listas agrupadas |
+| `--radius-sm` · `--radius-btn` · `--radius-input` | 8 | Botões, campos, itens internos, seleção da lateral |
+| `--radius-tag` | cápsula | Selos, contadores e filtros |
+
+- **Ficam retos:** a régua das sete etapas, o fio do alto das colunas do quadro, os numerais e o alto do painel de decisão (o fio da cor do momento só em cima).
+- **Lista agrupada:** uma superfície só, com os divisores recuados e o valor à direita (cotações, dados, pessoas, descrição).
+- **Botão secundário:** preenchido (`--preenchido`), sem borda. Os botões do próximo passo vão só com o texto, sem ícone.
+- **Barras translúcidas:** `--vidro` com desfoque na barra de filtros (presa ao rolar), na barra de baixo e na barra do pedido no celular.
+- **Celular:** as folhas têm a alça e fecham arrastando o alto (js/ui.js); no app instalado no iPhone, deslizar da borda esquerda volta do pedido (js/app.js).
 
 ## Espaço
 

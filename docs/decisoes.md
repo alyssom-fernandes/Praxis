@@ -145,3 +145,18 @@ momento.
 o Firestore não faz sem internet.
 **O que se perde:** o pedido só ganha número e aparece para os outros depois do
 envio; o resumo do quadro mostra quantos estão "a enviar".
+
+## 16. Um estilo só, com cara de app (27/11/2026)
+
+**Decisão:** o celular e o computador passam ao mesmo estilo, o dos apps da
+Apple: cantos arredondados (10 nos grupos, 8 nos campos e botões, 12 nas
+janelas), listas agrupadas, barras translúcidas, "‹ Voltar" no lugar das
+migalhas, o título de tela em caixa baixa e, no celular, as folhas que fecham
+arrastando, o título que encolhe e o texto de 15 a 17 px.
+**Por quê:** no iPhone o Praxis lia como site, e o computador num estilo e o
+celular em outro seria pior. A paleta, as fontes, o Λ, a régua das etapas e os
+numerais ficam: são a identidade.
+**O que se perde:** os cantos retos da "pedra cortada" e o fio de tinta no alto
+das janelas. O alto do painel de decisão e a organização dos cartões do quadro
+ficaram como eram, a pedido do dono.
+

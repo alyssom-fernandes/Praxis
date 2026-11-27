@@ -11,7 +11,7 @@
 // service worker registra (em "localhost" o app não registra, para não atrapalhar
 // quem desenvolve). As contas são as do seed (scripts/seed-emulator.js).
 
-/* global document, getComputedStyle, caches */
+/* global document, getComputedStyle, caches, window, PointerEvent */
 
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -245,6 +245,39 @@ for (const largura of [390, 360]) {
     assert.deepEqual(erros, [], `erros de console:\n${erros.join('\n')}`)
   })
 }
+
+// Estilo novo (27/11): o título grande passa para a faixa ao rolar, o pedido
+// aberto pela fila volta com "‹ Minha fila" e a folha fecha arrastando o alto
+test('celular: título que encolhe, "‹ Minha fila" e a folha que fecha arrastando', { timeout: 120000 }, async () => {
+  const p = await contexto(390)
+  await entrar(p, 'comprador@praxis.app')
+  await p.goto(`${BASE}/?tela=pedidos&filtro=pendentes`); await p.waitForSelector('.kcard', { timeout: 20000 })
+  await p.evaluate(() => window.scrollTo(0, 500)); await espera(400)
+  assert.ok(await p.evaluate(() => document.documentElement.classList.contains('titulo-fora')), 'o título não passou para a faixa')
+  assert.equal((await p.textContent('.lateral-titulo')).trim(), 'Minha fila')
+  await p.evaluate(() => window.scrollTo(0, 0)); await espera(400)
+  await (await p.$$('.kcard'))[0].tap(); await p.waitForSelector('.detalhe-voltar'); await espera(600)
+  assert.equal((await p.textContent('.detalhe-voltar')).trim(), 'Minha fila')
+  await p.tap('.detalhe-voltar'); await p.waitForSelector('#pedidos-view'); await espera(500)
+  assert.ok(p.url().includes('filtro=pendentes'), `não voltou para a fila: ${p.url()}`)
+
+  await p.tap('#bnav-novo'); await p.waitForSelector('.dialog-opcao-rica'); await espera(300)
+  await (await p.$$('.dialog-opcao-rica'))[0].tap(); await p.waitForSelector('#modal-novo-pedido.visible'); await espera(500)
+  const arrastar = dist => p.evaluate(async d => {
+    const cab = document.querySelector('#modal-novo-pedido .modal-header')
+    const r = cab.getBoundingClientRect(), x = r.left + 60, y = r.top + 12
+    const ev = (tipo, yy) => cab.dispatchEvent(new PointerEvent(tipo, { pointerId: 7, pointerType: 'touch', clientX: x, clientY: yy, bubbles: true }))
+    ev('pointerdown', y)
+    for (let k = 1; k <= 10; k++) { ev('pointermove', y + d * k / 10); await new Promise(ok => setTimeout(ok, 40)) }
+    ev('pointerup', y + d)
+  }, dist)
+  await arrastar(60); await espera(500)
+  assert.ok(await p.$('#modal-novo-pedido.visible'), 'o arrasto curto fechou a folha')
+  await arrastar(260); await espera(700)
+  assert.equal(await p.$('#modal-novo-pedido.visible'), null, 'o arrasto longo não fechou a folha')
+  assert.deepEqual(p.erros, [])
+  await p.context().close()
+})
 
 test('sem internet: o app abre com o quadro da última visita', { timeout: 120000 }, async () => {
   const p = await contexto(390, { sw: true })

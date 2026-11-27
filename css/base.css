@@ -61,7 +61,7 @@ code, kbd { font-family: var(--mono); }
 .num, .tabular, td, .stat-value, .kcard-valor, .parcela-valor, .cotacao-valor { font-variant-numeric: tabular-nums lining-nums; }
 
 /* ── Primitivas da Inscrição ─────────────────────────────
-   .titulo-pagina   título de tela: Neohellenic 700, caixa alta, grande
+   .titulo-pagina   título de tela: Neohellenic 700, grande (caixa baixa desde 27/11, como o título grande do iOS)
    .numeral         número de etapa ou indicador, em Neohellenic
    .letreiro        texto em Didot (marca e momentos de marca)
    .fio-tinta       fio grosso no topo de colunas e seções, como nas inscrições */
@@ -69,9 +69,8 @@ code, kbd { font-family: var(--mono); }
   font-family: var(--display);
   font-weight: 700;
   font-size: var(--t-display-g);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: 0;
   color: var(--text);
 }
 .numeral {
@@ -248,13 +247,14 @@ button:disabled {
 }
 .btn-primary:hover:not(:disabled) { background: var(--gold-fill-hover); border-color: var(--gold-fill-hover); }
 
-/* Secundário: a borda dos campos (3:1), para ler como botão */
+/* Secundário (estilo novo, 27/11): preenchido, sem borda, como os botões
+   cinza dos apps da Apple; lê como botão pelo fundo */
 .btn-secondary {
-  background: transparent;
-  border-color: var(--borda-campo);
+  background: var(--preenchido);
+  border-color: transparent;
   color: var(--text);
 }
-.btn-secondary:hover:not(:disabled) { background: var(--card3); }
+.btn-secondary:hover:not(:disabled) { background: var(--preenchido-hover); }
 
 /* Discreto: sem borda, para cancelar e ações de apoio (com borda, parecia
    mais uma ação a fazer e tirava peso do primário) */
@@ -266,11 +266,13 @@ button:disabled {
 .btn-ghost:hover:not(:disabled) { background: var(--card3); color: var(--text); }
 
 .btn-danger {
-  background: var(--red-dim);
-  border-color: var(--red-border);
+  background: var(--preenchido);
+  border-color: transparent;
   color: var(--red);
 }
-.btn-danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
+/* Sobre o vermelho cheio, o branco ficava em 3,1:1; o fundo carmim claro
+   mantém o texto em 4,5:1 */
+@media (hover: hover) { .btn-danger:hover:not(:disabled) { background: var(--red-dim); border-color: var(--red-border); color: var(--red); } }
 
 .btn-sm {
   font-size: var(--t-pequeno);
@@ -283,13 +285,13 @@ button:disabled {
   padding: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   color: var(--text3);
   width: 36px;
   height: 36px;
   min-height: 36px;
 }
-.btn-icon:hover:not(:disabled) { background: var(--card3); color: var(--text); border-color: var(--border-strong); }
+.btn-icon:hover:not(:disabled) { background: var(--preenchido); color: var(--text); }
 
 /* Cards */
 .card {
@@ -496,13 +498,12 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
   body:has(.modal-overlay.visible, .cmd-palette-overlay.visible, .user-menu.folha.open) { overflow: hidden; }
 }
 
-/* Modal: superfície reta com o fio de tinta no alto (o título fica com cada
-   tela; as de pedidos e configurações usam Neohellenic em caixa alta) */
+/* Modal (estilo novo, 27/11): janela arredondada, sem o fio de tinta; o
+   fundo continua com o desfoque. No celular vira folha de baixo (themes.css) */
 .modal {
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius);
   width: 100%;
   max-width: 680px;
   max-height: calc(100vh - 3rem);
@@ -565,20 +566,18 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
 @keyframes dialogFundoOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes dialogOut { to { opacity: 0; transform: scale(0.98); } }
 
-/* Diálogo de confirmação: reto, fio de tinta no alto (carmim quando a ação
-   apaga ou desfaz algo), pergunta em frase curta e as ações embaixo */
+/* Diálogo de confirmação: arredondado como as janelas, pergunta em frase
+   curta e as ações embaixo (a ação que apaga ou desfaz vem em carmim) */
 .dialog {
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-top: 2px solid var(--tinta);
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius);
   width: 100%;
   max-width: 440px;
   padding: var(--esp-300) var(--esp-300) var(--esp-250);
   box-shadow: var(--shadow-lg);
   animation: modalIn 0.18s ease;
 }
-.dialog.dialog-perigo { border-top-color: var(--red); }
 .dialog h3 { font-size: var(--t-titulo-2); font-weight: 700; letter-spacing: -0.01em; line-height: 1.32; margin-bottom: var(--esp-100); color: var(--text); text-wrap: balance; }
 .dialog p  { color: var(--text2); font-size: var(--t-corpo); margin-bottom: var(--esp-300); line-height: 1.6; text-wrap: pretty; }
 .dialog h3:last-child { margin-bottom: var(--esp-300); }
@@ -598,7 +597,7 @@ body:has(#app:empty) .spinner-simbolo { display: block; }
     border-left: none;
     border-right: none;
     border-bottom: none;
-    border-radius: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     padding: var(--esp-250) var(--esp-200) calc(var(--esp-200) + env(safe-area-inset-bottom, 0px));
     animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
@@ -752,8 +751,9 @@ main:focus { outline: none; }
   .skeleton::after { animation: none; }
 }
 
-/* Celular: o título de tela desce para 24 px (era 30: ocupava a primeira
-   dobra sem dizer nada que a barra inferior já não diga) */
+/* Celular: o título de tela em 28 px, em caixa baixa, como o título grande
+   do iOS (o de 34 da Apple ocupava a primeira dobra; em caixa alta, 24 já
+   pesava) */
 @media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
-  .titulo-pagina { font-size: 1.5rem; }
+  .titulo-pagina { font-size: var(--t-display-m); }
 }

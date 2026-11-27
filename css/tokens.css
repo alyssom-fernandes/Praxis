@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════
    Praxis — "Mármore e bronze" (16/11/2026; antes, "Inscrição em terracota")
    Escuro: grafite de pedra, texto em osso, acento bronze. Claro: mármore.
-   Cantos retos, linhas finas, hierarquia pela tipografia: GFS Neohellenic
+   Cantos arredondados (desde 27/11), linhas finas, hierarquia pela tipografia: GFS Neohellenic
    nos títulos e numerais, GFS Didot nos momentos de marca, Hanken Grotesk
    na interface. Os nomes --gold* ficaram por compatibilidade: hoje são o
    acento bronze, e a urgência tem cor própria (--urgente).
@@ -32,6 +32,9 @@
   --card3: #2B2924;                      /* superfície 3: hover, trilhos */
   --overlay: rgba(8, 7, 6, 0.74);
   --lateral: #11100E;                    /* barra lateral, um tom abaixo do fundo */
+  --preenchido: #2B2924;                 /* botão secundário, controle segmentado, filtro */
+  --preenchido-hover: #36332D;
+  --vidro: rgba(20, 19, 17, 0.78);       /* barras translúcidas (com desfoque) */
 
   /* Aliases usados em partes antigas do código */
   --surface2: var(--card2);
@@ -83,14 +86,16 @@
   --acento-vinho: #B9746B;
   --acento-argila: #A09282;
 
-  /* Raios: cantos retos, como pedra cortada */
-  --radius: 6px;                         /* modais, diálogos, folhas */
-  --radius-card: 3px;                    /* cards e painéis */
-  --radius-sm: 3px;                      /* itens internos */
-  --radius-btn: 3px;
-  --radius-input: 3px;
-  --radius-tag: 2px;                     /* selos e badges */
-  --radius-pill: 999px;                  /* só avatares e pontos */
+  /* Raios (estilo novo, 27/11/2026): arredondados, abaixo do padrão da Apple
+     (12): 10 nos grupos e cartões, 8 nos campos e botões, 12 nas janelas.
+     A régua das etapas, o fio das colunas e os numerais seguem retos */
+  --radius: 12px;                        /* modais, diálogos, folhas */
+  --radius-card: 10px;                   /* cards, painéis e listas agrupadas */
+  --radius-sm: 8px;                      /* itens internos */
+  --radius-btn: 8px;
+  --radius-input: 8px;
+  --radius-tag: 999px;                   /* selos e badges: cápsula */
+  --radius-pill: 999px;                  /* avatares e pontos */
 
   /* Sombras: quase nada no escuro; a separação vem do tom da superfície */
   --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.35);
@@ -103,6 +108,8 @@
   --t-pequeno: 0.75rem;                  /* 12 px: metadados, legenda, cabeçalho de tabela, selo */
   --t-corpo: 0.875rem;                   /* 14 px: texto padrão, células, campos, botões */
   --t-titulo-3: 1rem;                    /* 16 px: título de cartão, de grupo e de painel */
+  --t-lista: 0.9375rem;                  /* 15 px: itens da lateral e das listas agrupadas (estilo novo) */
+  --t-legenda: 0.8125rem;                /* 13 px: contador da lateral, cabeçalho de grupo (estilo novo) */
   --t-titulo-2: 1.25rem;                 /* 20 px: título de seção e de diálogo */
   --t-display-g: 2.5rem;                 /* 40 px: título de tela, numeral da coluna, KPI em destaque */
   --t-display-m: 1.75rem;                /* 28 px: título do pedido, numerais da régua, KPIs */
@@ -180,6 +187,9 @@
   --card3: #EDE9E1;
   --overlay: rgba(30, 26, 18, 0.36);
   --lateral: #EFECE6;
+  --preenchido: #E9E4DA;
+  --preenchido-hover: #DFD9CC;
+  --vidro: rgba(245, 243, 238, 0.8);
 
   --border: #DDD7CC;
   --border-strong: #C8C0B2;
@@ -224,4 +234,14 @@
   --afn: #6b1f2a;
   --afn-stroke: rgba(107, 31, 42, 0.4);
   --afn-sys: #505050;
+}
+
+/* Celular e tablet (estilo novo, 27/11): o texto do iOS, 17 px nos títulos
+   de linha e nos campos, 15 px no corpo */
+@media (max-width: 1023px), (max-width: 1279px) and (pointer: coarse) {
+  :root {
+    --t-corpo: 0.9375rem;                /* 15 px */
+    --t-titulo-3: 1.0625rem;             /* 17 px */
+    --t-lista: 1.0625rem;
+  }
 }

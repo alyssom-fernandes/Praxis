@@ -87,6 +87,7 @@ export default {
   npTitulo:           'Título',
   npTituloPlaceholder:'Ex: Caixa de luvas descartáveis',
   npEmpresa:          'Empresa',
+  npOndeQuando:           'Onde e quando',
   npQuantidade:       'Quantidade',
   npUnidade:          'Unidade',
   npData:             'Necessário até',

@@ -80,8 +80,8 @@ select option {
   }
 
   /* Modal */
-  /* Folha de baixo reta, só com o fio de tinta no alto */
-  .modal { max-width: 100%; border-radius: 0; border-left: none; border-right: none; border-bottom: none; margin-top: auto; }
+  /* Folha de baixo com o alto arredondado (estilo novo, 27/11) */
+  .modal { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; border-left: none; border-right: none; border-bottom: none; margin-top: auto; }
   .modal-overlay { align-items: flex-end; padding: 0; }
   .form-grid-3 { grid-template-columns: 1fr; }
   .form-grid-2 { grid-template-columns: 1fr; }
@@ -158,7 +158,6 @@ select option {
   .detalhe-cols { gap: var(--esp-400); }
   .dt-card-head { flex-wrap: wrap; row-gap: var(--esp-075); }
   .dt-legenda { display: none; }
-  .detalhe-meta-grid { grid-template-columns: 1fr 1fr; gap: var(--esp-200) var(--esp-200); }
   .cotacao-item {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: "info info" "lado acoes";
@@ -281,7 +280,19 @@ select option {
     border-right: none;
     border-bottom: 1px solid var(--line);
   }
-  .lateral-topo { flex: 1 0 100%; height: 56px; margin: 0; }
+  .lateral-topo { position: relative; flex: 1 0 100%; height: 56px; margin: 0; }
+  /* O título grande que encolhe: ao rolar, ele aparece no meio da faixa e a
+     marca dá lugar (estilo novo, 27/11) */
+  .lateral-titulo {
+    display: block; position: absolute; left: 50%; top: 50%;
+    max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--t-titulo-3); font-weight: 600; color: var(--text);
+    opacity: 0; transform: translate(-50%, -30%); pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .lateral-marca { transition: opacity 0.2s ease; }
+  html.titulo-fora .lateral-titulo { opacity: 1; transform: translate(-50%, -50%); }
+  html.titulo-fora .lateral-marca { opacity: 0; visibility: hidden; transition: opacity 0.2s ease, visibility 0s 0.2s; }
   .lateral-marca .marca { font-size: var(--t-titulo-2); }
   .lateral-icone { width: 44px; height: 44px; min-height: 44px; margin-right: calc(var(--esp-150) * -1); }
   .lateral-marca { min-height: 44px; }
@@ -305,12 +316,14 @@ select option {
   .lateral[data-mode="config"] .lateral-grupo .lateral-item {
     min-height: 44px;
     padding: 0 var(--esp-150);
-    border: 1px solid var(--border);
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
+    background: var(--preenchido);
     font-size: var(--t-corpo);
     white-space: nowrap;
   }
-  .lateral[data-mode="config"] .lateral-grupo .lateral-item.active { border-color: var(--border-strong); background: var(--card2); }
+  /* A aba ativa se inverte, como os filtros rápidos (estilo novo, 27/11) */
+  .lateral[data-mode="config"] .lateral-grupo .lateral-item.active { background: var(--text); color: var(--bg); }
 
   /* Rodapé acima da barra inferior; o conteúdo só precisa do respiro normal */
   .main-footer { padding-bottom: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px) + var(--esp-200)); }
@@ -366,7 +379,6 @@ select option {
     max-height: 88vh;
     max-height: 88dvh;
     border: none;
-    border-top: 2px solid var(--tinta);
     border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: var(--shadow-lg);
     animation: folhaSobe 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -539,7 +551,6 @@ select option {
     border-radius: var(--radius-sm);
     background: var(--card);
     border: 1px solid var(--border-strong);
-    border-top: 2px solid var(--tinta);
     color: var(--text2);
     display: flex;
     align-items: center;
@@ -573,10 +584,11 @@ select option {
     right: 0;
     height: calc(var(--barra-inferior-h) + env(safe-area-inset-bottom, 0px));
     padding: 0 var(--esp-050) env(safe-area-inset-bottom, 0px);
-    background: color-mix(in srgb, var(--card) 94%, transparent);
-    backdrop-filter: saturate(140%) blur(12px);
-    -webkit-backdrop-filter: saturate(140%) blur(12px);
-    border-top: 1px solid var(--border);
+    /* Estilo novo (27/11): plana e translúcida, como a barra de abas do iOS */
+    background: var(--vidro);
+    backdrop-filter: saturate(160%) blur(20px);
+    -webkit-backdrop-filter: saturate(160%) blur(20px);
+    border-top: 1px solid var(--line);
     z-index: calc(var(--z-barra) + 1);
   }
   .bottom-nav-item {
@@ -602,20 +614,9 @@ select option {
   .bottom-nav-item:active { transform: none !important; opacity: 0.7; }
   .bottom-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
   .bottom-nav-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-  /* Item ativo: rótulo em tinta, ícone na terracota e o fio reto no alto,
-     como o fio das inscrições */
-  .bottom-nav-item.active { color: var(--text); font-weight: 700; }
+  /* Item ativo: ícone e rótulo no bronze, como a aba ativa do iOS */
+  .bottom-nav-item.active { color: var(--gold); font-weight: 700; }
   .bottom-nav-item.active svg { color: var(--gold); }
-  .bottom-nav-item.active::before {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: 50%;
-    width: 28px;
-    height: 2px;
-    transform: translateX(-50%);
-    background: var(--gold-fill);
-  }
   .bottom-nav-item[aria-expanded="true"] { color: var(--text); }
   .bottom-nav-item:focus-visible { outline: 2px solid var(--foco); outline-offset: -4px; }
   /* "Conta" usa as iniciais do usuário no lugar do ícone */
@@ -690,6 +691,15 @@ select option {
   /* Janelas: sobem de baixo como folha e descem ao fechar, como os diálogos
      (no computador, o surgir de janela fica como está) */
   .modal-overlay .modal { animation: folhaSobe 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  /* Alça no alto da folha: arrastar para baixo fecha (js/ui.js) */
+  .modal-overlay .modal > .modal-header:has(.btn-icon) { touch-action: none; }
+  .modal-overlay .modal > .modal-header:has(.btn-icon)::before {
+    content: ''; position: absolute; top: var(--esp-100); left: calc(50% - 18px);
+    width: 36px; height: 5px;
+    border-radius: 3px; background: var(--border-strong);
+  }
+  .modal-overlay .modal { transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1); }
+  .modal-overlay .modal.arrastando { transition: none; }
   .modal-overlay.closing .modal { animation: folhaDesce 0.18s ease-in forwards; }
   .dialog-overlay.saindo .dialog { animation: folhaDesce 0.15s ease-in forwards; }
 
@@ -700,20 +710,37 @@ select option {
   body:has(#modal-lancamento.visible) .bottom-nav { display: none; }
   .lanc-revisao-acoes > button { flex: 1 1 0; }
 
-  /* Barra inferior: o "+" no meio, em bronze */
-  .bnav-novo { color: var(--text2); }
+  /* Barra inferior: o "+" no meio, um ícone em bronze, sem o bloco saliente */
+  .bnav-novo { color: var(--gold); }
   .bnav-novo-circulo {
     display: flex !important;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 30px;
-    color: var(--on-gold);
-    background: var(--gold-fill);
-    border-radius: var(--radius);
+    width: 26px;
+    height: 26px;
+    color: var(--gold);
   }
-  .bnav-novo-circulo svg { width: 20px; height: 20px; }
-  .bnav-novo:active .bnav-novo-circulo { background: var(--gold-fill-hover); }
+  .bnav-novo-circulo svg { width: 26px; height: 26px; }
+
+  /* Pedido no celular (estilo novo, 27/11): a faixa da marca sai e o
+     "‹ Pedidos" vira a barra de navegação, presa no alto, translúcida */
+  body:has(#detalhe-root) .lateral { display: none; }   /* desde a primeira pintura: sem salto quando o pedido chega */
+  .detalhe-head-linha {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-barra);
+    min-height: 52px;
+    margin: calc(var(--esp-200) * -1) calc(var(--esp-200) * -1) 0;
+    padding: env(safe-area-inset-top, 0px) var(--esp-200) 0 var(--esp-150);
+    background: var(--vidro);
+    backdrop-filter: saturate(160%) blur(20px);
+    -webkit-backdrop-filter: saturate(160%) blur(20px);
+    border-bottom: 1px solid var(--line);
+  }
+  .detalhe-voltar { font-size: var(--t-titulo-3); margin-left: 0; }
+  /* Voltar pela borda (js/app.js): a tela acompanha o dedo */
+  .main-content { transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1); }
+  .main-content.arrastando-borda { transition: none; }
 }
 
 /* Tablet (600 a 1023 px): o mesmo app do celular (barra de baixo, folhas,
@@ -722,6 +749,7 @@ select option {
    "Meus pedidos" vão em duas colunas e a margem cresce */
 @media (min-width: 600px) and (max-width: 1023px), (min-width: 600px) and (max-width: 1279px) and (pointer: coarse) {
   .main-content { padding-left: var(--esp-400); padding-right: var(--esp-400); }
+  .detalhe-head-linha { margin-left: calc(var(--esp-400) * -1); margin-right: calc(var(--esp-400) * -1); padding-left: var(--esp-300); padding-right: var(--esp-400); }
   .kanban-col.atual .kanban-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .kanban-col.atual .kanban-ver-mais, .kanban-col.atual .kanban-vazio { grid-column: 1 / -1; }
   .meus-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
@@ -754,7 +782,6 @@ select option {
   .detalhe-cols { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--esp-400); align-items: start; }
   .detalhe-main, .detalhe-aside { display: flex; flex-direction: column; gap: var(--esp-400); min-width: 0; }
   .detalhe-aside .decisao-fatos { grid-template-columns: 1fr; }
-  .detalhe-aside .detalhe-meta-grid { grid-template-columns: 1fr; }
 }
 
 /* Tablet em paisagem (toque, 1024 a 1279 px): três colunas no quadro, e o
