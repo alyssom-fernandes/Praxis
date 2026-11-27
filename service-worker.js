@@ -9,17 +9,17 @@
 // uma página nunca mistura módulos de duas versões.
 
 // <gerado por scripts/gerar-sw.mjs: não editar à mão>
-const VERSAO = 'ea1b30822897'
+const VERSAO = '6a8028052048'
 const ARQUIVOS = [
   '/index.html',
   '/manifest.json',
-  '/css/fontes.css?v=46',
-  '/css/tokens.css?v=46',
-  '/css/base.css?v=46',
-  '/css/components.css?v=46',
-  '/css/views.css?v=46',
-  '/css/telas.css?v=46',
-  '/css/themes.css?v=46',
+  '/css/fontes.css?v=47',
+  '/css/tokens.css?v=47',
+  '/css/base.css?v=47',
+  '/css/components.css?v=47',
+  '/css/views.css?v=47',
+  '/css/telas.css?v=47',
+  '/css/themes.css?v=47',
   '/js/acesso.js',
   '/js/alcadas.js',
   '/js/app.js',

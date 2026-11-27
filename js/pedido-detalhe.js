@@ -462,8 +462,9 @@ export function _renderCabecalho(menu) {
     <p class="reaberto-banner">${ICO.reabrir}<span>${rotulo}</span>
       <a class="reaberto-link" href="?tela=detalhe&id=${encodeURIComponent(id)}" data-navegar="detalhe" data-id="${esc(id)}">${esc(num || id)}</a>
     </p>`
+  // A linha do "‹ Voltar" fica fora do cabeçalho: no celular ela gruda no alto
+  // da página inteira (presa dentro do cabeçalho, sairia junto com ele)
   return `
-    <header class="detalhe-head">
       <div class="detalhe-head-linha">
         <nav class="detalhe-trilha" aria-label="${t('dtTrilhaAria')}">
           <a class="detalhe-voltar" ${voltar.attrs}>${icone('setaEsq', 20)}<span>${voltar.rotulo}</span></a>
@@ -473,6 +474,7 @@ export function _renderCabecalho(menu) {
         ${p.requisicao ? `<span class="selo-lanc selo-req" title="${esc(t('reqTitulo'))}">${t('reqTag')}</span>` : ''}
         ${_renderMenuAcoes(menu)}
       </div>
+    <header class="detalhe-head">
       <h1 class="detalhe-titulo">${esc(p.titulo)}</h1>
       <p class="detalhe-meta">${meta.join('<span class="detalhe-meta-sep" aria-hidden="true">·</span>')}</p>
       ${p.reabertoDe ? vinculo(t('reabertoDe'), p.reabertoDe, p.reabertaDeNum) : ''}

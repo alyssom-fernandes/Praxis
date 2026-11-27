@@ -90,6 +90,7 @@ select option {
 
   /* Detalhe */
   .detalhe-layout { gap: var(--esp-300); }
+  .detalhe-head-linha + .detalhe-head { margin-top: calc(var(--esp-100) - var(--esp-300)); }
   .detalhe-head { gap: var(--esp-100); }
   .detalhe-head-linha { gap: var(--esp-100); }
   /* Cabeçalho mais curto: título de 20 px; quem abriu sai (está em Pessoas
@@ -727,7 +728,7 @@ select option {
   body:has(#detalhe-root) .lateral { display: none; }   /* desde a primeira pintura: sem salto quando o pedido chega */
   .detalhe-head-linha {
     position: sticky;
-    top: 0;
+    top: var(--faixa-demo-h, 0px);   /* abaixo da faixa da demonstração, quando há */
     z-index: var(--z-barra);
     min-height: 52px;
     margin: calc(var(--esp-200) * -1) calc(var(--esp-200) * -1) 0;

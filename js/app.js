@@ -278,6 +278,9 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
     // Limpa params não fornecidos (são de uma tela só)
     ;['id', 'aba', 'filtro'].forEach(p => { if (!(p in params)) url.searchParams.delete(p) })
+    // A tela nova abre no topo; a rolagem desta fica guardada para o voltar
+    _rolagens.set(location.search, window.scrollY)
+    _rolarPara = 0
     if (substituir) window.history.replaceState({}, '', url)
     else window.history.pushState({}, '', url)
     _trocarTela(() => _rotear())
@@ -288,8 +291,27 @@ export function navegar(tela, params = {}, { substituir = false } = {}) {
 // depois volta de tela (ui.js guarda uma entrada no histórico por janela)
 window.addEventListener('popstate', () => {
   if (consumirVoltarDeModal()) return
+  // Voltar (ou avançar) devolve a rolagem em que a pessoa deixou a tela
+  _rolarPara = _rolagens.get(location.search) ?? 0
   if (sessao.usuario) _trocarTela(() => _rotear())
 })
+
+// Rolagem por tela, como nos apps: a tela nova abre no topo e o voltar
+// devolve a posição de antes (o app redesenha a tela, então o navegador não
+// consegue restaurar sozinho; por isso a restauração é manual)
+const _rolagens = new Map()
+let _rolarPara = null
+try { history.scrollRestoration = 'manual' } catch { /* navegador antigo */ }
+function _restaurarRolagem(y, seq) {
+  const t0 = performance.now()
+  const passo = () => {
+    if (seq !== _rotaSeq) return
+    const max = document.documentElement.scrollHeight - window.innerHeight
+    if (max >= y - 2 || performance.now() - t0 > 1500) { window.scrollTo(0, Math.max(0, Math.min(y, max))); return }
+    requestAnimationFrame(passo)
+  }
+  passo()
+}
 
 // ── Cartão ↔ pedido ───────────────────────────────────────────
 // Abrir um pedido pelo quadro: o título do cartão voa até virar o título do
@@ -363,6 +385,9 @@ function _rotear() {
   const id     = params.get('id')
   _rotaAnterior = _rotaAtual.tela ? _rotaAtual : null
   _rotaAtual = { tela, id, filtro: params.get('filtro'), aba: params.get('aba') }
+  const rolar = _rolarPara
+  _rolarPara = null
+  if (rolar === 0) window.scrollTo(0, 0)
 
   // Guarda de rota por perfil: troca o endereço (sem deixar a tela bloqueada
   // no histórico, senão o "voltar" cairia nela de novo) e avisa
@@ -390,6 +415,7 @@ function _rotear() {
     .then(m => { if (seq === _rotaSeq) return m[render](id) })   // outra tela foi pedida no meio: não desenha esta
     .then(async () => {
       if (seq !== _rotaSeq) return
+      if (rolar > 0) _restaurarRolagem(rolar, seq)
       if (novo === 'pedido') (await import('./pedidos.js')).abrirNovoPedido()
       else if (novo === 'compra') (await import('./lancar-compra.js')).abrirLancamento()
     })

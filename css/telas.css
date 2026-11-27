@@ -2026,7 +2026,7 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
   margin-top: var(--esp-300);
   border-bottom: 1px solid var(--line);
   position: sticky;
-  top: 0;
+  top: var(--faixa-demo-h, 0px);   /* abaixo da faixa da demonstração, quando há */
   z-index: 20;
   background: var(--vidro);
   -webkit-backdrop-filter: saturate(160%) blur(20px);
@@ -3168,6 +3168,9 @@ th.sortable .sort-ico.ativo { opacity: 1; color: var(--gold); }
    migalhas), o número do pedido, título e uma linha de dados */
 .detalhe-head { display: flex; flex-direction: column; gap: var(--esp-100); min-width: 0; }
 .detalhe-head-linha { display: flex; align-items: center; gap: var(--esp-150); min-height: 38px; }
+/* A linha fica fora do cabeçalho (para grudar no celular): o título volta a
+   ficar a 8 px dela, descontando o espaço entre os blocos do pedido */
+.detalhe-head-linha + .detalhe-head { margin-top: calc(var(--esp-100) - var(--esp-400)); }
 .detalhe-trilha { display: flex; align-items: center; min-width: 0; }
 .detalhe-voltar {
   display: inline-flex; align-items: center; gap: var(--esp-025);

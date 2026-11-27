@@ -258,6 +258,10 @@ test('celular: título que encolhe, "‹ Minha fila" e a folha que fecha arrasta
   await p.evaluate(() => window.scrollTo(0, 0)); await espera(400)
   await (await p.$$('.kcard'))[0].tap(); await p.waitForSelector('.detalhe-voltar'); await espera(600)
   assert.equal((await p.textContent('.detalhe-voltar')).trim(), 'Minha fila')
+  assert.equal(await p.evaluate(() => window.scrollY), 0, 'o pedido não abriu no topo')
+  // A barra do "‹" fica presa no alto ao rolar o pedido
+  await p.evaluate(() => window.scrollTo(0, 300)); await espera(300)
+  assert.ok(Math.abs(await p.evaluate(() => document.querySelector('.detalhe-head-linha').getBoundingClientRect().top)) < 2, 'a barra do pedido não ficou presa no alto')
   await p.tap('.detalhe-voltar'); await p.waitForSelector('#pedidos-view'); await espera(500)
   assert.ok(p.url().includes('filtro=pendentes'), `não voltou para a fila: ${p.url()}`)
 
